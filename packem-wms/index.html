@@ -426,6 +426,11 @@
         <div class="ph-head"><div><p class="eb">Cadastro</p><h1>Usuários</h1></div>
           <div class="actions"><button class="btn brand" id="addUserBtn">+ Usuário</button></div></div>
         <div class="tbl-wrap"><table class="tbl" id="userTable"></table></div>
+        <div class="panel" id="dangerZone" style="max-width:560px;margin-top:24px;border:1px solid #f1c9c9">
+          <div class="ph"><span class="pdot" style="background:var(--out)"></span>Zona de perigo</div>
+          <p style="color:var(--muted);font-size:.85rem;line-height:1.5;margin:10px 0 14px">Esvazia <b>todas as posições</b> do armazém para começar a bipar as entradas do zero. O <b>catálogo de bobinas</b>, os <b>usuários</b> e o <b>histórico</b> NÃO são apagados.</p>
+          <button class="gbtn danger" id="wipeStockBtn" onclick="confirmWipeStock()" style="width:100%;justify-content:center">Zerar estoque · esvaziar todas as posições</button>
+        </div>
       </section>
 
       <section class="view" id="v-act">
@@ -1174,17 +1179,18 @@ function freeStored(et){
  return c;
 }
 function placeBobina(et,pr,pl,c){c=norm(c);const sp=findSpace(c);if(!sp){toast('Endereço '+c+' não existe',false);return false;}if(et&&typeof LOC!=='undefined'&&LOC[et]){const _old=freeStored(et);if(_old)toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');}if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}const before=sp.q||0;sp.pr=pr;sp.q=before+pl;sp.o=true;sp.u='KG';sp.upd=nowISO();sp.by=session.u;if(et){LOC[et]=c;saveLOC();}MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:'KG',et:et||'',before,after:sp.q,at:nowISO(),by:session.u});if(MV.length>3000)MV.length=3000;persist();logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}return true;}
-function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}const et=norm(v);if(!et)return;const b=BOB[et];if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo',false);return;}if(LOC[et]){const old=freeStored(et);toast('Bobina '+et+' retornou de '+old+' — liberada p/ recebimento');}if(STAGE.some(s=>s.et===et)){toast('Etiqueta já no intermediário',false);return;}STAGE.unshift({et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u});saveStage();logAct('recebimento',et+' · '+b.pr);renderRecv();updateStageBadge();toast('Recebido: '+et+' · '+fmt(b.pl)+' kg');if(autoLabelOn())setTimeout(function(){try{printIntakeLabel({et:et,pr:b.pr,desc:b.desc,pl:b.pl});}catch(e){console.warn('etiqueta',e);}},250);}
+function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}const et=norm(v);if(!et)return;const b=BOB[et];if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo',false);return;}if(LOC[et]){const old=freeStored(et);toast('Bobina '+et+' retornou de '+old+' — liberada p/ recebimento');}if(STAGE.some(s=>s.et===et)){toast('Etiqueta já no intermediário',false);return;}STAGE.unshift({et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u});saveStage();logAct('recebimento',et+' · '+b.pr);renderRecv();updateStageBadge();toast('Recebido: '+et+' · '+fmt(b.pl)+' kg');stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});}
 function renderRecv(){const adm=isAdmin();
  $('#v-recv').innerHTML='<div class="ph-head"><div><p class="eb">Operação · recebimento</p><h1>Estoque intermediário</h1></div></div>'+
  '<div class="two">'+
   '<div class="panel"><div class="ph"><span class="pdot"></span>Bipar etiqueta para receber</div>'+
    '<label class="fld"><span class="lab">Etiqueta (T…)</span><input class="input code" id="recvScan" placeholder="ex: T40364663" '+(adm?'':'disabled')+'></label>'+
-   '<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">A bobina cai aqui como <b>pendente</b>. Depois você decide: <b>armazenar</b> num endereço ou <b>mandar para produção</b>.</p><label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvAutoLbl"'+(autoLabelOn()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Imprimir etiqueta na Zebra ao bipar (receber)</label></div>'+
+   '<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">A bobina cai aqui como <b>pendente</b>. Depois você decide: <b>armazenar</b> num endereço ou <b>mandar para produção</b>.</p><label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvAutoLbl"'+(autoLabelOn()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Imprimir etiqueta na Zebra ao bipar (receber)</label><label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvStation"'+(isPrintStation()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Esta máquina imprime na Zebra (estação do PC)</label></div>'+
   '<div class="panel" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><div style="font-family:var(--disp);font-size:3rem;font-weight:800;line-height:1">'+STAGE.length+'</div><div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px">bobinas aguardando</div>'+(STAGE.length?'<div style="font-family:var(--mono);font-size:.85rem;color:var(--muted);margin-top:8px">'+fmt(STAGE.reduce((a,b)=>a+(b.pl||0),0))+' kg pendentes</div>':'')+'</div>'+
  '</div><h3 class="sub">Pendentes</h3><div id="stageList"></div>';
  const sc=$('#recvScan');if(sc){sc.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();recvAdd(sc.value);sc.value='';}});if(!sc.disabled){sc.readOnly=true;sc.setAttribute('inputmode','none');sc.style.cursor='pointer';sc.title='Toque para bipar com a câmera';sc.placeholder='toque para bipar';sc.addEventListener('focus',()=>{setTimeout(()=>sc.blur(),0);});sc.addEventListener('click',()=>{const w=sc.parentNode;const b=w&&w.querySelector('.cambtn');if(b)b.click();});}}
  const al=document.getElementById('recvAutoLbl');if(al)al.onchange=function(){try{localStorage.setItem('wmsx_autoLabel',al.checked?'1':'0');}catch(e){}};
+ const ps=document.getElementById('recvStation');if(ps)ps.onchange=function(){try{localStorage.setItem('wmsx_printStation',ps.checked?'1':'0');}catch(e){}toast(ps.checked?'Esta máquina vai imprimir as etiquetas na Zebra':'Estação de impressão desligada nesta máquina');};
  renderStageList();}
 function renderStageList(){const el=$('#stageList');if(!el)return;const adm=isAdmin();
  if(!STAGE.length){el.innerHTML='<div class="empty"><div class="ei">'+ICONS.inbox+'</div><b>Nada pendente</b><div class="es">Bipe uma etiqueta para receber.</div></div>';return;}
@@ -1271,7 +1277,7 @@ $('#genEnd').onclick=function(){const st=$('#lblStreet').value,scope=$('#lblScop
  window.scanInto=function(inputId,opts){O=Object.assign({inputId},opts||{});document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};
  window.addCam=function(inputId,opts){const el=document.getElementById(inputId);if(!el||el.dataset.cam)return;el.dataset.cam='1';const w=document.createElement('div');w.style.position='relative';el.parentNode.insertBefore(w,el);w.appendChild(el);el.style.paddingRight='50px';const b=document.createElement('button');b.type='button';b.className='cambtn';b.innerHTML=ICONS.cam;b.title='Escanear com câmera';b.onclick=()=>scanInto(inputId,opts||{});w.appendChild(b);};
  addCam('mBob',{enter:true,title:'Escanear bobina'});addCam('mLoc',{enter:true,title:'Escanear endereço'});
- const _rrv=renderRecv;renderRecv=function(){_rrv();addCam('recvScan',{continuous:true,onResult:recvAdd,title:'Escanear bobinas'});};
+ const _rrv=renderRecv;renderRecv=function(){_rrv();addCam('recvScan',{onResult:recvAdd,title:'Escanear bobina'});};
  const _saz=stageArmazenar;stageArmazenar=function(et){_saz(et);setTimeout(()=>addCam('azLoc',{enter:false,title:'Escanear endereço'}),60);};
 })();
 
@@ -1330,7 +1336,7 @@ function applyRealtime(p){const t=p.table,n=p.new,o=p.old,ev=p.eventType;
  if(t==='espacos'&&n){const i=S.findIndex(x=>x.id===n.id);const row={id:n.id,w:n.w,s:n.s,l:n.l,p:n.p,pr:n.pr||'',q:Number(n.q)||0,u:n.u||'KG',o:!!n.o,src:n.src||'',upd:n.upd||'',by:n.by_user||''};if(i>=0)S[i]=row;else S.push(row);DB.saveSpaces(S);}
  else if(t==='bobinas'){if(ev==='DELETE'&&o){delete BOB[o.etiqueta];}else if(n){BOB[n.etiqueta]={pr:n.pr,desc:n.descricao||'',pl:Number(n.pl)||0};}saveBOB();}
  else if(t==='locais'){if(ev==='DELETE'&&o){delete LOC[o.etiqueta];}else if(n){LOC[n.etiqueta]=n.code;}saveLOC();}
- else if(t==='stage'){if(ev==='DELETE'&&o){STAGE=STAGE.filter(s=>s.et!==o.etiqueta);}else if(n){const i=STAGE.findIndex(s=>s.et===n.etiqueta);const it={et:n.etiqueta,pr:n.pr,desc:n.descricao||'',pl:Number(n.pl)||0,at:n.at,by:n.by_user||''};if(i>=0)STAGE[i]=it;else STAGE.unshift(it);}saveStage();}
+ else if(t==='stage'){if(ev==='DELETE'&&o){STAGE=STAGE.filter(s=>s.et!==o.etiqueta);}else if(n){const i=STAGE.findIndex(s=>s.et===n.etiqueta);const it={et:n.etiqueta,pr:n.pr,desc:n.descricao||'',pl:Number(n.pl)||0,at:n.at,by:n.by_user||''};if(i>=0){STAGE[i]=it;}else{STAGE.unshift(it);try{stationPrint(it);}catch(e){}}}saveStage();}
  else if(t==='movimentos'&&n&&ev==='INSERT'){if(!MV.some(m=>m.id===n.id)){MV.unshift({id:n.id,action:n.action,w:n.w,code:n.code,pr:n.pr,q:Number(n.q)||0,u:n.u,et:n.et||'',before:Number(n.before_q)||0,after:Number(n.after_q)||0,at:n.at,by:n.by_user||''});if(MV.length>3000)MV.length=3000;DB.saveMovs(MV);}}
  else if(t==='valores'&&n){const i=VL.findIndex(v=>v.codigo===n.codigo);const row={codigo:n.codigo,valor:Number(n.valor)||0,descricao:n.descricao||''};if(i>=0)VL[i]=row;else VL.push(row);DB.saveValues(VL);}
  else if(t==='usuarios'&&n){const i=US.findIndex(u=>u.u===n.u);const row={u:n.u,p:n.p,role:n.role,active:n.active!==false};if(i>=0)US[i]=row;else US.push(row);DB.saveUsers(US);}
@@ -1542,13 +1548,13 @@ const GRID_LAYOUT={
  F:[{from:10,to:260,levels:[1,2,3,4,5]}],
  G:[{from:10,to:260,levels:[1,2,3,4,5]}],
  H:[{from:10,to:260,levels:[1,2,3,4,5]}],
- I:[{from:10,to:240,levels:[1,2,3,4,5]}],
- J:[{from:10,to:260,levels:[1,2,3]}],
+ I:[{from:10,to:260,levels:[1,2,3,4,5]}],
+ J:[{from:10,to:260,levels:[1,2,3,4]}],
  K:[{from:10,to:260,levels:[1,2,3,4,5]}],
  L:[{from:10,to:260,levels:[1,2,3,4,5]}],
  M:[{from:100,to:340,levels:[1,2,3,4,5]}],
  N:[{from:10,to:350,levels:[1,2,3,4,5]}],
- O:[{from:10,to:310,levels:[1,2,3,4,5]}],
+ O:[{from:10,to:260,levels:[1,2,3,4,5]}],
  P:[{from:10,to:350,levels:[1,2,3,4,5]}],
  Q:[{from:10,to:350,levels:[1,2,3,4,5]}],
  R:[{from:10,to:350,levels:[1,2,3,4,5]}],
@@ -2279,7 +2285,7 @@ function shortDesc(desc){desc=String(desc||'').toUpperCase();
  if(mat)s=(s?s+' ':'')+mat;
  if(!s)s=desc.split(/\s+/).filter(Boolean).slice(0,3).join(' ');
  return s.trim();}
-function printIntakeLabel(it){if(!it)return;var sd=shortDesc(it.desc||it.pr||'');var wt=(it.pl>0)?fmt(it.pl)+' KG':'';var et=it.et||'';
+function printIntakeFallback(it){if(!it)return;var sd=shortDesc(it.desc||it.pr||'');var wt=(it.pl>0)?fmt(it.pl)+' KG':'';var et=it.et||'';
  var body='<div class="il"><div class="ilbar"></div><div class="ilin">'
   +'<div class="ilhead"><img src="'+PACKEM_IMG+'" class="illogo"><div class="ilbt">PACKEM<span>'+(typeof whLabel==='function'?whLabel(cfg.warehouse).toUpperCase():'DEP 70')+'</span></div></div>'
   +(et?'<div class="ilet">'+et+'</div>':'')
@@ -2298,6 +2304,338 @@ function printIntakeLabel(it){if(!it)return;var sd=shortDesc(it.desc||it.pr||'')
   +'.ilw{font-weight:800;font-size:12mm;line-height:1}'
   +'svg.bc{width:90mm;height:15mm}';
  printDoc(body,css);}
+
+
+/* ===== ESTAÇÃO DE IMPRESSÃO (celular bipa → PC imprime na Zebra) ===== */
+function isPrintStation(){try{return localStorage.getItem('wmsx_printStation')==='1';}catch(e){return false;}}
+function wasPrinted(et){try{return (JSON.parse(localStorage.getItem('wmsx_printedEts')||'[]')).indexOf(et)>=0;}catch(e){return false;}}
+function markPrinted(et){try{var a=JSON.parse(localStorage.getItem('wmsx_printedEts')||'[]');if(a.indexOf(et)<0){a.push(et);if(a.length>800)a=a.slice(-800);localStorage.setItem('wmsx_printedEts',JSON.stringify(a));}}catch(e){}}
+function stationPrint(it){if(!it||!it.et)return;if(!isPrintStation()||!autoLabelOn())return;if(wasPrinted(it.et))return;markPrinted(it.et);setTimeout(function(){try{printIntakeLabel(it);}catch(e){console.warn('etiqueta',e);}},200);}
+
+
+/* ===== IMPRESSÃO DIRETA NA ZEBRA (ZPL via Browser Print) — 100x100mm @ 203dpi ===== */
+function zplIntakeLabel(it){
+ var sd=shortDesc(it.desc||it.pr||'').replace(/[\^~]/g,' ');
+ var wt=(it.pl>0)?(fmt(it.pl)+' KG'):'';
+ var et=String(it.et||'').replace(/[\^~]/g,'');
+ var etbc=et.toUpperCase();
+ var wh=(typeof whLabel==='function'?whLabel(cfg.warehouse):'DEP 70').toString().toUpperCase().replace(/[\^~]/g,'');
+ var z='^XA^CI28^PW800^LL800^LH0,0';
+ z+='^FO8,8^GB784,784,2^FS';                       /* borda */
+ z+='^FO28,24^A0N,56,56^FDPACKEM^FS';              /* marca */
+ z+='^FO560,40^A0N,30,30^FD'+wh+'^FS';             /* deposito */
+ z+='^FO28,98^GB744,3,3^FS';                       /* linha */
+ if(et)z+='^FO28,114^A0N,48,48^FD'+et+'^FS';       /* etiqueta */
+ z+='^FO28,188^A0N,80,48^FD'+sd+'^FS';             /* descricao curta GRANDE */
+ if(wt)z+='^FO28,296^A0N,118,64^FD'+wt+'^FS';      /* peso GRANDE */
+ if(etbc)z+='^FO28,468^BY3^B3N,N,150,Y,N^FD'+etbc+'^FS'; /* code39 */
+ z+='^XZ';
+ return z;
+}
+var _bpBase=null;
+async function bpResolve(){
+ if(_bpBase)return _bpBase;
+ var bases=['https://127.0.0.1:9101','https://localhost:9101','http://127.0.0.1:9100','http://localhost:9100'];
+ for(var i=0;i<bases.length;i++){try{var r=await fetch(bases[i]+'/available',{method:'GET'});if(r&&r.ok){_bpBase=bases[i];return _bpBase;}}catch(e){}}
+ return null;
+}
+async function sendToZebra(zpl){
+ var base=await bpResolve();if(!base)return false;
+ var dev=null;
+ try{var r=await fetch(base+'/default?type=printer');if(r&&r.ok)dev=await r.json();}catch(e){}
+ if(!dev||!dev.uid){try{var r2=await fetch(base+'/available');var j=await r2.json();dev=(j&&j.printer&&j.printer[0])||(Array.isArray(j)?j[0]:null);}catch(e){}}
+ if(!dev)return false;
+ try{var w=await fetch(base+'/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device:dev,data:zpl})});return !!(w&&w.ok);}catch(e){return false;}
+}
+function printIntakeLabel(it){if(!it)return;
+ try{sendToZebra(zplIntakeLabel(it)).then(function(ok){if(!ok)printIntakeFallback(it);}).catch(function(){printIntakeFallback(it);});}
+ catch(e){printIntakeFallback(it);}}
+
+
+/* ===== ZERAR ESTOQUE (admin) ===== */
+function wipeStock(){
+ if(!isAdmin()){toast('Somente admin',false);return;}
+ try{S.forEach(function(sp){sp.q=0;sp.o=false;sp.pr='';sp.src='';sp.upd=nowISO();sp.by=session.u;});DB.saveSpaces(S);}catch(e){}
+ try{if(typeof LOC!=='undefined'){Object.keys(LOC).forEach(function(et){if(BOB[et])BOB[et].rem=0;});LOC={};saveLOC();saveBOB();}}catch(e){}
+ try{STAGE=[];saveStage();}catch(e){}
+ try{if(typeof supa!=='undefined'&&supa){
+   if(typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',S.map(spRow));
+   supa.from('locais').delete().neq('etiqueta','').then(function(){},function(){});
+   supa.from('stage').delete().neq('etiqueta','').then(function(){},function(){});
+ }}catch(e){}
+ try{updateStageBadge();}catch(e){}
+ try{var av=document.querySelector('.view.active');if(av)render(av.id);}catch(e){}
+ toast('Estoque zerado — pode começar a bipar as entradas');
+}
+function confirmWipeStock(){
+ if(!isAdmin()){toast('Somente admin',false);return;}
+ openDrawer('Zerar estoque','<p style="color:var(--muted);font-size:.9rem;line-height:1.5">Isso vai <b>esvaziar todas as posições</b> e remover todas as bobinas guardadas (local e na nuvem). O <b>catálogo</b>, os <b>usuários</b> e o <b>histórico</b> continuam. <b>Não tem como desfazer.</b></p><label class="fld" style="margin-top:14px"><span class="lab">Digite ZERAR para confirmar</span><input class="input" id="wipeWord" autocomplete="off" placeholder="ZERAR" style="text-transform:uppercase"></label><button class="gbtn danger" id="wipeGo" style="width:100%;justify-content:center;height:48px;margin-top:6px">Zerar estoque agora</button>');
+ setTimeout(function(){var i=document.getElementById('wipeWord');if(i)i.focus();},80);
+ var go=document.getElementById('wipeGo');if(go)go.onclick=function(){var w=((document.getElementById('wipeWord')||{}).value||'').trim().toUpperCase();if(w!=='ZERAR'){toast('Digite ZERAR para confirmar',false);return;}wipeStock();closeDrawer();};
+}
+
+
+/* ===== AUTO-CRIAÇÃO DA GRADE (aditivo, roda ao abrir) ===== */
+function autoHealGrid(){
+ try{
+  if(typeof gridWanted!=='function')return;
+  var wanted=gridWanted();var existing={};
+  S.forEach(function(x){if(x.w==='70')existing[x.s+'-'+x.p+'-'+x.l]=1;});
+  var addedRows=[];
+  for(var k in wanted){
+   if(!existing[k]){var o=wanted[k];
+    var row={id:'70-'+o.s+'-'+o.p+'-'+o.l,w:'70',s:o.s,l:o.l,p:o.p,pr:'',q:0,u:'KG',o:false,src:'',upd:'',by:''};
+    S.push(row);addedRows.push(row);}
+  }
+  if(addedRows.length){
+   try{persist();}catch(e){}
+   try{boardLevel=null;}catch(e){}
+   try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',addedRows.map(spRow));}catch(e){}
+   try{var av=document.querySelector('.view.active');if(av&&typeof render==='function')render(av.id);}catch(e){}
+  }
+ }catch(e){}
+}
+autoHealGrid();
+
+
+/* ===== ESPAÇO CHÃO (bipar e somar por código) ===== */
+var CHAO=[];try{CHAO=JSON.parse(localStorage.getItem('wmsx_chao'))||[];}catch(e){CHAO=[];}
+function saveChao(){try{localStorage.setItem('wmsx_chao',JSON.stringify(CHAO));}catch(e){}}
+function chaoGroups(){
+ var g={};
+ CHAO.forEach(function(b,i){
+  var k=b.pr||'?';
+  if(!g[k])g[k]={pr:b.pr||'?',desc:b.desc||'',kg:0,items:[]};
+  g[k].kg+=Number(b.kg)||0;
+  if(!g[k].desc&&b.desc)g[k].desc=b.desc;
+  g[k].items.push(Object.assign({_i:i},b));
+ });
+ return Object.keys(g).sort(function(a,b){return g[b].kg-g[a].kg;}).map(function(k){return g[k];});
+}
+function chaoAdd(v){
+ v=(v||'').trim();if(!v)return;
+ var b=(typeof parseBobina==='function')?parseBobina(v):{pr:v,peso:null,et:'',desc:''};
+ var pr=b.pr;if(!pr){toast('Etiqueta inválida',false);return;}
+ if(b.et){for(var i=0;i<CHAO.length;i++){if(CHAO[i].et===b.et){toast('Bobina '+b.et+' já está no chão',false);var e0=document.getElementById('chaoScan');if(e0){e0.value='';e0.focus();}return;}}}
+ var kg=(b.peso!=null?Number(b.peso):0)||0;
+ CHAO.unshift({et:b.et||'',pr:pr,desc:b.desc||'',kg:kg,at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')});
+ saveChao();
+ var tot=0,n=0;CHAO.forEach(function(x){if((x.pr||'?')===pr){tot+=Number(x.kg)||0;n++;}});
+ toast(pr+' · '+n+' bob · '+fmt(tot)+' kg no chão');
+ renderChao();
+}
+function chaoRemoveOne(i){if(i<0||i>=CHAO.length)return;var b=CHAO[i];CHAO.splice(i,1);saveChao();toast('Removido do chão'+(b.et?' · '+b.et:''));renderChao();}
+function chaoClearCode(pr){
+ if(typeof openDrawer!=='function'){CHAO=CHAO.filter(function(x){return (x.pr||'?')!==pr;});saveChao();renderChao();return;}
+ openDrawer('Limpar código','<p style="color:var(--muted);font-size:.9rem;line-height:1.5">Remover todas as bobinas do código <b>'+pr+'</b> do chão?</p><button class="gbtn danger" id="chaoClrGo" style="width:100%;justify-content:center;height:46px;margin-top:8px">Remover do chão</button>');
+ var g=document.getElementById('chaoClrGo');if(g)g.onclick=function(){CHAO=CHAO.filter(function(x){return (x.pr||'?')!==pr;});saveChao();closeDrawer();renderChao();toast('Código '+pr+' limpo do chão');};
+}
+function chaoClearAll(){
+ if(!isAdmin()){toast('Somente admin',false);return;}
+ openDrawer('Zerar chão','<p style="color:var(--muted);font-size:.9rem;line-height:1.5">Remove <b>todas</b> as bobinas do chão. Não afeta as prateleiras. Digite <b>ZERAR</b> para confirmar.</p><label class="fld" style="margin-top:12px"><span class="lab">Confirmação</span><input class="input" id="chaoWipeW" placeholder="ZERAR" style="text-transform:uppercase" autocomplete="off"></label><button class="gbtn danger" id="chaoWipeGo" style="width:100%;justify-content:center;height:46px">Zerar chão</button>');
+ var g=document.getElementById('chaoWipeGo');if(g)g.onclick=function(){var w=((document.getElementById('chaoWipeW')||{}).value||'').trim().toUpperCase();if(w!=='ZERAR'){toast('Digite ZERAR',false);return;}CHAO=[];saveChao();closeDrawer();renderChao();toast('Chão zerado');};
+}
+function renderChao(){
+ var sec=document.getElementById('v-chao');if(!sec)return;
+ var groups=chaoGroups();
+ var totKg=0,totBob=CHAO.length;CHAO.forEach(function(x){totKg+=Number(x.kg)||0;});
+ var cods=groups.length;
+ var stat=function(v,l){return '<div><b style="font-family:var(--disp);font-size:1.15rem;color:var(--ink)">'+fmt(v)+'</b> <span style="color:var(--muted)">'+l+'</span></div>';};
+ sec.innerHTML=
+  '<div class="ph-head"><div><p class="eb">Conferência</p><h1>Espaço chão</h1></div><button class="btn ghost" id="chaoQrBtn" style="margin-left:auto">🏷️ Etiqueta do chão (QR)</button></div>'
+  +'<div class="panel" style="max-width:780px"><div class="ph"><span class="pdot"></span>Bipar bobina</div>'
+   +'<label class="fld" style="margin-top:6px"><span class="lab">Bipe a etiqueta da bobina — uma a uma (mesmo código soma junto)</span><input class="input code" id="chaoScan" placeholder="ex: T40364663" autocomplete="off"></label>'
+   +'<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:4px;font-size:.82rem">'
+    +stat(totBob,'bobinas')+stat(totKg,'kg')+stat(cods,'códigos')
+    +(isAdmin()?'<button class="gbtn danger" style="margin-left:auto" onclick="chaoClearAll()">Zerar chão</button>':'')
+   +'</div>'
+  +'</div>'
+  +'<div style="max-width:780px;margin-top:16px">'
+  +(groups.length?groups.map(function(g){
+     var pe=g.pr.replace(/'/g,"\\'");
+     return '<div class="panel" style="margin-bottom:12px">'
+      +'<div style="display:flex;align-items:flex-start;gap:12px">'
+       +'<div style="min-width:0;flex:1"><div class="mono" style="font-weight:800;font-size:1.05rem;color:var(--ink)">'+g.pr+'</div>'
+        +(g.desc?'<div style="font-size:.8rem;color:var(--muted);margin-top:2px">'+g.desc+'</div>':'')
+        +'<div style="font-size:.76rem;color:var(--muted);margin-top:4px">'+g.items.length+' bobina(s)</div></div>'
+       +'<div style="text-align:right;white-space:nowrap"><div style="font-family:var(--disp);font-weight:800;font-size:1.4rem;color:var(--ink)">'+fmt(g.kg)+'<span style="font-size:.7rem;color:var(--muted)"> kg</span></div>'
+        +'<button class="gbtn danger" style="margin-top:6px;font-size:.72rem;padding:6px 10px" onclick="chaoClearCode(\''+pe+'\')">limpar</button></div>'
+      +'</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'
+       +g.items.map(function(it){return '<span style="display:inline-flex;align-items:center;gap:6px;background:var(--card-2);border:1px solid var(--line);border-radius:999px;padding:4px 8px 4px 10px;font-size:.74rem"><span class="mono">'+(it.et||'s/etiq')+'</span><span style="color:var(--muted)">'+fmt(it.kg)+'kg</span><button onclick="chaoRemoveOne('+it._i+')" title="remover" style="border:none;background:none;color:var(--out);cursor:pointer;font-weight:800;font-size:1rem;line-height:1;padding:0 2px">×</button></span>';}).join('')
+      +'</div>'
+     +'</div>';
+   }).join(''):'<p style="color:var(--muted)">Nenhuma bobina no chão ainda. Bipe a primeira etiqueta acima.</p>')
+  +'</div>';
+ var qb=document.getElementById('chaoQrBtn');if(qb)qb.onclick=function(){if(typeof showLabelSheet==='function')showLabelSheet(CHAO_ADDR,'ESPAÇO CHÃO',cfg.warehouse);};
+ var el=document.getElementById('chaoScan');
+ if(el){
+  el.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();chaoAdd(el.value);el.value='';}});
+  if(window.addCam)addCam('chaoScan',{onResult:chaoAdd,title:'Bipar bobina (chão)'});
+  setTimeout(function(){try{el.focus();}catch(e){}},50);
+ }
+}
+(function(){
+ var navStock=[].slice.call(document.querySelectorAll('.nav')).filter(function(n){return n.dataset.view==='v-stock';})[0];
+ var nv=document.createElement('div');nv.className='nav';nv.dataset.view='v-chao';
+ nv.innerHTML='<span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/><rect x="8.5" y="4" width="7" height="6" rx="1"/></svg></span>Chão';
+ if(navStock&&navStock.parentNode){navStock.after(nv);}else{var sn=document.querySelector('.sb-nav');if(sn)sn.appendChild(nv);}
+ nv.onclick=function(){go('v-chao');};
+ var sec=document.createElement('section');sec.className='view';sec.id='v-chao';var mn=document.querySelector('main');if(mn)mn.appendChild(sec);
+ if(typeof TITLES!=='undefined')TITLES['v-chao']='Espaço chão';
+ var _r=render;render=function(id){if(id==='v-chao')return renderChao();return _r(id);};
+})();
+
+
+/* ===== ARMAZENAR NO CHÃO (opção dentro da janela de armazenagem) ===== */
+function chaoStoreFromStage(et){
+ try{
+  var it=(typeof STAGE!=='undefined')?STAGE.find(function(s){return s.et===et;}):null;
+  if(!it){toast('Bobina não encontrada no recebimento',false);return;}
+  var a=document.getElementById('azEt');
+  var v=norm((a?a.value:'')||'');
+  var ok=v&&((norm(parseBobina(v).et)===norm(et))||(v===norm(et)));
+  if(!ok){toast('Bipe a bobina '+et+' para conferir',false);if(a)a.click();return;}
+  if(typeof CHAO==='undefined')window.CHAO=[];
+  for(var i=0;i<CHAO.length;i++){if(CHAO[i].et===et){toast('Bobina '+et+' já está no chão',false);return;}}
+  var kg=(it.pl!=null?Number(it.pl):0)||0;
+  CHAO.unshift({et:et,pr:it.pr,desc:it.desc||'',kg:kg,at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')});
+  if(typeof saveChao==='function')saveChao();
+  STAGE=STAGE.filter(function(s){return s.et!==et;});
+  if(typeof saveStage==='function')saveStage();
+  if(typeof syncDelStage==='function')syncDelStage(et);
+  try{MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:'CHÃO',pr:it.pr,q:kg,u:'KG',et:et,before:0,after:0,at:nowISO(),by:session.u});if(MV.length>3000)MV.length=3000;}catch(e){}
+  try{persist();}catch(e){}
+  try{logAct('entrada',et+' · '+it.pr+' +'+fmt(kg)+' @ CHÃO');}catch(e){}
+  if(typeof closeDrawer==='function')closeDrawer();
+  if(typeof renderRecv==='function')renderRecv();
+  if(typeof updateStageBadge==='function')updateStageBadge();
+  var tot=0,n=0;CHAO.forEach(function(x){if((x.pr||'?')===it.pr){tot+=Number(x.kg)||0;n++;}});
+  toast('No chão: '+et+' · '+it.pr+' ('+n+' bob · '+fmt(tot)+' kg)');
+ }catch(e){toast('Erro ao armazenar no chão',false);}
+}
+(function(){
+ if(typeof stageArmazenar!=='function')return;
+ var _sazChao=stageArmazenar;
+ stageArmazenar=function(et){
+  _sazChao(et);
+  setTimeout(function(){
+   var body=document.getElementById('drawerBody');var azDo=document.getElementById('azDo');
+   if(!body||!azDo||document.getElementById('azChaoBtn'))return;
+   var sep=document.createElement('div');sep.style.cssText='display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.72rem;margin:14px 0 10px;text-transform:uppercase;letter-spacing:.5px;font-weight:700';
+   sep.innerHTML='<span style="flex:1;height:1px;background:var(--line)"></span>ou<span style="flex:1;height:1px;background:var(--line)"></span>';
+   var btn=document.createElement('button');btn.id='azChaoBtn';btn.type='button';btn.className='gbtn';btn.style.cssText='width:100%;justify-content:center;height:48px';
+   btn.innerHTML='📦 Armazenar no chão (sem prateleira)';
+   btn.onclick=function(){chaoStoreFromStage(et);};
+   var hint=document.createElement('div');hint.style.cssText='text-align:center;color:var(--muted);font-size:.74rem;margin-top:8px;line-height:1.4';
+   hint.textContent='Bipe a bobina acima para conferir e toque aqui. Vai pro armazém chão e soma por código.';
+   azDo.parentNode.insertBefore(sep,azDo.nextSibling);
+   sep.parentNode.insertBefore(btn,sep.nextSibling);
+   btn.parentNode.insertBefore(hint,btn.nextSibling);
+  },90);
+ };
+})();
+
+
+/* ===== Criar posições da grade que faltam DEPOIS do pull da nuvem ===== */
+(function(){
+ if(typeof pullAll==='function'){
+  var _paHeal=pullAll;
+  pullAll=async function(){
+   var r=await _paHeal.apply(this,arguments);
+   try{if(typeof autoHealGrid==='function')autoHealGrid();}catch(e){}
+   return r;
+  };
+ }
+})();
+
+
+/* ===== 1) DESATIVAR IMPRESSÃO AUTOMÁTICA AO BIPAR (por enquanto) ===== */
+if(typeof stationPrint==='function'){stationPrint=function(){};}
+
+/* ===== 2) ARMAZENAR POR ENDEREÇO (no Mapa do armazém) ===== */
+function openStoreByAddr(){
+ openDrawer('📥 Armazenar por endereço',
+  '<label class="fld"><span class="lab">1 · Bipe o endereço</span><input class="input code" id="abEnd" placeholder="toque para bipar" autocomplete="off"></label>'
+  +'<div id="abEndChk" style="font-size:.82rem;font-weight:700;margin:-8px 0 12px 2px"></div>'
+  +'<label class="fld"><span class="lab">2 · Bipe a bobina</span><input class="input code" id="abBob" placeholder="toque para bipar" autocomplete="off"></label>'
+  +'<div id="abBobPv" style="display:none;margin:-6px 0 12px"></div>'
+  +'<button class="btn in" id="abDo" style="width:100%;height:48px">Confirmar armazenagem</button>');
+ function chkEnd(){
+  var c=norm(($('#abEnd').value||''));var el=$('#abEndChk');
+  if(!c){el.textContent='';el.style.color='';return;}
+  if(isChaoAddr(c)){el.textContent='✓ Espaço chão — bipe a bobina';el.style.color='#1a7f37';return;}
+  var sp=findSpace(c);
+  if(!sp){el.textContent='✗ endereço não existe';el.style.color='var(--out)';return;}
+  if(sp.o&&sp.pr){el.textContent='⚠ ocupado: '+sp.pr+' · '+fmt(sp.q)+' kg (só consolida o mesmo produto)';el.style.color='#d97706';}
+  else{el.textContent='✓ '+c+' livre — bipe a bobina';el.style.color='#1a7f37';}
+ }
+ function chkBob(){
+  var v=($('#abBob').value||'');var pv=$('#abBobPv');if(!v.trim()){pv.style.display='none';return;}
+  var b=parseBobina(v);pv.style.display='block';
+  pv.innerHTML=chip('','bobina',b.pr||v,b.peso!=null?fmt(b.peso)+' kg':'sem peso');
+ }
+ $('#abEnd').addEventListener('input',chkEnd);
+ $('#abBob').addEventListener('input',chkBob);
+ $('#abDo').onclick=function(){
+  var c=norm(($('#abEnd').value||''));if(!c){toast('Bipe o endereço',false);$('#abEnd').click();return;}
+  if(isChaoAddr(c)){var bc=parseBobina(($('#abBob').value||''));if(!bc.pr){toast('Bipe a bobina',false);$('#abBob').click();return;}if(chaoStoreParsed(bc)){closeDrawer();if(typeof renderChao==='function'&&document.getElementById('v-chao'))renderChao();}return;}
+  var sp=findSpace(c);if(!sp){toast('Endereço '+c+' não existe',false);return;}
+  var b=parseBobina(($('#abBob').value||''));
+  if(!b.pr){toast('Bipe a bobina',false);$('#abBob').click();return;}
+  if(b.peso==null||!(Number(b.peso)>0)){toast('Não consegui o peso dessa bobina — confira a etiqueta',false);return;}
+  if(sp.o&&sp.pr&&sp.pr!==b.pr){toast('Endereço ocupado por '+sp.pr,false);return;}
+  if(placeBobina(b.et||'',b.pr,Number(b.peso),c)){
+   if(b.et&&typeof STAGE!=='undefined'&&STAGE.some(function(s){return s.et===b.et;})){STAGE=STAGE.filter(function(s){return s.et!==b.et;});if(typeof saveStage==='function')saveStage();if(typeof syncDelStage==='function')syncDelStage(b.et);if(typeof updateStageBadge==='function')updateStageBadge();}
+   closeDrawer();renderBoard();toast('Armazenado: '+(b.et?b.et+' · ':'')+b.pr+' em '+c);
+  }
+ };
+ [['abEnd',{enter:false,title:'Escanear endereço'}],['abBob',{enter:false,title:'Escanear bobina'}]].forEach(function(p){
+  var id=p[0],o=p[1];var el=$('#'+id);if(!el)return;
+  el.readOnly=true;el.setAttribute('inputmode','none');el.style.cursor='pointer';el.title='Toque para bipar com a câmera';
+  if(window.addCam)addCam(id,o);
+  el.addEventListener('focus',function(){setTimeout(function(){el.blur();},0);});
+  el.addEventListener('click',function(){var w=el.parentNode;var bb=w&&w.querySelector('.cambtn');if(bb)bb.click();});
+ });
+ setTimeout(function(){var e=$('#abEnd');if(e)e.click();},150);
+}
+(function(){
+ if(typeof renderBoard!=='function')return;
+ var _rbStore=renderBoard;
+ renderBoard=function(){
+  _rbStore();
+  var h=document.querySelector('#v-board .ph-head');
+  if(h&&!document.getElementById('storeByAddrBtn')){
+   h.style.display='flex';h.style.alignItems='center';h.style.gap='10px';h.style.flexWrap='wrap';
+   var b=document.createElement('button');b.id='storeByAddrBtn';b.className='btn brand';
+   b.style.marginLeft=document.getElementById('fixGridBtn')?'0':'auto';
+   b.innerHTML='📥 Armazenar por endereço';
+   b.title='Bipe o endereço; se estiver livre, bipe a bobina para guardar ali';
+   b.onclick=openStoreByAddr;
+   h.appendChild(b);
+  }
+ };
+})();
+
+
+/* ===== ENDEREÇO DO CHÃO (QR p/ dar entrada no chão) ===== */
+var CHAO_ADDR='CHAO';
+function isChaoAddr(c){c=norm(c||'');return c==='CHAO'||c==='CHÃO'||c==='CHAO-CHAO-CHAO'||c==='CHÃO-CHÃO-CHÃO';}
+function chaoStoreParsed(b){
+ if(typeof CHAO==='undefined')window.CHAO=[];
+ if(!b||!b.pr){toast('Bipe a bobina',false);return false;}
+ if(b.et){for(var i=0;i<CHAO.length;i++){if(CHAO[i].et===b.et){toast('Bobina '+b.et+' já está no chão',false);return false;}}}
+ var kg=(b.peso!=null?Number(b.peso):0)||0;
+ CHAO.unshift({et:b.et||'',pr:b.pr,desc:b.desc||'',kg:kg,at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')});
+ if(typeof saveChao==='function')saveChao();
+ if(b.et&&typeof STAGE!=='undefined'&&STAGE.some(function(s){return s.et===b.et;})){STAGE=STAGE.filter(function(s){return s.et!==b.et;});if(typeof saveStage==='function')saveStage();if(typeof syncDelStage==='function')syncDelStage(b.et);if(typeof updateStageBadge==='function')updateStageBadge();}
+ try{MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:'CHÃO',pr:b.pr,q:kg,u:'KG',et:b.et||'',before:0,after:0,at:nowISO(),by:session.u});if(MV.length>3000)MV.length=3000;if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}
+ try{persist();}catch(e){}
+ try{logAct('entrada',(b.et?b.et+' · ':'')+b.pr+' +'+fmt(kg)+' @ CHÃO');}catch(e){}
+ var tot=0,n=0;CHAO.forEach(function(x){if((x.pr||'?')===b.pr){tot+=Number(x.kg)||0;n++;}});
+ toast('No chão: '+b.pr+' ('+n+' bob · '+fmt(tot)+' kg)');
+ return true;
+}
 
 setIcons();refreshUser();showLogin();pwaInit();
 </script>

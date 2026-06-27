@@ -2217,7 +2217,7 @@ function wire3d(){const cv=document.getElementById('cv3d');let drag=false,lx=0,l
  document.getElementById('b3lvl').onchange=function(){_3d.level=+this.value;applyLvl3d();};
 }
 (function(){const navBoard=[...document.querySelectorAll('.nav')].find(n=>n.dataset.view==='v-board');
- const nv=document.createElement('div');nv.className='nav';nv.dataset.view='v-3d';
+ const nv=document.createElement('div');nv.className='nav superOnly';nv.dataset.view='v-3d';
  nv.innerHTML='<span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M12 2 3 7l9 5 9-5-9-5Z"/><path d="M3 12l9 5 9-5"/><path d="M3 17l9 5 9-5"/></svg></span>Mapa 3D';
  if(navBoard&&navBoard.parentNode)navBoard.after(nv);else{const sn=document.querySelector('.sb-nav');if(sn)sn.appendChild(nv);}
  nv.onclick=()=>go('v-3d');
@@ -2683,6 +2683,23 @@ function chaoStoreParsed(b){
    sv.parentNode.insertBefore(b,sv);
   },70);
  };
+})();
+
+
+
+
+/* ===== Mapa 3D só para o usuário "admin" (super) ===== */
+function isSuperUser(){return !!(typeof session!=='undefined'&&session&&(session.u||'').trim().toLowerCase()==='admin');}
+(function(){
+ if(typeof applyPerms==='function'){
+  var _apSuper=applyPerms;
+  applyPerms=function(){_apSuper();var su=isSuperUser();document.querySelectorAll('.superOnly').forEach(function(e){e.style.display=su?'':'none';});};
+ }
+ if(typeof go==='function'){
+  var _goSuper=go;
+  go=function(id){if(id==='v-3d'&&!isSuperUser()){if(typeof toast==='function')toast('Mapa 3D é exclusivo do usuário admin',false);return;}return _goSuper(id);};
+ }
+ try{if(typeof applyPerms==='function')applyPerms();}catch(e){}
 })();
 
 setIcons();refreshUser();showLogin();pwaInit();

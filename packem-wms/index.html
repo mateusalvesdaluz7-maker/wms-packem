@@ -269,7 +269,7 @@
    #burger{display:flex}
    #sbClose{display:flex}
    .topbar{padding:0 14px;gap:10px}
-   .tb-search,.tb-cmd,.seg-wh{display:none!important}
+   .tb-search,.tb-cmd{display:none!important}
    .uchip .ur{display:none}
    main{padding:18px 14px 40px}
    .ph-head h1{font-size:1.3rem}
@@ -400,6 +400,14 @@
             </div>
             <button class="btn brand" id="genBob">Gerar etiqueta de bobina</button>
             <button class="gbtn" id="genBobStock" style="margin-left:10px">Das posições ocupadas (rua)</button>
+          </div>
+        </div>
+        <div class="panel" style="max-width:640px;margin-top:14px">
+          <div class="ph"><span class="pdot"></span>Espaço chão</div>
+          <p style="color:var(--muted);font-size:.82rem;line-height:1.5;margin:2px 0 12px">Imprima o QR do chão para colar na área e bipar na hora de dar entrada. Veja os totais somados por código.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn brand" id="lblChaoQr">🏷️ Etiqueta do chão (QR)</button>
+            <button class="gbtn" id="lblChaoView">Ver totais do chão</button>
           </div>
         </div>
         <div id="printArea"><div class="labels" id="labelsBox"></div></div>
@@ -2476,12 +2484,7 @@ function renderChao(){
  }
 }
 (function(){
- var navStock=[].slice.call(document.querySelectorAll('.nav')).filter(function(n){return n.dataset.view==='v-stock';})[0];
- var nv=document.createElement('div');nv.className='nav';nv.dataset.view='v-chao';
- nv.innerHTML='<span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/><rect x="8.5" y="4" width="7" height="6" rx="1"/></svg></span>Chão';
- if(navStock&&navStock.parentNode){navStock.after(nv);}else{var sn=document.querySelector('.sb-nav');if(sn)sn.appendChild(nv);}
- nv.onclick=function(){go('v-chao');};
- var sec=document.createElement('section');sec.className='view';sec.id='v-chao';var mn=document.querySelector('main');if(mn)mn.appendChild(sec);
+ var sec=document.getElementById('v-chao')||document.createElement('section');sec.className='view';sec.id='v-chao';var mn=document.querySelector('main');if(mn&&!document.getElementById('v-chao'))mn.appendChild(sec);
  if(typeof TITLES!=='undefined')TITLES['v-chao']='Espaço chão';
  var _r=render;render=function(id){if(id==='v-chao')return renderChao();return _r(id);};
 })();
@@ -2636,6 +2639,51 @@ function chaoStoreParsed(b){
  toast('No chão: '+b.pr+' ('+n+' bob · '+fmt(tot)+' kg)');
  return true;
 }
+
+
+/* ===== ajustes: seletor de armazém só no desktop + bipar na vaga + acesso chão ===== */
+(function(){
+ try{var st=document.createElement('style');st.textContent='@media(max-width:900px){#whSeg,.seg-wh{display:flex!important}.topbar{flex-wrap:wrap;row-gap:8px}}';document.head.appendChild(st);}catch(e){}
+})();
+
+/* botões do chão na tela Etiquetas */
+(function(){
+ var q=document.getElementById('lblChaoQr');if(q)q.onclick=function(){if(typeof showLabelSheet==='function')showLabelSheet(CHAO_ADDR,'ESPAÇO CHÃO',cfg.warehouse);};
+ var v=document.getElementById('lblChaoView');if(v)v.onclick=function(){go('v-chao');};
+})();
+
+/* bipar bobina dentro da janela da vaga (e salvar/armazenar ali) */
+(function(){
+ if(typeof openSpace!=='function')return;
+ var _osScan=openSpace;
+ openSpace=function(id){
+  _osScan(id);
+  setTimeout(function(){
+   var sv=document.getElementById('spSave');var prod=document.getElementById('spProd');
+   if(!sv||!prod||document.getElementById('spScanBob'))return;
+   var b=document.createElement('button');b.id='spScanBob';b.type='button';b.className='gbtn';b.style.cssText='width:100%;justify-content:center;margin-bottom:10px';
+   b.innerHTML=(typeof ICONS!=='undefined'&&ICONS.cam?ICONS.cam:'')+' Bipar bobina e armazenar';
+   b.onclick=function(){
+    if(typeof scanInto!=='function')return;
+    scanInto('spProd',{title:'Bipar bobina',onResult:function(val){
+     var pb=parseBobina(val);
+     if(!pb.pr){toast('Não reconheci a bobina',false);return;}
+     var p=document.getElementById('spProd'),qq=document.getElementById('spQty');
+     if(p)p.value=pb.pr;
+     if(pb.peso==null||!(Number(pb.peso)>0)){toast('Sem peso no catálogo — informe o peso e toque em Salvar',false);return;}
+     if(qq)qq.value=pb.peso;
+     var x=S.find(function(s){return s.id===id;});if(!x)return;
+     if(x.o&&x.pr&&x.pr!==pb.pr){toast('Posição ocupada por '+x.pr,false);return;}
+     if(placeBobina(pb.et||'',pb.pr,Number(pb.peso),code(x))){
+      if(pb.et&&typeof STAGE!=='undefined'&&STAGE.some(function(s){return s.et===pb.et;})){STAGE=STAGE.filter(function(s){return s.et!==pb.et;});if(typeof saveStage==='function')saveStage();if(typeof syncDelStage==='function')syncDelStage(pb.et);if(typeof updateStageBadge==='function')updateStageBadge();}
+      closeDrawer();renderBoard();toast('Armazenado: '+(pb.et?pb.et+' · ':'')+pb.pr+' em '+code(x));
+     }
+    }});
+   };
+   sv.parentNode.insertBefore(b,sv);
+  },70);
+ };
+})();
 
 setIcons();refreshUser();showLogin();pwaInit();
 </script>

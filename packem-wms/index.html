@@ -497,7 +497,7 @@ const DB=(()=>{const K={sp:'wmsx_sp',mv:'wmsx_mv',tr:'wmsx_tr',vl:'wmsx_vl',us:'
   return {init,seedSp,spaces:()=>r(K.sp,[]),saveSpaces:a=>w(K.sp,a),movs:()=>r(K.mv,[]),saveMovs:a=>w(K.mv,a),transf:()=>r(K.tr,[]),saveTransf:a=>w(K.tr,a),values:()=>r(K.vl,[]),saveValues:a=>w(K.vl,a),users:()=>r(K.us,[]),saveUsers:a=>w(K.us,a),act:()=>r(K.ac,[]),saveAct:a=>w(K.ac,a),cfg:()=>r(K.cf,{warehouse:'70'}),saveCfg:c=>w(K.cf,c),reseed:()=>w(K.sp,seedSp())};})();
 DB.init();
 let S=DB.spaces(),MV=DB.movs(),TR=DB.transf(),VL=DB.values(),US=DB.users(),AC=DB.act(),cfg=DB.cfg();
-let session=null,mode='entrada',abcMetric='peso',lblTab='end',boardLevel=null;
+let session=null,mode='entrada',abcMetric='peso',lblTab='end',boardLevel=null,boardRua=null;
 let stSort={k:'upd',d:-1};
 
 const norm=s=>(s||'').trim().toUpperCase();
@@ -578,26 +578,26 @@ function renderHome(){
 /* BOARD */
 function renderBoard(){
   const all=S.filter(x=>x.w===cfg.warehouse);
-  const levels=[...new Set(all.map(x=>x.l))].sort();
-  if(!boardLevel)boardLevel=levels[0];
+  const streets=[...new Set(all.map(x=>x.s))].sort();
+  if(!boardRua||streets.indexOf(boardRua)<0)boardRua=streets[0];
   const occ=all.filter(x=>x.o).length;
   $('#v-board').innerHTML=`
     <div class="ph-head"><div><p class="eb">${whLabel(cfg.warehouse)}</p><h1>Mapa do armazém</h1></div></div>
     <div class="board-ctrl">
-      <div class="lvtabs">${levels.map(l=>`<button class="${l===boardLevel?'on':''}" data-l="${l}">Nível ${l}</button>`).join('')}</div>
+      <div class="lvtabs ruatabs" style="flex-wrap:wrap;row-gap:6px">${streets.map(s=>`<button class="${s===boardRua?'on':''}" data-s="${s}">Rua ${s}</button>`).join('')}</div>
       <div class="legend"><span><i style="background:linear-gradient(135deg,#15A34A,#22c55e)"></i>Vago</span><span><i style="background:linear-gradient(135deg,#ef4444,#f87171)"></i>Ocupado</span><span><i style="background:linear-gradient(135deg,#d97706,#fbbf24)"></i>+20 dias</span><span><i style="background:linear-gradient(135deg,#7f1d1d,#b91c1c)"></i>+40 dias</span><span style="color:var(--faint)">${occ} ocupadas</span></div>
     </div>
     <div class="board" id="boardBox"></div>`;
-  $$('#v-board .lvtabs button').forEach(b=>b.onclick=()=>{boardLevel=b.dataset.l;renderBoard();});
+  $$('#v-board .ruatabs button').forEach(b=>b.onclick=()=>{boardRua=b.dataset.s;renderBoard();});
   drawBoard();
 }
 function drawBoard(){
-  const rows=S.filter(x=>x.w===cfg.warehouse&&x.l===boardLevel);
-  const streets=[...new Set(rows.map(x=>x.s))].sort();
-  const positions=[...new Set(rows.map(x=>x.p))].sort((a,b)=>a-b);
-  const map={};rows.forEach(x=>map[x.s+'_'+x.p]=x);
+  const rows=S.filter(x=>x.w===cfg.warehouse&&x.s===boardRua);
+  const levels=[...new Set(rows.map(x=>+x.l))].filter(v=>!isNaN(v)).sort((a,b)=>a-b);
+  const positions=[...new Set(rows.map(x=>+x.p))].filter(v=>!isNaN(v)).sort((a,b)=>a-b);
+  const map={};rows.forEach(x=>map[(+x.l)+'_'+(+x.p)]=x);
   let h='<table><thead><tr><th class="rowh"></th>'+positions.map(p=>`<th class="col">${p}</th>`).join('')+'</tr></thead><tbody>';
-  streets.forEach(s=>{h+='<tr><th class="rowh">'+s+'</th>'+positions.map(p=>{const x=map[s+'_'+p];if(!x)return '<td><div class="cellx none"></div></td>';let cls='free',ageTxt='';if(x.o){const dd=x.upd?Math.floor((Date.now()-Date.parse(x.upd))/86400000):0;ageTxt=' · '+dd+'d parado';cls=dd>40?'crit':(dd>20?'warn':'occ');}return `<td><div class="cellx ${cls}" data-id="${x.id}" title="${code(x)}${x.pr?' · '+x.pr+' · '+fmt(x.q)+'kg'+ageTxt:' · vago'}"></div></td>`;}).join('')+'</tr>';});
+  levels.forEach(l=>{h+='<tr><th class="rowh">N'+l+'</th>'+positions.map(p=>{const x=map[l+'_'+p];if(!x)return '<td><div class="cellx none"></div></td>';let cls='free',ageTxt='';if(x.o){const dd=x.upd?Math.floor((Date.now()-Date.parse(x.upd))/86400000):0;ageTxt=' · '+dd+'d parado';cls=dd>40?'crit':(dd>20?'warn':'occ');}return `<td><div class="cellx ${cls}" data-id="${x.id}" title="${code(x)}${x.pr?' · '+x.pr+' · '+fmt(x.q)+'kg'+ageTxt:' · vago'}"></div></td>`;}).join('')+'</tr>';});
   h+='</tbody></table>';
   $('#boardBox').innerHTML=h;
   $$('#boardBox .cellx[data-id]').forEach(c=>c.onclick=()=>openSpace(c.dataset.id));
@@ -2659,6 +2659,7 @@ function chaoStoreParsed(b){
  openSpace=function(id){
   _osScan(id);
   setTimeout(function(){
+   var lb=document.getElementById('spLabel');if(lb)lb.remove();
    var sv=document.getElementById('spSave');var prod=document.getElementById('spProd');
    if(!sv||!prod||document.getElementById('spScanBob'))return;
    var b=document.createElement('button');b.id='spScanBob';b.type='button';b.className='gbtn';b.style.cssText='width:100%;justify-content:center;margin-bottom:10px';
@@ -2681,6 +2682,22 @@ function chaoStoreParsed(b){
     }});
    };
    sv.parentNode.insertBefore(b,sv);
+   if(!document.getElementById('spNoLabel')){
+    var nb=document.createElement('button');nb.id='spNoLabel';nb.type='button';nb.className='gbtn';nb.style.cssText='width:100%;justify-content:center;margin-bottom:10px';
+    nb.innerHTML='🚫 Marcar sem etiqueta';
+    nb.onclick=function(){
+     var x=S.find(function(s){return s.id===id;});if(!x)return;
+     var p=document.getElementById('spProd'),qq=document.getElementById('spQty');
+     var pr=p?norm(p.value):'';if(!pr)pr='S/ETIQUETA';
+     var kg=qq?(Number(qq.value)||0):0;
+     x.pr=pr;x.q=kg;x.o=true;x.u='KG';x.upd=nowISO();x.by=(typeof session!=='undefined'&&session?session.u:'');
+     try{persist();}catch(e){}
+     try{if(typeof syncSpace==='function')syncSpace(x);else if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',[spRow(x)]);}catch(e){}
+     try{logAct('edit','marcou sem etiqueta '+code(x));}catch(e){}
+     closeDrawer();renderBoard();toast('Marcado sem etiqueta: '+code(x)+(pr&&pr!=='S/ETIQUETA'?' · '+pr:''));
+    };
+    sv.parentNode.insertBefore(nb,sv);
+   }
   },70);
  };
 })();

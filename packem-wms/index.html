@@ -2527,10 +2527,11 @@ function build3dCore(){dispose3d();const THREE=window.THREE;const cv=document.ge
  const _r0=cv.parentNode.getBoundingClientRect();const W=Math.max(cv.clientWidth||_r0.width||window.innerWidth,2),H=Math.max(cv.clientHeight||_r0.height||(window.innerHeight-64),2);
  const scene=new THREE.Scene();scene.background=new THREE.Color(0xe8ebef);scene.fog=new THREE.FogExp2(0xe8ebef,0.00055);
  const cam=new THREE.PerspectiveCamera(50,W/H,1,6000);
- const rndr=new THREE.WebGLRenderer({canvas:cv,antialias:true});rndr.setSize(W,H,false);rndr.setPixelRatio(Math.min(devicePixelRatio,2));rndr.shadowMap.enabled=true;rndr.shadowMap.type=THREE.PCFSoftShadowMap;
+ var lowGfx=(Math.min(window.innerWidth||999,window.innerHeight||999)<820)||/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent||'');
+ const rndr=new THREE.WebGLRenderer({canvas:cv,antialias:!lowGfx});rndr.setSize(W,H,false);rndr.setPixelRatio(lowGfx?1:Math.min(devicePixelRatio,2));rndr.shadowMap.enabled=!lowGfx;rndr.shadowMap.type=lowGfx?THREE.BasicShadowMap:THREE.PCFSoftShadowMap;
  // iluminação de galpão
  scene.add(new THREE.HemisphereLight(0xcfe0ff,0x1a2230,0.75));
- const sun=new THREE.DirectionalLight(0xfff2dd,1.0);sun.position.set(220,460,180);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.near=10;sun.shadow.camera.far=1800;sun.shadow.camera.left=-800;sun.shadow.camera.right=800;sun.shadow.camera.top=800;sun.shadow.camera.bottom=-800;sun.shadow.bias=-0.0003;sun.shadow.radius=4;scene.add(sun);
+ const sun=new THREE.DirectionalLight(0xfff2dd,1.0);sun.position.set(220,460,180);sun.castShadow=!lowGfx;sun.shadow.mapSize.set(lowGfx?512:2048,lowGfx?512:2048);sun.shadow.camera.near=10;sun.shadow.camera.far=1800;sun.shadow.camera.left=-800;sun.shadow.camera.right=800;sun.shadow.camera.top=800;sun.shadow.camera.bottom=-800;sun.shadow.bias=-0.0003;sun.shadow.radius=4;scene.add(sun);
  const fill=new THREE.DirectionalLight(0x9fb8e0,0.35);fill.position.set(-200,160,-160);scene.add(fill);
  scene.add(new THREE.AmbientLight(0xffffff,0.18));
  const dims=Object.keys(GRID_LAYOUT);
@@ -2903,7 +2904,17 @@ function wire3d(){const cv=document.getElementById('cv3d');let drag=false,lx=0,l
  nv.onclick=()=>go('v-3d');
  const sec=document.createElement('section');sec.className='view';sec.id='v-3d';const mn=document.querySelector('main');if(mn)mn.appendChild(sec);
  if(typeof TITLES!=='undefined')TITLES['v-3d']='Mapa 3D do armazém';
- const _r=render;render=function(id){if(id==='v-3d')return renderThree();if(_3d.raf&&id!=='v-3d'){_3d.auto=false;}return _r(id);};})();
+ const _r=render;render=function(id){
+   if(id==='v-3d')return renderThree();
+   /* sair do 3D: cancela o loop de render (senão fica renderizando WebGL em segundo plano e trava o celular) */
+   if(_3d&&_3d.raf){cancelAnimationFrame(_3d.raf);_3d.raf=0;_3d.auto=false;if(_3d.show)_3d.show.on=false;}
+   return _r(id);
+ };
+ /* pausa o 3D quando o app vai pra segundo plano e retoma ao voltar (se estiver na aba 3D) */
+ document.addEventListener('visibilitychange',function(){
+   if(document.hidden){if(_3d&&_3d.raf){cancelAnimationFrame(_3d.raf);_3d.raf=0;}}
+   else{var act=document.querySelector('.view.active');if(act&&act.id==='v-3d'&&_3d&&_3d.ready&&!_3d.raf){animate3d();}}
+ });})();
 
 function pwaInit(){try{const mf={name:'Packem WMS · Dep 70',short_name:'Packem WMS',start_url:'.',scope:'.',display:'standalone',orientation:'any',background_color:'#0f1830',theme_color:'#0f1830',icons:[{src:PACKEM_IMG,sizes:'192x192',type:'image/png',purpose:'any'},{src:PACKEM_IMG,sizes:'512x512',type:'image/png',purpose:'any maskable'}]};const blob=new Blob([JSON.stringify(mf)],{type:'application/manifest+json'});const url=URL.createObjectURL(blob);const l=document.getElementById('mf');if(l)l.href=url;}catch(e){console.warn('pwa',e);}}
 

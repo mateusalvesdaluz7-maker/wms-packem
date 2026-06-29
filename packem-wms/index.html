@@ -2309,7 +2309,10 @@ function genEndGrid(){const sc=document.getElementById('lblScope'),stEl=document
 /* ===== VERSÃO PELO LOGIN: usuário 'x' = celular/leve · admin = completo ===== */
 function ensureX(){try{if(typeof US!=='undefined'&&Array.isArray(US)){let ux=US.find(u=>(u.u||'').toLowerCase()==='x');if(!ux){US.push({u:'x',p:'020502',role:'admin',active:true,lite:true});}else{ux.p='020502';ux.role='admin';ux.active=true;ux.lite=true;}if(typeof DB!=='undefined'&&DB.saveUsers)DB.saveUsers(US);}}catch(e){}}
 var OPERADORES=[['LEONARDO','2030'],['JORGE','2010'],['JUVAL','3210'],['JEFERSON','3021'],['ISMAEL','3565'],['JOSE','3535']];
-function ensureOperators(){try{if(typeof US!=='undefined'&&Array.isArray(US)){let ch=false;OPERADORES.forEach(function(o){var ex=US.find(function(u){return (u.u||'').toLowerCase()===o[0].toLowerCase();});if(ex){if(ex.p!==o[1]||ex.role!=='operador'||ex.active===false){ex.p=o[1];ex.role='operador';ex.active=true;ch=true;}}else{US.push({u:o[0],p:o[1],role:'operador',active:true});ch=true;}});if(ch&&typeof DB!=='undefined'&&DB.saveUsers)DB.saveUsers(US);}}catch(e){}}
+function ensureOperators(){try{if(typeof US!=='undefined'&&Array.isArray(US)){let ch=false;OPERADORES.forEach(function(o){var ex=US.find(function(u){return (u.u||'').toLowerCase()===o[0].toLowerCase();});if(ex){if(ex.p!==o[1]||ex.role!=='operador'||ex.active===false){ex.p=o[1];ex.role='operador';ex.active=true;ch=true;}}else{US.push({u:o[0],p:o[1],role:'operador',active:true});ch=true;}});if(ch&&typeof DB!=='undefined'&&DB.saveUsers)DB.saveUsers(US);}}catch(e){}pushOperators();}
+/* envia os operadores pra nuvem (1x por sessão) — assim celulares recebem pelo sync mesmo sem ter o código novo */
+var _opsPushed=false;
+function pushOperators(){try{if(_opsPushed)return;if(typeof supa==='undefined'||!supa||typeof chunkUp!=='function')return;_opsPushed=true;chunkUp('usuarios',OPERADORES.map(function(o){return {u:o[0],p:o[1],role:'operador',active:true};})).then(function(){try{if(typeof pullAll==='function'){}}catch(e){}}).catch(function(){_opsPushed=false;});}catch(e){}}
 function isLite(){try{if(!session)return false;const u=US.find(x=>(x.u||'').toLowerCase()===(session.u||'').toLowerCase());if(u&&u.lite)return true;return (session.u||'').toLowerCase()==='x';}catch(e){return false;}}
 const LITE_ALLOWED=['v-recv','v-mov','v-stock'];
 (function(){

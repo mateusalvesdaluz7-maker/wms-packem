@@ -162,6 +162,9 @@
   .lvtabs{display:flex;gap:6px;}
   .lvtabs button{background:#fff;border:1px solid var(--line-2);color:var(--muted);border-radius:9px;padding:8px 14px;font-weight:700;font-family:var(--mono);font-size:.82rem;}
   .lvtabs button.on{background:var(--brand);color:#fff;border-color:transparent;}
+  .ruatabs{display:flex;gap:6px;flex-wrap:wrap;max-width:100%;}
+  .ruatabs button{background:#fff;border:1px solid var(--line-2);color:var(--muted);border-radius:9px;padding:7px 12px;font-weight:700;font-family:var(--mono);font-size:.8rem;cursor:pointer;}
+  .ruatabs button.on{background:var(--ink,#0f1b2e);color:#fff;border-color:transparent;}
   .board{overflow:auto;border:1px solid var(--line);border-radius:14px;background:var(--card);padding:16px;box-shadow:var(--sh-sm);}
   .board table{border-collapse:separate;border-spacing:5px;}
   .board th.col{font-family:var(--mono);font-size:.6rem;color:var(--faint);font-weight:700;text-align:center;padding-bottom:4px;min-width:30px;}
@@ -489,7 +492,7 @@ const DB=(()=>{const K={sp:'wmsx_sp',mv:'wmsx_mv',tr:'wmsx_tr',vl:'wmsx_vl',us:'
   return {init,seedSp,spaces:()=>r(K.sp,[]),saveSpaces:a=>w(K.sp,a),movs:()=>r(K.mv,[]),saveMovs:a=>w(K.mv,a),transf:()=>r(K.tr,[]),saveTransf:a=>w(K.tr,a),values:()=>r(K.vl,[]),saveValues:a=>w(K.vl,a),users:()=>r(K.us,[]),saveUsers:a=>w(K.us,a),act:()=>r(K.ac,[]),saveAct:a=>w(K.ac,a),cfg:()=>r(K.cf,{warehouse:'70'}),saveCfg:c=>w(K.cf,c),reseed:()=>w(K.sp,seedSp())};})();
 DB.init();
 let S=DB.spaces(),MV=DB.movs(),TR=DB.transf(),VL=DB.values(),US=DB.users(),AC=DB.act(),cfg=DB.cfg();
-let session=null,mode='entrada',abcMetric='peso',lblTab='end',boardLevel=null;
+let session=null,mode='entrada',abcMetric='peso',lblTab='end',boardLevel=null,boardStreet=null;
 let stSort={k:'upd',d:-1};
 
 const norm=s=>(s||'').trim().toUpperCase();
@@ -575,26 +578,44 @@ function renderHome(){
 /* BOARD */
 function renderBoard(){
   const all=S.filter(x=>x.w===cfg.warehouse);
-  const levels=[...new Set(all.map(x=>x.l))].sort();
-  if(!boardLevel)boardLevel=levels[0];
+  const levels=[...new Set(all.map(x=>Number(x.l)).filter(v=>!isNaN(v)))].sort((a,b)=>a-b);
+  boardLevel=(levels.indexOf(Number(boardLevel))>=0)?Number(boardLevel):levels[0];
+  const allStreets=[...new Set(all.map(x=>x.s))].sort();
+  if(boardStreet&&allStreets.indexOf(boardStreet)<0)boardStreet=null;
+  const byStreet=!!boardStreet;
   const occ=all.filter(x=>x.o).length;
   $('#v-board').innerHTML=`
     <div class="ph-head"><div><p class="eb">${whLabel(cfg.warehouse)}</p><h1>Mapa do armazém</h1></div></div>
     <div class="board-ctrl">
-      <div class="lvtabs">${levels.map(l=>`<button class="${l===boardLevel?'on':''}" data-l="${l}">Nível ${l}</button>`).join('')}</div>
+      <div class="ruatabs"><button class="${!boardStreet?'on':''}" data-r="">Todas as ruas</button>${allStreets.map(s=>`<button class="${s===boardStreet?'on':''}" data-r="${s}">Rua ${s}</button>`).join('')}</div>
+      ${byStreet?'':`<div class="lvtabs">${levels.map(l=>`<button class="${Number(l)===Number(boardLevel)?'on':''}" data-l="${l}">Nível ${l}</button>`).join('')}</div>`}
       <div class="legend"><span><i style="background:linear-gradient(135deg,#15A34A,#22c55e)"></i>Vago</span><span><i style="background:linear-gradient(135deg,#ef4444,#f87171)"></i>Ocupado</span><span><i style="background:linear-gradient(135deg,#d97706,#fbbf24)"></i>+20 dias</span><span><i style="background:linear-gradient(135deg,#7f1d1d,#b91c1c)"></i>+40 dias</span><span style="color:var(--faint)">${occ} ocupadas</span></div>
     </div>
     <div class="board" id="boardBox"></div>`;
-  $$('#v-board .lvtabs button').forEach(b=>b.onclick=()=>{boardLevel=b.dataset.l;renderBoard();});
+  $$('#v-board .ruatabs button').forEach(b=>b.onclick=()=>{boardStreet=b.dataset.r||null;renderBoard();});
+  if(!byStreet)$$('#v-board .lvtabs button').forEach(b=>b.onclick=()=>{boardLevel=Number(b.dataset.l);renderBoard();});
   drawBoard();
 }
+function cellHTML(x){if(!x)return '<td><div class="cellx none"></div></td>';let cls='free',ageTxt='';if(x.o){const dd=x.upd?Math.floor((Date.now()-Date.parse(x.upd))/86400000):0;ageTxt=' · '+dd+'d parado';cls=dd>40?'crit':(dd>20?'warn':'occ');}return `<td><div class="cellx ${cls}" data-id="${x.id}" title="${code(x)}${x.pr?' · '+x.pr+' · '+fmt(x.q)+'kg'+ageTxt:' · vago'}"></div></td>`;}
 function drawBoard(){
-  const rows=S.filter(x=>x.w===cfg.warehouse&&x.l===boardLevel);
+  if(boardStreet)return drawBoardStreet();
+  const rows=S.filter(x=>x.w===cfg.warehouse&&Number(x.l)===Number(boardLevel));
   const streets=[...new Set(rows.map(x=>x.s))].sort();
-  const positions=[...new Set(rows.map(x=>x.p))].sort((a,b)=>a-b);
-  const map={};rows.forEach(x=>map[x.s+'_'+x.p]=x);
+  const positions=[...new Set(rows.map(x=>Number(x.p)))].sort((a,b)=>a-b);
+  const map={};rows.forEach(x=>map[x.s+'_'+Number(x.p)]=x);
   let h='<table><thead><tr><th class="rowh"></th>'+positions.map(p=>`<th class="col">${p}</th>`).join('')+'</tr></thead><tbody>';
-  streets.forEach(s=>{h+='<tr><th class="rowh">'+s+'</th>'+positions.map(p=>{const x=map[s+'_'+p];if(!x)return '<td><div class="cellx none"></div></td>';let cls='free',ageTxt='';if(x.o){const dd=x.upd?Math.floor((Date.now()-Date.parse(x.upd))/86400000):0;ageTxt=' · '+dd+'d parado';cls=dd>40?'crit':(dd>20?'warn':'occ');}return `<td><div class="cellx ${cls}" data-id="${x.id}" title="${code(x)}${x.pr?' · '+x.pr+' · '+fmt(x.q)+'kg'+ageTxt:' · vago'}"></div></td>`;}).join('')+'</tr>';});
+  streets.forEach(s=>{h+='<tr><th class="rowh">'+s+'</th>'+positions.map(p=>cellHTML(map[s+'_'+p])).join('')+'</tr>';});
+  h+='</tbody></table>';
+  $('#boardBox').innerHTML=h;
+  $$('#boardBox .cellx[data-id]').forEach(c=>c.onclick=()=>openSpace(c.dataset.id));
+}
+function drawBoardStreet(){
+  const rows=S.filter(x=>x.w===cfg.warehouse&&x.s===boardStreet);
+  const levels=[...new Set(rows.map(x=>Number(x.l)).filter(v=>!isNaN(v)))].sort((a,b)=>a-b);
+  const positions=[...new Set(rows.map(x=>Number(x.p)))].sort((a,b)=>a-b);
+  const map={};rows.forEach(x=>map[Number(x.l)+'_'+Number(x.p)]=x);
+  let h='<table><thead><tr><th class="rowh">Rua '+boardStreet+'</th>'+positions.map(p=>`<th class="col">${p}</th>`).join('')+'</tr></thead><tbody>';
+  levels.forEach(l=>{h+='<tr><th class="rowh">Nível '+l+'</th>'+positions.map(p=>cellHTML(map[l+'_'+p])).join('')+'</tr>';});
   h+='</tbody></table>';
   $('#boardBox').innerHTML=h;
   $$('#boardBox .cellx[data-id]').forEach(c=>c.onclick=()=>openSpace(c.dataset.id));
@@ -639,7 +660,7 @@ function renderMovRecent(){$('#movRecent').innerHTML=MV.slice(0,40).map(m=>`<div
 
 /* ESTOQUE */
 function renderStock(){const st=$('#stStreet');if(st.options.length<=1)[...new Set(S.filter(x=>x.w===cfg.warehouse).map(x=>x.s))].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent='Rua '+s;st.appendChild(o);});renderStockTable();}
-['stSearch','stStreet','stStatus'].forEach(id=>{const el=$('#'+id);el.addEventListener('input',renderStockTable);el.addEventListener('change',renderStockTable);});
+/* busca/filtros do estoque são ligados (com debounce) no bloco otimizado mais abaixo */
 $('#stExport').onclick=()=>{const h=['Endereco','Produto','Peso','Un','Origem','Atualizado','Operador'];const b=filterStock().map(x=>[code(x),x.pr,x.q,x.u,x.src,x.upd,x.by]);dl('estoque_packem.csv',csv([h,...b]));toast('Exportado');};
 function filterStock(){const q=norm($('#stSearch').value),sr=$('#stStreet').value,stt=$('#stStatus').value;let rows=S.filter(x=>x.w===cfg.warehouse);if(stt===''||!stt)rows=rows.filter(x=>x.o&&x.q>0);else if(stt==='zero')rows=rows.filter(x=>x.o&&x.q<=0);if(sr)rows=rows.filter(x=>x.s===sr);if(q)rows=rows.filter(x=>code(x).includes(q)||(x.pr||'').toUpperCase().includes(q));
   const k=stSort.k,d=stSort.d;rows.sort((a,b)=>{let va,vb;if(k==='code'){va=code(a);vb=code(b);}else if(k==='pr'){va=a.pr;vb=b.pr;}else if(k==='q'){va=a.q;vb=b.q;}else{va=a.upd;vb=b.upd;}if(va<vb)return -d;if(va>vb)return d;return 0;});return rows;}
@@ -1057,7 +1078,8 @@ function injectReqImport(){const v=document.getElementById('v-pick');if(!v)retur
 let BOB={},LOC={};
 try{BOB=JSON.parse(localStorage.getItem('wmsx_bob'))||{};}catch(e){BOB={};}
 try{LOC=JSON.parse(localStorage.getItem('wmsx_loc'))||{};}catch(e){LOC={};}
-function saveBOB(){localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}
+var _bobVer=0;
+function saveBOB(){_bobVer++;localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}
 function saveLOC(){localStorage.setItem('wmsx_loc',JSON.stringify(LOC));}
 function brNum(v){if(typeof v==='number')return v;if(v==null)return 0;let s=String(v).trim().replace(/[^\d.,-]/g,'');if(!s)return 0;const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.');if(lc>-1&&ld>-1){if(lc>ld)s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'');}else if(lc>-1){s=s.replace(/,/g,'.');}return parseFloat(s)||0;}
 
@@ -2148,11 +2170,11 @@ labelHTML=function(c,desc,w){var pp=String(c).split('-');var rua=pp[0]||'',pos=p
  document.head.appendChild(s);})();
 
 /* ===== ESTOQUE COMPLETO: descrição (do Excel) + total por produto + resumo ===== */
-let _descCache={n:-1,m:{}};
+let _descCache={v:-1,m:{}};
+function descOf(pr){if(!pr)return'';if(_descCache.v!==_bobVer){const m={};for(const k in BOB){const b=BOB[k];if(b&&b.pr&&b.desc&&!m[b.pr])m[b.pr]=b.desc;}_descCache={v:_bobVer,m:m};}return _descCache.m[pr]||'';}
 var ST_QMAX=1e7; /* peso máximo plausível por posição (kg). Acima disso = dado corrompido */
 function qSane(v){var n=Number(v)||0;return (n>ST_QMAX||n<0)?0:n;}
 function qBad(v){var n=Number(v)||0;return n>ST_QMAX;}
-function descOf(pr){if(!pr)return'';const ks=Object.keys(BOB);if(_descCache.n!==ks.length){const m={};for(const k of ks){const b=BOB[k];if(b&&b.pr&&b.desc&&!m[b.pr])m[b.pr]=b.desc;}_descCache={n:ks.length,m:m};}return _descCache.m[pr]||'';}
 (function(){const s=document.createElement('style');s.textContent=
  '.st-sum{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 14px}'
  +'.st-sum .sc{background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 16px;min-width:130px;box-shadow:0 1px 2px rgba(16,30,54,.04)}'
@@ -2310,6 +2332,7 @@ function genEndGrid(){const sc=document.getElementById('lblScope'),stEl=document
 
 /* ===== VERSÃO PELO LOGIN: usuário 'x' = celular/leve · admin = completo ===== */
 function ensureX(){try{if(typeof US!=='undefined'&&Array.isArray(US)){let ux=US.find(u=>(u.u||'').toLowerCase()==='x');if(!ux){US.push({u:'x',p:'020502',role:'admin',active:true,lite:true});}else{ux.p='020502';ux.role='admin';ux.active=true;ux.lite=true;}if(typeof DB!=='undefined'&&DB.saveUsers)DB.saveUsers(US);}}catch(e){}}
+function ensureAdmin(){try{if(typeof US!=='undefined'&&Array.isArray(US)){let a=US.find(u=>(u.u||'').toLowerCase()==='admin');if(!a){US.push({u:'admin',p:'packem',role:'admin',active:true});}else{a.p='packem';a.role='admin';a.active=true;}if(typeof DB!=='undefined'&&DB.saveUsers)DB.saveUsers(US);}}catch(e){}}
 var OPERADORES=[['LEONARDO','2030'],['JORGE','2010'],['JUVAL','3210'],['JEFERSON','3021'],['ISMAEL','3565'],['JOSE','3535']];
 function ensureOperators(){try{if(typeof US!=='undefined'&&Array.isArray(US)){let ch=false;OPERADORES.forEach(function(o){var ex=US.find(function(u){return (u.u||'').toLowerCase()===o[0].toLowerCase();});if(ex){if(ex.p!==o[1]||ex.role!=='operador'||ex.active===false){ex.p=o[1];ex.role='operador';ex.active=true;ch=true;}}else{US.push({u:o[0],p:o[1],role:'operador',active:true});ch=true;}});if(ch&&typeof DB!=='undefined'&&DB.saveUsers)DB.saveUsers(US);}}catch(e){}pushOperators();}
 /* envia os operadores pra nuvem (1x por sessão) — assim celulares recebem pelo sync mesmo sem ter o código novo */
@@ -2319,7 +2342,7 @@ function isLite(){try{if(!session)return false;const u=US.find(x=>(x.u||'').toLo
 const LITE_ALLOWED=['v-recv','v-mov','v-stock'];
 (function(){
  const sbNav=document.querySelector('.sb-nav');if(!sbNav)return;
- ensureX();ensureOperators();
+ ensureX();ensureAdmin();ensureOperators();
  const ORIG_NAV=sbNav.innerHTML;
  function closeSb(){if(window.innerWidth<=900){document.body.classList.remove('sb-open');const sc=document.getElementById('sbScrim');if(sc)sc.classList.remove('show');}}
  function bindAll(){document.querySelectorAll('.sb-nav .nav').forEach(n=>{const md=n.dataset.mode;if(md){n.onclick=()=>{go('v-mov');if(typeof setMode==='function')setMode(md);closeSb();};}else{n.onclick=()=>{go(n.dataset.view);closeSb();};}});}
@@ -2340,9 +2363,9 @@ const LITE_ALLOWED=['v-recv','v-mov','v-stock'];
  // trava navegação fora dos 5 itens quando é versão leve
  if(typeof go==='function'){const _go=go;go=function(id){if(isLite()&&!LITE_ALLOWED.includes(id))id='v-stock';return _go(id);};}
  // re-sincroniza quando o usuário muda (login/logout)
- const _ru=refreshUser;refreshUser=function(){if(_ru)_ru();ensureX();ensureOperators();window.syncVersion();if(typeof applyPerms==='function')applyPerms();};
+ const _ru=refreshUser;refreshUser=function(){if(_ru)_ru();ensureX();ensureAdmin();ensureOperators();window.syncVersion();if(typeof applyPerms==='function')applyPerms();};
  // re-garante o usuário x após puxar da nuvem
- if(typeof pullAll==='function'){const _pa=pullAll;pullAll=async function(){const r=await _pa.apply(this,arguments);ensureX();ensureOperators();window.syncVersion();if(typeof applyPerms==='function')applyPerms();return r;};}
+ if(typeof pullAll==='function'){const _pa=pullAll;pullAll=async function(){const r=await _pa.apply(this,arguments);ensureX();ensureAdmin();ensureOperators();window.syncVersion();if(typeof applyPerms==='function')applyPerms();return r;};}
  window.syncVersion();
 })();
 

@@ -497,10 +497,12 @@ const fmt=n=>{const v=Number(n)||0;return Number.isInteger(v)?v.toLocaleString('
 const money=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const nowISO=()=>new Date().toISOString();
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-const isAdmin=()=>session&&(session.role==='admin'||session.role==='operador');
-const isSuper=()=>session&&session.role==='admin';
+function isOperatorUser(n){try{n=(n||'').toLowerCase();return (typeof OPERADORES!=='undefined'&&OPERADORES?OPERADORES:[]).some(function(o){return o[0].toLowerCase()===n;});}catch(e){return false;}}
+function curRole(){if(!session)return null;if(isOperatorUser(session.u))return 'operador';if(session.role)return session.role;try{var u=US.find(function(x){return (x.u||'').toLowerCase()===(session.u||'').toLowerCase();});return u?u.role:null;}catch(e){return session.role||null;}}
+const isAdmin=()=>{const r=curRole();return r==='admin'||r==='operador';};
+const isSuper=()=>curRole()==='admin';
 const ROLE_VIEWS={operador:['v-board','v-recv','v-floor','v-mov','v-stock','v-labels']};
-function allowedViews(){return (session&&ROLE_VIEWS[session.role])||null;}
+function allowedViews(){const r=curRole();return (r&&ROLE_VIEWS[r])||null;}
 const code=sp=>sp.s+'-'+sp.p+'-'+sp.l;
 const whLabel=w=>w==='70'?'Dep 70':w==='novo'?'Novo':'Chão';
 function toast(m,ok=true){const t=$('#toast');$('#toastMsg').textContent=m;t.className='show '+(ok?'ok':'err');clearTimeout(t._t);t._t=setTimeout(()=>t.className='',2600);}

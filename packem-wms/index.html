@@ -165,6 +165,8 @@
   .ruatabs{display:flex;gap:6px;flex-wrap:wrap;max-width:100%;}
   .ruatabs button{background:#fff;border:1px solid var(--line-2);color:var(--muted);border-radius:9px;padding:7px 12px;font-weight:700;font-family:var(--mono);font-size:.8rem;cursor:pointer;}
   .ruatabs button.on{background:var(--ink,#0f1b2e);color:#fff;border-color:transparent;}
+  .whpick button{font-family:inherit!important;}
+  .whpick button.on{background:var(--brand,#EA5A0C)!important;color:#fff!important;border-color:transparent!important;}
   .board{overflow:auto;border:1px solid var(--line);border-radius:14px;background:var(--card);padding:16px;box-shadow:var(--sh-sm);}
   .board table{border-collapse:separate;border-spacing:5px;}
   .board th.col{font-family:var(--mono);font-size:.6rem;color:var(--faint);font-weight:700;text-align:center;padding-bottom:4px;min-width:30px;}
@@ -307,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v17</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v19</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -452,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v17</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v19</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -495,7 +497,7 @@ let S=DB.spaces(),MV=DB.movs(),TR=DB.transf(),VL=DB.values(),US=DB.users(),AC=DB
 /* limpa pesos impossíveis (dado corrompido) logo na carga, pra NENHUMA tela mostrar valor gigante */
 function cleanQ(v){var n=Number(v)||0;return (n>10000000||n<0)?0:n;}
 try{S.forEach(function(x){x.q=cleanQ(x.q);});}catch(e){}
-let session=null,mode='entrada',abcMetric='peso',lblTab='end',boardLevel=null,boardStreet=null;
+let session=null,mode='entrada',abcMetric='peso',lblTab='end',boardLevel=null,boardStreet=null,boardWH=null;
 let stSort={k:'upd',d:-1};
 
 const norm=s=>(s||'').trim().toUpperCase();
@@ -582,29 +584,43 @@ function renderHome(){
 
 /* BOARD */
 function renderBoard(){
-  const all=S.filter(x=>x.w===cfg.warehouse);
+  const box=$('#v-board');if(!box)return;
+  const SS=Array.isArray(S)?S:[];
+  let wh=(cfg&&cfg.warehouse)||'70';
+  let all=SS.filter(x=>x&&x.w===wh);
+  /* se o depósito atual não tem vagas (no celular não dá pra trocar), mostra o que tiver dados */
+  if(!all.length&&SS.length){const cnt={};SS.forEach(x=>{if(x&&x.w)cnt[x.w]=(cnt[x.w]||0)+1;});const best=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];if(best){wh=best;all=SS.filter(x=>x&&x.w===wh);}}
+  boardWH=wh;
   const levels=[...new Set(all.map(x=>Number(x.l)).filter(v=>!isNaN(v)))].sort((a,b)=>a-b);
-  boardLevel=(levels.indexOf(Number(boardLevel))>=0)?Number(boardLevel):levels[0];
-  const allStreets=[...new Set(all.map(x=>x.s))].sort();
+  if(!(levels.indexOf(Number(boardLevel))>=0))boardLevel=levels.length?levels[0]:null;
+  const allStreets=[...new Set(all.map(x=>x.s).filter(Boolean))].sort();
   if(boardStreet&&allStreets.indexOf(boardStreet)<0)boardStreet=null;
   const byStreet=!!boardStreet;
   const occ=all.filter(x=>x.o).length;
-  $('#v-board').innerHTML=`
-    <div class="ph-head"><div><p class="eb">${whLabel(cfg.warehouse)}</p><h1>Mapa do armazém</h1></div></div>
+  const whs=[...new Set(SS.map(x=>x&&x.w).filter(Boolean))].sort((a,b)=>(a==='70'?-1:b==='70'?1:a.localeCompare(b)));
+  box.innerHTML=`
+    <div class="ph-head"><div><p class="eb">${whLabel(wh)}</p><h1>Mapa do armazém</h1></div></div>
     <div class="board-ctrl">
-      <div class="ruatabs"><button class="${!boardStreet?'on':''}" data-r="">Todas as ruas</button>${allStreets.map(s=>`<button class="${s===boardStreet?'on':''}" data-r="${s}">Rua ${s}</button>`).join('')}</div>
-      ${byStreet?'':`<div class="lvtabs">${levels.map(l=>`<button class="${Number(l)===Number(boardLevel)?'on':''}" data-l="${l}">Nível ${l}</button>`).join('')}</div>`}
+      ${whs.length>1?`<div class="ruatabs whpick">${whs.map(w=>`<button class="${w===wh?'on':''}" data-wh="${w}">${whLabel(w)}</button>`).join('')}</div>`:''}
+      ${allStreets.length?`<div class="ruatabs"><button class="${!boardStreet?'on':''}" data-r="">Todas as ruas</button>${allStreets.map(s=>`<button class="${s===boardStreet?'on':''}" data-r="${s}">Rua ${s}</button>`).join('')}</div>`:''}
+      ${byStreet||!levels.length?'':`<div class="lvtabs">${levels.map(l=>`<button class="${Number(l)===Number(boardLevel)?'on':''}" data-l="${l}">Nível ${l}</button>`).join('')}</div>`}
       <div class="legend"><span><i style="background:linear-gradient(135deg,#15A34A,#22c55e)"></i>Vago</span><span><i style="background:linear-gradient(135deg,#ef4444,#f87171)"></i>Ocupado</span><span><i style="background:linear-gradient(135deg,#d97706,#fbbf24)"></i>+20 dias</span><span><i style="background:linear-gradient(135deg,#7f1d1d,#b91c1c)"></i>+40 dias</span><span style="color:var(--faint)">${occ} ocupadas</span></div>
     </div>
     <div class="board" id="boardBox"></div>`;
+  $$('#v-board .whpick button').forEach(b=>b.onclick=()=>{cfg.warehouse=b.dataset.wh;try{DB.saveCfg(cfg);}catch(e){}boardWH=null;boardStreet=null;boardLevel=null;renderBoard();});
   $$('#v-board .ruatabs button').forEach(b=>b.onclick=()=>{boardStreet=b.dataset.r||null;renderBoard();});
   if(!byStreet)$$('#v-board .lvtabs button').forEach(b=>b.onclick=()=>{boardLevel=Number(b.dataset.l);renderBoard();});
-  drawBoard();
+  const bb=$('#boardBox');
+  try{
+    if(!all.length){bb.innerHTML='<div class="empty" style="padding:34px 16px;text-align:center;color:var(--muted)"><b>Sem vagas para mostrar</b><div class="es" style="margin-top:6px">Os dados ainda não carregaram ou o depósito está vazio. Puxe a tela para baixo para atualizar.</div></div>';return;}
+    drawBoard();
+  }catch(e){bb.innerHTML='<div class="empty" style="padding:28px 16px;text-align:center;color:var(--muted)"><b>Não consegui desenhar o mapa</b><div class="es" style="margin-top:6px;font-family:var(--mono);font-size:.74rem">'+String((e&&e.message)||e).replace(/</g,'&lt;')+'</div></div>';}
 }
 function cellHTML(x){if(!x)return '<td><div class="cellx none"></div></td>';let cls='free',ageTxt='';if(x.o){const dd=x.upd?Math.floor((Date.now()-Date.parse(x.upd))/86400000):0;ageTxt=' · '+dd+'d parado';cls=dd>40?'crit':(dd>20?'warn':'occ');}return `<td><div class="cellx ${cls}" data-id="${x.id}" title="${code(x)}${x.pr?' · '+x.pr+' · '+fmt(x.q)+'kg'+ageTxt:' · vago'}"></div></td>`;}
 function drawBoard(){
   if(boardStreet)return drawBoardStreet();
-  const rows=S.filter(x=>x.w===cfg.warehouse&&Number(x.l)===Number(boardLevel));
+  const wh=boardWH||(cfg&&cfg.warehouse)||'70';
+  const rows=(Array.isArray(S)?S:[]).filter(x=>x&&x.w===wh&&Number(x.l)===Number(boardLevel));
   const streets=[...new Set(rows.map(x=>x.s))].sort();
   const positions=[...new Set(rows.map(x=>Number(x.p)))].sort((a,b)=>a-b);
   const map={};rows.forEach(x=>map[x.s+'_'+Number(x.p)]=x);
@@ -615,7 +631,8 @@ function drawBoard(){
   $$('#boardBox .cellx[data-id]').forEach(c=>c.onclick=()=>openSpace(c.dataset.id));
 }
 function drawBoardStreet(){
-  const rows=S.filter(x=>x.w===cfg.warehouse&&x.s===boardStreet);
+  const wh=boardWH||(cfg&&cfg.warehouse)||'70';
+  const rows=(Array.isArray(S)?S:[]).filter(x=>x&&x.w===wh&&x.s===boardStreet);
   const levels=[...new Set(rows.map(x=>Number(x.l)).filter(v=>!isNaN(v)))].sort((a,b)=>a-b);
   const positions=[...new Set(rows.map(x=>Number(x.p)))].sort((a,b)=>a-b);
   const map={};rows.forEach(x=>map[Number(x.l)+'_'+Number(x.p)]=x);

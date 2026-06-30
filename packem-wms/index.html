@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v19</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v21</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v19</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v21</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -586,10 +586,8 @@ function renderHome(){
 function renderBoard(){
   const box=$('#v-board');if(!box)return;
   const SS=Array.isArray(S)?S:[];
-  let wh=(cfg&&cfg.warehouse)||'70';
-  let all=SS.filter(x=>x&&x.w===wh);
-  /* se o depósito atual não tem vagas (no celular não dá pra trocar), mostra o que tiver dados */
-  if(!all.length&&SS.length){const cnt={};SS.forEach(x=>{if(x&&x.w)cnt[x.w]=(cnt[x.w]||0)+1;});const best=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];if(best){wh=best;all=SS.filter(x=>x&&x.w===wh);}}
+  const wh=(cfg&&cfg.warehouse)||'70';
+  const all=SS.filter(x=>x&&x.w===wh);
   boardWH=wh;
   const levels=[...new Set(all.map(x=>Number(x.l)).filter(v=>!isNaN(v)))].sort((a,b)=>a-b);
   if(!(levels.indexOf(Number(boardLevel))>=0))boardLevel=levels.length?levels[0]:null;
@@ -597,11 +595,11 @@ function renderBoard(){
   if(boardStreet&&allStreets.indexOf(boardStreet)<0)boardStreet=null;
   const byStreet=!!boardStreet;
   const occ=all.filter(x=>x.o).length;
-  const whs=[...new Set(SS.map(x=>x&&x.w).filter(Boolean))].sort((a,b)=>(a==='70'?-1:b==='70'?1:a.localeCompare(b)));
+  const whs=['70','novo','chao'].concat(SS.map(x=>x&&x.w).filter(Boolean)).filter((w,i,a)=>w&&a.indexOf(w)===i);
   box.innerHTML=`
     <div class="ph-head"><div><p class="eb">${whLabel(wh)}</p><h1>Mapa do armazém</h1></div></div>
     <div class="board-ctrl">
-      ${whs.length>1?`<div class="ruatabs whpick">${whs.map(w=>`<button class="${w===wh?'on':''}" data-wh="${w}">${whLabel(w)}</button>`).join('')}</div>`:''}
+      <div class="ruatabs whpick">${whs.map(w=>`<button class="${w===wh?'on':''}" data-wh="${w}">${whLabel(w)}</button>`).join('')}</div>
       ${allStreets.length?`<div class="ruatabs"><button class="${!boardStreet?'on':''}" data-r="">Todas as ruas</button>${allStreets.map(s=>`<button class="${s===boardStreet?'on':''}" data-r="${s}">Rua ${s}</button>`).join('')}</div>`:''}
       ${byStreet||!levels.length?'':`<div class="lvtabs">${levels.map(l=>`<button class="${Number(l)===Number(boardLevel)?'on':''}" data-l="${l}">Nível ${l}</button>`).join('')}</div>`}
       <div class="legend"><span><i style="background:linear-gradient(135deg,#15A34A,#22c55e)"></i>Vago</span><span><i style="background:linear-gradient(135deg,#ef4444,#f87171)"></i>Ocupado</span><span><i style="background:linear-gradient(135deg,#d97706,#fbbf24)"></i>+20 dias</span><span><i style="background:linear-gradient(135deg,#7f1d1d,#b91c1c)"></i>+40 dias</span><span style="color:var(--faint)">${occ} ocupadas</span></div>
@@ -612,7 +610,7 @@ function renderBoard(){
   if(!byStreet)$$('#v-board .lvtabs button').forEach(b=>b.onclick=()=>{boardLevel=Number(b.dataset.l);renderBoard();});
   const bb=$('#boardBox');
   try{
-    if(!all.length){bb.innerHTML='<div class="empty" style="padding:34px 16px;text-align:center;color:var(--muted)"><b>Sem vagas para mostrar</b><div class="es" style="margin-top:6px">Os dados ainda não carregaram ou o depósito está vazio. Puxe a tela para baixo para atualizar.</div></div>';return;}
+    if(!all.length){bb.innerHTML='<div class="empty" style="padding:34px 16px;text-align:center;color:var(--muted)"><b>Este depósito está vazio</b><div class="es" style="margin-top:6px">Toque em <b>Dep 70</b>, <b>Novo</b> ou <b>Chão</b> acima para ver outro mapa. Se os dados ainda estiverem carregando, puxe a tela para baixo para atualizar.</div></div>';return;}
     drawBoard();
   }catch(e){bb.innerHTML='<div class="empty" style="padding:28px 16px;text-align:center;color:var(--muted)"><b>Não consegui desenhar o mapa</b><div class="es" style="margin-top:6px;font-family:var(--mono);font-size:.74rem">'+String((e&&e.message)||e).replace(/</g,'&lt;')+'</div></div>';}
 }
@@ -1266,7 +1264,28 @@ function showBobLabel(et){et=norm(et);const o=BOB[et]||{};const it=(typeof STAGE
  openDrawer((ICONS.tag||'')+' Etiqueta da bobina',lbl);
  const draw=()=>{const b=document.getElementById('bobQRbox');if(b)b.innerHTML=qrSvg(et);};
  (typeof loadQR==='function'?loadQR():Promise.resolve()).then(draw).catch(draw);
- const pb=document.getElementById('bobLblPrint');if(pb)pb.onclick=()=>window.print();}
+ const pb=document.getElementById('bobLblPrint');if(pb)pb.onclick=function(){
+   var build=function(){
+     var qr=qrSvg(et);
+     var body='<div class="bq">'
+       +'<div class="bqh">PACKEM · BOBINA</div>'
+       +'<div class="bqp">'+(pr||'—')+'</div>'
+       +(desc?'<div class="bqd">'+desc+'</div>':'')
+       +'<div class="bqe">'+et+'</div>'
+       +((pl>0)?'<div class="bqw">'+fmt(pl)+' KG</div>':'')
+       +'<div class="bqq">'+qr+'</div></div>';
+     var css='*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:100mm 100mm;margin:0}'
+       +'.bq{width:100mm;height:100mm;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:2.4mm;padding:5mm;font-family:Arial,Helvetica,sans-serif;color:#000}'
+       +'.bqh{font-size:3mm;letter-spacing:1.2mm;color:#666;font-weight:800}'
+       +'.bqp{font-family:"Courier New",monospace;font-weight:800;font-size:9mm;line-height:1}'
+       +'.bqd{font-weight:800;font-size:8mm;line-height:1.05;max-width:90mm}'
+       +'.bqe{font-family:"Courier New",monospace;font-weight:700;font-size:5.5mm}'
+       +'.bqw{font-weight:800;font-size:8mm}'
+       +'.bqq{margin-top:1mm}.bqq svg{width:32mm;height:32mm;display:block;margin:0 auto}';
+     try{printDoc(body,css);}catch(e){try{window.print();}catch(_){}}
+   };
+   if(window.qrcode)build();else if(typeof loadQR==='function')loadQR().then(build).catch(build);else build();
+ };}
 function stageArmazenar(et){const it=STAGE.find(s=>s.et===et);if(!it)return;const sug=suggestPutaway(it.pr);
  openDrawer(ICONS.box+' Armazenar '+et,'<div style="margin-bottom:16px"><div class="mono" style="font-weight:700;font-size:1.05rem">'+it.pr+'</div><div style="font-size:.8rem;color:var(--muted);margin-top:3px">'+(it.desc||'')+' · '+fmt(it.pl)+' kg</div></div>'+'<label class="fld"><span class="lab">1 · Bipe a bobina ('+et+')</span><input class="input code" id="azEt" placeholder="toque para bipar"></label><div id="azEtChk" style="font-size:.8rem;font-weight:700;margin:-8px 0 12px 2px"></div>'+(sug.length?'<div class="assist"><div class="ah"><span class="sp"></span>Sugestão de endereço</div>'+sug.map(x=>'<div class="sug" data-c="'+code(x)+'"><span class="sx">'+code(x)+'</span><span class="tagn '+(x._cons?'cons':'free')+'">'+(x._cons?'consolidar':'vaga livre')+'</span></div>').join('')+'</div>':'')+'<label class="fld"><span class="lab">2 · Bipe o endereço</span><input class="input code" id="azLoc" placeholder="toque para bipar"></label><button class="btn in" id="azDo" style="width:100%;height:48px">Confirmar armazenagem</button>');
  const expectEt=norm(et);
@@ -3220,19 +3239,22 @@ function zplIntakeLabel(it){
  return z;
 }
 var _bpBase=null;
+function bpMobile(){try{return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)||(window.matchMedia&&window.matchMedia('(max-width:900px)').matches);}catch(e){return false;}}
+function bpFetch(url,opts,ms){return new Promise(function(res,rej){var ctl=('AbortController'in window)?new AbortController():null;var done=false;var t=setTimeout(function(){if(done)return;done=true;if(ctl){try{ctl.abort();}catch(e){}}rej(new Error('timeout'));},ms||1500);var o=Object.assign({},opts||{});if(ctl)o.signal=ctl.signal;fetch(url,o).then(function(r){if(done)return;done=true;clearTimeout(t);res(r);},function(e){if(done)return;done=true;clearTimeout(t);rej(e);});});}
 async function bpResolve(){
  if(_bpBase)return _bpBase;
+ if(bpMobile())return null; /* celular/tablet não tem Zebra Browser Print — vai direto pro fallback HTML */
  var bases=['https://127.0.0.1:9101','https://localhost:9101','http://127.0.0.1:9100','http://localhost:9100'];
- for(var i=0;i<bases.length;i++){try{var r=await fetch(bases[i]+'/available',{method:'GET'});if(r&&r.ok){_bpBase=bases[i];return _bpBase;}}catch(e){}}
+ for(var i=0;i<bases.length;i++){try{var r=await bpFetch(bases[i]+'/available',{method:'GET'},1200);if(r&&r.ok){_bpBase=bases[i];return _bpBase;}}catch(e){}}
  return null;
 }
 async function sendToZebra(zpl){
  var base=await bpResolve();if(!base)return false;
  var dev=null;
- try{var r=await fetch(base+'/default?type=printer');if(r&&r.ok)dev=await r.json();}catch(e){}
- if(!dev||!dev.uid){try{var r2=await fetch(base+'/available');var j=await r2.json();dev=(j&&j.printer&&j.printer[0])||(Array.isArray(j)?j[0]:null);}catch(e){}}
+ try{var r=await bpFetch(base+'/default?type=printer',{},1500);if(r&&r.ok)dev=await r.json();}catch(e){}
+ if(!dev||!dev.uid){try{var r2=await bpFetch(base+'/available',{},1500);var j=await r2.json();dev=(j&&j.printer&&j.printer[0])||(Array.isArray(j)?j[0]:null);}catch(e){}}
  if(!dev)return false;
- try{var w=await fetch(base+'/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device:dev,data:zpl})});return !!(w&&w.ok);}catch(e){return false;}
+ try{var w=await bpFetch(base+'/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device:dev,data:zpl})},4000);return !!(w&&w.ok);}catch(e){return false;}
 }
 function printIntakeLabel(it){if(!it)return;
  try{sendToZebra(zplIntakeLabel(it)).then(function(ok){if(!ok)printIntakeFallback(it);}).catch(function(){printIntakeFallback(it);});}

@@ -525,7 +525,14 @@ function occSpaces(){return S.filter(x=>x.w===cfg.warehouse&&x.o&&x.pr&&x.q>0);}
 
 /* login */
 function showLogin(){$('#login').style.display='flex';$('#logHint').textContent='';}
-$('#logBtn').onclick=()=>{const u=$('#logUser').value.trim(),p=$('#logPass').value;const f=US.find(x=>x.u.toLowerCase()===u.toLowerCase()&&x.p===p&&x.active!==false);if(!f){toast('Usuário ou senha inválidos',false);return;}session={u:f.u,role:f.role};logAct('login',f.u);$('#login').style.display='none';applyPerms();refreshUser();go('v-home');$('#logPass').value='';};
+$('#logBtn').onclick=()=>{try{
+  if(!Array.isArray(US)||!US.length){US=[{u:'admin',p:'020502',role:'admin',active:true}];try{DB.saveUsers(US);}catch(e2){}}
+  const u=($('#logUser').value||'').trim(),p=$('#logPass').value||'';
+  if(!u||!p){toast('Preencha usuário e senha',false);return;}
+  const f=US.find(x=>x&&(x.u||'').toLowerCase()===u.toLowerCase()&&x.p===p&&x.active!==false);
+  if(!f){toast('Usuário ou senha inválidos',false);return;}
+  session={u:f.u,role:f.role};logAct('login',f.u);$('#login').style.display='none';applyPerms();refreshUser();go('v-home');$('#logPass').value='';
+}catch(err){console.error('login',err);toast('Erro ao entrar — atualize a página (Ctrl+Shift+R) e tente de novo',false);}};
 $('#logPass').addEventListener('keydown',e=>{if(e.key==='Enter')$('#logBtn').click();});
 $('#logoutBtn').onclick=()=>{logAct('logout',session.u);session=null;showLogin();};
 function refreshUser(){$('#uName').textContent=session?session.u:'—';$('#uRole').textContent=session?session.role:'';}
@@ -616,23 +623,33 @@ function renderBoard(){
     if(window.addCam)addCam('boardSearch',{onResult:v=>{bs.value=v;boardSearchGo(v,false);}});
   }
   const bmic=$('#boardMic');
-  if(bmic)bmic.onclick=function(){
-    if(typeof vpListenOnce!=='function'){toast('Reconhecimento de voz indisponível',false);return;}
-    if(bmic.disabled)return;
-    var orig=bmic.textContent;
-    bmic.disabled=true;bmic.textContent='🎙️ Ouvindo... fale agora';
-    function restore(){bmic.disabled=false;bmic.textContent=orig;}
-    vpListenOnce(function(transcript){
-      restore();
-      if(!transcript){toast('Não entendi nada — tenta de novo',false);return;}
-      if(bs)bs.value=transcript;
-      boardSearchGo(transcript,true);
-    },function(err){
-      restore();
-      var msg=(err&&err.error==='timeout')?'Deu tempo e não ouvi nada — tenta de novo':(err&&err.error==='no-speech')?'Não ouvi nenhuma fala — tenta de novo':(err&&err.error==='not-allowed')?'Permissão de microfone negada — libera nas configurações do navegador':'Não consegui ouvir — tenta de novo';
-      toast(msg,false);
-    });
-  };
+  if(bmic){
+    var bmicCancel=null,bmicOrig=bmic.textContent;
+    bmic.onclick=function(){
+      try{
+        if(bmicCancel){bmicCancel();bmicCancel=null;bmic.textContent=bmicOrig;bmic.classList.remove('out');return;}
+        if(typeof vpListenOnce!=='function'){toast('Reconhecimento de voz indisponível',false);return;}
+        bmic.textContent='🎙️ Ouvindo... toque p/ cancelar';bmic.classList.add('out');
+        function restore(){bmicCancel=null;bmic.textContent=bmicOrig;bmic.classList.remove('out');}
+        bmicCancel=vpListenOnce(function(transcript){
+          restore();
+          if(!transcript){toast('Não entendi nada — tenta de novo',false);return;}
+          if(bs)bs.value=transcript;
+          toast('🧠 pensando...');
+          vpAskAI(transcript).then(function(answer){
+            vpSpeakForce(answer);
+            toast(answer);
+          }).catch(function(){
+            try{boardSearchGo(transcript,true);}catch(e){toast('Erro na busca — tenta de novo',false);}
+          });
+        },function(err){
+          restore();
+          var msg=(err&&err.error==='timeout')?'Deu tempo e não ouvi nada — tenta de novo':(err&&err.error==='no-speech')?'Não ouvi nenhuma fala — tenta de novo':(err&&err.error==='not-allowed')?'Permissão de microfone negada — libera nas configurações do navegador':'Não consegui ouvir — tenta de novo';
+          toast(msg,false);
+        });
+      }catch(e){bmicCancel=null;bmic.textContent=bmicOrig;bmic.classList.remove('out');toast('Erro no microfone — tenta de novo',false);}
+    };
+  }
   const bb=$('#boardBox');
   try{
     if(!all.length){bb.innerHTML='<div class="empty" style="padding:34px 16px;text-align:center;color:var(--muted)"><b>Este depósito está vazio</b><div class="es" style="margin-top:6px">Toque em <b>Dep 70</b>, <b>Novo</b> ou <b>Chão</b> acima para ver outro mapa. Se os dados ainda estiverem carregando, puxe a tela para baixo para atualizar.</div></div>';return;}
@@ -1359,6 +1376,47 @@ function vpAddrSpeech(c){
   if(parts.length<2)return c||'';
   return 'rua '+parts[0]+', posição '+parts[1]+(parts[2]?(', nível '+parts[2]):'');
 }
+function vpBuildContext(){
+  try{
+    var wh=(cfg&&cfg.warehouse)||'70';
+    var SS=(typeof S!=='undefined'&&Array.isArray(S))?S.filter(function(x){return x&&x.w===wh;}):[];
+    var byPr={};
+    SS.forEach(function(x){
+      if(!x.o||!x.pr)return;
+      if(!byPr[x.pr])byPr[x.pr]={produto:x.pr,descricao:(typeof boardDescOf==='function'?boardDescOf(x.pr):'')||'',peso_total_kg:0,enderecos:[]};
+      byPr[x.pr].peso_total_kg+=Number(x.q)||0;
+      if(byPr[x.pr].enderecos.length<15)byPr[x.pr].enderecos.push(code(x)+' ('+Math.round(Number(x.q)||0)+'kg)');
+    });
+    var produtos=Object.values(byPr).map(function(p){p.peso_total_kg=Math.round(p.peso_total_kg);return p;});
+    var livres=SS.filter(function(x){return !x.o;});
+    var livresPorRua={};
+    livres.forEach(function(x){livresPorRua[x.s]=(livresPorRua[x.s]||0)+1;});
+    var stg=(typeof STAGE!=='undefined'&&Array.isArray(STAGE))?STAGE:[];
+    var floorState=(typeof window.floorGetState==='function')?window.floorGetState():{};
+    var floorArr=Object.values(floorState||{});
+    return {
+      deposito:wh,
+      total_posicoes:SS.length,
+      posicoes_ocupadas:SS.length-livres.length,
+      posicoes_livres:livres.length,
+      livres_por_rua:livresPorRua,
+      exemplos_enderecos_livres:livres.slice(0,25).map(function(x){return code(x);}),
+      produtos:produtos.slice(0,180),
+      estoque_intermediario_aguardando:stg.slice(0,60).map(function(s){return {produto:s.pr,peso_kg:s.pl,etiqueta:s.et};}),
+      chao_bobinas_soltas:floorArr.slice(0,60).map(function(g){return {produto:g.pr,quantidade:g.qtd,peso_kg:g.kg};})
+    };
+  }catch(e){return {};}
+}
+function vpAskAI(question){
+  return fetch('/api/ask',{
+    method:'POST',
+    headers:{'content-type':'application/json'},
+    body:JSON.stringify({question:question,context:vpBuildContext()})
+  }).then(function(r){return r.json().then(function(d){return {ok:r.ok,data:d};});}).then(function(res){
+    if(!res.ok||!res.data||res.data.error)throw new Error((res.data&&res.data.error)||'Erro na IA');
+    return res.data.answer;
+  });
+}
 function vpVoiceToggleHTML(id){return '<label style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);margin-bottom:14px;cursor:pointer"><input type="checkbox" id="'+id+'" '+(vpVoiceOn()?'checked':'')+'> Ler instruções em voz alta</label>';}
 function vpSpeakForce(text){
   try{
@@ -1372,7 +1430,7 @@ function vpSpeakForce(text){
 function vpListenOnce(onResult,onError){
   try{
     var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR){toast('Reconhecimento de voz não disponível neste navegador/aparelho',false);if(onError)onError();return;}
+    if(!SR){toast('Reconhecimento de voz não disponível neste navegador/aparelho',false);if(onError)onError();return function(){};}
     var r=new SR();
     var done=false;
     r.lang='pt-BR';r.continuous=false;r.interimResults=false;r.maxAlternatives=1;
@@ -1380,36 +1438,46 @@ function vpListenOnce(onResult,onError){
       if(done)return;done=true;
       try{r.abort();}catch(e){}
       if(onError)onError({error:'timeout'});
-    },8000);
+    },6000);
+    function finish(fn,arg){if(done)return;done=true;clearTimeout(timer);try{fn(arg);}catch(e){}}
     r.onresult=function(e){
-      if(done)return;done=true;clearTimeout(timer);
       var t=(e.results&&e.results[0]&&e.results[0][0])?e.results[0][0].transcript:'';
-      onResult(t||'');
+      finish(onResult,t||'');
     };
-    r.onerror=function(e){
-      if(done)return;done=true;clearTimeout(timer);
-      if(onError)onError(e);
-    };
-    r.onend=function(){
-      if(done)return;done=true;clearTimeout(timer);
-      if(onError)onError({error:'no-speech'});
-    };
-    r.start();
-  }catch(e){if(onError)onError(e);}
+    r.onerror=function(e){finish(onError,e);};
+    r.onend=function(){finish(onError,{error:'no-speech'});};
+    try{r.start();}catch(e){finish(onError,e);}
+    return function cancel(){if(done)return;done=true;clearTimeout(timer);try{r.abort();}catch(e){}};
+  }catch(e){if(onError)onError(e);return function(){};}
 }
 function vpAskBtnHTML(id){return '<button class="btn" type="button" id="'+id+'" style="margin-bottom:14px;width:100%">Perguntar vaga livre</button><div id="'+id+'Hint" style="font-size:.74rem;color:var(--faint);margin:-10px 0 14px"></div>';}
 function stageArmazenar(et){const it=STAGE.find(s=>s.et===et);if(!it)return;const sug=suggestPutaway(it.pr);
  openDrawer(ICONS.box+' Armazenar '+et,vpVoiceToggleHTML('azVoice')+vpAskBtnHTML('azAsk')+'<div style="margin-bottom:16px"><div class="mono" style="font-weight:700;font-size:1.05rem">'+it.pr+'</div><div style="font-size:.8rem;color:var(--muted);margin-top:3px">'+(it.desc||'')+' · '+fmt(it.pl)+' kg</div></div>'+'<label class="fld"><span class="lab">1 · Bipe a bobina ('+et+')</span><input class="input code" id="azEt" placeholder="toque para bipar"></label><div id="azEtChk" style="font-size:.8rem;font-weight:700;margin:-8px 0 12px 2px"></div>'+(sug.length?'<div class="assist"><div class="ah"><span class="sp"></span>Sugestão de endereço</div>'+sug.map(x=>'<div class="sug" data-c="'+code(x)+'"><span class="sx">'+code(x)+'</span><span class="tagn '+(x._cons?'cons':'free')+'">'+(x._cons?'consolidar':'vaga livre')+'</span></div>').join('')+'</div>':'')+'<label class="fld"><span class="lab">2 · Bipe o endereço</span><input class="input code" id="azLoc" placeholder="toque para bipar"></label><button class="btn in" id="azDo" style="width:100%;height:48px">Confirmar armazenagem</button>');
  var azVoiceEl=$('#azVoice');if(azVoiceEl)azVoiceEl.onchange=function(){vpToggleVoice(azVoiceEl.checked);if(azVoiceEl.checked)vpSpeak('Olá operador, vaga '+(sug.length?vpAddrSpeech(code(sug[0])):'não encontrada')+' livre. Leve a bobina '+et+' até lá.');};
  var azAskEl=$('#azAsk');
+ var azAskCancel=null,azAskOrig=azAskEl?azAskEl.textContent:'';
  if(azAskEl)azAskEl.onclick=function(){
-   var hint=$('#azAskHint');if(hint)hint.textContent='🎤 ouvindo...';
-   vpListenOnce(function(transcript){
-     var sug2=suggestPutaway(it.pr);
-     if(hint)hint.textContent=transcript?('ouvi: "'+transcript+'"'):'';
-     if(sug2.length){vpSpeakForce('Vaga livre em '+vpAddrSpeech(code(sug2[0]))+'.');toast('Vaga livre: '+code(sug2[0]));}
-     else{vpSpeakForce('Não encontrei vaga livre pra esse produto agora.');toast('Sem vaga livre sugerida',false);}
-   },function(){if(hint)hint.textContent='';toast('Não consegui ouvir — verifica o microfone e tenta de novo',false);});
+   try{
+     var hint=$('#azAskHint');
+     if(azAskCancel){azAskCancel();azAskCancel=null;azAskEl.textContent=azAskOrig;if(hint)hint.textContent='';return;}
+     if(typeof vpListenOnce!=='function'){toast('Reconhecimento de voz indisponível',false);return;}
+     azAskEl.textContent='🎙️ Ouvindo... toque p/ cancelar';
+     if(hint)hint.textContent='';
+     azAskCancel=vpListenOnce(function(transcript){
+       azAskCancel=null;azAskEl.textContent=azAskOrig;
+       if(hint)hint.textContent=transcript?('ouvi: "'+transcript+'"'):'';
+       var pergunta='Estou armazenando o produto '+it.pr+' ('+(it.desc||'')+', '+fmt(it.pl)+' kg). '+(transcript||'Onde tem vaga livre pra esse produto?');
+       vpAskAI(pergunta).then(function(answer){
+         vpSpeakForce(answer);toast(answer);
+       }).catch(function(){
+         try{
+           var sug2=suggestPutaway(it.pr);
+           if(sug2.length){vpSpeakForce('Vaga livre em '+vpAddrSpeech(code(sug2[0]))+'.');toast('Vaga livre: '+code(sug2[0]));}
+           else{vpSpeakForce('Não encontrei vaga livre pra esse produto agora.');toast('Sem vaga livre sugerida',false);}
+         }catch(e){toast('Erro ao buscar vaga',false);}
+       });
+     },function(){azAskCancel=null;azAskEl.textContent=azAskOrig;if(hint)hint.textContent='';toast('Não consegui ouvir — verifica o microfone e tenta de novo',false);});
+   }catch(e){azAskCancel=null;if(azAskEl)azAskEl.textContent=azAskOrig;toast('Erro no microfone — tenta de novo',false);}
  };
  if(vpVoiceOn())vpSpeak('Olá operador, vaga '+(sug.length?vpAddrSpeech(code(sug[0])):'não encontrada')+' livre. Leve a bobina '+et+' até lá e bipe pra confirmar.');
  const expectEt=norm(et);

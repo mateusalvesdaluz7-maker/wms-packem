@@ -600,7 +600,8 @@ function renderBoard(){
     <div class="ph-head"><div><p class="eb">${whLabel(wh)}</p><h1>Mapa do armazém</h1></div></div>
     <div class="board-ctrl">
       <div class="ruatabs whpick">${whs.map(w=>`<button class="${w===wh?'on':''}" data-wh="${w}">${whLabel(w)}</button>`).join('')}</div>
-      <div class="fld" style="margin:8px 0;display:flex;gap:6px;align-items:stretch"><input class="input code" id="boardSearch" autocomplete="off" placeholder="Buscar produto, endereço ou bobina" style="flex:1"><button class="btn" type="button" id="boardMic" title="Perguntar por voz" style="flex:none">🎤</button></div>
+      <div class="fld" style="margin:8px 0"><input class="input code" id="boardSearch" autocomplete="off" placeholder="Buscar produto, endereço ou bobina"></div>
+      <button class="gbtn" type="button" id="boardMic" style="width:100%;justify-content:center;margin-bottom:8px">🧠 Estoque Inteligente — toque e fale</button>
       ${allStreets.length?`<div class="ruatabs"><button class="${!boardStreet?'on':''}" data-r="">Todas as ruas</button>${allStreets.map(s=>`<button class="${s===boardStreet?'on':''}" data-r="${s}">Rua ${s}</button>`).join('')}</div>`:''}
       ${byStreet||!levels.length?'':`<div class="lvtabs">${levels.map(l=>`<button class="${Number(l)===Number(boardLevel)?'on':''}" data-l="${l}">Nível ${l}</button>`).join('')}</div>`}
       <div class="legend"><span><i style="background:linear-gradient(135deg,#15A34A,#22c55e)"></i>Vago</span><span><i style="background:linear-gradient(135deg,#ef4444,#f87171)"></i>Ocupado</span><span><i style="background:linear-gradient(135deg,#d97706,#fbbf24)"></i>+20 dias</span><span><i style="background:linear-gradient(135deg,#7f1d1d,#b91c1c)"></i>+40 dias</span><span style="color:var(--faint)">${occ} ocupadas</span></div>
@@ -617,11 +618,20 @@ function renderBoard(){
   const bmic=$('#boardMic');
   if(bmic)bmic.onclick=function(){
     if(typeof vpListenOnce!=='function'){toast('Reconhecimento de voz indisponível',false);return;}
-    toast('🎤 ouvindo...');
+    if(bmic.disabled)return;
+    var orig=bmic.textContent;
+    bmic.disabled=true;bmic.textContent='🎙️ Ouvindo... fale agora';
+    function restore(){bmic.disabled=false;bmic.textContent=orig;}
     vpListenOnce(function(transcript){
+      restore();
+      if(!transcript){toast('Não entendi nada — tenta de novo',false);return;}
       if(bs)bs.value=transcript;
       boardSearchGo(transcript,true);
-    },function(){toast('Não consegui ouvir — tenta de novo',false);});
+    },function(err){
+      restore();
+      var msg=(err&&err.error==='timeout')?'Deu tempo e não ouvi nada — tenta de novo':(err&&err.error==='no-speech')?'Não ouvi nenhuma fala — tenta de novo':(err&&err.error==='not-allowed')?'Permissão de microfone negada — libera nas configurações do navegador':'Não consegui ouvir — tenta de novo';
+      toast(msg,false);
+    });
   };
   const bb=$('#boardBox');
   try{
@@ -1349,7 +1359,7 @@ function vpAddrSpeech(c){
   if(parts.length<2)return c||'';
   return 'rua '+parts[0]+', posição '+parts[1]+(parts[2]?(', nível '+parts[2]):'');
 }
-function vpVoiceToggleHTML(id){return '<label style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);margin-bottom:14px;cursor:pointer"><input type="checkbox" id="'+id+'" '+(vpVoiceOn()?'checked':'')+'> 🔊 Ler instruções em voz alta</label>';}
+function vpVoiceToggleHTML(id){return '<label style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);margin-bottom:14px;cursor:pointer"><input type="checkbox" id="'+id+'" '+(vpVoiceOn()?'checked':'')+'> Ler instruções em voz alta</label>';}
 function vpSpeakForce(text){
   try{
     if(!window.speechSynthesis)return;
@@ -1364,16 +1374,33 @@ function vpListenOnce(onResult,onError){
     var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(!SR){toast('Reconhecimento de voz não disponível neste navegador/aparelho',false);if(onError)onError();return;}
     var r=new SR();
+    var done=false;
     r.lang='pt-BR';r.continuous=false;r.interimResults=false;r.maxAlternatives=1;
-    r.onresult=function(e){var t=(e.results&&e.results[0]&&e.results[0][0])?e.results[0][0].transcript:'';onResult(t||'');};
-    r.onerror=function(e){if(onError)onError(e);};
+    var timer=setTimeout(function(){
+      if(done)return;done=true;
+      try{r.abort();}catch(e){}
+      if(onError)onError({error:'timeout'});
+    },8000);
+    r.onresult=function(e){
+      if(done)return;done=true;clearTimeout(timer);
+      var t=(e.results&&e.results[0]&&e.results[0][0])?e.results[0][0].transcript:'';
+      onResult(t||'');
+    };
+    r.onerror=function(e){
+      if(done)return;done=true;clearTimeout(timer);
+      if(onError)onError(e);
+    };
+    r.onend=function(){
+      if(done)return;done=true;clearTimeout(timer);
+      if(onError)onError({error:'no-speech'});
+    };
     r.start();
   }catch(e){if(onError)onError(e);}
 }
-function vpAskBtnHTML(id){return '<button class="btn" type="button" id="'+id+'" style="margin-bottom:14px;width:100%">🎤 Perguntar vaga livre</button><div id="'+id+'Hint" style="font-size:.74rem;color:var(--faint);margin:-10px 0 14px"></div>';}
+function vpAskBtnHTML(id){return '<button class="btn" type="button" id="'+id+'" style="margin-bottom:14px;width:100%">Perguntar vaga livre</button><div id="'+id+'Hint" style="font-size:.74rem;color:var(--faint);margin:-10px 0 14px"></div>';}
 function stageArmazenar(et){const it=STAGE.find(s=>s.et===et);if(!it)return;const sug=suggestPutaway(it.pr);
  openDrawer(ICONS.box+' Armazenar '+et,vpVoiceToggleHTML('azVoice')+vpAskBtnHTML('azAsk')+'<div style="margin-bottom:16px"><div class="mono" style="font-weight:700;font-size:1.05rem">'+it.pr+'</div><div style="font-size:.8rem;color:var(--muted);margin-top:3px">'+(it.desc||'')+' · '+fmt(it.pl)+' kg</div></div>'+'<label class="fld"><span class="lab">1 · Bipe a bobina ('+et+')</span><input class="input code" id="azEt" placeholder="toque para bipar"></label><div id="azEtChk" style="font-size:.8rem;font-weight:700;margin:-8px 0 12px 2px"></div>'+(sug.length?'<div class="assist"><div class="ah"><span class="sp"></span>Sugestão de endereço</div>'+sug.map(x=>'<div class="sug" data-c="'+code(x)+'"><span class="sx">'+code(x)+'</span><span class="tagn '+(x._cons?'cons':'free')+'">'+(x._cons?'consolidar':'vaga livre')+'</span></div>').join('')+'</div>':'')+'<label class="fld"><span class="lab">2 · Bipe o endereço</span><input class="input code" id="azLoc" placeholder="toque para bipar"></label><button class="btn in" id="azDo" style="width:100%;height:48px">Confirmar armazenagem</button>');
- var azVoiceEl=$('#azVoice');if(azVoiceEl)azVoiceEl.onchange=function(){vpToggleVoice(azVoiceEl.checked);if(azVoiceEl.checked)vpSpeak('Voz ativada. Leve a bobina '+et+' até '+vpAddrSpeech(sug.length?code(sug[0]):'')+'.');};
+ var azVoiceEl=$('#azVoice');if(azVoiceEl)azVoiceEl.onchange=function(){vpToggleVoice(azVoiceEl.checked);if(azVoiceEl.checked)vpSpeak('Olá operador, vaga '+(sug.length?vpAddrSpeech(code(sug[0])):'não encontrada')+' livre. Leve a bobina '+et+' até lá.');};
  var azAskEl=$('#azAsk');
  if(azAskEl)azAskEl.onclick=function(){
    var hint=$('#azAskHint');if(hint)hint.textContent='🎤 ouvindo...';
@@ -1384,7 +1411,7 @@ function stageArmazenar(et){const it=STAGE.find(s=>s.et===et);if(!it)return;cons
      else{vpSpeakForce('Não encontrei vaga livre pra esse produto agora.');toast('Sem vaga livre sugerida',false);}
    },function(){if(hint)hint.textContent='';toast('Não consegui ouvir — verifica o microfone e tenta de novo',false);});
  };
- if(vpVoiceOn())vpSpeak('Leve a bobina '+et+' até '+(sug.length?vpAddrSpeech(code(sug[0])):'um endereço livre')+', e bipe pra confirmar.');
+ if(vpVoiceOn())vpSpeak('Olá operador, vaga '+(sug.length?vpAddrSpeech(code(sug[0])):'não encontrada')+' livre. Leve a bobina '+et+' até lá e bipe pra confirmar.');
  const expectEt=norm(et);
  function chkEt(){const v=norm(($('#azEt').value||''));const c=$('#azEtChk');if(!v){c.textContent='';c.style.color='';return false;}const ok=(norm(parseBobina(v).et)===expectEt)||(v===expectEt);c.textContent=ok?'✓ bobina conferida':'✗ bobina diferente — bipe a etiqueta '+et;c.style.color=ok?'#1a7f37':'var(--out)';return ok;}
  $('#azEt').addEventListener('input',chkEt);

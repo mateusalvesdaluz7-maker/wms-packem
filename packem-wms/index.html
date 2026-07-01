@@ -600,7 +600,7 @@ function renderBoard(){
     <div class="ph-head"><div><p class="eb">${whLabel(wh)}</p><h1>Mapa do armazém</h1></div></div>
     <div class="board-ctrl">
       <div class="ruatabs whpick">${whs.map(w=>`<button class="${w===wh?'on':''}" data-wh="${w}">${whLabel(w)}</button>`).join('')}</div>
-      <div class="fld" style="margin:8px 0"><input class="input code" id="boardSearch" autocomplete="off" placeholder="Buscar produto ou endereço"></div>
+      <div class="fld" style="margin:8px 0;display:flex;gap:6px;align-items:stretch"><input class="input code" id="boardSearch" autocomplete="off" placeholder="Buscar produto, endereço ou bobina" style="flex:1"><button class="btn" type="button" id="boardMic" title="Perguntar por voz" style="flex:none">🎤</button></div>
       ${allStreets.length?`<div class="ruatabs"><button class="${!boardStreet?'on':''}" data-r="">Todas as ruas</button>${allStreets.map(s=>`<button class="${s===boardStreet?'on':''}" data-r="${s}">Rua ${s}</button>`).join('')}</div>`:''}
       ${byStreet||!levels.length?'':`<div class="lvtabs">${levels.map(l=>`<button class="${Number(l)===Number(boardLevel)?'on':''}" data-l="${l}">Nível ${l}</button>`).join('')}</div>`}
       <div class="legend"><span><i style="background:linear-gradient(135deg,#15A34A,#22c55e)"></i>Vago</span><span><i style="background:linear-gradient(135deg,#ef4444,#f87171)"></i>Ocupado</span><span><i style="background:linear-gradient(135deg,#d97706,#fbbf24)"></i>+20 dias</span><span><i style="background:linear-gradient(135deg,#7f1d1d,#b91c1c)"></i>+40 dias</span><span style="color:var(--faint)">${occ} ocupadas</span></div>
@@ -611,9 +611,18 @@ function renderBoard(){
   if(!byStreet)$$('#v-board .lvtabs button').forEach(b=>b.onclick=()=>{boardLevel=Number(b.dataset.l);renderBoard();});
   const bs=$('#boardSearch');
   if(bs){
-    bs.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();boardSearchGo(bs.value);}});
-    if(window.addCam)addCam('boardSearch',{onResult:v=>{bs.value=v;boardSearchGo(v);}});
+    bs.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();boardSearchGo(bs.value,false);}});
+    if(window.addCam)addCam('boardSearch',{onResult:v=>{bs.value=v;boardSearchGo(v,false);}});
   }
+  const bmic=$('#boardMic');
+  if(bmic)bmic.onclick=function(){
+    if(typeof vpListenOnce!=='function'){toast('Reconhecimento de voz indisponível',false);return;}
+    toast('🎤 ouvindo...');
+    vpListenOnce(function(transcript){
+      if(bs)bs.value=transcript;
+      boardSearchGo(transcript,true);
+    },function(){toast('Não consegui ouvir — tenta de novo',false);});
+  };
   const bb=$('#boardBox');
   try{
     if(!all.length){bb.innerHTML='<div class="empty" style="padding:34px 16px;text-align:center;color:var(--muted)"><b>Este depósito está vazio</b><div class="es" style="margin-top:6px">Toque em <b>Dep 70</b>, <b>Novo</b> ou <b>Chão</b> acima para ver outro mapa. Se os dados ainda estiverem carregando, puxe a tela para baixo para atualizar.</div></div>';return;}
@@ -621,13 +630,45 @@ function renderBoard(){
   }catch(e){bb.innerHTML='<div class="empty" style="padding:28px 16px;text-align:center;color:var(--muted)"><b>Não consegui desenhar o mapa</b><div class="es" style="margin-top:6px;font-family:var(--mono);font-size:.74rem">'+String((e&&e.message)||e).replace(/</g,'&lt;')+'</div></div>';}
 }
 function cellHTML(x){if(!x)return '<td><div class="cellx none"></div></td>';let cls='free',ageTxt='';if(x.o){const dd=x.upd?Math.floor((Date.now()-Date.parse(x.upd))/86400000):0;ageTxt=' · '+dd+'d parado';cls=dd>40?'crit':(dd>20?'warn':'occ');}return `<td><div class="cellx ${cls}" data-id="${x.id}" title="${code(x)}${x.pr?' · '+x.pr+' · '+fmt(x.q)+'kg'+ageTxt:' · vago'}"></div></td>`;}
-function boardSearchGo(q){
+function boardDescOf(pr){
+  if(typeof VL!=='undefined'&&Array.isArray(VL)){var v=VL.find(function(vv){return vv.codigo===pr;});if(v&&v.descricao)return v.descricao;}
+  if(typeof BOB!=='undefined'){var k=Object.keys(BOB).find(function(kk){return BOB[kk]&&BOB[kk].pr===pr;});if(k&&BOB[k].desc)return BOB[k].desc;}
+  return '';
+}
+function boardCompact(s){return String(s||'').toUpperCase().replace(/\s+/g,'');}
+function boardSearchGo(q,viaVoice){
   q=norm(q); if(!q)return;
+  var qc=boardCompact(q);
   var wh=(cfg&&cfg.warehouse)||'70';
   var SS=Array.isArray(S)?S:[];
-  var matches=SS.filter(function(x){return x&&x.w===wh&&x.o&&(String(x.pr||'').toUpperCase().indexOf(q)>=0||code(x).toUpperCase().indexOf(q)>=0);});
-  if(!matches.length){toast('Nada encontrado para "'+q+'"',false);return;}
-  var m=matches[0];
+  var m=null,bobinaHit=false;
+  if(typeof LOC!=='undefined'&&LOC[q]){
+    var addr=LOC[q];
+    m=SS.find(function(x){return x&&x.w===wh&&code(x)===addr;});
+    if(m)bobinaHit=true;
+  }
+  if(!m){
+    var matches=SS.filter(function(x){
+      if(!x||x.w!==wh||!x.o)return false;
+      var pr=String(x.pr||'').toUpperCase();
+      var addr=code(x).toUpperCase();
+      var desc=boardDescOf(x.pr);
+      if(pr.indexOf(q)>=0||addr.indexOf(q)>=0)return true;
+      if(desc&&boardCompact(desc).indexOf(qc)>=0)return true;
+      return false;
+    });
+    if(!matches.length){
+      toast('Nada encontrado para "'+q+'"',false);
+      if(viaVoice)vpSpeakForce('Não encontrei nada com '+q+'.');
+      return;
+    }
+    m=matches[0];
+    if(viaVoice)vpSpeakForce((matches.length>1?'Encontrei '+matches.length+' posições. A primeira é ':'Encontrado em ')+vpAddrSpeech(code(m))+'.');
+    else toast(matches.length>1?(matches.length+' posições com "'+q+'" — mostrando '+code(m)):('Encontrado em '+code(m)));
+  }else{
+    if(viaVoice)vpSpeakForce('A bobina '+q+' está em '+vpAddrSpeech(code(m))+'.');
+    else toast('Bobina '+q+' está em '+code(m));
+  }
   boardStreet=m.s;
   renderBoard();
   setTimeout(function(){
@@ -638,7 +679,6 @@ function boardSearchGo(q){
       setTimeout(function(){cell.style.outline='';cell.style.outlineOffset='';},2600);
     }
   },80);
-  toast(matches.length>1?(matches.length+' posições com "'+q+'" — mostrando '+code(m)):('Encontrado em '+code(m)));
 }
 function drawBoard(){
   if(boardStreet)return drawBoardStreet();
@@ -1310,9 +1350,40 @@ function vpAddrSpeech(c){
   return 'rua '+parts[0]+', posição '+parts[1]+(parts[2]?(', nível '+parts[2]):'');
 }
 function vpVoiceToggleHTML(id){return '<label style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);margin-bottom:14px;cursor:pointer"><input type="checkbox" id="'+id+'" '+(vpVoiceOn()?'checked':'')+'> 🔊 Ler instruções em voz alta</label>';}
+function vpSpeakForce(text){
+  try{
+    if(!window.speechSynthesis)return;
+    window.speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(text);
+    u.lang='pt-BR';u.rate=1;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function vpListenOnce(onResult,onError){
+  try{
+    var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){toast('Reconhecimento de voz não disponível neste navegador/aparelho',false);if(onError)onError();return;}
+    var r=new SR();
+    r.lang='pt-BR';r.continuous=false;r.interimResults=false;r.maxAlternatives=1;
+    r.onresult=function(e){var t=(e.results&&e.results[0]&&e.results[0][0])?e.results[0][0].transcript:'';onResult(t||'');};
+    r.onerror=function(e){if(onError)onError(e);};
+    r.start();
+  }catch(e){if(onError)onError(e);}
+}
+function vpAskBtnHTML(id){return '<button class="btn" type="button" id="'+id+'" style="margin-bottom:14px;width:100%">🎤 Perguntar vaga livre</button><div id="'+id+'Hint" style="font-size:.74rem;color:var(--faint);margin:-10px 0 14px"></div>';}
 function stageArmazenar(et){const it=STAGE.find(s=>s.et===et);if(!it)return;const sug=suggestPutaway(it.pr);
- openDrawer(ICONS.box+' Armazenar '+et,vpVoiceToggleHTML('azVoice')+'<div style="margin-bottom:16px"><div class="mono" style="font-weight:700;font-size:1.05rem">'+it.pr+'</div><div style="font-size:.8rem;color:var(--muted);margin-top:3px">'+(it.desc||'')+' · '+fmt(it.pl)+' kg</div></div>'+'<label class="fld"><span class="lab">1 · Bipe a bobina ('+et+')</span><input class="input code" id="azEt" placeholder="toque para bipar"></label><div id="azEtChk" style="font-size:.8rem;font-weight:700;margin:-8px 0 12px 2px"></div>'+(sug.length?'<div class="assist"><div class="ah"><span class="sp"></span>Sugestão de endereço</div>'+sug.map(x=>'<div class="sug" data-c="'+code(x)+'"><span class="sx">'+code(x)+'</span><span class="tagn '+(x._cons?'cons':'free')+'">'+(x._cons?'consolidar':'vaga livre')+'</span></div>').join('')+'</div>':'')+'<label class="fld"><span class="lab">2 · Bipe o endereço</span><input class="input code" id="azLoc" placeholder="toque para bipar"></label><button class="btn in" id="azDo" style="width:100%;height:48px">Confirmar armazenagem</button>');
+ openDrawer(ICONS.box+' Armazenar '+et,vpVoiceToggleHTML('azVoice')+vpAskBtnHTML('azAsk')+'<div style="margin-bottom:16px"><div class="mono" style="font-weight:700;font-size:1.05rem">'+it.pr+'</div><div style="font-size:.8rem;color:var(--muted);margin-top:3px">'+(it.desc||'')+' · '+fmt(it.pl)+' kg</div></div>'+'<label class="fld"><span class="lab">1 · Bipe a bobina ('+et+')</span><input class="input code" id="azEt" placeholder="toque para bipar"></label><div id="azEtChk" style="font-size:.8rem;font-weight:700;margin:-8px 0 12px 2px"></div>'+(sug.length?'<div class="assist"><div class="ah"><span class="sp"></span>Sugestão de endereço</div>'+sug.map(x=>'<div class="sug" data-c="'+code(x)+'"><span class="sx">'+code(x)+'</span><span class="tagn '+(x._cons?'cons':'free')+'">'+(x._cons?'consolidar':'vaga livre')+'</span></div>').join('')+'</div>':'')+'<label class="fld"><span class="lab">2 · Bipe o endereço</span><input class="input code" id="azLoc" placeholder="toque para bipar"></label><button class="btn in" id="azDo" style="width:100%;height:48px">Confirmar armazenagem</button>');
  var azVoiceEl=$('#azVoice');if(azVoiceEl)azVoiceEl.onchange=function(){vpToggleVoice(azVoiceEl.checked);if(azVoiceEl.checked)vpSpeak('Voz ativada. Leve a bobina '+et+' até '+vpAddrSpeech(sug.length?code(sug[0]):'')+'.');};
+ var azAskEl=$('#azAsk');
+ if(azAskEl)azAskEl.onclick=function(){
+   var hint=$('#azAskHint');if(hint)hint.textContent='🎤 ouvindo...';
+   vpListenOnce(function(transcript){
+     var sug2=suggestPutaway(it.pr);
+     if(hint)hint.textContent=transcript?('ouvi: "'+transcript+'"'):'';
+     if(sug2.length){vpSpeakForce('Vaga livre em '+vpAddrSpeech(code(sug2[0]))+'.');toast('Vaga livre: '+code(sug2[0]));}
+     else{vpSpeakForce('Não encontrei vaga livre pra esse produto agora.');toast('Sem vaga livre sugerida',false);}
+   },function(){if(hint)hint.textContent='';toast('Não consegui ouvir — verifica o microfone e tenta de novo',false);});
+ };
  if(vpVoiceOn())vpSpeak('Leve a bobina '+et+' até '+(sug.length?vpAddrSpeech(code(sug[0])):'um endereço livre')+', e bipe pra confirmar.');
  const expectEt=norm(et);
  function chkEt(){const v=norm(($('#azEt').value||''));const c=$('#azEtChk');if(!v){c.textContent='';c.style.color='';return false;}const ok=(norm(parseBobina(v).et)===expectEt)||(v===expectEt);c.textContent=ok?'✓ bobina conferida':'✗ bobina diferente — bipe a etiqueta '+et;c.style.color=ok?'#1a7f37':'var(--out)';return ok;}

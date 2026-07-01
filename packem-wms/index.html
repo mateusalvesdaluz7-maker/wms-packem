@@ -1422,7 +1422,17 @@ function vpEnsureBarStyle(){
   st.textContent='@keyframes vpPulse{0%,100%{opacity:1}50%{opacity:.4}}#vpVoiceBar .vpdot{width:9px;height:9px;border-radius:50%;background:#fff;flex:none;animation:vpPulse 1.1s infinite}';
   document.head.appendChild(st);
 }
+function vpUnlockSpeech(){
+  try{
+    if(!window.speechSynthesis)return;
+    window.speechSynthesis.resume();
+    var u=new SpeechSynthesisUtterance(' ');
+    u.volume=0.01;u.rate=10;u.lang='pt-BR';
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
 function vpOpenConversation(){
+  vpUnlockSpeech();
   if(document.getElementById('vpVoiceBar'))return;
   vpEnsureBarStyle();
   var history=[];
@@ -1516,6 +1526,7 @@ function stageArmazenar(et){const it=STAGE.find(s=>s.et===et);if(!it)return;cons
  var azAskCancel=null,azAskOrig=azAskEl?azAskEl.textContent:'';
  if(azAskEl)azAskEl.onclick=function(){
    try{
+     if(typeof vpUnlockSpeech==='function')vpUnlockSpeech();
      var hint=$('#azAskHint');
      if(azAskCancel){azAskCancel();azAskCancel=null;azAskEl.textContent=azAskOrig;if(hint)hint.textContent='';return;}
      if(typeof vpListenOnce!=='function'){toast('Reconhecimento de voz indisponível',false);return;}

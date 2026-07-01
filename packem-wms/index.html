@@ -334,7 +334,7 @@
       <div class="tb-search"><span class="si" data-ic="search"></span><input id="globalSearch" placeholder="Buscar endereço ou produto…" autocomplete="off"></div>
       <div class="tb-spacer"></div>
       <div class="tb-cmd" id="cmdkBtn"><span data-ic="search"><span></span></span> Buscar / comandos <span class="kbd">Ctrl K</span></div>
-      <div class="seg-wh" id="whSeg"><button data-wh="70" class="on">Dep 70</button><button data-wh="novo">Novo</button><button data-wh="chao">Chão</button></div>
+      <div class="seg-wh" id="whSeg"><button data-wh="70" class="on">Dep 70</button><button data-wh="novo" class="adminOnly">Novo</button><button data-wh="chao" class="adminOnly">Chão</button></div>
       <div class="uchip" id="userBtn"><span class="uav"></span><div style="line-height:1.2"><div id="uName">—</div><div class="ur" id="uRole"></div></div></div>
     </div>
 
@@ -529,7 +529,7 @@ $('#logBtn').onclick=()=>{const u=$('#logUser').value.trim(),p=$('#logPass').val
 $('#logPass').addEventListener('keydown',e=>{if(e.key==='Enter')$('#logBtn').click();});
 $('#logoutBtn').onclick=()=>{logAct('logout',session.u);session=null;showLogin();};
 function refreshUser(){$('#uName').textContent=session?session.u:'—';$('#uRole').textContent=session?session.role:'';}
-function applyPerms(){const sup=isSuper();$$('.adminOnly').forEach(e=>e.style.display=sup?'':'none');const allow=allowedViews();$$('.nav').forEach(n=>{const v=n.dataset.view;if(allow){n.style.display=(allow.indexOf(v)>=0)?'':'none';}else if(!n.classList.contains('adminOnly')){n.style.display='';}});}
+function applyPerms(){const sup=isSuper();$$('.adminOnly').forEach(e=>e.style.display=sup?'':'none');const allow=allowedViews();$$('.nav').forEach(n=>{const v=n.dataset.view;if(allow){n.style.display=(allow.indexOf(v)>=0)?'':'none';}else if(!n.classList.contains('adminOnly')){n.style.display='';}});if(!sup&&cfg&&cfg.warehouse!=='70'){cfg.warehouse='70';try{DB.saveCfg(cfg);}catch(e){}}}
 
 /* nav */
 const TITLES={'v-home':'Dashboard','v-board':'Mapa do armazém','v-mov':'Movimentação','v-stock':'Estoque','v-transf':'Transferências','v-labels':'Etiquetas','v-abc':'Curva ABC','v-values':'Produtos / Valores','v-users':'Usuários','v-act':'Atividade'};
@@ -595,7 +595,7 @@ function renderBoard(){
   if(boardStreet&&allStreets.indexOf(boardStreet)<0)boardStreet=null;
   const byStreet=!!boardStreet;
   const occ=all.filter(x=>x.o).length;
-  const whs=['70','novo','chao'].concat(SS.map(x=>x&&x.w).filter(Boolean)).filter((w,i,a)=>w&&a.indexOf(w)===i);
+  const whs=isSuper()?['70','novo','chao'].concat(SS.map(x=>x&&x.w).filter(Boolean)).filter((w,i,a)=>w&&a.indexOf(w)===i):['70'];
   box.innerHTML=`
     <div class="ph-head"><div><p class="eb">${whLabel(wh)}</p><h1>Mapa do armazém</h1></div></div>
     <div class="board-ctrl">
@@ -1267,25 +1267,27 @@ function showBobLabel(et){et=norm(et);const o=BOB[et]||{};const it=(typeof STAGE
  const pb=document.getElementById('bobLblPrint');if(pb)pb.onclick=function(){
    var build=function(){
      var qr=qrSvg(et);
-     var body='<div class="pg"><div class="ld">'
-       +'<div class="ldL"><div class="ldh">PACKEM · BOBINA</div><div class="ldq">'+qr+'</div></div>'
-       +'<div class="ldR">'
-       +'<div class="ldcode">'+(pr||'—')+'</div>'
-       +(desc?'<div class="lddesc">'+desc+'</div>':'')
-       +'<div class="ldet">'+et+'</div>'
-       +((pl>0)?'<div class="ldw">'+fmt(pl)+' KG</div>':'')
-       +'</div></div></div>';
-     var css='*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:100mm 150mm;margin:0}'
-       +'.pg{width:100mm;height:150mm;position:relative;overflow:hidden}'
-       +'.ld{position:absolute;top:0;left:0;width:150mm;height:100mm;transform-origin:0 0;transform:translateX(100mm) rotate(90deg);display:flex;align-items:stretch;font-family:Arial,Helvetica,sans-serif;color:#000}'
-       +'.ldL{width:55mm;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3mm;border-right:.6mm solid #000;padding:4mm}'
-       +'.ldh{font-size:3mm;letter-spacing:1.2mm;font-weight:800;color:#444;text-align:center}'
-       +'.ldq svg{width:43mm;height:43mm;display:block}'
-       +'.ldR{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:4mm 5mm;gap:2.6mm}'
-       +'.ldcode{font-family:"Courier New",monospace;font-weight:800;font-size:13mm;line-height:1;letter-spacing:.3mm}'
-       +'.lddesc{font-weight:800;font-size:9mm;line-height:1.06}'
-       +'.ldet{font-family:"Courier New",monospace;font-weight:700;font-size:6mm}'
-       +'.ldw{font-weight:800;font-size:13mm}';
+     var body='<div class="zlbl" style="width:100mm;height:100mm">'
+       +'<div class="zbar" style="height:3mm"></div>'
+       +'<div class="zin" style="padding:2.5mm;gap:1mm">'
+       +'<div class="zhead"><div class="zbt" style="font-size:4.3mm">PACKEM<span style="font-size:2.6mm">BOBINA</span></div></div>'
+       +'<div class="zqr" style="width:30mm">'+qr+'</div>'
+       +'<div class="zpr" style="font-size:7mm;font-weight:800;color:#0a0c10">'+(pr||'—')+'</div>'
+       +(desc?'<div class="zds" style="font-size:7.8mm">'+desc+'</div>':'')
+       +'<div class="zpr" style="font-size:4mm;color:#7a8088">'+et+'</div>'
+       +((pl>0)?'<div class="zkgbig" style="font-size:12.5mm;font-weight:800">'+fmt(pl)+' kg</div>':'')
+       +'</div></div>';
+     var css='*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:100mm 100mm;margin:0}'
+       +'.zlbl{position:relative;background:#fff;color:#0a0c10;display:flex;flex-direction:column;overflow:hidden;font-family:"Segoe UI",Arial,Helvetica,sans-serif}'
+       +'.zlbl .zbar{width:100%;flex:none;background:#EA5A0C}'
+       +'.zlbl .zin{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center}'
+       +'.zlbl .zhead{display:flex;align-items:center;justify-content:center}'
+       +'.zlbl .zbt{font-weight:800;line-height:1;display:flex;flex-direction:column;color:#0a0c10}'
+       +'.zlbl .zbt span{font-weight:700;color:#7a8088;letter-spacing:.4mm;margin-top:.4mm}'
+       +'.zlbl .zqr{display:flex;align-items:center;justify-content:center}.zlbl .zqr svg{width:100%;height:auto;display:block}svg.qr{max-width:100%;height:auto}'
+       +'.zlbl .zpr{font-weight:700;color:#3a3f47;line-height:1;letter-spacing:.2mm;word-break:break-word;max-width:100%}'
+       +'.zlbl .zds{color:#0a0c10;font-weight:800;line-height:1.05;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;padding:0 1mm}'
+       +'.zlbl .zkgbig{font-weight:800;color:#0a0c10;line-height:1;margin-top:auto;letter-spacing:-.2mm}';
      try{printDoc(body,css);}catch(e){try{window.print();}catch(_){}}
    };
    if(window.qrcode)build();else if(typeof loadQR==='function')loadQR().then(build).catch(build);else build();

@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v24</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v25</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v24</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v25</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -1449,8 +1449,14 @@ function vpAskAI(question,history,_retry){
 }
 function vpErrMsg(err){
   try{if(typeof navigator!=='undefined'&&navigator.onLine===false)return 'Sem internet — verifica a conexão e tenta de novo.';}catch(e){}
-  if(err&&err.name==='AbortError')return 'O servidor demorou pra responder. Tenta de novo.';
-  if(err instanceof TypeError)return 'Não consegui falar com o servidor. Tenta de novo.';
+  if(err&&err.name==='AbortError')return 'O servidor demorou pra responder (timeout). Tenta de novo.';
+  if(err instanceof TypeError)return 'Não consegui conectar no servidor (função /api/ask fora do ar?). Tenta de novo.';
+  var st=err&&err.status;
+  if(st===401||st===403)return 'Erro de autorização com a IA (HTTP '+st+') — chave de API inválida ou vencida.';
+  if(st===404)return 'Endpoint da IA não encontrado (HTTP 404) — a função /api/ask pode não estar publicada.';
+  if(st===429)return 'Limite de uso da IA atingido (HTTP 429) — tenta de novo em instantes.';
+  if(st>=500)return 'Erro interno no servidor da IA (HTTP '+st+'). Tenta de novo.';
+  if(err&&err.message)return 'Erro na IA: '+err.message;
   return 'Deu um erro aqui no servidor. Tenta de novo em instantes.';
 }
 function vpSpeakForceCb(text,onDone){vpSpeakQueue(text,onDone,true);}

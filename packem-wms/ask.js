@@ -55,7 +55,7 @@ module.exports = async function handler(req, res) {
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemText }] },
           contents: contents,
-          generationConfig: { maxOutputTokens: 300 }
+          generationConfig: { maxOutputTokens: 300, thinkingConfig: { thinkingBudget: 0 } }
         }),
         signal: ctrl.signal
       });

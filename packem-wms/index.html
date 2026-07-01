@@ -1293,13 +1293,32 @@ function showBobLabel(et){et=norm(et);const o=BOB[et]||{};const it=(typeof STAGE
    if(typeof printEtq2==='function')printEtq2('BOBINA',pr||'—',desc||'',et,(pl>0?fmt(pl)+' kg':''));
    else try{window.print();}catch(_){}
  };}
+function vpVoiceOn(){try{return localStorage.getItem('wmsx_voice')==='1';}catch(e){return false;}}
+function vpToggleVoice(v){try{localStorage.setItem('wmsx_voice',v?'1':'0');}catch(e){}}
+function vpSpeak(text){
+  try{
+    if(!window.speechSynthesis||!vpVoiceOn())return;
+    window.speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(text);
+    u.lang='pt-BR';u.rate=1;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function vpAddrSpeech(c){
+  var parts=String(c||'').split('-');
+  if(parts.length<2)return c||'';
+  return 'rua '+parts[0]+', posição '+parts[1]+(parts[2]?(', nível '+parts[2]):'');
+}
+function vpVoiceToggleHTML(id){return '<label style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);margin-bottom:14px;cursor:pointer"><input type="checkbox" id="'+id+'" '+(vpVoiceOn()?'checked':'')+'> 🔊 Ler instruções em voz alta</label>';}
 function stageArmazenar(et){const it=STAGE.find(s=>s.et===et);if(!it)return;const sug=suggestPutaway(it.pr);
- openDrawer(ICONS.box+' Armazenar '+et,'<div style="margin-bottom:16px"><div class="mono" style="font-weight:700;font-size:1.05rem">'+it.pr+'</div><div style="font-size:.8rem;color:var(--muted);margin-top:3px">'+(it.desc||'')+' · '+fmt(it.pl)+' kg</div></div>'+'<label class="fld"><span class="lab">1 · Bipe a bobina ('+et+')</span><input class="input code" id="azEt" placeholder="toque para bipar"></label><div id="azEtChk" style="font-size:.8rem;font-weight:700;margin:-8px 0 12px 2px"></div>'+(sug.length?'<div class="assist"><div class="ah"><span class="sp"></span>Sugestão de endereço</div>'+sug.map(x=>'<div class="sug" data-c="'+code(x)+'"><span class="sx">'+code(x)+'</span><span class="tagn '+(x._cons?'cons':'free')+'">'+(x._cons?'consolidar':'vaga livre')+'</span></div>').join('')+'</div>':'')+'<label class="fld"><span class="lab">2 · Bipe o endereço</span><input class="input code" id="azLoc" placeholder="toque para bipar"></label><button class="btn in" id="azDo" style="width:100%;height:48px">Confirmar armazenagem</button>');
+ openDrawer(ICONS.box+' Armazenar '+et,vpVoiceToggleHTML('azVoice')+'<div style="margin-bottom:16px"><div class="mono" style="font-weight:700;font-size:1.05rem">'+it.pr+'</div><div style="font-size:.8rem;color:var(--muted);margin-top:3px">'+(it.desc||'')+' · '+fmt(it.pl)+' kg</div></div>'+'<label class="fld"><span class="lab">1 · Bipe a bobina ('+et+')</span><input class="input code" id="azEt" placeholder="toque para bipar"></label><div id="azEtChk" style="font-size:.8rem;font-weight:700;margin:-8px 0 12px 2px"></div>'+(sug.length?'<div class="assist"><div class="ah"><span class="sp"></span>Sugestão de endereço</div>'+sug.map(x=>'<div class="sug" data-c="'+code(x)+'"><span class="sx">'+code(x)+'</span><span class="tagn '+(x._cons?'cons':'free')+'">'+(x._cons?'consolidar':'vaga livre')+'</span></div>').join('')+'</div>':'')+'<label class="fld"><span class="lab">2 · Bipe o endereço</span><input class="input code" id="azLoc" placeholder="toque para bipar"></label><button class="btn in" id="azDo" style="width:100%;height:48px">Confirmar armazenagem</button>');
+ var azVoiceEl=$('#azVoice');if(azVoiceEl)azVoiceEl.onchange=function(){vpToggleVoice(azVoiceEl.checked);if(azVoiceEl.checked)vpSpeak('Voz ativada. Leve a bobina '+et+' até '+vpAddrSpeech(sug.length?code(sug[0]):'')+'.');};
+ if(vpVoiceOn())vpSpeak('Leve a bobina '+et+' até '+(sug.length?vpAddrSpeech(code(sug[0])):'um endereço livre')+', e bipe pra confirmar.');
  const expectEt=norm(et);
  function chkEt(){const v=norm(($('#azEt').value||''));const c=$('#azEtChk');if(!v){c.textContent='';c.style.color='';return false;}const ok=(norm(parseBobina(v).et)===expectEt)||(v===expectEt);c.textContent=ok?'✓ bobina conferida':'✗ bobina diferente — bipe a etiqueta '+et;c.style.color=ok?'#1a7f37':'var(--out)';return ok;}
  $('#azEt').addEventListener('input',chkEt);
  document.querySelectorAll('#drawerBody .sug[data-c]').forEach(b=>b.onclick=()=>{$('#azLoc').value=b.dataset.c;});
- $('#azDo').onclick=()=>{if(!chkEt()){toast('Bipe a bobina '+et+' para conferir',false);$('#azEt').click();return;}const c=norm($('#azLoc').value);if(!c){toast('Bipe o endereço',false);$('#azLoc').click();return;}if(placeBobina(et,it.pr,it.pl,c)){STAGE=STAGE.filter(s=>s.et!==et);saveStage();if(typeof syncDelStage==='function')syncDelStage(et);closeDrawer();renderRecv();updateStageBadge();toast('Armazenado: '+et+' em '+c);}};
+ $('#azDo').onclick=()=>{if(!chkEt()){toast('Bipe a bobina '+et+' para conferir',false);$('#azEt').click();return;}const c=norm($('#azLoc').value);if(!c){toast('Bipe o endereço',false);$('#azLoc').click();return;}if(placeBobina(et,it.pr,it.pl,c)){STAGE=STAGE.filter(s=>s.et!==et);saveStage();if(typeof syncDelStage==='function')syncDelStage(et);closeDrawer();renderRecv();updateStageBadge();toast('Armazenado: '+et+' em '+c);vpSpeak('Armazenado com sucesso em '+vpAddrSpeech(c)+'.');}};
  [['azEt',{enter:false,title:'Conferir bobina'}],['azLoc',{enter:false,title:'Escanear endereço'}]].forEach(function(p){var id=p[0],o=p[1];var el=$('#'+id);if(!el)return;if(window.addCam)addCam(id,o);scanLock(el);});
  setTimeout(function(){$('#azEt').click();},120);
 }

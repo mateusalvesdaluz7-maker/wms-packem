@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v21</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v23</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v21</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v23</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -1267,21 +1267,25 @@ function showBobLabel(et){et=norm(et);const o=BOB[et]||{};const it=(typeof STAGE
  const pb=document.getElementById('bobLblPrint');if(pb)pb.onclick=function(){
    var build=function(){
      var qr=qrSvg(et);
-     var body='<div class="bq">'
-       +'<div class="bqh">PACKEM · BOBINA</div>'
-       +'<div class="bqp">'+(pr||'—')+'</div>'
-       +(desc?'<div class="bqd">'+desc+'</div>':'')
-       +'<div class="bqe">'+et+'</div>'
-       +((pl>0)?'<div class="bqw">'+fmt(pl)+' KG</div>':'')
-       +'<div class="bqq">'+qr+'</div></div>';
-     var css='*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:100mm 100mm;margin:0}'
-       +'.bq{width:100mm;height:100mm;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:2.4mm;padding:5mm;font-family:Arial,Helvetica,sans-serif;color:#000}'
-       +'.bqh{font-size:3mm;letter-spacing:1.2mm;color:#666;font-weight:800}'
-       +'.bqp{font-family:"Courier New",monospace;font-weight:800;font-size:9mm;line-height:1}'
-       +'.bqd{font-weight:800;font-size:8mm;line-height:1.05;max-width:90mm}'
-       +'.bqe{font-family:"Courier New",monospace;font-weight:700;font-size:5.5mm}'
-       +'.bqw{font-weight:800;font-size:8mm}'
-       +'.bqq{margin-top:1mm}.bqq svg{width:32mm;height:32mm;display:block;margin:0 auto}';
+     var body='<div class="pg"><div class="ld">'
+       +'<div class="ldL"><div class="ldh">PACKEM · BOBINA</div><div class="ldq">'+qr+'</div></div>'
+       +'<div class="ldR">'
+       +'<div class="ldcode">'+(pr||'—')+'</div>'
+       +(desc?'<div class="lddesc">'+desc+'</div>':'')
+       +'<div class="ldet">'+et+'</div>'
+       +((pl>0)?'<div class="ldw">'+fmt(pl)+' KG</div>':'')
+       +'</div></div></div>';
+     var css='*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:100mm 150mm;margin:0}'
+       +'.pg{width:100mm;height:150mm;position:relative;overflow:hidden}'
+       +'.ld{position:absolute;top:0;left:0;width:150mm;height:100mm;transform-origin:0 0;transform:translateX(100mm) rotate(90deg);display:flex;align-items:stretch;font-family:Arial,Helvetica,sans-serif;color:#000}'
+       +'.ldL{width:55mm;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3mm;border-right:.6mm solid #000;padding:4mm}'
+       +'.ldh{font-size:3mm;letter-spacing:1.2mm;font-weight:800;color:#444;text-align:center}'
+       +'.ldq svg{width:43mm;height:43mm;display:block}'
+       +'.ldR{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:4mm 5mm;gap:2.6mm}'
+       +'.ldcode{font-family:"Courier New",monospace;font-weight:800;font-size:13mm;line-height:1;letter-spacing:.3mm}'
+       +'.lddesc{font-weight:800;font-size:9mm;line-height:1.06}'
+       +'.ldet{font-family:"Courier New",monospace;font-weight:700;font-size:6mm}'
+       +'.ldw{font-weight:800;font-size:13mm}';
      try{printDoc(body,css);}catch(e){try{window.print();}catch(_){}}
    };
    if(window.qrcode)build();else if(typeof loadQR==='function')loadQR().then(build).catch(build);else build();
@@ -1401,9 +1405,9 @@ updateStageBadge();
   }
 
   /* ---- estado / persistência ---- */
-  var NFS={}, ETQ={}, nfParsed=null, rastMode='entrada';
-  try{var _raw=JSON.parse(localStorage.getItem('wmsx_nf')||'{}');NFS=_raw.NFS||{};ETQ=_raw.ETQ||{};}catch(e){NFS={};ETQ={};}
-  function saveNF(){localStorage.setItem('wmsx_nf',JSON.stringify({NFS:NFS,ETQ:ETQ}));}
+  var NFS={}, ETQ={}, ROMS={}, nfParsed=null, romParsed=null, rastMode='entrada';
+  try{var _raw=JSON.parse(localStorage.getItem('wmsx_nf')||'{}');NFS=_raw.NFS||{};ETQ=_raw.ETQ||{};ROMS=_raw.ROMS||{};}catch(e){NFS={};ETQ={};ROMS={};}
+  function saveNF(){localStorage.setItem('wmsx_nf',JSON.stringify({NFS:NFS,ETQ:ETQ,ROMS:ROMS}));}
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 
   /* ---- parser do XML da NF-e ---- */
@@ -1539,10 +1543,87 @@ updateStageBadge();
     }catch(e){return {ok:false,err:'Falha ao interpretar o PDF da DANFE.'};}
   }
 
+  /* ---- parser do ROMANEIO (planilha .xlsx, entrada de bobinas) ---- */
+  function romCell(v){return v==null?'':String(v).trim();}
+  function romFindHeaderVal(rows,matchFn,maxScanRows){
+    maxScanRows=maxScanRows||25;
+    var looksLikeLabel=function(v){return /^n[ºo°.]/i.test(v)||/:$/.test(v)||v.length>40;};
+    for(var r=0;r<Math.min(rows.length,maxScanRows);r++){
+      var row=rows[r]||[];
+      for(var c=0;c<row.length;c++){
+        var cell=romCell(row[c]);
+        if(!cell)continue;
+        if(matchFn(cell)){
+          for(var cc=c+1;cc<Math.min(row.length,c+12);cc++){
+            var v=romCell(row[cc]);
+            if(v&&!looksLikeLabel(v))return v;
+            if(v)break; /* achou texto mas parece outro rótulo — para de procurar nesta linha */
+          }
+          var below=rows[r+1]||[]; var v2=romCell(below[c]);
+          if(v2&&!looksLikeLabel(v2))return v2;
+        }
+      }
+    }
+    return '';
+  }
+  function parseRomaneioXLSX(rows){
+    try{
+      if(!rows||!rows.length)return {ok:false,err:'Planilha vazia ou ilegível.'};
+      var nRomaneio=romFindHeaderVal(rows,function(c){var k=da(c).replace(/[^a-z]/g,'');return k==='nromaneio'||k==='romaneio';});
+      var nfe=romFindHeaderVal(rows,function(c){var k=da(c).replace(/[^a-z]/g,'');return k==='nnfe'||k==='nnf'||k==='nfe';});
+      var dataSaida=romFindHeaderVal(rows,function(c){return da(c).replace(/[^a-z]/g,'')==='datasaida';});
+      var cliente=romFindHeaderVal(rows,function(c){var k=da(c).trim();return k==='cliente'||k==='cliente:';});
+      var lacre=romFindHeaderVal(rows,function(c){return da(c).replace(/[^a-z]/g,'')==='lacre';});
+      var booking=romFindHeaderVal(rows,function(c){return da(c).indexOf('booking')>-1;});
+      /* localiza bloco(s) de tabela: colunas onde a célula é exatamente "seq" (pode haver 2 blocos lado a lado) */
+      var blocks=[];
+      for(var r=0;r<Math.min(rows.length,40);r++){
+        var row=rows[r]||[];
+        for(var c=0;c<row.length;c++){var k=da(row[c]).replace(/[^a-z.]/g,'');if(k==='seq'||k==='seq.')blocks.push({r:r,c:c});}
+        if(blocks.length)break;
+      }
+      if(!blocks.length)return {ok:false,err:'Não encontrei a tabela (coluna "Seq") nesta planilha. Confira se é o arquivo certo.'};
+      var hr=blocks[0].r, headerRow=rows[hr]||[];
+      var cols=blocks.map(function(b){return b.c;}).sort(function(a,b){return a-b;});
+      var items=[];
+      cols.forEach(function(c0){
+        var nextC0=cols.filter(function(x){return x>c0;}).sort(function(a,b){return a-b;})[0];
+        var endC=nextC0!=null?nextC0:headerRow.length;
+        var idx={bobina:-1,op:-1,lote:-1,gram:-1,pb:-1,pl:-1};
+        for(var cc=c0+1;cc<endC;cc++){
+          var h=da(romCell(headerRow[cc]));
+          if(idx.bobina<0&&h.indexOf('bobina')>-1)idx.bobina=cc;
+          else if(idx.op<0&&h==='op')idx.op=cc;
+          else if(idx.lote<0&&h.indexOf('lote')>-1)idx.lote=cc;
+          else if(idx.gram<0&&h.indexOf('gramatura')>-1)idx.gram=cc;
+          else if(idx.pb<0&&h.indexOf('bruto')>-1)idx.pb=cc;
+          else if(idx.pl<0&&(h.indexOf('liquido')>-1||h.indexOf('líquido')>-1))idx.pl=cc;
+        }
+        if(idx.bobina<0)idx.bobina=c0+1;
+        if(idx.op<0)idx.op=c0+2;
+        if(idx.lote<0)idx.lote=c0+3;
+        if(idx.gram<0)idx.gram=c0+4;
+        if(idx.pb<0)idx.pb=c0+5;
+        if(idx.pl<0)idx.pl=c0+6;
+        for(var r2=hr+1;r2<rows.length;r2++){
+          var row2=rows[r2]||[];
+          var seqV=romCell(row2[c0]), bobinaV=romCell(row2[idx.bobina]);
+          if(!bobinaV)continue;
+          items.push({seq:seqV||String(items.length+1),bobina:bobinaV,op:romCell(row2[idx.op]),lote:romCell(row2[idx.lote]),gramatura:romCell(row2[idx.gram]),pesoBruto:brNum(row2[idx.pb]),pesoLiquido:brNum(row2[idx.pl])});
+        }
+      });
+      if(!items.length)return {ok:false,err:'Não encontrei bobinas nesta planilha. Confira se é o arquivo certo.'};
+      items.sort(function(a,b){return (parseInt(a.seq,10)||0)-(parseInt(b.seq,10)||0);});
+      var key='ROM-'+(nRomaneio||('SEM-NUM-'+Date.now()));
+      return {ok:true,key:key,nRomaneio:nRomaneio,nfe:nfe,dataSaida:dataSaida,cliente:cliente,lacre:lacre,booking:booking,items:items};
+    }catch(e){return {ok:false,err:'Falha ao ler a planilha do romaneio.'};}
+  }
+
   /* ---- view: Nota Fiscal ---- */
   function renderNF(){
     var el=document.getElementById('v-nf'); if(!el)return;
     var notas=Object.keys(NFS).map(function(k){return NFS[k];}).sort(function(a,b){return (b.at||'').localeCompare(a.at||'');});
+    var romaneios=Object.keys(ROMS).map(function(k){return ROMS[k];}).sort(function(a,b){return (b.at||'').localeCompare(a.at||'');});
     var preview='';
     if(nfParsed){
       var rows=nfParsed.items.map(function(it,idx){
@@ -1588,13 +1669,63 @@ updateStageBadge();
     }
     var ICO_ED='<svg class="i" viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4z"/><path d="M14 6l4 4"/></svg>';
     var ICO_DEL='<svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
-    var list='';
-    if(notas.length){
-      var scanPanel='<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Bipar recebimento — alimente a NF até fechar</div>'
-        +'<div style="color:var(--muted);font-size:.82rem;margin-bottom:8px">Bipe cada etiqueta conforme chega. A barra da NF enche e o item <b>cai no estoque intermediário</b>. Use leitor/teclado (Enter) ou o botão da câmera.</div>'
+
+    /* ---- prévia editável do romaneio importado (.xlsx) ---- */
+    var romPreview='';
+    if(romParsed){
+      var rrows=romParsed.items.map(function(it,idx){
+        return '<tr>'
+          +'<td style="padding:6px 4px;color:var(--faint);font-size:.72rem">'+esc(it.seq)+' <button class="gbtn" data-rmrow="'+idx+'" title="Remover esta linha" style="padding:1px 6px;font-size:.65rem;margin-left:4px">✕</button></td>'
+          +'<td style="padding:6px 4px;min-width:130px"><input class="input code" id="rb_'+idx+'" value="'+esc(it.bobina)+'" style="width:100%;font-weight:700" title="número da bobina (id da etiqueta)"></td>'
+          +'<td style="padding:6px 4px;min-width:80px"><input class="input" id="ro_'+idx+'" value="'+esc(it.op)+'" style="width:100%" title="OP"></td>'
+          +'<td style="padding:6px 4px;min-width:90px"><input class="input" id="rl_'+idx+'" value="'+esc(it.lote)+'" style="width:100%" title="lote"></td>'
+          +'<td style="padding:6px 4px;min-width:200px"><input class="input" id="rg_'+idx+'" value="'+esc(it.gramatura)+'" style="width:100%;font-size:.8rem" title="gramatura / descrição do material"></td>'
+          +'<td style="padding:6px 4px;text-align:right"><input class="input" id="rpb_'+idx+'" type="text" inputmode="decimal" value="'+fmt(it.pesoBruto||0)+'" style="width:84px;text-align:right" title="peso bruto (kg)"></td>'
+          +'<td style="padding:6px 4px;text-align:right"><input class="input" id="rpl_'+idx+'" type="text" inputmode="decimal" value="'+fmt(it.pesoLiquido||0)+'" style="width:84px;text-align:right" title="peso líquido (kg) — vai na etiqueta"></td>'
+          +'</tr>';
+      }).join('');
+      var rdup=ROMS[romParsed.key];
+      var totBob=romParsed.items.length;
+      var totKgL=romParsed.items.reduce(function(s,it){return s+(Number(it.pesoLiquido)||0);},0);
+      var totKgB=romParsed.items.reduce(function(s,it){return s+(Number(it.pesoBruto)||0);},0);
+      var rresumo='<div style="display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:.78rem;margin:2px 0 8px">'
+        +'<span>📦 '+totBob+' bobinas</span>'
+        +'<span>⚖ '+fmt(totKgL)+' kg líq.</span>'
+        +(totKgB>0&&totKgB!==totKgL?'<span>'+fmt(totKgB)+' kg bruto</span>':'')
+        +'</div>';
+      romPreview='<div class="panel" style="margin-top:16px">'
+        +'<div class="ph"><span class="pdot"></span>Romaneio '+esc(romParsed.nRomaneio||'?')+'</div>'
+        +(rdup?'<div style="background:var(--out-bg,rgba(220,90,90,.12));color:var(--out);border-radius:8px;padding:8px 10px;font-size:.8rem;margin:6px 0">Este romaneio já foi importado e tem etiquetas geradas. Você pode reimprimir abaixo.</div>':'')
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
+        +'<div class="fld" style="flex:1;min-width:140px;margin:0"><label class="lab">Nº Romaneio</label><input class="input" id="rmHdrNum" value="'+esc(romParsed.nRomaneio||'')+'"></div>'
+        +'<div class="fld" style="flex:1;min-width:140px;margin:0"><label class="lab">Nº NF-e</label><input class="input" id="rmHdrNfe" value="'+esc(romParsed.nfe||'')+'"></div>'
+        +'<div class="fld" style="flex:1;min-width:140px;margin:0"><label class="lab">Data saída</label><input class="input" id="rmHdrData" value="'+esc(romParsed.dataSaida||'')+'"></div>'
+        +'<div class="fld" style="flex:1;min-width:160px;margin:0"><label class="lab">Cliente</label><input class="input" id="rmHdrCli" value="'+esc(romParsed.cliente||'')+'"></div>'
+        +'</div>'
+        +rresumo
+        +'<div style="background:rgba(234,90,12,.1);color:var(--brand);border-radius:8px;padding:8px 10px;font-size:.78rem;margin:6px 0 10px">✏️ <b>Tudo editável antes de gerar:</b> confira bobina, OP, lote, gramatura e pesos de cada linha. Cada linha vira <b>1 etiqueta</b>.</div>'
+        +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.86rem">'
+        +'<thead><tr style="text-align:left;color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.5px">'
+        +'<th style="padding:4px">Seq</th><th style="padding:4px">Bobina</th><th style="padding:4px">OP</th><th style="padding:4px">Lote</th><th style="padding:4px">Gramatura</th><th style="padding:4px;text-align:right">P.Bruto</th><th style="padding:4px;text-align:right">P.Líquido</th></tr></thead>'
+        +'<tbody>'+rrows+'</tbody></table></div>'
+        +'<div style="color:var(--faint);font-size:.72rem;margin-top:8px">A etiqueta Zebra traz: <b>número do romaneio</b>, <b>lote</b>, <b>gramatura</b> e <b>peso líquido</b> de cada bobina.</div>'
+        +'<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">'
+        +(rdup?'<button class="gbtn" id="romReprint" style="flex:1;justify-content:center">'+ICONS.tag+' Reimprimir etiquetas</button>'
+              :'<button class="gbtn" id="romGen" style="flex:1;justify-content:center">'+ICONS.tag+' Gerar etiquetas ('+totBob+')</button>')
+        +'<button class="btn" id="romCancel">Cancelar</button>'
+        +'</div></div>';
+    }
+
+    var list='', romList='';
+    var scanPanel='';
+    if(notas.length||romaneios.length){
+      scanPanel='<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Bipar recebimento — alimente até fechar</div>'
+        +'<div style="color:var(--muted);font-size:.82rem;margin-bottom:8px">Bipe cada etiqueta (NF ou romaneio) conforme chega. A barra enche e o item <b>cai no estoque intermediário</b>. Use leitor/teclado (Enter) ou o botão da câmera.</div>'
         +'<div class="fld"><input class="input code" id="nfRecvScan" autocomplete="off" placeholder="Bipe ou digite o código da etiqueta"></div>'
         +'</div>';
-      list=scanPanel+'<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Notas importadas</div>'
+    }
+    if(notas.length){
+      list='<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Notas importadas</div>'
         +notas.map(function(n){
           var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});
           var entIds=ids.filter(function(id){return ETQ[id].status==='entrada';});
@@ -1621,11 +1752,43 @@ updateStageBadge();
             +'</div>';
         }).join('')+'</div>';
     }
+    if(romaneios.length){
+      romList='<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Romaneios importados</div>'
+        +romaneios.map(function(n){
+          var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});
+          var entIds=ids.filter(function(id){return ETQ[id].status==='entrada';});
+          var ent=entIds.length;
+          var sai=ids.filter(function(id){return ETQ[id].status==='saida';}).length;
+          var kgTot=ids.reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);
+          var kgEnt=entIds.reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);
+          var pct=kgTot>0?Math.min(100,Math.round(kgEnt/kgTot*100)):0;
+          var fechada=ids.length>0&&ent>=ids.length;
+          var barCol=fechada?'#16a34a':'var(--brand)';
+          return '<div style="padding:11px 0;border-top:1px solid var(--line,rgba(255,255,255,.06))">'
+            +'<div style="display:flex;align-items:center;gap:8px">'
+            +'<div style="flex:1;min-width:0"><div style="font-weight:700">Romaneio '+esc(n.nRomaneio||'?')+' · '+ids.length+' etiquetas'+(fechada?' <span style="color:#16a34a;font-size:.7rem;font-weight:800;border:1px solid #16a34a;border-radius:6px;padding:1px 6px;margin-left:4px">✓ FECHADA</span>':'')+'</div>'
+            +(n.cliente?'<div style="color:var(--muted);font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(n.cliente)+'</div>':'')+'</div>'
+            +'<button class="btn" data-romprint="'+esc(n.key)+'" title="Reimprimir">'+ICONS.print+'</button>'
+            +'<button class="btn" data-romdel="'+esc(n.key)+'" title="Excluir">'+ICO_DEL+'</button>'
+            +'</div>'
+            +'<div style="margin-top:8px"><div style="height:7px;border-radius:4px;background:var(--line,rgba(255,255,255,.1));overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+barCol+';border-radius:4px;transition:width .3s"></div></div>'
+            +'<div style="display:flex;justify-content:space-between;gap:8px;color:var(--faint);font-size:.72rem;margin-top:4px">'
+            +'<span>📥 bipado <b>'+fmt(kgEnt)+'</b> de '+fmt(kgTot)+' kg ('+pct+'%)</span>'
+            +'<span>'+ent+'/'+ids.length+' etiq'+(sai?' · saída '+sai:'')+' · '+rel(n.at)+'</span>'
+            +'</div></div>'
+            +'</div>';
+        }).join('')+'</div>';
+    }
     el.innerHTML='<div class="panel"><div class="ph"><span class="pdot"></span>Importar nota fiscal (XML ou PDF)</div>'
       +'<div style="color:var(--muted);font-size:.85rem;margin-bottom:10px">Selecione o <b>XML da NF-e</b> (mais preciso) ou o <b>PDF da DANFE</b>. Item, quantidade, <b>peso (kg)</b> e lote são lidos automaticamente — pelo PDF, confira os valores na prévia. O lote pode ser digitado se a nota não trouxer.</div>'
       +'<input type="file" id="nfFile" accept=".xml,.pdf,text/xml,application/xml,application/pdf" style="display:none">'
       +'<button class="gbtn" id="nfPick" style="width:100%;justify-content:center">'+ICONS.nf+' Escolher XML ou PDF da nota</button>'
-      +'</div>'+preview+list;
+      +'</div>'+preview
+      +'<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Importar romaneio (planilha .xlsx)</div>'
+      +'<div style="color:var(--muted);font-size:.85rem;margin-bottom:10px">Selecione a <b>planilha do romaneio</b> de entrada/saída (Seq, Nº da bobina, OP, Lote, Gramatura, Peso bruto, Peso líquido). Uma etiqueta é gerada para <b>cada bobina</b> do romaneio.</div>'
+      +'<input type="file" id="romFile" accept=".xlsx,.xls" style="display:none">'
+      +'<button class="gbtn" id="romPick" style="width:100%;justify-content:center">'+ICONS.nf+' Escolher planilha do romaneio</button>'
+      +'</div>'+romPreview+scanPanel+list+romList;
 
     var fileInp=document.getElementById('nfFile');
     document.getElementById('nfPick').onclick=function(){fileInp.click();};
@@ -1648,12 +1811,42 @@ updateStageBadge();
         rd.readAsText(f);
       }
     };
+    var romFileInp=document.getElementById('romFile');
+    document.getElementById('romPick').onclick=function(){romFileInp.click();};
+    romFileInp.onchange=function(){var f=romFileInp.files&&romFileInp.files[0];if(!f)return;
+      toast('Lendo planilha do romaneio…');
+      loadXLSX().then(function(){
+        var r=new FileReader();
+        r.onload=function(){
+          try{
+            var wb=XLSX.read(new Uint8Array(r.result),{type:'array'});
+            var sn=wb.SheetNames[0];
+            var rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''});
+            var p=parseRomaneioXLSX(rows);
+            if(!p.ok){toast(p.err,false);return;}
+            romParsed=p;renderNF();toast('Romaneio '+(p.nRomaneio||'')+' lido · '+p.items.length+' bobinas — confira os valores');
+          }catch(e){toast('Erro ao ler a planilha',false);}
+        };
+        r.readAsArrayBuffer(f);
+      }).catch(function(){toast('Sem internet p/ ler .xlsx',false);});
+      romFileInp.value='';
+    };
     var c=document.getElementById('nfCancel'); if(c)c.onclick=function(){nfParsed=null;renderNF();};
     var g=document.getElementById('nfGen'); if(g)g.onclick=genLabels;
     var rp=document.getElementById('nfReprint'); if(rp)rp.onclick=function(){openLabelSheet(nfParsed.key);};
     el.querySelectorAll('[data-nfprint]').forEach(function(b){b.onclick=function(){openLabelSheet(b.getAttribute('data-nfprint'));};});
     el.querySelectorAll('[data-nfdel]').forEach(function(b){b.onclick=function(){nfDeleteNote(b.getAttribute('data-nfdel'));};});
     el.querySelectorAll('[data-nfedit]').forEach(function(b){b.onclick=function(){nfEditNote(b.getAttribute('data-nfedit'));};});
+    var romC=document.getElementById('romCancel'); if(romC)romC.onclick=function(){romParsed=null;renderNF();};
+    var romG=document.getElementById('romGen'); if(romG)romG.onclick=genRomLabels;
+    var romRp=document.getElementById('romReprint'); if(romRp)romRp.onclick=function(){openRomLabelSheet(romParsed.key);};
+    el.querySelectorAll('[data-romprint]').forEach(function(b){b.onclick=function(){openRomLabelSheet(b.getAttribute('data-romprint'));};});
+    el.querySelectorAll('[data-romdel]').forEach(function(b){b.onclick=function(){nfDeleteRomaneio(b.getAttribute('data-romdel'));};});
+    el.querySelectorAll('[data-rmrow]').forEach(function(b){b.onclick=function(){
+      if(!romParsed)return;
+      var i=parseInt(b.getAttribute('data-rmrow'),10);
+      if(!isNaN(i)){romParsed.items.splice(i,1);renderNF();}
+    };});
     var rsc=document.getElementById('nfRecvScan');
     if(rsc){
       rsc.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=rsc.value;rsc.value='';nfRecvBip(v);}});
@@ -1707,7 +1900,7 @@ updateStageBadge();
     if(e.nf&&e.nf!=='__vaga__'){
       var ids=Object.keys(ETQ).filter(function(k){return ETQ[k].nf===e.nf;});
       var allIn=ids.length>0&&ids.every(function(k){return ETQ[k].status==='entrada';});
-      if(allIn){var n=NFS[e.nf]||{};toast('✓ NF '+(n.nNF||'')+' fechada — todas as etiquetas bipadas');}
+      if(allIn){var n=NFS[e.nf]||ROMS[e.nf]||{};var lbl=n.nNF?('NF '+n.nNF):(n.nRomaneio?('Romaneio '+n.nRomaneio):'');toast('✓ '+lbl+' fechada — todas as etiquetas bipadas');}
     }
     renderNF();
     var act=document.querySelector('.view.active'); if(act&&act.id==='v-recv'&&typeof renderRecv==='function'){renderRecv();if(typeof updateStageBadge==='function')updateStageBadge();}
@@ -1839,6 +2032,53 @@ updateStageBadge();
     else toast('Recarregue a página (Ctrl+Shift+R)',false);
   }
 
+  /* ---- gerar etiquetas do romaneio (1 por bobina) ---- */
+  function genRomLabels(){
+    if(!romParsed)return;
+    if(ROMS[romParsed.key]){toast('Romaneio já gerado — use reimprimir',false);return;}
+    var hN=document.getElementById('rmHdrNum'), hF=document.getElementById('rmHdrNfe'), hD=document.getElementById('rmHdrData'), hC=document.getElementById('rmHdrCli');
+    var hdr={
+      nRomaneio:(hN?hN.value:(romParsed.nRomaneio||'')).trim(),
+      nfe:(hF?hF.value:(romParsed.nfe||'')).trim(),
+      dataSaida:(hD?hD.value:(romParsed.dataSaida||'')).trim(),
+      cliente:(hC?hC.value:(romParsed.cliente||'')).trim()
+    };
+    var created=[];
+    romParsed.items.forEach(function(it,idx){
+      var bI=document.getElementById('rb_'+idx), oI=document.getElementById('ro_'+idx), lI=document.getElementById('rl_'+idx), gI=document.getElementById('rg_'+idx), pbI=document.getElementById('rpb_'+idx), plI=document.getElementById('rpl_'+idx);
+      var bobina=bI?bI.value.trim():it.bobina; if(!bobina)return;
+      var op=oI?oI.value.trim():(it.op||'');
+      var lote=lI?lI.value.trim():(it.lote||'');
+      var gram=gI?gI.value.trim():(it.gramatura||'');
+      var pesoBruto=pbI?brNum(pbI.value):(it.pesoBruto||0);
+      var pesoLiquido=plI?brNum(plI.value):(it.pesoLiquido||0);
+      var id=norm(bobina);
+      if(ETQ[id]){var s=2,base=id;while(ETQ[id]){id=base+'-'+s;s++;}}
+      ETQ[id]={id:id,nf:romParsed.key,nRomaneio:hdr.nRomaneio,nNFe:hdr.nfe,cliente:hdr.cliente,bobina:bobina,op:op,lote:lote,gramatura:gram,xProd:gram,cProd:op,uCom:'KG',kg:pesoLiquido,pesoBruto:pesoBruto,vol:(idx+1),volTot:romParsed.items.length,idx:(idx+1),status:'gerada',hist:[{ev:'gerada',at:nowISO(),by:session.u}]};
+      created.push(id);
+    });
+    if(!created.length){toast('Nenhuma bobina válida para gerar',false);return;}
+    ROMS[romParsed.key]={key:romParsed.key,nRomaneio:hdr.nRomaneio,nfe:hdr.nfe,dataSaida:hdr.dataSaida,cliente:hdr.cliente,at:nowISO(),by:session.u,total:created.length};
+    saveNF();logAct('romaneio-etiquetas','Romaneio '+hdr.nRomaneio+' · '+created.length+' etiquetas');
+    toast(created.length+' etiquetas geradas');
+    var key=romParsed.key; romParsed=null; renderNF(); openRomLabelSheet(key);
+  }
+  function openRomLabelSheet(key){
+    var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;}).sort(function(a,b){return (ETQ[a].idx||0)-(ETQ[b].idx||0);});
+    if(!ids.length){toast('Sem etiquetas',false);return;}
+    if(typeof printZebraRom==='function')printZebraRom(ids.map(function(id){return ETQ[id];}),(typeof ZSIZES!=='undefined'?ZSIZES.z100:null));
+    else toast('Recarregue a página (Ctrl+Shift+R)',false);
+  }
+  function nfDeleteRomaneio(key){
+    var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;});
+    var n=ROMS[key]||{};
+    if(!confirm('Excluir o romaneio '+(n.nRomaneio||key)+' e suas '+ids.length+' etiqueta(s)? Esta ação não pode ser desfeita.'))return;
+    ids.forEach(function(id){delete ETQ[id];});
+    if(ROMS[key])delete ROMS[key];
+    saveNF(); if(typeof logAct==='function')logAct('romaneio-excluir',n.nRomaneio||key);
+    toast('Romaneio excluído'); if(romParsed&&romParsed.key===key)romParsed=null; renderNF();
+  }
+
   /* ---- view: Rastreio ---- */
   function renderRastreio(){
     var el=document.getElementById('v-rastreio'); if(!el)return;
@@ -1856,7 +2096,7 @@ updateStageBadge();
         +'<div style="flex:1;min-width:0">'
           +'<div style="font-weight:700">'+esc(e.cProd||e.id)+(e.kg>0?' · '+fmt(e.kg)+' '+unit:'')+'</div>'
           +(desc?'<div style="color:var(--muted);font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(desc)+'</div>':'')
-          +'<div style="color:var(--faint);font-size:.72rem">'+(e.addr?'vaga '+esc(e.addr):'NF '+esc(e.nNF||''))+(e.lote?' · lote '+esc(e.lote):'')+' · '+esc(e.id)+' · '+rel(lastAt(e))+'</div>'
+          +'<div style="color:var(--faint);font-size:.72rem">'+(e.addr?'vaga '+esc(e.addr):(e.nRomaneio?'romaneio '+esc(e.nRomaneio):'NF '+esc(e.nNF||'')))+(e.lote?' · lote '+esc(e.lote):'')+' · '+esc(e.id)+' · '+rel(lastAt(e))+'</div>'
         +'</div>'
         +'<button class="btn" data-sai="'+esc(e.id)+'" style="flex:none">Saída ↗</button>'
         +'</div>';
@@ -1916,7 +2156,7 @@ updateStageBadge();
       return '<div style="display:flex;gap:8px;align-items:baseline;padding:4px 0"><span style="width:8px;height:8px;border-radius:50%;background:'+col+';flex:none;transform:translateY(2px)"></span><b style="text-transform:capitalize">'+esc(h.ev)+'</b><span style="color:var(--muted);font-size:.78rem">'+rel(h.at)+(h.by?' · '+esc(h.by):'')+'</span></div>';
     }).join('');
     return '<div style="background:var(--card,rgba(255,255,255,.03));border-radius:10px;padding:'+(compact?'12px':'14px')+'">'
-      +'<div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">'+(e.addr?'Vaga '+esc(e.addr):'NF '+esc(e.nNF||''))+(e.lote?' · lote '+esc(e.lote):'')+'</div>'
+      +'<div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">'+(e.addr?'Vaga '+esc(e.addr):(e.nRomaneio?'Romaneio '+esc(e.nRomaneio):'NF '+esc(e.nNF||'')))+(e.lote?' · lote '+esc(e.lote):'')+'</div>'
       +'<div style="font-family:var(--disp);font-weight:800;font-size:1.15rem;margin:2px 0">'+esc(e.cProd||e.id)+'</div>'
       +(desc?'<div style="font-weight:700;font-size:.95rem;margin-bottom:2px">'+esc(desc)+'</div>':'')
       +(e.kg>0?'<div style="font-family:var(--disp);font-weight:800;font-size:1.25rem;color:var(--brand)">'+fmt(e.kg)+' '+unit+'</div>':'')
@@ -3147,6 +3387,48 @@ function printZebraRast(arr,dim){if(!arr||!arr.length){toast('Nada para imprimir
    +'.zlbl .zkgbig{font-weight:800;color:#0a0c10;line-height:1;margin-top:auto;letter-spacing:-.2mm}';
   printDoc(labels,css);};
  loadQR().then(render).catch(render);}
+function romQRPayload(e){
+ var L=[e.bobina||e.id];
+ if(e.nRomaneio)L.push('Romaneio: '+e.nRomaneio);
+ if(e.op)L.push('OP: '+e.op);
+ if(e.lote)L.push('Lote: '+e.lote);
+ var desc=e.gramatura||e.xProd||''; if(desc)L.push(desc);
+ if(e.kg>0)L.push(fmt(e.kg)+' kg liq.');
+ if(e.pesoBruto>0)L.push(fmt(e.pesoBruto)+' kg bruto');
+ return L.join('\n');
+}
+function romZCard(e,dim,H,u){
+ var W=H*dim.w/dim.h;var f=function(k){return (Math.round(H*k*100)/100)+u;};
+ var desc=e.gramatura||e.xProd||'';
+ var top='ROMANEIO '+rastEsc(e.nRomaneio||'');
+ return '<div class="zlbl" style="width:'+W+u+';height:'+H+u+'">'
+  +'<div class="zbar" style="height:'+f(0.03)+'"></div>'
+  +'<div class="zin" style="padding:'+f(0.03)+';gap:'+f(0.014)+'">'
+   +'<div class="zhead" style="gap:'+f(0.026)+'"><img class="zlogo" src="'+PACKEM_IMG+'" style="width:'+f(0.078)+';height:'+f(0.078)+'"><div class="zbt" style="font-size:'+f(0.043)+'">PACKEM<span style="font-size:'+f(0.026)+'">'+top+'</span></div></div>'
+   +'<div class="zqr" style="width:'+f(0.34)+'">'+qrSvg(romQRPayload(e))+'</div>'
+   +'<div class="zpr" style="font-size:'+f(0.05)+'">'+rastEsc(e.bobina||e.id)+'</div>'
+   +(desc?'<div class="zds" style="font-size:'+f(0.078)+'">'+rastEsc(desc)+'</div>':'')
+   +(e.lote?'<div class="zlote" style="font-size:'+f(0.052)+';padding:'+f(0.012)+' '+f(0.026)+'">LOTE '+rastEsc(e.lote)+'</div>':'')
+   +(e.kg>0?'<div class="zkgbig" style="font-size:'+f(0.1)+'">'+fmt(e.kg)+' kg</div>':'')
+  +'</div></div>';
+}
+function printZebraRom(arr,dim){if(!arr||!arr.length){toast('Nada para imprimir',false);return;}dim=dim||(typeof ZSIZES!=='undefined'?ZSIZES.z100:{w:100,h:100,n:'100×100 mm'});
+ var render=function(){var labels=arr.map(function(e){return romZCard(e,dim,dim.h,'mm');}).join('');
+  var css='*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:'+dim.w+'mm '+dim.h+'mm;margin:0}'
+   +'.zlbl{position:relative;background:#fff;color:#0a0c10;display:flex;flex-direction:column;overflow:hidden;page-break-after:always;break-after:page;font-family:"Segoe UI",Arial,Helvetica,sans-serif}'
+   +'.zlbl .zbar{width:100%;flex:none;background:#EA5A0C}'
+   +'.zlbl .zin{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center}'
+   +'.zlbl .zhead{display:flex;align-items:center;justify-content:center}'
+   +'.zlbl .zlogo{border-radius:1.4mm;object-fit:cover;flex:none}'
+   +'.zlbl .zbt{font-weight:800;line-height:1;display:flex;flex-direction:column;color:#0a0c10;text-align:left}'
+   +'.zlbl .zbt span{font-weight:700;color:#7a8088;letter-spacing:.4mm;margin-top:.4mm}'
+   +'.zlbl .zqr{display:flex;align-items:center;justify-content:center}.zlbl .zqr svg{width:100%;height:auto;display:block}svg.qr{max-width:100%;height:auto}'
+   +'.zlbl .zpr{font-weight:700;color:#3a3f47;line-height:1;letter-spacing:.2mm;word-break:break-word;max-width:100%}'
+   +'.zlbl .zds{color:#0a0c10;font-weight:800;line-height:1.0;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;padding:0 1mm}'
+   +'.zlbl .zlote{font-weight:800;color:#0a0c10;background:#f0f0f0;border-radius:1.4mm;letter-spacing:.2mm;display:inline-block}'
+   +'.zlbl .zkgbig{font-weight:800;color:#0a0c10;line-height:1;margin-top:auto;letter-spacing:-.2mm}';
+  printDoc(labels,css);};
+ loadQR().then(render).catch(render);}
 printBobLabel=function(et){var o=BOB[et];if(!o){toast('Etiqueta não encontrada',false);return;}
  var body='<div class="bobprn"><div class="bpbar"></div><div class="bpin">'
   +'<div class="bphead"><img src="'+PACKEM_IMG+'" class="bplogo"><div class="bpbt">PACKEM<span>BOBINA</span></div></div>'
@@ -3188,26 +3470,25 @@ function shortDesc(desc){desc=String(desc||'').toUpperCase();
  if(mat)s=(s?s+' ':'')+mat;
  if(!s)s=desc.split(/\s+/).filter(Boolean).slice(0,3).join(' ');
  return s.trim();}
-function printIntakeFallback(it){if(!it)return;var sd=shortDesc(it.desc||it.pr||'');var wt=(it.pl>0)?fmt(it.pl)+' KG':'';var et=it.et||'';
+function printIntakeFallback(it){if(!it)return;var sd=shortDesc(it.desc||it.pr||'');var wt=(it.pl>0)?fmt(it.pl)+' KG':'';var et=it.et||'';var pr=it.pr||'';
  var build=function(){
  var qr=et?qrSvg(et):'';
- var body='<div class="il"><div class="ilbar"></div><div class="ilin">'
-  +'<div class="ilhead"><img src="'+PACKEM_IMG+'" class="illogo"><div class="ilbt">PACKEM<span>'+(typeof whLabel==='function'?whLabel(cfg.warehouse).toUpperCase():'DEP 70')+'</span></div></div>'
-  +(et?'<div class="ilet">'+et+'</div>':'')
-  +'<div class="ildesc">'+sd+'</div>'
-  +(wt?'<div class="ilw">'+wt+'</div>':'')
+ var body='<div class="il">'
   +(qr?'<div class="ilqr">'+qr+'</div>':'')
-  +'</div></div>';
- var css='*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:100mm 100mm;margin:0}'
-  +'.il{width:100mm;height:100mm;display:flex;flex-direction:column;color:#000;font-family:Arial,Helvetica,sans-serif}'
-  +'.ilbar{height:5mm;background:#EA5A0C;flex:none}'
-  +'.ilin{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3.5mm 5mm;gap:2.2mm}'
-  +'.ilhead{display:flex;align-items:center;justify-content:center;gap:2.5mm}.illogo{width:11mm;height:11mm;border-radius:2mm;object-fit:cover}'
-  +'.ilbt{font-weight:800;font-size:5mm;line-height:1;display:flex;flex-direction:column;text-align:left}.ilbt span{font-weight:700;font-size:2.6mm;color:#666;letter-spacing:.8mm;margin-top:.6mm}'
-  +'.ilet{font-family:"Courier New",monospace;font-weight:800;font-size:6.5mm;letter-spacing:-.2mm}'
-  +'.ildesc{font-weight:800;font-size:12mm;line-height:1.05;letter-spacing:-.3mm;max-width:92mm}'
-  +'.ilw{font-weight:800;font-size:11mm;line-height:1}'
-  +'.ilqr{margin-top:1.5mm}svg.qr{width:31mm;height:31mm;display:block;margin:0 auto}';
+  +'<div class="ilhead"><div class="ilbt">PACKEM<span>'+(typeof whLabel==='function'?whLabel(cfg.warehouse).toUpperCase():'DEP 70')+'</span></div></div>'
+  +(pr?'<div class="ilcode">'+pr+'</div>':'')
+  +'<div class="ildesc">'+sd+'</div>'
+  +(et?'<div class="ilet">'+et+'</div>':'')
+  +(wt?'<div class="ilw">'+wt+'</div>':'')
+  +'</div>';
+ var css='*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:100mm 150mm;margin:0}'
+  +'.il{width:100mm;height:150mm;position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;color:#000;font-family:Arial,Helvetica,sans-serif;padding:6mm 5mm 5mm}'
+  +'.ilqr{position:absolute;top:5mm;right:5mm}.ilqr svg,svg.qr{width:26mm;height:26mm;display:block}'
+  +'.ilhead{align-self:flex-start;text-align:left}.ilbt{font-weight:800;font-size:7mm;line-height:1}.ilbt span{display:block;font-weight:700;font-size:3mm;color:#666;letter-spacing:1mm;margin-top:1mm}'
+  +'.ilcode{width:100%;background:#000;color:#fff;font-weight:800;font-size:15mm;line-height:1.15;border-radius:2mm;padding:3mm 1mm;margin:6mm 0 4mm}'
+  +'.ildesc{font-weight:800;font-size:9mm;line-height:1.08;letter-spacing:-.2mm;max-width:92mm}'
+  +'.ilet{font-family:"Courier New",monospace;font-weight:700;font-size:6mm;margin-top:3mm}'
+  +'.ilw{font-weight:800;font-size:13mm;margin-top:auto}';
  printDoc(body,css);};
  if(window.qrcode)build();else if(typeof loadQR==='function')loadQR().then(build).catch(build);else build();}
 
@@ -3224,17 +3505,20 @@ function zplIntakeLabel(it){
  var sd=shortDesc(it.desc||it.pr||'').replace(/[\^~]/g,' ');
  var wt=(it.pl>0)?(fmt(it.pl)+' KG'):'';
  var et=String(it.et||'').replace(/[\^~]/g,'');
+ var pr=String(it.pr||'').replace(/[\^~]/g,'');
  var etbc=et.toUpperCase();
  var wh=(typeof whLabel==='function'?whLabel(cfg.warehouse):'DEP 70').toString().toUpperCase().replace(/[\^~]/g,'');
- var z='^XA^CI28^PW800^LL800^LH0,0';
- z+='^FO8,8^GB784,784,2^FS';                            /* borda */
- z+='^FO0,26^FB800,1,0,C^A0N,54,54^FDPACKEM^FS';        /* marca centralizada */
- z+='^FO0,88^FB800,1,0,C^A0N,28,28^FD'+wh+'^FS';        /* deposito */
- z+='^FO40,132^GB720,3,3^FS';                           /* linha */
- if(et)z+='^FO0,150^FB800,1,0,C^A0N,46,46^FD'+et+'^FS'; /* etiqueta */
- z+='^FO0,212^FB800,2,0,C^A0N,72,44^FD'+sd+'^FS';       /* descricao GRANDE centralizada */
- if(wt)z+='^FO0,340^FB800,1,0,C^A0N,104,58^FD'+wt+'^FS';/* peso GRANDE */
- if(etbc)z+='^FO312,470^BQN,2,7^FDMA,'+etbc+'^FS';      /* QR centralizado */
+ var z='^XA^CI28^PW800^LL1200^LH0,0';
+ z+='^FO6,6^GB788,1188,3^FS';                               /* borda */
+ if(etbc)z+='^FO536,28^BQN,2,6^FDMA,'+etbc+'^FS';           /* QR no canto (de lado) */
+ z+='^FO40,42^A0N,54,54^FDPACKEM^FS';                       /* marca */
+ z+='^FO42,106^A0N,28,28^FD'+wh+'^FS';                      /* deposito */
+ z+='^FO30,252^GB740,3,3^FS';                               /* linha */
+ if(pr){z+='^FO40,290^GB720,200,200^FS';                    /* faixa preta destaque */
+        z+='^FO40,326^A0N,150,66^FR^FB720,1,0,C^FD'+pr+'^FS';} /* CODIGO PRODUTO GIGANTE (branco) */
+ z+='^FO28,528^FB744,3,0,C^A0N,54,40^FD'+sd+'^FS';          /* descricao */
+ if(et)z+='^FO28,756^FB744,1,0,C^A0N,42,42^FD'+et+'^FS';    /* etiqueta */
+ if(wt)z+='^FO28,842^FB744,1,0,C^A0N,128,72^FD'+wt+'^FS';   /* peso */
  z+='^XZ';
  return z;
 }

@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v23</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v24</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v23</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v24</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -1339,15 +1339,53 @@ function showBobLabel(et){et=norm(et);const o=BOB[et]||{};const it=(typeof STAGE
  };}
 function vpVoiceOn(){try{return localStorage.getItem('wmsx_voice')==='1';}catch(e){return false;}}
 function vpToggleVoice(v){try{localStorage.setItem('wmsx_voice',v?'1':'0');}catch(e){}}
-function vpSpeak(text){
+// --- voz natural (pt-BR): escolhe a melhor voz disponível no aparelho e fala por frase (mais fluida) ---
+var _vpVoice=null,_vpVoiceGot=false;
+function vpPickBestVoice(voices){
+  if(!voices||!voices.length)return null;
+  var prefs=[/Google.*(português|Brasil|pt-BR)/i,/Microsoft.*(Francisca|Thalita).*(Online|Natural)/i,/Microsoft.*Maria.*(Online|Natural)/i,/Luciana/i,/Microsoft.*Francisca/i,/Microsoft.*Maria/i,/pt-BR/i,/^pt/i];
+  for(var i=0;i<prefs.length;i++){
+    var rx=prefs[i];
+    var f=voices.find(function(v){return rx.test(v.name)||rx.test(v.lang);});
+    if(f)return f;
+  }
+  return null;
+}
+function vpLoadVoice(){
   try{
-    if(!window.speechSynthesis||!vpVoiceOn())return;
-    window.speechSynthesis.cancel();
-    var u=new SpeechSynthesisUtterance(text);
-    u.lang='pt-BR';u.rate=1;
-    window.speechSynthesis.speak(u);
+    if(!window.speechSynthesis||_vpVoiceGot)return;
+    function grab(){var vs=window.speechSynthesis.getVoices()||[];if(!vs.length)return;_vpVoice=vpPickBestVoice(vs);_vpVoiceGot=true;}
+    grab();
+    if(!_vpVoiceGot)window.speechSynthesis.onvoiceschanged=grab;
   }catch(e){}
 }
+vpLoadVoice();
+function vpSplitSentences(text){return String(text||'').replace(/\s+/g,' ').trim().split(/(?<=[.!?;:])\s+(?=\S)/).filter(Boolean);}
+function vpSpeakQueue(text,onDone,force){
+  try{
+    if(!window.speechSynthesis||!text){if(onDone)onDone();return;}
+    if(!force&&!vpVoiceOn()){if(onDone)onDone();return;}
+    vpLoadVoice();
+    window.speechSynthesis.cancel();
+    var parts=vpSplitSentences(text);
+    if(!parts.length){if(onDone)onDone();return;}
+    var i=0;
+    function next(){
+      if(i>=parts.length){if(onDone)onDone();return;}
+      var chunk=parts[i++];
+      var u=new SpeechSynthesisUtterance(chunk);
+      u.lang='pt-BR';u.rate=0.98;u.pitch=1.02;u.volume=1;
+      if(_vpVoice)u.voice=_vpVoice;
+      var moved=false;
+      function adv(){if(moved)return;moved=true;next();}
+      u.onend=adv;u.onerror=adv;
+      window.speechSynthesis.speak(u);
+      setTimeout(adv,Math.max(2500,chunk.length*95));
+    }
+    next();
+  }catch(e){if(onDone)onDone();}
+}
+function vpSpeak(text){vpSpeakQueue(text,null,false);}
 function vpAddrSpeech(c){
   var parts=String(c||'').split('-');
   if(parts.length<2)return c||'';
@@ -1384,36 +1422,38 @@ function vpBuildContext(){
     };
   }catch(e){return {};}
 }
-function vpAskAI(question,history){
+function vpAskAI(question,history,_retry){
   var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
-  var timer=setTimeout(function(){if(ctrl)ctrl.abort();},12000);
+  var timer=setTimeout(function(){if(ctrl)ctrl.abort();},28000);
   return fetch('/api/ask',{
     method:'POST',
     headers:{'content-type':'application/json'},
     body:JSON.stringify({question:question,context:vpBuildContext(),history:Array.isArray(history)?history.slice(-10):[]}),
     signal:ctrl?ctrl.signal:undefined
-  }).then(function(r){return r.json().then(function(d){return {ok:r.ok,data:d};});}).then(function(res){
+  }).then(function(r){return r.json().catch(function(){return {};}).then(function(d){return {ok:r.ok,status:r.status,data:d};});}).then(function(res){
     clearTimeout(timer);
-    if(!res.ok||!res.data||res.data.error)throw new Error((res.data&&res.data.error)||'Erro na IA');
+    if(!res.ok||!res.data||res.data.error||!res.data.answer){
+      var e=new Error((res.data&&res.data.error)||('Erro na IA (HTTP '+res.status+')'));
+      e.status=res.status;
+      throw e;
+    }
     return res.data.answer;
   }).catch(function(e){
     clearTimeout(timer);
+    console.error('[Estoque Inteligente] falha ao perguntar'+(_retry?' (2ª tentativa)':'')+':',e);
+    if(!_retry){
+      return new Promise(function(res,rej){setTimeout(function(){vpAskAI(question,history,true).then(res).catch(rej);},900);});
+    }
     throw e;
   });
 }
-function vpSpeakForceCb(text,onDone){
-  try{
-    if(!window.speechSynthesis){if(onDone)onDone();return;}
-    window.speechSynthesis.cancel();
-    var u=new SpeechSynthesisUtterance(text);
-    u.lang='pt-BR';u.rate=1;
-    var done=false;
-    function fin(){if(done)return;done=true;if(onDone)onDone();}
-    u.onend=fin;u.onerror=fin;
-    window.speechSynthesis.speak(u);
-    setTimeout(fin,Math.max(4000,text.length*90));
-  }catch(e){if(onDone)onDone();}
+function vpErrMsg(err){
+  try{if(typeof navigator!=='undefined'&&navigator.onLine===false)return 'Sem internet — verifica a conexão e tenta de novo.';}catch(e){}
+  if(err&&err.name==='AbortError')return 'O servidor demorou pra responder. Tenta de novo.';
+  if(err instanceof TypeError)return 'Não consegui falar com o servidor. Tenta de novo.';
+  return 'Deu um erro aqui no servidor. Tenta de novo em instantes.';
 }
+function vpSpeakForceCb(text,onDone){vpSpeakQueue(text,onDone,true);}
 function vpVoiceToggleHTML(id){return '<label style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);margin-bottom:14px;cursor:pointer"><input type="checkbox" id="'+id+'" '+(vpVoiceOn()?'checked':'')+'> Ler instruções em voz alta</label>';}
 var _vpBarStyled=false;
 function vpEnsureBarStyle(){
@@ -1469,9 +1509,9 @@ function vpOpenConversation(){
         history.push({role:'assistant',text:answer});
         setTxt(answer);
         vpSpeakForceCb(answer,function(){if(active)listenTurn();});
-      }).catch(function(){
+      }).catch(function(err){
         if(!active)return;
-        var msg='Não consegui responder — verifica a internet.';
+        var msg=vpErrMsg(err);
         setTxt(msg);
         vpSpeakForceCb(msg,function(){if(active)listenTurn();});
       });
@@ -1486,15 +1526,7 @@ function vpOpenConversation(){
   }
   listenTurn();
 }
-function vpSpeakForce(text){
-  try{
-    if(!window.speechSynthesis)return;
-    window.speechSynthesis.cancel();
-    var u=new SpeechSynthesisUtterance(text);
-    u.lang='pt-BR';u.rate=1;
-    window.speechSynthesis.speak(u);
-  }catch(e){}
-}
+function vpSpeakForce(text){vpSpeakQueue(text,null,true);}
 function vpListenOnce(onResult,onError){
   try{
     var SR=window.SpeechRecognition||window.webkitSpeechRecognition;

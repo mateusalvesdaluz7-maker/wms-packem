@@ -4,15 +4,28 @@
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+
+  // Diagnóstico: abra /api/ask no navegador (GET) pra ver na hora se a chave chegou no servidor.
+  if (req.method === 'GET') {
+    const k = (process.env.GEMINI_API_KEY || '').trim();
+    res.status(200).json({
+      ok: true,
+      gemini_key_configured: !!k,
+      key_preview: k ? (k.slice(0, 4) + '...' + k.slice(-4) + ' (' + k.length + ' caracteres)') : null,
+      dica: k ? 'Chave encontrada no servidor. Se ainda der erro no chat, o problema é outro (veja Vercel > Logs).' : 'Chave NÃO encontrada. Confira Vercel > Settings > Environment Variables do PROJETO (não do Time) e faça um novo deploy.'
+    });
+    return;
+  }
+
   if (req.method !== 'POST') { res.status(405).json({ error: 'Método não permitido' }); return; }
 
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = (process.env.GEMINI_API_KEY || '').trim();
     if (!apiKey) {
-      res.status(500).json({ error: 'GEMINI_API_KEY não configurada no servidor (Vercel > Settings > Environment Variables)' });
+      res.status(500).json({ error: 'GEMINI_API_KEY não configurada no servidor (Vercel > Settings > Environment Variables DO PROJETO, depois faça um novo deploy)' });
       return;
     }
 
@@ -86,6 +99,7 @@ module.exports = async function handler(req, res) {
     const answer = (cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text) ? cand.content.parts[0].text.trim() : 'Não consegui pensar em uma resposta agora.';
     res.status(200).json({ answer: answer });
   } catch (e) {
+    console.error('[api/ask] erro interno:', e);
     res.status(500).json({ error: 'Erro interno: ' + (e && e.message ? e.message : String(e)) });
   }
 };

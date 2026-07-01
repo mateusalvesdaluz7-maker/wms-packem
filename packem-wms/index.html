@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v25</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v28</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v25</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v28</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -608,7 +608,6 @@ function renderBoard(){
     <div class="board-ctrl">
       <div class="ruatabs whpick">${whs.map(w=>`<button class="${w===wh?'on':''}" data-wh="${w}">${whLabel(w)}</button>`).join('')}</div>
       <div class="fld" style="margin:8px 0"><input class="input code" id="boardSearch" autocomplete="off" placeholder="Buscar produto, endereço ou bobina"></div>
-      <button class="gbtn" type="button" id="boardMic" style="width:100%;justify-content:center;margin-bottom:8px">🧠 Estoque Inteligente — toque e fale</button>
       ${allStreets.length?`<div class="ruatabs"><button class="${!boardStreet?'on':''}" data-r="">Todas as ruas</button>${allStreets.map(s=>`<button class="${s===boardStreet?'on':''}" data-r="${s}">Rua ${s}</button>`).join('')}</div>`:''}
       ${byStreet||!levels.length?'':`<div class="lvtabs">${levels.map(l=>`<button class="${Number(l)===Number(boardLevel)?'on':''}" data-l="${l}">Nível ${l}</button>`).join('')}</div>`}
       <div class="legend"><span><i style="background:linear-gradient(135deg,#15A34A,#22c55e)"></i>Vago</span><span><i style="background:linear-gradient(135deg,#ef4444,#f87171)"></i>Ocupado</span><span><i style="background:linear-gradient(135deg,#d97706,#fbbf24)"></i>+20 dias</span><span><i style="background:linear-gradient(135deg,#7f1d1d,#b91c1c)"></i>+40 dias</span><span style="color:var(--faint)">${occ} ocupadas</span></div>
@@ -1455,7 +1454,7 @@ function vpErrMsg(err){
   if(st===401||st===403)return 'Erro de autorização com a IA (HTTP '+st+') — chave de API inválida ou vencida.';
   if(st===404)return 'Endpoint da IA não encontrado (HTTP 404) — a função /api/ask pode não estar publicada.';
   if(st===429)return 'Limite de uso da IA atingido (HTTP 429) — tenta de novo em instantes.';
-  if(st>=500)return 'Erro interno no servidor da IA (HTTP '+st+'). Tenta de novo.';
+  if(st>=500)return 'Erro no servidor da IA (HTTP '+st+'): '+(err.message||'sem detalhes')+'.';
   if(err&&err.message)return 'Erro na IA: '+err.message;
   return 'Deu um erro aqui no servidor. Tenta de novo em instantes.';
 }
@@ -1558,7 +1557,7 @@ function vpListenOnce(onResult,onError){
 }
 function vpAskBtnHTML(id){return '<button class="btn" type="button" id="'+id+'" style="margin-bottom:14px;width:100%">Perguntar vaga livre</button><div id="'+id+'Hint" style="font-size:.74rem;color:var(--faint);margin:-10px 0 14px"></div>';}
 function stageArmazenar(et){const it=STAGE.find(s=>s.et===et);if(!it)return;const sug=suggestPutaway(it.pr);
- openDrawer(ICONS.box+' Armazenar '+et,vpVoiceToggleHTML('azVoice')+vpAskBtnHTML('azAsk')+'<div style="margin-bottom:16px"><div class="mono" style="font-weight:700;font-size:1.05rem">'+it.pr+'</div><div style="font-size:.8rem;color:var(--muted);margin-top:3px">'+(it.desc||'')+' · '+fmt(it.pl)+' kg</div></div>'+'<label class="fld"><span class="lab">1 · Bipe a bobina ('+et+')</span><input class="input code" id="azEt" placeholder="toque para bipar"></label><div id="azEtChk" style="font-size:.8rem;font-weight:700;margin:-8px 0 12px 2px"></div>'+(sug.length?'<div class="assist"><div class="ah"><span class="sp"></span>Sugestão de endereço</div>'+sug.map(x=>'<div class="sug" data-c="'+code(x)+'"><span class="sx">'+code(x)+'</span><span class="tagn '+(x._cons?'cons':'free')+'">'+(x._cons?'consolidar':'vaga livre')+'</span></div>').join('')+'</div>':'')+'<label class="fld"><span class="lab">2 · Bipe o endereço</span><input class="input code" id="azLoc" placeholder="toque para bipar"></label><button class="btn in" id="azDo" style="width:100%;height:48px">Confirmar armazenagem</button>');
+ openDrawer(ICONS.box+' Armazenar '+et,vpVoiceToggleHTML('azVoice')+'<div style="margin-bottom:16px"><div class="mono" style="font-weight:700;font-size:1.05rem">'+it.pr+'</div><div style="font-size:.8rem;color:var(--muted);margin-top:3px">'+(it.desc||'')+' · '+fmt(it.pl)+' kg</div></div>'+'<label class="fld"><span class="lab">1 · Bipe a bobina ('+et+')</span><input class="input code" id="azEt" placeholder="toque para bipar"></label><div id="azEtChk" style="font-size:.8rem;font-weight:700;margin:-8px 0 12px 2px"></div>'+(sug.length?'<div class="assist"><div class="ah"><span class="sp"></span>Sugestão de endereço</div>'+sug.map(x=>'<div class="sug" data-c="'+code(x)+'"><span class="sx">'+code(x)+'</span><span class="tagn '+(x._cons?'cons':'free')+'">'+(x._cons?'consolidar':'vaga livre')+'</span></div>').join('')+'</div>':'')+'<label class="fld"><span class="lab">2 · Bipe o endereço</span><input class="input code" id="azLoc" placeholder="toque para bipar"></label><button class="btn in" id="azDo" style="width:100%;height:48px">Confirmar armazenagem</button>');
  var azVoiceEl=$('#azVoice');if(azVoiceEl)azVoiceEl.onchange=function(){vpToggleVoice(azVoiceEl.checked);if(azVoiceEl.checked)vpSpeak('Olá operador, vaga '+(sug.length?vpAddrSpeech(code(sug[0])):'não encontrada')+' livre. Leve a bobina '+et+' até lá.');};
  var azAskEl=$('#azAsk');
  var azAskCancel=null,azAskOrig=azAskEl?azAskEl.textContent:'';
@@ -3180,7 +3179,7 @@ const GRID_LAYOUT={
  J:[{from:10,to:260,levels:[1,2,3,4]}],
  K:[{from:10,to:260,levels:[1,2,3,4,5]}],
  L:[{from:10,to:260,levels:[1,2,3,4,5]}],
- M:[{from:100,to:340,levels:[1,2,3,4,5]}],
+ M:[{from:100,to:350,levels:[1,2,3,4,5]}],
  N:[{from:10,to:350,levels:[1,2,3,4,5]}],
  O:[{from:10,to:310,levels:[1,2,3,4,5]}],
  P:[{from:10,to:350,levels:[1,2,3,4,5]}],

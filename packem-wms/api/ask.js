@@ -1,6 +1,6 @@
 // /api/ask.js — Vercel Serverless Function
-// Recebe a pergunta por voz + um resumo do estoque atual, chama a IA da Anthropic
-// com a chave guardada em segredo (variável de ambiente ANTHROPIC_API_KEY) e devolve a resposta.
+// Recebe a pergunta por voz + um resumo do estoque atual, chama a IA do Google Gemini (plano gratuito)
+// com a chave guardada em segredo (variável de ambiente GEMINI_API_KEY) e devolve a resposta.
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,9 +10,9 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Método não permitido' }); return; }
 
   try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      res.status(500).json({ error: 'ANTHROPIC_API_KEY não configurada no servidor (Vercel > Settings > Environment Variables)' });
+      res.status(500).json({ error: 'GEMINI_API_KEY não configurada no servidor (Vercel > Settings > Environment Variables)' });
       return;
     }
 
@@ -22,7 +22,7 @@ module.exports = async function handler(req, res) {
     const context = (body && body.context) ? body.context : {};
     if (!question.trim()) { res.status(400).json({ error: 'Faltou a pergunta' }); return; }
 
-    const system = [
+    const systemText = [
       'Você é o assistente de voz do Packem WMS, um sistema de gestão de armazém.',
       'Um operador de armazém fez uma pergunta falando em voz alta. Você vai responder em voz alta também.',
       'Regras da resposta:',
@@ -36,18 +36,17 @@ module.exports = async function handler(req, res) {
       JSON.stringify(context).slice(0, 12000)
     ].join('\n');
 
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
+    const model = 'gemini-2.5-flash';
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
+        'x-goog-api-key': apiKey
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 300,
-        system: system,
-        messages: [{ role: 'user', content: question }]
+        system_instruction: { parts: [{ text: systemText }] },
+        contents: [{ role: 'user', parts: [{ text: question }] }],
+        generationConfig: { maxOutputTokens: 300 }
       })
     });
 
@@ -56,7 +55,8 @@ module.exports = async function handler(req, res) {
       res.status(502).json({ error: (data && data.error && data.error.message) ? data.error.message : 'Erro ao chamar a IA' });
       return;
     }
-    const answer = (data.content && data.content[0] && data.content[0].text) ? data.content[0].text.trim() : 'Não consegui pensar em uma resposta agora.';
+    const cand = data.candidates && data.candidates[0];
+    const answer = (cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text) ? cand.content.parts[0].text.trim() : 'Não consegui pensar em uma resposta agora.';
     res.status(200).json({ answer: answer });
   } catch (e) {
     res.status(500).json({ error: 'Erro interno: ' + (e && e.message ? e.message : String(e)) });

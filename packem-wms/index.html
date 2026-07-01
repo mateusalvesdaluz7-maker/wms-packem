@@ -1408,13 +1408,20 @@ function vpBuildContext(){
   }catch(e){return {};}
 }
 function vpAskAI(question){
+  var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+  var timer=setTimeout(function(){if(ctrl)ctrl.abort();},12000);
   return fetch('/api/ask',{
     method:'POST',
     headers:{'content-type':'application/json'},
-    body:JSON.stringify({question:question,context:vpBuildContext()})
+    body:JSON.stringify({question:question,context:vpBuildContext()}),
+    signal:ctrl?ctrl.signal:undefined
   }).then(function(r){return r.json().then(function(d){return {ok:r.ok,data:d};});}).then(function(res){
+    clearTimeout(timer);
     if(!res.ok||!res.data||res.data.error)throw new Error((res.data&&res.data.error)||'Erro na IA');
     return res.data.answer;
+  }).catch(function(e){
+    clearTimeout(timer);
+    throw e;
   });
 }
 function vpVoiceToggleHTML(id){return '<label style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);margin-bottom:14px;cursor:pointer"><input type="checkbox" id="'+id+'" '+(vpVoiceOn()?'checked':'')+'> Ler instruções em voz alta</label>';}

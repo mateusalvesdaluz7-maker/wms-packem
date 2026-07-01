@@ -1338,6 +1338,7 @@ updateStageBadge();
     Object.keys(nf).forEach(function(pr){nf[pr].qtd=nf[pr].ets.length;nf[pr].kg=nf[pr].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);});
     return nf;
   }
+  window.floorGetState=function(){return FLOOR;};
   window.floorPullCloud=function(rows){
     try{FLOOR=rebuildFloorFromRows(rows);saveFloor();var act=document.querySelector('.view.active');if(act&&act.id==='v-floor')renderFloor();}catch(e){}
   };
@@ -1443,6 +1444,7 @@ updateStageBadge();
   try{var _raw=JSON.parse(localStorage.getItem('wmsx_nf')||'{}');NFS=_raw.NFS||{};ETQ=_raw.ETQ||{};ROMS=_raw.ROMS||{};}catch(e){NFS={};ETQ={};ROMS={};}
   function saveNF(){localStorage.setItem('wmsx_nf',JSON.stringify({NFS:NFS,ETQ:ETQ,ROMS:ROMS}));}
   /* ---- ponte com a nuvem (Supabase): substitui tudo local pelo estado da nuvem ---- */
+  window.nfGetState=function(){return {ETQ:ETQ,NFS:NFS,ROMS:ROMS};};
   window.nfPullCloud=function(rowsEtq,rowsNotas,rowsRom){
     try{
       var newETQ={};
@@ -2296,6 +2298,173 @@ updateStageBadge();
   }
   // insere após "Chão" (v-floor); se não existir, após Recebimento
   addNavAfter('v-floor','v-nf','nf','Nota Fiscal');
+  if(typeof ICONS!=='undefined')ICONS.vsm=ICONS.vsm||'<svg class="i" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>';
+  addNavAfter('v-nf','v-vsm','vsm','VSM ao vivo');
+  function vsmKpi(lab,val,sec){return '<div class="kpi3"><div class="k3l">'+lab+'</div><div class="k3v">'+val+'</div><div class="k3s">'+(sec||'')+'</div></div>';}
+  function vsmDonut(pct,col){
+    var r=26,c=2*Math.PI*r,off=c*(1-Math.min(100,Math.max(0,pct))/100);
+    return '<svg width="64" height="64" viewBox="0 0 64 64" style="flex:none"><circle cx="32" cy="32" r="'+r+'" fill="none" stroke="var(--line,rgba(0,0,0,.08))" stroke-width="7"/>'
+      +'<circle cx="32" cy="32" r="'+r+'" fill="none" stroke="'+col+'" stroke-width="7" stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+off+'" transform="rotate(-90 32 32)" style="transition:stroke-dashoffset .6s"/>'
+      +'<text x="32" y="37" text-anchor="middle" font-size="15" font-weight="800" fill="var(--ink,#111)" font-family="var(--mono)">'+pct+'%</text></svg>';
+  }
+  function vsmFbox(t,s,v,v2,active,accent){return '<div class="f3box'+(active?' f3active':'')+'" style="border-top:3px solid '+(accent||'var(--brand)')+'"><div class="f3t">'+t+'</div><div class="f3s">'+s+'</div><div class="f3v" style="color:'+(accent||'var(--brand)')+'">'+v+'</div>'+(v2?'<div class="f3v2">'+v2+'</div>':'')+'</div>';}
+  function vsmArrow(intensity){
+    var speed=intensity>=2?'.9s':(intensity>=1?'1.5s':'2.6s');
+    var op=intensity>=2?1:(intensity>=1?.75:.35);
+    return '<div class="f3arrow"><span class="f3dot" style="animation-duration:'+speed+';opacity:'+op+'"></span></div>';
+  }
+  function vsmAgo(iso){
+    if(!iso)return '';
+    var s=Math.floor((Date.now()-Date.parse(iso))/1000);
+    if(s<60)return 'agora mesmo';
+    if(s<3600)return 'há '+Math.floor(s/60)+' min';
+    if(s<86400)return 'há '+Math.floor(s/3600)+'h';
+    return 'há '+Math.floor(s/86400)+'d';
+  }
+  function vsmSuggestions(oldStageCount,ocupPct,ocupTotal,docs,floorQtd,parkedCrit,parkedWarn){
+    var out=[];
+    var now=Date.now();
+    if(oldStageCount)out.push({lvl:'crit',txt:oldStageCount+' bobina(s) no estoque intermediário há mais de 4h — falta decidir armazenar ou mandar pra produção.'});
+    if(ocupTotal>0){
+      if(ocupPct>=90)out.push({lvl:'crit',txt:'Depósito com '+ocupPct+'% de ocupação — pode faltar vaga em breve.'});
+      else if(ocupPct>=75)out.push({lvl:'warn',txt:'Depósito em '+ocupPct+'% de ocupação — de olho no espaço.'});
+    }
+    docs.forEach(function(d){
+      var pct=d.g.kgTot>0?Math.round(d.g.kgEnt/d.g.kgTot*100):0;
+      var t=d.at?Date.parse(d.at):NaN;
+      if(!isNaN(t)&&(now-t)>2*3600*1000&&pct<50)out.push({lvl:'warn',txt:d.label+' está em '+pct+'% há mais de 2h — pode estar esquecido.'});
+    });
+    if(floorQtd>30)out.push({lvl:'info',txt:floorQtd+' bobina(s) soltas no chão aguardando destino.'});
+    if(parkedCrit>0)out.push({lvl:'crit',txt:parkedCrit+' vaga(s) paradas há mais de 40 dias sem nenhuma movimentação.'});
+    else if(parkedWarn>0)out.push({lvl:'warn',txt:parkedWarn+' vaga(s) paradas entre 20 e 40 dias.'});
+    return out;
+  }
+  var _vsmStyled=false;
+  function vsmEnsureStyle(){
+    if(_vsmStyled)return;
+    var st=document.createElement('style');st.id='vsmStyleOnce';
+    st.textContent='@keyframes f3livedot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}.f3row{display:flex;align-items:stretch;gap:0;overflow-x:auto;min-width:0}.f3box{background:var(--card2,rgba(0,0,0,.03));border:1px solid var(--line,rgba(0,0,0,.08));border-radius:12px;padding:12px 14px;min-width:140px;flex:1;transition:box-shadow .3s}.f3box.f3active{box-shadow:0 0 0 0 rgba(234,90,12,.28);animation:f3pulse 2.4s ease-in-out infinite}@keyframes f3pulse{0%,100%{box-shadow:0 0 0 0 rgba(234,90,12,.28)}50%{box-shadow:0 0 0 5px rgba(234,90,12,0)}}.f3t{font-weight:700;font-size:.85rem}.f3s{color:var(--muted);font-size:.7rem}.f3v{font-family:var(--mono);font-weight:800;font-size:1.25rem;margin-top:8px;line-height:1}.f3v2{font-family:var(--mono);color:var(--faint);font-size:.68rem;margin-top:2px}.f3arrow{position:relative;flex:none;width:30px;align-self:center;height:2px;background:var(--line,rgba(0,0,0,.15));margin:0 4px}.f3arrow::after{content:"";position:absolute;right:-1px;top:-3px;border:4px solid transparent;border-left-color:var(--line,rgba(0,0,0,.35))}.f3dot{position:absolute;top:-3px;left:-4px;width:8px;height:8px;border-radius:50%;background:var(--brand);opacity:0;animation-name:f3flow;animation-timing-function:linear;animation-iteration-count:infinite}@keyframes f3flow{0%{left:-4px;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:100%;opacity:0}}.kpis3{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:16px 0}.kpi3{background:var(--card2,rgba(0,0,0,.03));border:1px solid var(--line,rgba(0,0,0,.08));border-radius:12px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}.k3l{font-size:.64rem;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700}.k3v{font-family:var(--mono);font-weight:800;font-size:1.3rem;margin-top:4px}.k3s{color:var(--faint);font-size:.68rem;margin-top:2px}.sgpill{display:inline-block;font-size:.62rem;font-weight:800;letter-spacing:.3px;text-transform:uppercase;padding:2px 7px;border-radius:6px;flex:none}';
+    document.head.appendChild(st);
+    _vsmStyled=true;
+  }
+  function renderVSM(){
+    var el=document.getElementById('v-vsm'); if(!el)return;
+    vsmEnsureStyle();
+    var FLOOR=(typeof window.floorGetState==='function')?window.floorGetState():{};
+    var SS=(typeof S!=='undefined'&&Array.isArray(S))?S:[];
+    var stg=(typeof STAGE!=='undefined'&&Array.isArray(STAGE))?STAGE:[];
+    var nowTs=Date.now();
+
+    // uma passada só pelas etiquetas: status + agrupamento por documento
+    var etqKeys=Object.keys(ETQ);
+    var gerada=0,entrada=0,saida=0;
+    var byKey={};
+    for(var i=0;i<etqKeys.length;i++){
+      var e=ETQ[etqKeys[i]];
+      if(e.status==='gerada')gerada++;else if(e.status==='entrada')entrada++;else if(e.status==='saida')saida++;
+      var k=e.nf;
+      if(k&&k!=='__vaga__'){
+        if(!byKey[k])byKey[k]={tot:0,ent:0,kgTot:0,kgEnt:0};
+        var g=byKey[k];g.tot++;g.kgTot+=Number(e.kg)||0;
+        if(e.status==='entrada'){g.ent++;g.kgEnt+=Number(e.kg)||0;}
+      }
+    }
+
+    // uma passada só pelo estoque intermediário: kg total + quantos parados há +4h
+    var stgKg=0,oldStageCount=0;
+    for(var j=0;j<stg.length;j++){
+      var it=stg[j];
+      stgKg+=Number(it.pl)||0;
+      var ta=it.at?Date.parse(it.at):NaN;
+      if(!isNaN(ta)&&(nowTs-ta)>4*3600*1000)oldStageCount++;
+    }
+
+    // uma passada só pelas vagas: ocupação + kg + paradas por tempo
+    var ocupCount=0,ocupKg=0,parkedCrit=0,parkedWarn=0;
+    for(var m=0;m<SS.length;m++){
+      var x=SS[m];
+      if(x&&x.o){
+        ocupCount++;ocupKg+=Number(x.q)||0;
+        var dd=x.upd?Math.floor((nowTs-Date.parse(x.upd))/86400000):0;
+        if(dd>40)parkedCrit++;else if(dd>20)parkedWarn++;
+      }
+    }
+    var ocupPct=SS.length?Math.round(ocupCount/SS.length*100):0;
+
+    var floorArr=Object.values(FLOOR||{});
+    var floorQtd=0,floorKg=0;
+    for(var f=0;f<floorArr.length;f++){floorQtd+=floorArr[f].qtd||0;floorKg+=floorArr[f].kg||0;}
+    var locCount=(typeof LOC!=='undefined')?Object.keys(LOC).length:0;
+    var bobCount=0,bobActive=0;
+    if(typeof BOB!=='undefined'){
+      var bobKeys=Object.keys(BOB);
+      bobCount=bobKeys.length;
+      for(var bi=0;bi<bobKeys.length;bi++){var br=BOB[bobKeys[bi]];var rem=(br.rem!=null?Number(br.rem):Number(br.pl));if(rem>0)bobActive++;}
+    }
+
+    var docs=[];
+    Object.keys(NFS).forEach(function(k){var d=NFS[k]||{};var g=byKey[k]||{tot:0,ent:0,kgTot:0,kgEnt:0};if(g.tot>0&&g.ent<g.tot)docs.push({label:'NF '+(d.nNF||k),sub:d.emit||'',g:g,at:d.at});});
+    Object.keys(ROMS).forEach(function(k){var d=ROMS[k]||{};var g=byKey[k]||{tot:0,ent:0,kgTot:0,kgEnt:0};if(g.tot>0&&g.ent<g.tot)docs.push({label:'Romaneio '+(d.nRomaneio||k),sub:d.cliente||'',g:g,at:d.at});});
+    docs.sort(function(a,b){return (b.at||'').localeCompare(a.at||'');});
+    var docsHTML=docs.length?docs.map(function(d){
+      var pct=d.g.kgTot>0?Math.min(100,Math.round(d.g.kgEnt/d.g.kgTot*100)):0;
+      var col=pct>=100?'#16a34a':pct>=50?'#F0A024':'var(--brand)';
+      return '<div style="padding:9px 0;border-top:1px solid var(--line,rgba(255,255,255,.06))">'
+        +'<div style="display:flex;justify-content:space-between;gap:8px"><b style="font-size:.84rem">'+esc(d.label)+'</b><span style="color:var(--faint);font-size:.72rem">'+d.g.ent+'/'+d.g.tot+' etiq.</span></div>'
+        +(d.sub?'<div style="color:var(--faint);font-size:.7rem">'+esc(d.sub)+'</div>':'')
+        +'<div style="height:6px;border-radius:4px;background:var(--line,rgba(255,255,255,.1));overflow:hidden;margin-top:6px"><div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:4px"></div></div>'
+        +'<div style="display:flex;justify-content:space-between;color:var(--faint);font-size:.68rem;margin-top:4px"><span>'+fmt(d.g.kgEnt)+' de '+fmt(d.g.kgTot)+' kg</span><span>'+pct+'%</span></div>'
+        +'</div>';
+    }).join(''):'<div style="color:var(--faint);font-size:.82rem;padding:6px 0">Nenhum documento em aberto — tudo bipado ✓</div>';
+
+    var sugg=vsmSuggestions(oldStageCount,ocupPct,SS.length,docs,floorQtd,parkedCrit,parkedWarn);
+
+    var lastMv=(typeof MV!=='undefined'&&MV&&MV.length)?MV[0]:null;
+    var ocupCol=ocupPct>=90?'#DC2626':ocupPct>=75?'#F0A024':'#16a34a';
+    var iStage=stg.length>0?(oldStageCount?2:1):0;
+    var iRecv=entrada>0?1:0, iImp=gerada>0?1:0, iArm=ocupCount>0?1:0, iSai=saida>0?1:0;
+
+    el.innerHTML='<div class="ph-head"><div><p class="eb" style="display:flex;align-items:center;gap:6px">TEMPO REAL <span style="width:7px;height:7px;border-radius:50%;background:#16a34a;display:inline-block;animation:f3livedot 1.8s infinite"></span></p><h1>VSM ao vivo</h1>'
+      +(lastMv?'<div style="color:var(--muted);font-size:.8rem;margin-top:2px">Última movimentação: <b style="color:var(--ink)">'+esc(lastMv.action||'')+'</b> · '+esc(lastMv.pr||lastMv.code||'')+' · '+fmt(lastMv.q)+' kg · <span id="vsmAgoTxt">'+vsmAgo(lastMv.at)+'</span></div>':'')
+      +'</div></div>'
+      +'<div class="panel"><div class="ph"><span class="pdot"></span>Fluxo</div>'
+      +'<div class="f3row">'
+        +vsmFbox('Importar','aguardando bipe',fmt(gerada),null,gerada>0,'#64748b')
+        +vsmArrow(iImp)
+        +vsmFbox('Recebimento','confirmadas',fmt(entrada),null,entrada>0,'#2b7fd6')
+        +vsmArrow(iRecv)
+        +vsmFbox('Estoque interm.',fmt(stg.length)+' bobinas',fmt(stgKg)+' kg',null,stg.length>0,'#F0A024')
+        +vsmArrow(iStage)
+        +vsmFbox('Armazenar / Chão',ocupCount+' vagas · '+fmt(floorQtd)+' chão',fmt(ocupKg)+' kg',null,ocupCount>0,'#0d9488')
+        +vsmArrow(iArm)
+        +vsmFbox('Saída','baixa dada',fmt(saida),null,saida>0,'#16a34a')
+      +'</div></div>'
+      +'<div class="panel"><div class="ph"><span class="pdot"></span>Sugestões</div>'
+      +'<div style="color:var(--muted);font-size:.78rem;margin-bottom:2px">Gerado a partir dos dados ao vivo — sem histórico, só o que está acontecendo agora.</div>'
+      +(sugg.length?sugg.map(function(s){
+        var col=s.lvl==='crit'?'#DC2626':s.lvl==='warn'?'#F0A024':'#2b7fd6';
+        var bg=s.lvl==='crit'?'rgba(220,38,38,.12)':s.lvl==='warn'?'rgba(240,160,36,.14)':'rgba(43,127,214,.12)';
+        var lbl=s.lvl==='crit'?'Crítico':s.lvl==='warn'?'Atenção':'Info';
+        return '<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line,rgba(255,255,255,.06))">'
+          +'<span class="sgpill" style="background:'+bg+';color:'+col+'">'+lbl+'</span>'
+          +'<span style="font-size:.82rem">'+esc(s.txt)+'</span></div>';
+      }).join(''):'<div style="color:var(--faint);font-size:.82rem;padding:6px 0">Tudo dentro do esperado ✓ — nenhum ponto de atenção agora.</div>')
+      +'</div>'
+      +'<div class="kpis3">'
+        +vsmKpi('Estoque interm.',fmt(stg.length),fmt(stgKg)+' kg')
+        +'<div class="kpi3">'+vsmDonut(ocupPct,ocupCol)+'<div><div class="k3l">Vagas ocupadas</div><div class="k3v">'+ocupCount+'/'+SS.length+'</div></div></div>'
+        +vsmKpi('Bobinas localizadas',fmt(locCount),'com endereço')
+        +vsmKpi('Bobinas ativas',fmt(bobActive),'de '+fmt(bobCount)+' já cadastradas')
+        +vsmKpi('Chão',fmt(floorQtd),fmt(floorKg)+' kg soltos')
+        +vsmKpi('Docs em aberto',fmt(docs.length),'NF + romaneio')
+      +'</div>'
+      +'<div class="panel"><div class="ph"><span class="pdot"></span>Romaneios / NF-e em bipagem</div>'
+      +'<div style="color:var(--muted);font-size:.78rem;margin-bottom:6px">Atualiza sozinho conforme o bipe acontece em qualquer aparelho.</div>'
+      +docsHTML+'</div>';
+  }
+  window.renderVSM=renderVSM;
+  setInterval(function(){var elA=document.getElementById('vsmAgoTxt');if(elA){var lastMv=(typeof MV!=='undefined'&&MV&&MV.length)?MV[0]:null;if(lastMv)elA.textContent=vsmAgo(lastMv.at);}},15000);
+  var _rvsm=render; render=function(id){if(id==='v-vsm')return renderVSM();return _rvsm(id);};
   var nfNav=[].slice.call(document.querySelectorAll('.nav')).find(function(n){return n.dataset.view==='v-nf';});
   // Rastreio: aba removida do menu (a geração de etiqueta continua pela vaga e pela NF).
   (function(){
@@ -3670,28 +3839,25 @@ function shortDesc(desc){desc=String(desc||'').toUpperCase();
 var ZLBL2_CSS='*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:100mm 100mm;margin:0}'
  +'.zlbl2{width:100mm;height:100mm;position:relative;background:#fff;color:#0a0c10;overflow:hidden;font-family:"Segoe UI",Arial,Helvetica,sans-serif;display:flex;flex-direction:column}'
  +'.zbar2{height:2.6mm;flex:none;background:#EA5A0C}'
- +'.zbody2{flex:1;min-height:0;display:flex;flex-direction:row;align-items:center;padding:2.2mm 3mm;gap:3mm}'
- +'.zqrcol{flex:none;width:36mm;display:flex;align-items:center;justify-content:center}'
- +'.zqrcol svg{width:100%;height:auto;display:block}'
- +'.ztxtcol{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:1mm;text-align:left}'
- +'.zhd2{font-size:2.6mm;font-weight:800;letter-spacing:.4mm;color:#7a8088}'
- +'.zcode2{font-size:9mm;font-weight:800;line-height:1;color:#0a0c10;word-break:break-word}'
- +'.zdesc2{font-size:4.6mm;font-weight:800;line-height:1.1;color:#0a0c10;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}'
- +'.zserial2{font-size:3.2mm;font-weight:700;color:#7a8088;letter-spacing:.2mm}'
- +'.zkg2{font-size:12mm;font-weight:800;line-height:1;color:#0a0c10;margin-top:.8mm}';
+ +'.zbody2{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3mm 4mm;gap:1.8mm}'
+ +'.zhd2{font-size:2.8mm;font-weight:800;letter-spacing:.5mm;color:#8a939c}'
+ +'.zcode2{font-family:"JetBrains Mono",Consolas,monospace;font-size:9.5mm;font-weight:800;line-height:1;color:#0a0c10;letter-spacing:.3mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}'
+ +'.zdesc2{font-size:6mm;font-weight:800;line-height:1.16;color:#0a0c10;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;max-width:100%}'
+ +'.zserial2{font-family:"JetBrains Mono",Consolas,monospace;font-size:3.6mm;font-weight:700;color:#333;letter-spacing:.3mm}'
+ +'.zkg2{font-size:13.5mm;font-weight:800;line-height:1;color:#0a0c10}'
+ +'.zqrwrap{width:30mm;margin-top:1mm}'
+ +'.zqrwrap svg{width:100%;height:auto;display:block}';
 function etqCard2(top,code,desc,serial,kgText){
  var qr=serial?qrSvg(serial):'';
  return '<div class="zlbl2" style="width:100mm;height:100mm">'
   +'<div class="zbar2"></div>'
   +'<div class="zbody2">'
-    +(qr?'<div class="zqrcol">'+qr+'</div>':'')
-    +'<div class="ztxtcol">'
-      +'<div class="zhd2">PACKEM'+(top?(' · '+top):'')+'</div>'
-      +(code?'<div class="zcode2">'+code+'</div>':'')
-      +(desc?'<div class="zdesc2">'+desc+'</div>':'')
-      +(serial?'<div class="zserial2">'+serial+'</div>':'')
-      +(kgText?'<div class="zkg2">'+kgText+'</div>':'')
-    +'</div>'
+    +'<div class="zhd2">PACKEM'+(top?(' · '+top):'')+'</div>'
+    +(code?'<div class="zcode2">'+code+'</div>':'')
+    +(desc?'<div class="zdesc2">'+desc+'</div>':'')
+    +(serial?'<div class="zserial2">'+serial+'</div>':'')
+    +(kgText?'<div class="zkg2">'+kgText.toUpperCase()+'</div>':'')
+    +(qr?'<div class="zqrwrap">'+qr+'</div>':'')
   +'</div></div>';
 }
 function printEtq2(top,code,desc,serial,kgText){

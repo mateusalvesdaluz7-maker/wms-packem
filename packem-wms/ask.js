@@ -20,6 +20,7 @@ module.exports = async function handler(req, res) {
     if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }
     const question = (body && body.question) ? String(body.question).slice(0, 500) : '';
     const context = (body && body.context) ? body.context : {};
+    const history = Array.isArray(body && body.history) ? body.history.slice(-10) : [];
     if (!question.trim()) { res.status(400).json({ error: 'Faltou a pergunta' }); return; }
 
     const systemText = [
@@ -37,6 +38,10 @@ module.exports = async function handler(req, res) {
     ].join('\n');
 
     const model = 'gemini-2.5-flash';
+    const historyContents = history.map(function (h) {
+      return { role: (h && h.role === 'assistant') ? 'model' : 'user', parts: [{ text: String((h && h.text) || '').slice(0, 500) }] };
+    });
+    const contents = historyContents.concat([{ role: 'user', parts: [{ text: question }] }]);
     const ctrl = new AbortController();
     const timer = setTimeout(function () { ctrl.abort(); }, 9000);
     let r;
@@ -49,7 +54,7 @@ module.exports = async function handler(req, res) {
         },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemText }] },
-          contents: [{ role: 'user', parts: [{ text: question }] }],
+          contents: contents,
           generationConfig: { maxOutputTokens: 300 }
         }),
         signal: ctrl.signal

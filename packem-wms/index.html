@@ -623,33 +623,10 @@ function renderBoard(){
     if(window.addCam)addCam('boardSearch',{onResult:v=>{bs.value=v;boardSearchGo(v,false);}});
   }
   const bmic=$('#boardMic');
-  if(bmic){
-    var bmicCancel=null,bmicOrig=bmic.textContent;
-    bmic.onclick=function(){
-      try{
-        if(bmicCancel){bmicCancel();bmicCancel=null;bmic.textContent=bmicOrig;bmic.classList.remove('out');return;}
-        if(typeof vpListenOnce!=='function'){toast('Reconhecimento de voz indisponível',false);return;}
-        bmic.textContent='🎙️ Ouvindo... toque p/ cancelar';bmic.classList.add('out');
-        function restore(){bmicCancel=null;bmic.textContent=bmicOrig;bmic.classList.remove('out');}
-        bmicCancel=vpListenOnce(function(transcript){
-          restore();
-          if(!transcript){toast('Não entendi nada — tenta de novo',false);return;}
-          if(bs)bs.value=transcript;
-          toast('🧠 pensando...');
-          vpAskAI(transcript).then(function(answer){
-            vpSpeakForce(answer);
-            toast(answer);
-          }).catch(function(){
-            try{boardSearchGo(transcript,true);}catch(e){toast('Erro na busca — tenta de novo',false);}
-          });
-        },function(err){
-          restore();
-          var msg=(err&&err.error==='timeout')?'Deu tempo e não ouvi nada — tenta de novo':(err&&err.error==='no-speech')?'Não ouvi nenhuma fala — tenta de novo':(err&&err.error==='not-allowed')?'Permissão de microfone negada — libera nas configurações do navegador':'Não consegui ouvir — tenta de novo';
-          toast(msg,false);
-        });
-      }catch(e){bmicCancel=null;bmic.textContent=bmicOrig;bmic.classList.remove('out');toast('Erro no microfone — tenta de novo',false);}
-    };
-  }
+  if(bmic)bmic.onclick=function(){
+    if(typeof vpOpenConversation!=='function'){toast('Reconhecimento de voz indisponível',false);return;}
+    vpOpenConversation();
+  };
   const bb=$('#boardBox');
   try{
     if(!all.length){bb.innerHTML='<div class="empty" style="padding:34px 16px;text-align:center;color:var(--muted)"><b>Este depósito está vazio</b><div class="es" style="margin-top:6px">Toque em <b>Dep 70</b>, <b>Novo</b> ou <b>Chão</b> acima para ver outro mapa. Se os dados ainda estiverem carregando, puxe a tela para baixo para atualizar.</div></div>';return;}
@@ -1407,13 +1384,13 @@ function vpBuildContext(){
     };
   }catch(e){return {};}
 }
-function vpAskAI(question){
+function vpAskAI(question,history){
   var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
   var timer=setTimeout(function(){if(ctrl)ctrl.abort();},12000);
   return fetch('/api/ask',{
     method:'POST',
     headers:{'content-type':'application/json'},
-    body:JSON.stringify({question:question,context:vpBuildContext()}),
+    body:JSON.stringify({question:question,context:vpBuildContext(),history:Array.isArray(history)?history.slice(-10):[]}),
     signal:ctrl?ctrl.signal:undefined
   }).then(function(r){return r.json().then(function(d){return {ok:r.ok,data:d};});}).then(function(res){
     clearTimeout(timer);
@@ -1424,7 +1401,90 @@ function vpAskAI(question){
     throw e;
   });
 }
+function vpSpeakForceCb(text,onDone){
+  try{
+    if(!window.speechSynthesis){if(onDone)onDone();return;}
+    window.speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(text);
+    u.lang='pt-BR';u.rate=1;
+    var done=false;
+    function fin(){if(done)return;done=true;if(onDone)onDone();}
+    u.onend=fin;u.onerror=fin;
+    window.speechSynthesis.speak(u);
+    setTimeout(fin,Math.max(4000,text.length*90));
+  }catch(e){if(onDone)onDone();}
+}
 function vpVoiceToggleHTML(id){return '<label style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);margin-bottom:14px;cursor:pointer"><input type="checkbox" id="'+id+'" '+(vpVoiceOn()?'checked':'')+'> Ler instruções em voz alta</label>';}
+function vpChatEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function vpOpenConversation(){
+  var history=[];
+  var active=true;
+  var cancelListen=null;
+  openDrawer('Estoque Inteligente','<div id="vpChatLog" style="display:flex;flex-direction:column;gap:10px;max-height:50vh;overflow-y:auto;margin-bottom:14px;padding-right:2px"></div>'
+    +'<button class="gbtn" type="button" id="vpChatMic" style="width:100%;justify-content:center;margin-bottom:8px">Toque e fale</button>'
+    +'<button class="btn" type="button" id="vpChatEnd" style="width:100%;justify-content:center">Encerrar conversa</button>');
+  var log=document.getElementById('vpChatLog');
+  var micBtn=document.getElementById('vpChatMic');
+  var endBtn=document.getElementById('vpChatEnd');
+  function bubble(who,text){
+    var b=document.createElement('div');
+    var mine=who==='eu';
+    b.style.cssText='align-self:'+(mine?'flex-end':'flex-start')+';max-width:85%;padding:9px 13px;border-radius:14px;font-size:.86rem;line-height:1.35;'+(mine?'background:var(--brand);color:#fff;border-bottom-right-radius:4px':'background:var(--card2,rgba(0,0,0,.05));color:var(--ink,#111);border-bottom-left-radius:4px');
+    b.textContent=text;
+    log.appendChild(b);
+    log.scrollTop=log.scrollHeight;
+    return b;
+  }
+  function stopAll(){
+    active=false;
+    if(cancelListen){cancelListen();cancelListen=null;}
+    try{window.speechSynthesis&&window.speechSynthesis.cancel();}catch(e){}
+    if(micBtn){micBtn.textContent='Toque e fale';micBtn.disabled=false;}
+  }
+  if(endBtn)endBtn.onclick=function(){stopAll();closeDrawer();};
+  function listenTurn(){
+    if(!active)return;
+    if(typeof vpListenOnce!=='function'){bubble('ia','Reconhecimento de voz não disponível neste aparelho.');return;}
+    micBtn.textContent='Ouvindo... toque p/ cancelar';
+    cancelListen=vpListenOnce(function(transcript){
+      cancelListen=null;
+      if(!active)return;
+      if(!transcript){micBtn.textContent='Toque e fale';bubble('ia','Não entendi nada — pode repetir?');return;}
+      bubble('eu',transcript);
+      history.push({role:'user',text:transcript});
+      var thinking=bubble('ia','pensando...');
+      micBtn.textContent='Pensando...';
+      vpAskAI(transcript,history).then(function(answer){
+        if(!active)return;
+        thinking.textContent=answer;
+        log.scrollTop=log.scrollHeight;
+        history.push({role:'assistant',text:answer});
+        micBtn.textContent='Respondendo...';
+        vpSpeakForceCb(answer,function(){
+          if(!active)return;
+          micBtn.textContent='Toque e fale';
+          listenTurn();
+        });
+      }).catch(function(){
+        if(!active)return;
+        thinking.textContent='Não consegui pensar numa resposta agora — verifica a conexão.';
+        micBtn.textContent='Toque e fale';
+      });
+    },function(err){
+      cancelListen=null;
+      if(!active)return;
+      micBtn.textContent='Toque e fale';
+      var msg=(err&&err.error==='timeout')?'Não ouvi nada — toca de novo quando quiser falar.':(err&&err.error==='no-speech')?'Não ouvi fala nenhuma.':(err&&err.error==='not-allowed')?'Permissão de microfone negada.':'Não consegui ouvir.';
+      bubble('ia',msg);
+    });
+  }
+  if(micBtn)micBtn.onclick=function(){
+    if(cancelListen){cancelListen();cancelListen=null;micBtn.textContent='Toque e fale';return;}
+    if(micBtn.textContent.indexOf('Toque')<0)return;
+    listenTurn();
+  };
+  bubble('ia','Oi! Pode perguntar sobre o estoque — toca no botão e fala.');
+}
 function vpSpeakForce(text){
   try{
     if(!window.speechSynthesis)return;

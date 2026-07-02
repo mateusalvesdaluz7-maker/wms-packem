@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v59</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v60</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v59</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v60</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -1253,7 +1253,7 @@ confirmMov=function(){if(!isAdmin()){toast('Somente admin pode movimentar',false
  if(!prod){toast('Bipe a etiqueta',false);$('#mBob').focus();return;}
  if(!qty||qty<=0){toast('Peso inválido',false);$('#mQty').focus();return;}
  let before=Number(sp.q)||0;
- if(mode==='entrada'){if(et&&LOC[et]){const _old=freeStored(et);if(_old){toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');before=Number(sp.q)||0;}}if(sp.o&&sp.pr&&sp.pr!==prod){toast('Posição ocupada por '+sp.pr,false);return;}sp.pr=prod;sp.q=before+(Number(qty)||0);sp.o=true;if(et){LOC[et]=c;saveLOC();if(BOB[et]){BOB[et].rem=qty;saveBOB();}}}
+ if(mode==='entrada'){if(et&&LOC[et]){const _old=freeStored(et);if(_old){toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');before=Number(sp.q)||0;}}if(sp.o&&sp.pr&&sp.pr!==prod&&before>0){toast('Posição ocupada por '+sp.pr,false);return;}if(before<=0){sp.pr=prod;sp.q=Number(qty)||0;}else{sp.pr=prod;sp.q=before+(Number(qty)||0);}sp.o=true;if(et){LOC[et]=c;saveLOC();if(BOB[et]){BOB[et].rem=qty;saveBOB();}}}
  else{if(sp.pr&&sp.pr!==prod){toast('Aqui tem '+sp.pr,false);return;}if(qty>before){toast('Saldo insuficiente na posição: '+fmt(before)+' kg',false);return;}sp.q=before-qty;
   if(et&&BOB[et]){const rb=(BOB[et].rem!=null?BOB[et].rem:BOB[et].pl);const ra=Math.max(0,rb-qty);BOB[et].rem=ra;saveBOB();if(ra<=0&&LOC[et]){delete LOC[et];saveLOC();}}
   else if(et&&LOC[et]&&sp.q<=0){delete LOC[et];saveLOC();}
@@ -2940,7 +2940,7 @@ updateStageBadge();
       if(etValida){if(typeof LOC!=='undefined')delete LOC[etValida];if(typeof BOB!=='undefined'&&BOB[etValida])BOB[etValida].rem=0;}
       if(sp.q<=0){sp.q=0;sp.o=false;sp.pr='';if(typeof LOC!=='undefined')Object.keys(LOC).forEach(function(k){if(norm(LOC[k])===codeStr){delete LOC[k];if(BOB[k])BOB[k].rem=0;}});}
       sp.upd=nowISO();sp.by=(typeof session!=='undefined'&&session?session.u:'');
-      MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:codeStr,pr:it.codigo||it.material||'',q:take,u:'KG',before:before,after:sp.o?sp.q:0,at:nowISO(),by:(session?session.u:''),dest:it.maquina||'',req:req.numero||''});
+      MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:codeStr,pr:it.codigo||it.material||'',q:take,u:(ehMetro?'MT':'KG'),before:before,after:sp.o?sp.q:0,at:nowISO(),by:(session?session.u:''),dest:it.maquina||'',req:req.numero||''});
       try{enqueue3dTask(codeStr,'out');}catch(e){}
       if(typeof saveLOC==='function')saveLOC();if(typeof saveBOB==='function')saveBOB();persist();
       try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',S.map(spRow));}catch(e){}
@@ -3412,7 +3412,11 @@ let _autoSyncTimer=null;
 function startAutoSync(){clearInterval(_autoSyncTimer);_autoSyncTimer=setInterval(autoSyncTick,4000);}
 /* wraps p/ gravar cada ação na nuvem */
 (function(){
- const _cm=confirmMov;confirmMov=function(){const n0=MV.length;_cm();if(MV.length>n0){const m=MV[0];syncMov(m);const sp=findSpace(m.code);if(sp)syncSpace(sp);if(m.et){if(m.action==='entrada')syncLoc(m.et,m.code);else if(m.action==='saida')syncDelLoc(m.et);}}};
+ const _cm=confirmMov;confirmMov=function(){const n0=MV.length;_cm();if(MV.length>n0){const m=MV[0];syncMov(m);const sp=findSpace(m.code);if(sp)syncSpace(sp);if(m.et){if(m.action==='entrada'){syncLoc(m.et,m.code);}else if(m.action==='saida'){
+   // saída: só remove o link da bobina na nuvem se ela realmente saiu do endereço (esvaziou).
+   // se ainda tem saldo (saída parcial), mantém/atualiza o link.
+   if(typeof LOC!=='undefined'&&LOC[m.et]){syncLoc(m.et,LOC[m.et]);}else{syncDelLoc(m.et);}
+  }}}};
  const _pb=placeBobina;placeBobina=function(et,pr,pl,c){const n0=MV.length;const ok=_pb(et,pr,pl,c);if(ok&&MV.length>n0){const m=MV[0];syncMov(m);const sp=findSpace(m.code);if(sp)syncSpace(sp);if(et)syncLoc(et,m.code);}return ok;};
  const _ep=execPick;execPick=function(){const n0=MV.length;_ep();const add=MV.length-n0;for(let i=0;i<add;i++){const m=MV[i];syncMov(m);const sp=findSpace(m.code);if(sp)syncSpace(sp);}};
  const _ra=recvAdd;recvAdd=function(v){const n0=STAGE.length;_ra(v);if(STAGE.length>n0)syncStage(STAGE[0]);};

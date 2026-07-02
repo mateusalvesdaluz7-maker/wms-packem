@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v37</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v38</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v37</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v38</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2680,13 +2680,17 @@ updateStageBadge();
           if(it.qtd_separada!=null&&it.qtd_separada>0&&!it.separado)qtdInfo+=' <span style="color:#1d4ed8">('+fmt(it.qtd_separada)+' já sep.)</span>';
           // botão separar (só quando a requisição está aberta e o item não está totalmente separado)
           var sepBtn='';
-          if(aberta&&!it.separado&&it.id){
+          if(aberta&&!it.separado){
+           if(it.id){
             var sug=locs.length?code(locs[0]):'';
             sepBtn='<div style="margin-top:6px"><button class="btn brand" style="width:100%;height:40px" onclick="rqlAbrirBaixa(\''+r.id+'\',\''+it.id+'\')">📤 Separar este item'+(sug?(' · sugestão '+sug):'')+'</button></div>'
               +'<div id="rqlscan-'+it.id+'" style="display:none;margin-top:8px;background:var(--card2,#f8fafc);border-radius:8px;padding:10px">'
               +'<label class="fld" style="margin:0 0 8px"><span class="lab">Bipe o ENDEREÇO</span><input class="input code" id="rqladdr-'+it.id+'" value="'+sug+'" autocomplete="off"></label>'
               +'<label class="fld" style="margin:0 0 8px"><span class="lab">Bipe a ETIQUETA da bobina (opcional)</span><input class="input code" id="rqlet-'+it.id+'" placeholder="bipe a etiqueta" autocomplete="off"></label>'
               +'<button class="btn in" style="width:100%;height:44px" onclick="rqlConfirmaBaixa(\''+r.id+'\',\''+it.id+'\')">✓ Confirmar saída e dar baixa</button></div>';
+           }else{
+            sepBtn='<div style="margin-top:6px;font-size:.72rem;color:#b45309;background:#fffbeb;border-radius:6px;padding:5px 8px">⚠ Atualize o requisicoes.js na pasta api/ (falta o id do item)</div>';
+           }
           }
           return '<div style="padding:6px 0;border-top:1px dashed var(--line,rgba(0,0,0,.08))"><div style="display:flex;justify-content:space-between;gap:10px;font-size:.78rem"><span>'+jaSep+(it.maquina?('<b>'+it.maquina+'</b> · '):'')+(it.material||'')+(it.falta?' <span style="color:#b91c1c;font-weight:700">· FALTA</span>':'')+'</span><span class="mono" style="white-space:nowrap">'+qtdInfo+'</span></div>'+locHTML+sepBtn+'</div>';
         }).join('');

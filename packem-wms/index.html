@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v39</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v44</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v39</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v44</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2601,7 +2601,7 @@ updateStageBadge();
     return '<span class="rql-chip" style="color:'+v[1]+';background:'+v[2]+'">'+v[0]+'</span>';
   }
   function rqlPrioChip(p){
-    if(p==='critico')return '<span class="rql-chip" style="color:#fff;background:#dc2626">🔴 Crítico</span>';
+    if(p==='critico')return '<span class="rql-chip" style="color:#fff;background:#dc2626">Crítico</span>';
     if(p==='urgente')return '<span class="rql-chip" style="color:#fff;background:#ea580c">Urgente</span>';
     return '';
   }
@@ -2661,7 +2661,7 @@ updateStageBadge();
     var head='<div class="ph-head"><div><p class="eb">Produção → Almoxarifado · Base44</p><h1>Requisições ao vivo</h1></div></div>'
       +'<div class="rql-top">'
       +'<span class="rql-live"><span class="dot"></span>AO VIVO'+(RQL.at?(' · '+rqlAgo(new Date(RQL.at).toISOString())):'')+'</span>'
-      +'<button class="rql-refresh" id="rqlRefresh">'+(RQL.loading?'Atualizando…':'↻ Atualizar')+'</button>'
+      +'<button class="rql-refresh" id="rqlRefresh">'+(RQL.loading?'Atualizando…':'Atualizar')+'</button>'
       +'</div>';
     var body='';
     if(RQL.err){body='<div class="rql-card crit"><b style="color:#b91c1c">Não consegui buscar as requisições</b><div style="color:var(--muted);font-size:.82rem;margin-top:6px">'+RQL.err+'</div></div>';}
@@ -2690,16 +2690,18 @@ updateStageBadge();
       function card(r){
         var aberta=(RQL.aberta===r.id);
         var its=(r.itens||[]).map(function(it,idx){
-          // cruza com o estoque do WMS: acha vagas ocupadas com esse produto (por código, ou por descrição se não tiver código)
+          // cruza com o estoque do WMS: match EXATO de código (evita endereço errado por correspondência parcial)
           var locs=[];
+          var achouPorCodigo=false;
           try{
-            var cod=it.codigo||'';
+            var cod=norm(it.codigo||'');
             if(cod){
-              locs=S.filter(function(x){return x.w===cfg.warehouse&&x.o&&x.q>0&&x.pr&&(x.pr===cod||String(x.pr).indexOf(cod)>=0||cod.indexOf(x.pr)>=0);})
+              locs=S.filter(function(x){return x.w===cfg.warehouse&&x.o&&x.q>0&&x.pr&&norm(x.pr)===cod;})
                     .sort(function(a,b){return (a.upd||'')<(b.upd||'')?-1:1;});
+              if(locs.length)achouPorCodigo=true;
             }
-            // fallback por descrição: pega palavras-chave do texto do material e cruza com a descrição de cada vaga
-            if(!locs.length){
+            // fallback por descrição SOMENTE se o item não tem código (senão respeita o código exato)
+            if(!locs.length&&!cod){
               var txt=String(it.material||'').toUpperCase().replace(/[0-9]{4,}/g,' ').replace(/[^A-ZÀ-Ú0-9]+/g,' ').trim();
               var kws=txt.split(' ').filter(function(w){return w.length>=4;});
               if(kws.length){
@@ -2708,22 +2710,50 @@ updateStageBadge();
                   var d=(typeof descOf==='function'?descOf(x.pr):'')||'';
                   d=(String(x.pr)+' '+d).toUpperCase();
                   var hits=kws.filter(function(w){return d.indexOf(w)>=0;}).length;
-                  return hits>=Math.min(2,kws.length); // pelo menos 2 palavras-chave batendo
+                  return hits>=Math.min(2,kws.length);
                 }).sort(function(a,b){return (a.upd||'')<(b.upd||'')?-1:1;});
+              }
+            }
+          }catch(e){}
+          // cruza também com o ESTOQUE INTERMEDIÁRIO (STAGE): match exato de código
+          var inter=[];
+          try{
+            if(typeof STAGE!=='undefined'&&STAGE&&STAGE.length){
+              var codI=norm(it.codigo||'');
+              if(codI){
+                inter=STAGE.filter(function(s){return s&&s.pr&&norm(s.pr)===codI;});
+              }else{
+                var txtI=String(it.material||'').toUpperCase();
+                var kwsI=txtI.replace(/[0-9]{4,}/g,' ').replace(/[^A-ZÀ-Ú0-9]+/g,' ').trim().split(' ').filter(function(w){return w.length>=4;});
+                if(kwsI.length){
+                  inter=STAGE.filter(function(s){
+                    if(!s||!s.pr)return false;
+                    var d=(String(s.pr)+' '+(s.desc||'')).toUpperCase();
+                    return kwsI.filter(function(w){return d.indexOf(w)>=0;}).length>=Math.min(2,kwsI.length);
+                  });
+                }
               }
             }
           }catch(e){}
           var locHTML='';
           if(locs.length){
             var totKg=locs.reduce(function(s,x){return s+(Number(x.q)||0);},0);
-            var porDesc=!it.codigo;
-            locHTML='<div class="rql-loc">📍 '
+            var porDesc=!achouPorCodigo;
+            locHTML='<div class="rql-loc">'
               +(porDesc?'<i style="opacity:.7">por descrição · </i>':'')
               +locs.slice(0,6).map(function(x){return '<b>'+code(x)+'</b> ('+fmt(x.q)+'kg)';}).join(' · ')
               +(locs.length>6?(' <span style="opacity:.7">+'+(locs.length-6)+' vagas</span>'):'')
               +' · <span style="opacity:.75">total '+fmt(totKg)+'kg</span></div>';
           }else{
             locHTML='<div class="rql-loc none">⚠ Sem esse produto localizado no armazém</div>';
+          }
+          // mostra o que tem no intermediário
+          if(inter.length){
+            var interKg=inter.reduce(function(s,x){return s+(Number(x.pl)||0);},0);
+            locHTML+='<div class="rql-loc" style="color:#7c3aed;background:#f5f3ff;border-color:#ddd6fe;margin-top:4px">No intermediário: '
+              +inter.slice(0,6).map(function(x){return '<b>'+x.et+'</b> ('+fmt(x.pl)+'kg)';}).join(' · ')
+              +(inter.length>6?(' <span style="opacity:.7">+'+(inter.length-6)+'</span>'):'')
+              +' · <span style="opacity:.75">total '+fmt(interKg)+'kg</span></div>';
           }
           // progresso de separação do item
           var progHTML='';
@@ -2739,11 +2769,20 @@ updateStageBadge();
           if(aberta&&!it.separado){
            if(it.id){
             var sug=locs.length?code(locs[0]):'';
-            sepBtn='<button class="rql-btn rql-btn-sep" onclick="rqlAbrirBaixa(\''+r.id+'\',\''+it.id+'\')">📤 Separar'+(sug?(' · '+sug):'')+'</button>'
+            var temVaga=locs.length>0, temInter=inter.length>0;
+            if(temVaga||temInter){
+             // fluxo com bipagem: endereço (se tem vaga) + etiqueta
+             var botaoLabel=temVaga?('Separar'+(sug?(' · '+sug):'')):'Bipar do intermediário';
+             var botaoStyle=temVaga?'':'background:#f5f3ff;color:#7c3aed;border-color:#ddd6fe';
+             sepBtn='<button class="rql-btn rql-btn-sep" style="'+botaoStyle+'" onclick="rqlAbrirBaixa(\''+r.id+'\',\''+it.id+'\')">'+botaoLabel+'</button>'
               +'<div id="rqlscan-'+it.id+'" class="rql-scan" style="display:none">'
-              +'<label class="fld" style="margin:0 0 10px"><span class="lab">📍 Bipe o ENDEREÇO</span><input class="input code" id="rqladdr-'+it.id+'" value="'+sug+'" autocomplete="off"></label>'
-              +'<label class="fld" style="margin:0 0 12px"><span class="lab">🏷️ Bipe a ETIQUETA (opcional)</span><input class="input code" id="rqlet-'+it.id+'" placeholder="bipe a etiqueta" autocomplete="off"></label>'
-              +'<button class="rql-btn rql-btn-conf" onclick="rqlConfirmaBaixa(\''+r.id+'\',\''+it.id+'\')">✓ Confirmar saída e dar baixa</button></div>';
+              +(temVaga?('<label class="fld" style="margin:0 0 10px"><span class="lab">Bipe o ENDEREÇO</span><input class="input code" id="rqladdr-'+it.id+'" value="'+sug+'" autocomplete="off"></label>'):'<input type="hidden" id="rqladdr-'+it.id+'" value="">')
+              +'<label class="fld" style="margin:0 0 12px"><span class="lab">Bipe a ETIQUETA'+(temVaga?' (opcional)':' do intermediário')+'</span><input class="input code" id="rqlet-'+it.id+'" placeholder="bipe a etiqueta" autocomplete="off"></label>'
+              +'<button class="rql-btn rql-btn-conf" onclick="rqlConfirmaBaixa(\''+r.id+'\',\''+it.id+'\')">Confirmar e dar baixa</button></div>';
+            }else{
+             // sem vaga e sem intermediário (matéria-prima): baixa direta na requisição, sem endereço
+             sepBtn='<button class="rql-btn rql-btn-sep" style="background:#fef3c7;color:#b45309;border-color:#fde68a" onclick="rqlBaixaSemVaga(\''+r.id+'\',\''+it.id+'\')">Dar baixa sem vaga (matéria-prima)</button>';
+            }
            }else{
             sepBtn='<div class="rql-loc none" style="margin-top:8px">⚠ Atualize o requisicoes.js na pasta api/ (falta o id do item)</div>';
            }
@@ -2754,9 +2793,9 @@ updateStageBadge();
         }).join('');
         var acaoBtn;
         if(aberta){
-          acaoBtn='<button class="rql-btn-close" onclick="rqlFechar()">✕ Fechar separação</button>';
+          acaoBtn='<button class="rql-btn-close" onclick="rqlFechar()">Fechar separação</button>';
         }else if(r.status==='pendente'||r.status==='em_separacao'||r.status==='pausado'){
-          acaoBtn='<button class="rql-btn rql-btn-open" onclick="rqlAbrir(\''+r.id+'\')">▶ Abrir e separar</button>';
+          acaoBtn='<button class="rql-btn rql-btn-open" onclick="rqlAbrir(\''+r.id+'\')">Abrir e separar</button>';
         }else{acaoBtn='';}
         var cls='rql-card'+(aberta?' open':(r.prioridade==='critico'?' crit':(r.prioridade==='urgente'?' urg':'')));
         return '<div class="'+cls+'">'
@@ -2776,46 +2815,75 @@ updateStageBadge();
   // abre/fecha requisição pra separação
   window.rqlAbrir=function(reqId){RQL.aberta=reqId;rqlDraw();var el=document.getElementById('v-reqlive');if(el)el.scrollTop=0;};
   window.rqlFechar=function(){RQL.aberta=null;rqlDraw();};
-  window.rqlAbrirBaixa=function(reqId,itemId){var p=document.getElementById('rqlscan-'+itemId);if(p){p.style.display=(p.style.display==='none')?'block':'none';if(p.style.display==='block'){var a=document.getElementById('rqladdr-'+itemId);if(a)setTimeout(function(){a.focus();},50);}}};
-  // confirma a saída: baixa na vaga do WMS + escreve no Base44
+  window.rqlAbrirBaixa=function(reqId,itemId){var p=document.getElementById('rqlscan-'+itemId);if(p){p.style.display=(p.style.display==='none')?'block':'none';if(p.style.display==='block'){
+    // adiciona câmera nos campos (uma vez)
+    try{
+      if(typeof addCam==='function'){
+        addCam('rqladdr-'+itemId,{title:'Escanear endereço',onResult:function(v){var e=document.getElementById('rqladdr-'+itemId);if(e){e.value=v;var et=document.getElementById('rqlet-'+itemId);if(et)et.focus();}}});
+        addCam('rqlet-'+itemId,{title:'Escanear etiqueta',onResult:function(v){var e=document.getElementById('rqlet-'+itemId);if(e)e.value=v;}});
+      }
+    }catch(e){}
+    var a=document.getElementById('rqladdr-'+itemId);if(a)setTimeout(function(){a.focus();},50);
+  }}};
+  // confirma a saída: baixa na vaga do WMS (ou no intermediário) + escreve no Base44
   window.rqlConfirmaBaixa=function(reqId,itemId){
     if(RQL.baixando){toast('Aguarde a baixa anterior…',false);return;}
-    if(!isAdmin&&typeof isAdmin==='function'){}
     var req=(RQL.data||[]).find(function(x){return x.id===reqId;});
     var it=req&&(req.itens||[]).find(function(x){return x.id===itemId;});
     if(!it){toast('Item não encontrado',false);return;}
     var addrEl=document.getElementById('rqladdr-'+itemId),etEl=document.getElementById('rqlet-'+itemId);
     var codeStr=norm(addrEl?addrEl.value:'');var et=norm(etEl?etEl.value:'');
-    if(!codeStr){toast('Bipe o endereço',false);if(addrEl)addrEl.focus();return;}
-    var sp=findSpace(codeStr);
-    if(!sp){toast('Endereço '+codeStr+' não existe',false);return;}
-    if(!sp.o||sp.q<=0){toast('Vaga '+codeStr+' está vazia',false);return;}
-    // validações de etiqueta (se bipada)
-    if(et){
-      if(typeof BOB!=='undefined'&&!BOB[et]){toast('Etiqueta '+et+' não está no catálogo',false);return;}
-      if(typeof LOC!=='undefined'&&LOC[et]&&norm(LOC[et])!==codeStr){toast('Etiqueta '+et+' está em '+LOC[et]+', não em '+codeStr,false);return;}
+    var take=0, ondeMsg='';
+
+    if(codeStr){
+      // ===== baixa numa VAGA do armazém =====
+      var sp=findSpace(codeStr);
+      if(!sp){toast('Endereço '+codeStr+' não existe',false);return;}
+      if(!sp.o||sp.q<=0){toast('Vaga '+codeStr+' está vazia',false);return;}
+      // trava de segurança: confere se o produto da vaga bate com o código do item
+      var codReq=norm(it.codigo||'');
+      if(codReq&&sp.pr&&norm(sp.pr)!==codReq){
+        if(!confirm('ATENÇÃO: a vaga '+codeStr+' tem o produto "'+sp.pr+'", que é DIFERENTE do código da requisição ("'+it.codigo+'").\n\nTem certeza que quer dar baixa mesmo assim?')){return;}
+      }
+      if(et){
+        if(typeof BOB!=='undefined'&&!BOB[et]){toast('Etiqueta '+et+' não está no catálogo',false);return;}
+        if(typeof LOC!=='undefined'&&LOC[et]&&norm(LOC[et])!==codeStr){toast('Etiqueta '+et+' está em '+LOC[et]+', não em '+codeStr,false);return;}
+      }
+      take=et&&BOB[et]?Math.min(sp.q,Number(BOB[et].pl)||sp.q):sp.q;
+      if(take<=0){toast('Sem saldo nessa vaga',false);return;}
+      var before=sp.q;sp.q=Math.max(0,before-take);
+      if(et){if(typeof LOC!=='undefined')delete LOC[et];if(typeof BOB!=='undefined'&&BOB[et])BOB[et].rem=0;}
+      if(sp.q<=0){sp.q=0;sp.o=false;sp.pr='';if(typeof LOC!=='undefined')Object.keys(LOC).forEach(function(k){if(norm(LOC[k])===codeStr){delete LOC[k];if(BOB[k])BOB[k].rem=0;}});}
+      sp.upd=nowISO();sp.by=(typeof session!=='undefined'&&session?session.u:'');
+      MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:codeStr,pr:it.codigo||it.material||'',q:take,u:'KG',before:before,after:sp.o?sp.q:0,at:nowISO(),by:(session?session.u:''),dest:it.maquina||'',req:req.numero||''});
+      try{enqueue3dTask(codeStr,'out');}catch(e){}
+      if(typeof saveLOC==='function')saveLOC();if(typeof saveBOB==='function')saveBOB();persist();
+      try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',S.map(spRow));}catch(e){}
+      ondeMsg=codeStr;
+    }else if(et){
+      // ===== baixa do INTERMEDIÁRIO (STAGE): só bipa a etiqueta =====
+      var si=(typeof STAGE!=='undefined'&&STAGE)?STAGE.find(function(s){return norm(s.et)===et;}):null;
+      if(!si){toast('Etiqueta '+et+' não está no intermediário',false);if(etEl)etEl.focus();return;}
+      take=Number(si.pl)||0;
+      STAGE=STAGE.filter(function(s){return norm(s.et)!==et;});
+      if(typeof saveStage==='function')saveStage();
+      if(typeof syncDelStage==='function')syncDelStage(si.et);
+      if(typeof updateStageBadge==='function')updateStageBadge();
+      MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:si.pr||it.material||'',q:take,u:'KG',et:si.et,before:take,after:0,at:nowISO(),by:(session?session.u:''),dest:it.maquina||'',req:req.numero||'',note:'baixa do intermediário'});
+      persist();
+      ondeMsg='intermediário ('+et+')';
+    }else{
+      toast('Bipe o endereço ou a etiqueta do intermediário',false);return;
     }
-    var take=et&&BOB[et]?Math.min(sp.q,Number(BOB[et].pl)||sp.q):sp.q;
-    if(take<=0){toast('Sem saldo nessa vaga',false);return;}
-    // 1) baixa na vaga do WMS (igual ao fluxo de saída já existente)
-    var before=sp.q;sp.q=Math.max(0,before-take);
-    if(et){if(typeof LOC!=='undefined')delete LOC[et];if(typeof BOB!=='undefined'&&BOB[et])BOB[et].rem=0;}
-    if(sp.q<=0){sp.q=0;sp.o=false;sp.pr='';if(typeof LOC!=='undefined')Object.keys(LOC).forEach(function(k){if(norm(LOC[k])===codeStr){delete LOC[k];if(BOB[k])BOB[k].rem=0;}});}
-    sp.upd=nowISO();sp.by=(typeof session!=='undefined'&&session?session.u:'');
-    MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:codeStr,pr:it.codigo||it.material||'',q:take,u:'KG',before:before,after:sp.o?sp.q:0,at:nowISO(),by:(session?session.u:''),dest:it.maquina||'',req:req.numero||''});
-    try{enqueue3dTask(codeStr,'out');}catch(e){}
-    if(typeof saveLOC==='function')saveLOC();if(typeof saveBOB==='function')saveBOB();persist();
-    try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',S.map(spRow));}catch(e){}
-    if(typeof logAct==='function')logAct('separacao',(it.codigo||'')+' −'+fmt(take)+'kg '+codeStr+(it.maquina?(' → '+it.maquina):'')+' ['+(req.numero||'')+']');
-    toast('Baixa no WMS: '+fmt(take)+'kg de '+codeStr+' · enviando p/ requisição…');
-    // 2) escreve no Base44 (marca separado + soma quantidade)
+
+    if(typeof logAct==='function')logAct('separacao',(it.codigo||it.material||'')+' −'+fmt(take)+'kg '+ondeMsg+(it.maquina?(' → '+it.maquina):'')+' ['+(req.numero||'')+']');
+    toast('Baixa: '+fmt(take)+'kg de '+ondeMsg+' · enviando p/ requisição…');
     RQL.baixando=true;
-    fetch('/api/req-baixa',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({item_id:itemId,requisicao_id:reqId,kg:take,endereco:codeStr,usuario:(session?session.u:'WMS')})})
+    fetch('/api/req-baixa',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({item_id:itemId,requisicao_id:reqId,kg:take,endereco:ondeMsg,usuario:(session?session.u:'WMS')})})
       .then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,d:d};});})
       .then(function(res){
         RQL.baixando=false;
         if(res.ok&&res.d&&res.d.ok){
-          // atualiza o item local pra refletir na hora
           it.qtd_separada=res.d.quantidade_separada;it.separado=res.d.separado;
           if(res.d.requisicao_status==='entregue'){req.status='entregue';toast('✓ Requisição '+(req.numero||'')+' concluída e entregue!');RQL.aberta=null;}
           else{toast('✓ Item baixado na requisição'+(res.d.separado?' (completo)':' (parcial)'));}
@@ -2825,6 +2893,32 @@ updateStageBadge();
           rqlDraw();
         }
       }).catch(function(){RQL.baixando=false;toast('Baixa no WMS OK, mas sem conexão com /api/req-baixa',false);rqlDraw();});
+  };
+  // baixa direta sem vaga (matéria-prima que não fica no armazém): só marca no Base44
+  window.rqlBaixaSemVaga=function(reqId,itemId){
+    if(RQL.baixando){toast('Aguarde a baixa anterior…',false);return;}
+    var req=(RQL.data||[]).find(function(x){return x.id===reqId;});
+    var it=req&&(req.itens||[]).find(function(x){return x.id===itemId;});
+    if(!it){toast('Item não encontrado',false);return;}
+    var qtd=Number(it.qtd)||0;
+    if(!confirm('Dar baixa de "'+(it.material||'')+'" ('+fmt(qtd)+' '+(it.un||'')+') como SEPARADO na requisição?\n\nEsse item não fica em vaga do armazém, então nada será descontado do estoque — só marca como separado no sistema de requisição.')){return;}
+    RQL.baixando=true;
+    if(typeof logAct==='function')logAct('separacao',(it.material||'')+' (sem vaga) ['+(req.numero||'')+']');
+    toast('Marcando '+fmt(qtd)+' '+(it.un||'')+' como separado…');
+    fetch('/api/req-baixa',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({item_id:itemId,requisicao_id:reqId,kg:qtd,endereco:'(sem vaga)',usuario:(session?session.u:'WMS')})})
+      .then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,d:d};});})
+      .then(function(res){
+        RQL.baixando=false;
+        if(res.ok&&res.d&&res.d.ok){
+          it.qtd_separada=res.d.quantidade_separada;it.separado=res.d.separado;
+          if(res.d.requisicao_status==='entregue'){req.status='entregue';toast('✓ Requisição '+(req.numero||'')+' concluída e entregue!');RQL.aberta=null;}
+          else{toast('✓ Item marcado como separado na requisição');}
+          rqlFetch(true);
+        }else{
+          toast('Falhou ao escrever na requisição: '+((res.d&&res.d.error)||'erro'),false);
+          rqlDraw();
+        }
+      }).catch(function(){RQL.baixando=false;toast('Sem conexão com /api/req-baixa',false);rqlDraw();});
   };
   function rqlFetch(force){
     if(RQL.loading)return;

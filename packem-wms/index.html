@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v58</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v59</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v58</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v59</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -3010,7 +3010,7 @@ updateStageBadge();
   };
   function rqlFetch(force){
     if(RQL.loading)return;
-    if(!force&&RQL.at&&Date.now()-RQL.at<15000){rqlDraw();return;}
+    if(!force&&RQL.at&&Date.now()-RQL.at<4000){rqlDraw();return;}
     RQL.loading=true;rqlDraw();
     fetch('/api/requisicoes').then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,status:r.status,d:d};});}).then(function(res){
       RQL.loading=false;RQL.at=Date.now();
@@ -3019,7 +3019,7 @@ updateStageBadge();
       rqlDraw();
     }).catch(function(){RQL.loading=false;RQL.err='Sem conexão com /api/requisicoes — confira se o arquivo requisicoes.js foi publicado dentro da pasta api/.';rqlDraw();});
   }
-  setInterval(function(){var v=document.getElementById('v-reqlive');if(v&&v.classList.contains('active')&&!RQL.loading&&!RQL.aberta&&!RQL.baixando)rqlFetch(true);},15000);
+  setInterval(function(){var v=document.getElementById('v-reqlive');if(v&&v.classList.contains('active')&&!RQL.loading&&!RQL.aberta&&!RQL.baixando)rqlFetch(true);},5000);
   var _rrq=render;render=function(id){if(id==='v-reqlive'){rqlFetch(false);return;}return _rrq(id);};
 
   function vsmKpi(lab,val,sec){return '<div class="kpi3"><div class="k3l">'+lab+'</div><div class="k3v">'+val+'</div><div class="k3s">'+(sec||'')+'</div></div>';}
@@ -3387,11 +3387,11 @@ function startRealtime(){if(!supa)return;
   _rtChan=supa.channel('wms-all-'+Date.now())
    .on('postgres_changes',{event:'*',schema:'public'},p=>applyRealtime(p))
    .subscribe(function(status){
-     if(status==='SUBSCRIBED'){_rtOk=true;_rtRetry=0;}
+     if(status==='SUBSCRIBED'){_rtOk=true;_rtRetry=0;try{pullAll(true);}catch(e){}}
      else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){_rtOk=false;
        // reconecta em SILÊNCIO no fundo (não mexe no status visual — quem manda no status é o auto-sync).
-       // espera crescente (3s,6s,12s… até 60s) pra não ficar num loop agressivo.
-       _rtRetry++;var wait=Math.min(60000,3000*Math.pow(2,Math.min(4,_rtRetry)));
+       // espera curta e crescente (1.5s,3s,6s… até 20s).
+       _rtRetry++;var wait=Math.min(20000,1500*Math.pow(2,Math.min(4,_rtRetry)));
        clearTimeout(startRealtime._t);startRealtime._t=setTimeout(function(){startRealtime();},wait);
      }
    });
@@ -3409,7 +3409,7 @@ function autoSyncTick(){
  }catch(e){}
 }
 let _autoSyncTimer=null;
-function startAutoSync(){clearInterval(_autoSyncTimer);_autoSyncTimer=setInterval(autoSyncTick,12000);}
+function startAutoSync(){clearInterval(_autoSyncTimer);_autoSyncTimer=setInterval(autoSyncTick,4000);}
 /* wraps p/ gravar cada ação na nuvem */
 (function(){
  const _cm=confirmMov;confirmMov=function(){const n0=MV.length;_cm();if(MV.length>n0){const m=MV[0];syncMov(m);const sp=findSpace(m.code);if(sp)syncSpace(sp);if(m.et){if(m.action==='entrada')syncLoc(m.et,m.code);else if(m.action==='saida')syncDelLoc(m.et);}}};

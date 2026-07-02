@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v44</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v45</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v44</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v45</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2819,12 +2819,29 @@ updateStageBadge();
     // adiciona câmera nos campos (uma vez)
     try{
       if(typeof addCam==='function'){
-        addCam('rqladdr-'+itemId,{title:'Escanear endereço',onResult:function(v){var e=document.getElementById('rqladdr-'+itemId);if(e){e.value=v;var et=document.getElementById('rqlet-'+itemId);if(et)et.focus();}}});
-        addCam('rqlet-'+itemId,{title:'Escanear etiqueta',onResult:function(v){var e=document.getElementById('rqlet-'+itemId);if(e)e.value=v;}});
+        addCam('rqladdr-'+itemId,{title:'Escanear endereço',onResult:function(v){var e=document.getElementById('rqladdr-'+itemId);if(e){e.value=rqlLimpaScan(v,'addr');var et=document.getElementById('rqlet-'+itemId);if(et)et.focus();}}});
+        addCam('rqlet-'+itemId,{title:'Escanear etiqueta',onResult:function(v){var e=document.getElementById('rqlet-'+itemId);if(e)e.value=rqlLimpaScan(v,'et');}});
       }
     }catch(e){}
     var a=document.getElementById('rqladdr-'+itemId);if(a)setTimeout(function(){a.focus();},50);
   }}};
+  // limpa o resultado do scan: QR de etiqueta de rastreio vem com várias linhas (id, Cod:, descrição, Vaga:, ...)
+  function rqlLimpaScan(v,tipo){
+    v=String(v||'').trim();
+    if(v.indexOf('\n')<0&&v.indexOf('COD:')<0&&v.indexOf('Cod:')<0&&v.indexOf('VAGA')<0&&v.indexOf('Vaga:')<0)return v; // texto simples, retorna como veio
+    var lines=v.split(/\r?\n/).map(function(s){return s.trim();}).filter(Boolean);
+    if(tipo==='addr'){
+      // procura a linha "Vaga: X-000-0" ou um padrão de endereço
+      for(var i=0;i<lines.length;i++){
+        var m=lines[i].match(/vaga:?\s*([A-Za-z]-?\d+-?\d*)/i);if(m)return m[1].toUpperCase();
+        var m2=lines[i].match(/^([A-Za-z]-\d{2,3}-\d{1,2})$/);if(m2)return m2[1].toUpperCase();
+      }
+    }
+    // etiqueta: primeira linha é o id da etiqueta (antes de qualquer "Cod:")
+    var first=lines[0]||v;
+    first=first.split(/cod:?/i)[0].trim(); // remove "Cod: ..." se estiver colado na mesma linha
+    return first;
+  }
   // confirma a saída: baixa na vaga do WMS (ou no intermediário) + escreve no Base44
   window.rqlConfirmaBaixa=function(reqId,itemId){
     if(RQL.baixando){toast('Aguarde a baixa anterior…',false);return;}
@@ -2845,14 +2862,15 @@ updateStageBadge();
       if(codReq&&sp.pr&&norm(sp.pr)!==codReq){
         if(!confirm('ATENÇÃO: a vaga '+codeStr+' tem o produto "'+sp.pr+'", que é DIFERENTE do código da requisição ("'+it.codigo+'").\n\nTem certeza que quer dar baixa mesmo assim?')){return;}
       }
-      if(et){
-        if(typeof BOB!=='undefined'&&!BOB[et]){toast('Etiqueta '+et+' não está no catálogo',false);return;}
-        if(typeof LOC!=='undefined'&&LOC[et]&&norm(LOC[et])!==codeStr){toast('Etiqueta '+et+' está em '+LOC[et]+', não em '+codeStr,false);return;}
+      // etiqueta é OPCIONAL e só serve de conferência: se não bater no catálogo, ignora (não trava a baixa)
+      var etValida=(et&&typeof BOB!=='undefined'&&BOB[et])?et:'';
+      if(etValida){
+        if(typeof LOC!=='undefined'&&LOC[etValida]&&norm(LOC[etValida])!==codeStr){toast('Etiqueta '+etValida+' está em '+LOC[etValida]+', não em '+codeStr,false);return;}
       }
-      take=et&&BOB[et]?Math.min(sp.q,Number(BOB[et].pl)||sp.q):sp.q;
+      take=etValida&&BOB[etValida]?Math.min(sp.q,Number(BOB[etValida].pl)||sp.q):sp.q;
       if(take<=0){toast('Sem saldo nessa vaga',false);return;}
       var before=sp.q;sp.q=Math.max(0,before-take);
-      if(et){if(typeof LOC!=='undefined')delete LOC[et];if(typeof BOB!=='undefined'&&BOB[et])BOB[et].rem=0;}
+      if(etValida){if(typeof LOC!=='undefined')delete LOC[etValida];if(typeof BOB!=='undefined'&&BOB[etValida])BOB[etValida].rem=0;}
       if(sp.q<=0){sp.q=0;sp.o=false;sp.pr='';if(typeof LOC!=='undefined')Object.keys(LOC).forEach(function(k){if(norm(LOC[k])===codeStr){delete LOC[k];if(BOB[k])BOB[k].rem=0;}});}
       sp.upd=nowISO();sp.by=(typeof session!=='undefined'&&session?session.u:'');
       MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:codeStr,pr:it.codigo||it.material||'',q:take,u:'KG',before:before,after:sp.o?sp.q:0,at:nowISO(),by:(session?session.u:''),dest:it.maquina||'',req:req.numero||''});

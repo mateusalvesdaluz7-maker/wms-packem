@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v51</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v53</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v51</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v53</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -1344,7 +1344,7 @@ function freeStored(et){
  return c;
 }
 function placeBobina(et,pr,pl,c){c=norm(c);const sp=findSpace(c);if(!sp){toast('Endereço '+c+' não existe',false);return false;}if(et&&typeof LOC!=='undefined'&&LOC[et]){const _old=freeStored(et);if(_old)toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');}if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}const before=Number(sp.q)||0;sp.pr=pr;sp.q=before+(Number(pl)||0);sp.o=true;sp.u='KG';sp.upd=nowISO();sp.by=session.u;if(et){LOC[et]=c;saveLOC();}MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:'KG',et:et||'',before,after:sp.q,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;persist();logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}return true;}
-function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}const et=norm(v);if(!et)return;const b=BOB[et];if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo',false);return;}if(LOC[et]){const old=freeStored(et);toast('Bobina '+et+' retornou de '+old+' — liberada p/ recebimento');}if(STAGE.some(s=>s.et===et)){toast('Etiqueta já no intermediário',false);return;}STAGE.unshift({et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u});saveStage();logAct('recebimento',et+' · '+b.pr);renderRecv();updateStageBadge();toast('Recebido: '+et+' · '+fmt(b.pl)+' kg');stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});}
+function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}const et=norm(v);if(!et)return;const b=BOB[et];if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo',false);return;}if(LOC[et]){const old=freeStored(et);toast('Bobina '+et+' retornou de '+old+' — liberada p/ recebimento');}if(STAGE.some(s=>s.et===et)){toast('Etiqueta já no intermediário',false);return;}STAGE.unshift({et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u});saveStage();MV.unshift({id:uid(),action:'recebimento',w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:b.pr||'',q:Number(b.pl)||0,u:(typeof unitOf==='function'?unitOf(b.pr):'KG'),et:et,before:0,after:Number(b.pl)||0,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}logAct('recebimento',et+' · '+b.pr);renderRecv();updateStageBadge();toast('Recebido: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});}
 function renderRecv(){const adm=isAdmin();
  $('#v-recv').innerHTML='<div class="ph-head"><div><p class="eb">Operação · recebimento</p><h1>Estoque intermediário</h1></div></div>'+
  '<div class="two">'+
@@ -1640,9 +1640,9 @@ function stageArmazenar(et){const it=STAGE.find(s=>s.et===et);if(!it)return;cons
  [['azEt',{enter:false,title:'Conferir bobina'}],['azLoc',{enter:false,title:'Escanear endereço'}]].forEach(function(p){var id=p[0],o=p[1];var el=$('#'+id);if(!el)return;if(window.addCam)addCam(id,o);scanLock(el);});
  setTimeout(function(){$('#azEt').click();},120);
 }
-function commitProducao(et){const it=STAGE.find(s=>s.et===et);if(!it)return;
- MV.unshift({id:uid(),action:'producao',w:cfg.warehouse,code:'PRODUÇÃO',pr:it.pr,q:it.pl,u:'KG',et,before:0,after:0,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;
- STAGE=STAGE.filter(s=>s.et!==et);saveStage();persist();logAct('producao',et+' · '+it.pr+' · '+fmt(it.pl)+' kg');renderRecv();updateStageBadge();toast('Enviado p/ produção: '+et);}
+function commitProducao(et){const it=STAGE.find(s=>s.et===et);if(!it)return;var _u=(typeof unitOf==='function'?unitOf(it.pr):'KG');
+ MV.unshift({id:uid(),action:'producao',w:cfg.warehouse,code:'PRODUÇÃO',pr:it.pr,q:it.pl,u:_u,et,before:0,after:0,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;
+ STAGE=STAGE.filter(s=>s.et!==et);saveStage();persist();logAct('producao',et+' · '+it.pr+' · '+fmt(it.pl)+' '+_u.toLowerCase());renderRecv();updateStageBadge();toast('Enviado p/ produção: '+et);}
 function stageProducao(et){const it=STAGE.find(s=>s.et===et);if(!it)return;if(!isAdmin()){toast('Somente admin',false);return;}
  openDrawer(ICONS.transfer+' Enviar p/ produção '+et,'<div style="margin-bottom:16px"><div class="mono" style="font-weight:700;font-size:1.05rem">'+it.pr+'</div><div style="font-size:.8rem;color:var(--muted);margin-top:3px">'+(it.desc||'')+' · '+fmt(it.pl)+' kg</div></div>'+'<label class="fld"><span class="lab">Bipe a bobina ('+et+') para confirmar</span><input class="input code" id="prEt" placeholder="toque para bipar"></label><div id="prEtChk" style="font-size:.8rem;font-weight:700;margin:-8px 0 12px 2px"></div><button class="btn in" id="prDo" style="width:100%;height:48px">Confirmar produção</button>');
  const expectEt=norm(et);
@@ -2945,13 +2945,13 @@ updateStageBadge();
       toast('Bipe o endereço ou a etiqueta do intermediário',false);return;
     }
 
-    // quantidade que vai pra requisição (Base44): metros do pedido p/ alça/cadarço; kg da vaga p/ o resto
-    var qtdReq=ehMetro?(Number(it.qtd)||0):take;
-    var unReq=ehMetro?(it.un||'mt'):'kg';
-    if(typeof logAct==='function')logAct('separacao',(it.codigo||it.material||'')+' −'+fmt(take)+'kg '+ondeMsg+(it.maquina?(' → '+it.maquina):'')+' ['+(req.numero||'')+']');
-    toast('Baixa: '+fmt(take)+'kg de '+ondeMsg+(ehMetro?(' · requisição: '+fmt(qtdReq)+' '+unReq):'')+' · enviando…');
+    // sempre manda o que REALMENTE saiu da vaga (take); alça/cadarço só muda a unidade (mt)
+    var qtdReq=take;
+    var unReq=ehMetro?'mt':'kg';
+    if(typeof logAct==='function')logAct('separacao',(it.codigo||it.material||'')+' −'+fmt(take)+unReq+' '+ondeMsg+(it.maquina?(' → '+it.maquina):'')+' ['+(req.numero||'')+']');
+    toast('Baixa: '+fmt(take)+unReq+' de '+ondeMsg+' · enviando…');
     RQL.baixando=true;
-    fetch('/api/req-baixa',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({item_id:itemId,requisicao_id:reqId,kg:qtdReq,modo:(ehMetro?'definir':'somar'),endereco:ondeMsg+(ehMetro?(' · '+fmt(take)+'kg'):''),usuario:(session?session.u:'WMS')})})
+    fetch('/api/req-baixa',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({item_id:itemId,requisicao_id:reqId,kg:qtdReq,un:unReq,modo:'somar',endereco:ondeMsg,usuario:(session?session.u:'WMS')})})
       .then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,d:d};});})
       .then(function(res){
         RQL.baixando=false;
@@ -3535,7 +3535,7 @@ renderStockTable=function(){const rows=filterStock();
  const fxw=document.getElementById('stFixWeights');if(fxw)fxw.onclick=()=>{const bad=S.filter(x=>x.w===cfg.warehouse&&qBad(x.q));if(!bad.length){toast('Nenhum peso inválido encontrado');return;}if(!confirm('Encontrei '+bad.length+' posição(ões) com peso impossível (dado corrompido). Vou zerar o peso dessas posições (elas continuam ocupadas, com 0). Você poderá recontar depois. Confirmar?'))return;bad.forEach(x=>{x.q=0;x.upd=nowISO();x.by=session?session.u:'sistema';});try{persist();}catch(e){}try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',bad.map(spRow));}catch(e){}logAct&&logAct('fix','corrigiu '+bad.length+' pesos inválidos');renderStockTable();toast(bad.length+' posição(ões) corrigida(s)');};})();
 
 /* ===== RASTREADOR DE MOVIMENTAÇÕES (aba nova) ===== */
-const ALAB={entrada:['Entrada','in'],saida:['Saída','out'],producao:['Produção','muted'],transf:['Transferência','muted']};
+const ALAB={entrada:['Entrada','in'],saida:['Saída','out'],producao:['Produção','muted'],transf:['Transferência','muted'],recebimento:['Recebimento','in'],armazenar:['Armazenado','in'],req_saida:['Saída p/ requisição','out'],interm_saida:['Saída intermediário','out']};
 function trkRows(){const q=norm((document.getElementById('trkSearch')||{}).value||'');const tp=((document.getElementById('trkType')||{}).value)||'';const f=((document.getElementById('trkFrom')||{}).value)||'';const t=((document.getElementById('trkTo')||{}).value)||'';
  let rows=MV.filter(m=>!m.w||m.w===cfg.warehouse);
  if(tp)rows=rows.filter(m=>m.action===tp);
@@ -3550,7 +3550,7 @@ function renderTrackTable(){const rows=trkRows();$('#trkCount').textContent=rows
  const sm=document.getElementById('trkSum');if(sm)sm.innerHTML='<div class="sc"><span>Movimentos</span><b>'+rows.length+'</b></div><div class="sc"><span>Entradas</span><b style="color:#16a34a">+'+fmt(ent)+' <i>KG</i></b></div><div class="sc"><span>Saídas</span><b style="color:#dc2626">−'+fmt(sai)+' <i>KG</i></b></div><div class="sc"><span>Produção</span><b>'+fmt(prd)+' <i>KG</i></b></div>';
  const cap=rows.slice(0,2000);
  $('#trkTable').innerHTML='<thead><tr><th>Data/hora</th><th>Tipo</th><th>Etiqueta</th><th>Produto</th><th>Descrição</th><th>Endereço</th><th class="num">Qtd</th><th class="num">Antes → Depois</th><th>Operador</th></tr></thead><tbody>'+
-  (cap.length?cap.map(m=>{const a=ALAB[m.action]||[m.action,'muted'];return '<tr><td style="color:var(--muted);white-space:nowrap">'+new Date(m.at).toLocaleString('pt-BR')+'</td><td><span class="pill '+a[1]+'">'+a[0]+'</span></td><td class="mono">'+(m.et||'—')+'</td><td class="mono">'+(m.pr||'—')+'</td><td style="color:var(--muted);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(descOf(m.pr)||'').replace(/"/g,'&quot;')+'">'+(descOf(m.pr)||'—')+'</td><td class="mono">'+(m.code||'—')+'</td><td class="num">'+fmt(m.q)+'</td><td class="num" style="color:var(--muted)">'+fmt(m.before)+' → '+fmt(m.after)+'</td><td style="color:var(--muted)">'+(m.by||'—')+'</td></tr>';}).join('')
+  (cap.length?cap.map(m=>{const a=ALAB[m.action]||[m.action,'muted'];var _u=(m.u||(typeof unitOf==='function'?unitOf(m.pr):'KG')).toLowerCase();return '<tr><td style="color:var(--muted);white-space:nowrap">'+new Date(m.at).toLocaleString('pt-BR')+'</td><td><span class="pill '+a[1]+'">'+a[0]+'</span></td><td class="mono">'+(m.et||'—')+'</td><td class="mono">'+(m.pr||'—')+'</td><td style="color:var(--muted);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(descOf(m.pr)||'').replace(/"/g,'&quot;')+'">'+(descOf(m.pr)||'—')+'</td><td class="mono">'+(m.code||'—')+'</td><td class="num">'+fmt(m.q)+' '+_u+'</td><td class="num" style="color:var(--muted)">'+fmt(m.before)+' → '+fmt(m.after)+'</td><td style="color:var(--muted)">'+(m.by||'—')+'</td></tr>';}).join('')
   :'<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--muted)">Nenhum movimento encontrado</td></tr>')+'</tbody>';
  if(rows.length>2000)$('#trkCount').textContent=rows.length+' movimentos · 2000 mostrados';}
 function renderTrack(){const v=$('#v-track');if(!v)return;
@@ -3558,7 +3558,7 @@ function renderTrack(){const v=$('#v-track');if(!v)return;
   v.innerHTML='<div class="ph-head"><div><p class="eb">Operação · rastreador</p><h1>Movimentações</h1></div><button class="btn ghost" id="trkExport">'+ICONS.down+' Exportar CSV</button></div>'
    +'<div class="filters" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">'
    +'<div class="search" style="flex:1;min-width:240px"><span class="si" data-ic="search"></span><input id="trkSearch" placeholder="buscar produto, etiqueta ou endereço"></div>'
-   +'<select class="input" id="trkType"><option value="">Todos os tipos</option><option value="entrada">Entrada</option><option value="saida">Saída</option><option value="producao">Produção</option></select>'
+   +'<select class="input" id="trkType"><option value="">Todos os tipos</option><option value="entrada">Entrada</option><option value="saida">Saída</option><option value="recebimento">Recebimento (intermediário)</option><option value="producao">Produção</option><option value="transf">Transferência</option></select>'
    +'<input class="input" id="trkFrom" type="date" style="max-width:160px" title="De">'
    +'<input class="input" id="trkTo" type="date" style="max-width:160px" title="Até">'
    +'<button class="btn ghost" id="trkToday" style="padding:8px 14px">Hoje</button>'

@@ -58,6 +58,7 @@ module.exports = async function handler(req, res) {
       var mat = String(it.material || '');
       var codMatch = mat.match(/\b\d{6,}\b/);
       (itemsByReq[rid] = itemsByReq[rid] || []).push({
+        id: it.id,
         maquina: it.maquina || '',
         material: mat,
         codigo: codMatch ? codMatch[0] : '',

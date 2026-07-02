@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v57</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v58</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v57</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v58</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -3019,7 +3019,7 @@ updateStageBadge();
       rqlDraw();
     }).catch(function(){RQL.loading=false;RQL.err='Sem conexão com /api/requisicoes — confira se o arquivo requisicoes.js foi publicado dentro da pasta api/.';rqlDraw();});
   }
-  setInterval(function(){var v=document.getElementById('v-reqlive');if(v&&v.offsetParent!==null&&!RQL.loading&&!RQL.aberta&&!RQL.baixando)rqlFetch(true);},15000);
+  setInterval(function(){var v=document.getElementById('v-reqlive');if(v&&v.classList.contains('active')&&!RQL.loading&&!RQL.aberta&&!RQL.baixando)rqlFetch(true);},15000);
   var _rrq=render;render=function(id){if(id==='v-reqlive'){rqlFetch(false);return;}return _rrq(id);};
 
   function vsmKpi(lab,val,sec){return '<div class="kpi3"><div class="k3l">'+lab+'</div><div class="k3v">'+val+'</div><div class="k3s">'+(sec||'')+'</div></div>';}
@@ -3345,7 +3345,7 @@ async function pushAll(btn){if(!supa){toast('Sem conexão com a nuvem',false);re
  }catch(e){toast('Erro ao enviar',false);setNet('on');}
  if(btn){btn.disabled=false;btn.textContent='↥ Enviar p/ nuvem';}}
 async function pgAll(table,order){let out=[],from=0,page=1000;for(;;){let q=supa.from(table).select('*').range(from,from+page-1);if(order)q=q.order(order,{ascending:false});const r=await q;if(r.error||!r.data||!r.data.length)break;out=out.concat(r.data);if(r.data.length<page)break;from+=page;if(from>60000)break;}return out;}
-async function pullAll(){if(!supa)return false;setNet('sync');
+async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
  try{
   const sp=await pgAll('espacos');if(sp.length){const corruptIds=sp.filter(r=>{var n=Number(r.q)||0;return n>10000000||n<0;}).map(r=>r.id);S=sp.map(r=>({id:r.id,w:r.w,s:r.s,l:r.l,p:r.p,pr:r.pr||'',q:cleanQ(r.q),u:r.u||'KG',o:!!r.o,src:r.src||'',upd:r.upd||'',by:r.by_user||''}));DB.saveSpaces(S);if(corruptIds.length){try{if(typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',S.filter(x=>corruptIds.indexOf(x.id)>=0).map(spRow));}catch(e){}}}
   const bo=await pgAll('bobinas');if(bo.length){BOB={};bo.forEach(r=>BOB[r.etiqueta]={pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0});saveBOB();}
@@ -3362,8 +3362,8 @@ async function pullAll(){if(!supa)return false;setNet('sync');
     const ch=await pgAll('chao');
     if(typeof window.floorPullCloud==='function')window.floorPullCloud(ch);
   }catch(e){}
-  setNet('on');if(session){var _ae=document.activeElement;var _digitando=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');if(!_digitando){const v=document.querySelector('.view.active');if(v)render(v.id);}}updateStageBadge();return true;
- }catch(e){setNet('on');return false;}}
+  if(!silent)setNet('on');if(session){var _ae=document.activeElement;var _digitando=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');if(!_digitando){const v=document.querySelector('.view.active');if(v)render(v.id);}}updateStageBadge();return true;
+ }catch(e){if(!silent)setNet('on');return false;}}
 let _rt=null;function scheduleRerender(){clearTimeout(_rt);_rt=setTimeout(()=>{if(session){var _ae=document.activeElement;var _dig=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');var _drawer=document.querySelector('#drawer.show');if(!_dig&&!_drawer){const v=document.querySelector('.view.active');if(v)render(v.id);}}updateStageBadge();},350);}
 /* grava no localStorage de forma agrupada: durante uma rajada de sync, salva 1x por tabela depois que acalmar (evita travar o celular regravando arrays gigantes a cada evento) */
 let _pT={};function persistDebounced(k){clearTimeout(_pT[k]);_pT[k]=setTimeout(function(){try{if(k==='sp')DB.saveSpaces(S);else if(k==='bob')saveBOB();else if(k==='loc')saveLOC();else if(k==='stage')saveStage();else if(k==='mv')DB.saveMovs(MV);else if(k==='vl')DB.saveValues(VL);else if(k==='us')DB.saveUsers(US);}catch(e){}},600);}
@@ -3405,7 +3405,7 @@ function autoSyncTick(){
   if(document.hidden)return; // aba em segundo plano: não gasta rede
   var drawerAberto=document.querySelector('#drawer.show');
   if(drawerAberto)return; // não recarrega enquanto edita algo num painel
-  pullAll();
+  pullAll(true).then(function(ok){setNet(ok?'on':'off');},function(){});
  }catch(e){}
 }
 let _autoSyncTimer=null;

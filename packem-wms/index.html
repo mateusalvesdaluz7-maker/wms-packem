@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v31</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v32</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v31</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v32</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2642,12 +2642,12 @@ updateStageBadge();
     if(RQL.loading)return;
     if(!force&&RQL.at&&Date.now()-RQL.at<15000){rqlDraw();return;}
     RQL.loading=true;rqlDraw();
-    fetch('/api/requisicoes').then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,d:d};});}).then(function(res){
+    fetch('/api/requisicoes').then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,status:r.status,d:d};});}).then(function(res){
       RQL.loading=false;RQL.at=Date.now();
       if(res.ok&&res.d&&res.d.ok){RQL.data=res.d.requisicoes||[];RQL.err='';}
-      else{RQL.err=(res.d&&res.d.error)||('Erro HTTP '+(res.ok?'':'')+' ao buscar');}
+      else{RQL.err=(res.d&&res.d.error)||('Erro HTTP '+res.status+' — a function /api/requisicoes respondeu, mas sem dados. Confira BASE44_API_KEY no Vercel.');}
       rqlDraw();
-    }).catch(function(){RQL.loading=false;RQL.err='Sem conexão com /api/requisicoes — confira se a function foi publicada.';rqlDraw();});
+    }).catch(function(){RQL.loading=false;RQL.err='Sem conexão com /api/requisicoes — confira se o arquivo requisicoes.js foi publicado dentro da pasta api/.';rqlDraw();});
   }
   setInterval(function(){var v=document.getElementById('v-reqlive');if(v&&v.offsetParent!==null&&!RQL.loading)rqlFetch(true);},30000);
   var _rrq=render;render=function(id){if(id==='v-reqlive'){rqlFetch(false);return;}return _rrq(id);};

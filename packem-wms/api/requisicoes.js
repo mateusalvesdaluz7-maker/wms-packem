@@ -34,16 +34,27 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const [reqs, items] = await Promise.all([
-      b44('Requisicao', { sort: '-created_date', limit: '200' }),
+    // Busca por STATUS, não por data: garante que TODAS as abertas apareçam,
+    // mesmo as antigas (senão as pausadas de semanas atrás ficam fora do limite e somem).
+    const [pend, sepa, paus, entregues, cancel, items] = await Promise.all([
+      b44('Requisicao', { status: 'pendente', limit: '200' }),
+      b44('Requisicao', { status: 'em_separacao', limit: '200' }),
+      b44('Requisicao', { status: 'pausado', limit: '200' }),
+      b44('Requisicao', { status: 'entregue', sort: '-created_date', limit: '30' }),
+      b44('Requisicao', { status: 'cancelado', sort: '-created_date', limit: '10' }),
       b44('ItemRequisicao', { sort: '-created_date', limit: '1000' })
     ]);
+    // junta tudo, abertas primeiro (mais antigas no topo pra separar por ordem de chegada)
+    function ordAntigo(a, b) { return (a.created_date || '') < (b.created_date || '') ? -1 : 1; }
+    function ordNovo(a, b) { return (a.created_date || '') > (b.created_date || '') ? -1 : 1; }
+    const abertas = [].concat(pend, sepa, paus).sort(ordAntigo);
+    const fechadas = [].concat(entregues, cancel).sort(ordNovo);
+    const reqs = [].concat(abertas, fechadas);
 
     const itemsByReq = {};
-    items.forEach(function (it) {
+    function addItem(it) {
       const rid = it.requisicao_id;
       if (!rid) return;
-      // tenta achar o código do produto dentro do texto (ex: "CT08 - CORPO - 0303450132 - TECIDO..." → 0303450132)
       var mat = String(it.material || '');
       var codMatch = mat.match(/\b\d{6,}\b/);
       (itemsByReq[rid] = itemsByReq[rid] || []).push({
@@ -57,7 +68,16 @@ module.exports = async function handler(req, res) {
         falta: !!it.falta_material,
         obs: it.obs_item || ''
       });
-    });
+    }
+    items.forEach(addItem);
+    // garante os itens de TODAS as abertas (as antigas podem estar fora do lote de 1000 acima)
+    const faltando = abertas.filter(function (r) { return !itemsByReq[r.id]; });
+    if (faltando.length) {
+      const extras = await Promise.all(faltando.map(function (r) {
+        return b44('ItemRequisicao', { requisicao_id: r.id, limit: '100' }).catch(function () { return []; });
+      }));
+      extras.forEach(function (arr) { (arr || []).forEach(addItem); });
+    }
 
     const out = reqs.map(function (r) {
       return {

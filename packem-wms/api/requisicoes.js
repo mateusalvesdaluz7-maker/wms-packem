@@ -1,115 +1,88 @@
-// /api/req-baixa.js — Vercel Serverless Function
-// Recebe do WMS a baixa de um item de requisição (produto separado numa vaga) e ESCREVE no Base44:
-// marca o item como separado (ou parcial) e soma a quantidade_separada.
-// Usa a MESMA variável BASE44_API_KEY já configurada no projeto.
-//
-// Corpo esperado (POST JSON):
-//   { item_id: "<id do ItemRequisicao>", kg: 300, endereco: "T-220-4", usuario: "Leonardo" }
-// Opcional: { requisicao_id, concluir_requisicao: true }
+// /api/requisicoes.js — Vercel Serverless Function
+// Busca as requisições e itens do app "REQUISIÇÃO PACKEM" (Base44) e devolve pro WMS.
+// Precisa da variável de ambiente BASE44_API_KEY (Vercel > Settings > Environment Variables do PROJETO).
+// Como obter a chave: no Base44, abre o app REQUISIÇÃO PACKEM > Settings/Configurações > API Keys > cria uma chave.
 
 const APP_ID = '69f21c3bf6750842cd0ab83c'; // REQUISIÇÃO PACKEM
-const BASE = 'https://app.base44.com/api/apps/' + APP_ID + '/entities/';
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
-  if (req.method !== 'POST') { res.status(405).json({ error: 'Método não permitido' }); return; }
+  if (req.method !== 'GET') { res.status(405).json({ error: 'Método não permitido' }); return; }
 
   const key = (process.env.BASE44_API_KEY || '').trim();
-  if (!key) { res.status(500).json({ error: 'BASE44_API_KEY não configurada no servidor' }); return; }
+  if (!key) {
+    res.status(500).json({ error: 'BASE44_API_KEY não configurada no servidor (Vercel > Settings > Environment Variables do PROJETO, depois faça um novo deploy)' });
+    return;
+  }
 
-  let body = req.body;
-  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }
-  const itemId = body && body.item_id;
-  const kg = Number(body && body.kg) || 0;
-  const endereco = (body && body.endereco) ? String(body.endereco) : '';
-  const usuario = (body && body.usuario) ? String(body.usuario) : 'WMS';
-  if (!itemId) { res.status(400).json({ error: 'Faltou item_id' }); return; }
-
-  async function b44(method, path, payload) {
-    const r = await fetch(BASE + path, {
-      method: method,
-      headers: { api_key: key, 'content-type': 'application/json' },
-      body: payload ? JSON.stringify(payload) : undefined
-    });
+  async function b44(entity, params) {
+    const qs = new URLSearchParams(params || {}).toString();
+    const url = 'https://app.base44.com/api/apps/' + APP_ID + '/entities/' + entity + (qs ? ('?' + qs) : '');
+    const r = await fetch(url, { headers: { api_key: key, 'content-type': 'application/json' } });
     const data = await r.json().catch(function () { return null; });
     if (!r.ok) {
       const msg = (data && (data.detail || data.error || data.message)) || ('HTTP ' + r.status);
-      const e = new Error(msg); e.status = r.status; throw e;
+      const e = new Error('Base44 ' + entity + ': ' + msg);
+      e.status = r.status;
+      throw e;
     }
-    return data;
+    return Array.isArray(data) ? data : ((data && data.results) || []);
   }
 
   try {
-    // 1) lê o item atual pra somar em cima do que já tinha
-    const item = await b44('GET', 'ItemRequisicao/' + itemId);
-    if (!item || !item.id) { res.status(404).json({ error: 'Item não encontrado no Base44' }); return; }
+    const [reqs, items] = await Promise.all([
+      b44('Requisicao', { sort: '-created_date', limit: '60' }),
+      b44('ItemRequisicao', { sort: '-created_date', limit: '400' })
+    ]);
 
-    const pedido = Number(item.quantidade) || 0;
-    const jaSep = Number(item.quantidade_separada) || 0;
-    const novoSep = kg > 0 ? (jaSep + kg) : jaSep;
-    const completo = pedido > 0 ? (novoSep >= pedido - 0.001) : true; // tolerância p/ arredondamento
-
-    const patch = {
-      quantidade_separada: novoSep,
-      separado: completo,
-      entrega_parcial: !completo && novoSep > 0
-    };
-    const obsAdd = 'WMS: ' + (kg > 0 ? (kg + 'kg ') : '') + (endereco ? ('de ' + endereco + ' ') : '') + 'por ' + usuario;
-    patch.obs_item = item.obs_item ? (item.obs_item + ' | ' + obsAdd) : obsAdd;
-
-    const updated = await b44('PUT', 'ItemRequisicao/' + itemId, patch);
-
-    // 2) se pediram, e todos os itens da requisição estão separados, fecha a requisição
-    let requisicao_status = null;
-    const reqId = (body && body.requisicao_id) || item.requisicao_id;
-    if (reqId) {
-      const irmaos = await b44('GET', 'ItemRequisicao?requisicao_id=' + encodeURIComponent(reqId) + '&limit=200');
-      const arr = Array.isArray(irmaos) ? irmaos : ((irmaos && irmaos.results) || []);
-      const todosOk = arr.length > 0 && arr.every(function (x) {
-        return x.id === itemId ? completo : !!x.separado;
+    const itemsByReq = {};
+    items.forEach(function (it) {
+      const rid = it.requisicao_id;
+      if (!rid) return;
+      // tenta achar o código do produto dentro do texto (ex: "CT08 - CORPO - 0303450132 - TECIDO..." → 0303450132)
+      var mat = String(it.material || '');
+      var codMatch = mat.match(/\b\d{6,}\b/);
+      (itemsByReq[rid] = itemsByReq[rid] || []).push({
+        maquina: it.maquina || '',
+        material: mat,
+        codigo: codMatch ? codMatch[0] : '',
+        qtd: it.quantidade,
+        un: it.unidade || 'kg',
+        separado: !!it.separado,
+        qtd_separada: it.quantidade_separada,
+        falta: !!it.falta_material,
+        obs: it.obs_item || ''
       });
-      if (todosOk) {
-        const nowISO = new Date().toISOString();
-        try {
-          const reqAtual = await b44('GET', 'Requisicao/' + reqId);
-          const hist = Array.isArray(reqAtual && reqAtual.historico) ? reqAtual.historico.slice() : [];
-          hist.push({ ts: nowISO, acao: 'Separação Concluída', usuario: usuario, detalhe: 'Baixa via WMS' });
-          hist.push({ ts: nowISO, acao: 'Entregue', usuario: usuario, detalhe: 'Material separado no armazém (WMS)' });
-          await b44('PUT', 'Requisicao/' + reqId, {
-            status: 'entregue',
-            operador_logistica: (reqAtual && reqAtual.operador_logistica) || usuario,
-            ts_fim_separacao: nowISO,
-            ts_entrega: nowISO,
-            historico: hist
-          });
-          requisicao_status = 'entregue';
-        } catch (e2) { requisicao_status = 'erro_ao_fechar: ' + (e2 && e2.message); }
-      } else {
-        // marca em separação se ainda estava pendente
-        try {
-          const reqAtual = await b44('GET', 'Requisicao/' + reqId);
-          if (reqAtual && reqAtual.status === 'pendente') {
-            const hist = Array.isArray(reqAtual.historico) ? reqAtual.historico.slice() : [];
-            hist.push({ ts: new Date().toISOString(), acao: 'Separação Iniciada', usuario: usuario, detalhe: 'Via WMS' });
-            await b44('PUT', 'Requisicao/' + reqId, { status: 'em_separacao', operador_logistica: usuario, ts_inicio_separacao: new Date().toISOString(), historico: hist });
-            requisicao_status = 'em_separacao';
-          }
-        } catch (e3) { /* silencioso */ }
-      }
-    }
-
-    res.status(200).json({
-      ok: true,
-      item_id: itemId,
-      quantidade_separada: novoSep,
-      separado: completo,
-      requisicao_status: requisicao_status
     });
+
+    const out = reqs.map(function (r) {
+      return {
+        id: r.id,
+        numero: r.numero || '',
+        data: r.data || '',
+        hora: r.hora || '',
+        turno: r.turno || '',
+        solicitante: r.solicitante || '',
+        setor: r.setor || '',
+        lote: r.lote || '',
+        status: r.status || 'pendente',
+        prioridade: r.prioridade || 'normal',
+        obs: r.observacoes || '',
+        operador: r.operador_logistica || '',
+        tempo_min: r.tempo_separacao_min,
+        criada_em: r.created_date || '',
+        entregue_em: r.ts_entrega || '',
+        itens: itemsByReq[r.id] || []
+      };
+    });
+
+    res.status(200).json({ ok: true, atualizado_em: new Date().toISOString(), requisicoes: out });
   } catch (e) {
-    console.error('[api/req-baixa] erro:', e);
-    res.status(500).json({ error: (e && e.message) || 'Erro ao escrever no Base44' });
+    console.error('[api/requisicoes] erro:', e);
+    res.status(e.status === 401 || e.status === 403 ? 502 : 500).json({ error: (e && e.message) || 'Erro ao buscar no Base44' });
   }
 };

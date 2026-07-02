@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v60</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v61</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v60</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v61</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -859,10 +859,11 @@ $('#valSearch').addEventListener('input',renderValues);$('#addValBtn').onclick=(
 function renderValues(){const q=norm($('#valSearch').value);let rows=VL.slice();if(q)rows=rows.filter(v=>(v.codigo||'').toUpperCase().includes(q)||(v.descricao||'').toUpperCase().includes(q));rows.sort((a,b)=>a.codigo.localeCompare(b.codigo));$('#valCount').textContent=rows.length+' produtos';
   $('#valTable').innerHTML=`<thead><tr><th>Código</th><th>Descrição</th><th class="num">Valor (R$/kg)</th><th></th></tr></thead><tbody>`+(rows.length?rows.map(v=>`<tr class="click" data-cod="${v.codigo}"><td class="mono">${v.codigo}</td><td style="color:var(--muted)">${v.descricao||'—'}</td><td class="num">${v.valor>0?money(v.valor):'—'}</td><td style="color:var(--faint)">editar ›</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">Sem produtos</td></tr>')+'</tbody>';
   if(isAdmin())$$('#valTable tbody tr[data-cod]').forEach(t=>t.onclick=()=>editVal(t.dataset.cod));}
-function editVal(cod){const v=cod?VL.find(x=>x.codigo===cod):{codigo:'',valor:0,descricao:''};openDrawer(`${cod?'Editar':'Novo'} produto`,`<label class="fld"><span class="lab">Código</span><input class="input code" id="vCod" value="${v.codigo}" ${cod?'disabled':''}></label><label class="fld"><span class="lab">Descrição</span><input class="input" id="vDesc" value="${v.descricao||''}" placeholder="TEC.TUBULAR PET 165G..."></label><label class="fld"><span class="lab">Valor unitário (R$/kg) · opcional</span><input class="input" id="vVal" type="number" value="${v.valor||''}"></label><button class="btn brand" id="vSave" style="width:100%;height:48px">Salvar</button>`);
+function editVal(cod){const v=cod?VL.find(x=>x.codigo===cod):{codigo:'',valor:0,descricao:''};openDrawer(`${cod?'Editar':'Novo'} produto`,`<label class="fld"><span class="lab">Código</span><input class="input code" id="vCod" value="${v.codigo}" ${cod?'disabled':''}></label><label class="fld"><span class="lab">Descrição</span><input class="input" id="vDesc" value="${v.descricao||''}" placeholder="TEC.TUBULAR PET 165G..."></label><label class="fld"><span class="lab">Valor unitário (R$/kg) · opcional</span><input class="input" id="vVal" type="number" value="${v.valor||''}"></label><button class="btn brand" id="vSave" style="width:100%;height:48px;margin-bottom:10px">Salvar</button>${cod?'<button class="gbtn danger" id="vDel" style="width:100%;justify-content:center">Excluir produto</button>':''}`);
   // ao digitar o código num produto novo, tenta puxar descrição já conhecida
   if(!cod){var _vc=$('#vCod'),_vd=$('#vDesc');if(_vc&&_vd){_vc.addEventListener('input',function(){if(!_vd.value){var d=(typeof nfDescByCode==='function')?nfDescByCode(norm(_vc.value)):'';if(d)_vd.value=d;}});}}
-  $('#vSave').onclick=()=>{const codigo=norm($('#vCod').value);if(!codigo){toast('Informe o código',false);return;}const desc=$('#vDesc').value.trim();const val=Number($('#vVal').value)||0;let ex=VL.find(x=>x.codigo===codigo);if(ex){ex.valor=val;ex.descricao=desc;}else VL.push({codigo,valor:val,descricao:desc});if(typeof DB!=='undefined'&&DB.saveValues)DB.saveValues(VL);if(desc&&typeof nfSaveDesc==='function')nfSaveDesc(codigo,desc);closeDrawer();renderValues();toast('Produto salvo · descrição disponível no sistema');};}
+  $('#vSave').onclick=()=>{const codigo=norm($('#vCod').value);if(!codigo){toast('Informe o código',false);return;}const desc=$('#vDesc').value.trim();const val=Number($('#vVal').value)||0;let ex=VL.find(x=>x.codigo===codigo);if(ex){ex.valor=val;ex.descricao=desc;}else VL.push({codigo,valor:val,descricao:desc});if(typeof DB!=='undefined'&&DB.saveValues)DB.saveValues(VL);if(desc&&typeof nfSaveDesc==='function')nfSaveDesc(codigo,desc);closeDrawer();renderValues();toast('Produto salvo · descrição disponível no sistema');};
+  if($('#vDel'))$('#vDel').onclick=()=>{if(!confirm('Excluir o produto "'+cod+'" do cadastro?\n\nIsso remove só o cadastro de código/descrição/valor. Não mexe no estoque nem nas movimentações.'))return;VL=VL.filter(x=>x.codigo!==cod);if(typeof DB!=='undefined'&&DB.saveValues)DB.saveValues(VL);try{if(typeof supa!=='undefined'&&supa)supa.from('valores').delete().eq('codigo',cod).then(function(){},function(){});}catch(e){}closeDrawer();renderValues();toast('Produto '+cod+' excluído');};}
 
 /* USUÁRIOS */
 $('#addUserBtn').onclick=()=>editUser(null);

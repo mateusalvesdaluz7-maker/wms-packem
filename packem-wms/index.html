@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v35</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v36</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v35</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v36</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2640,7 +2640,7 @@ updateStageBadge();
       function card(r){
         var aberta=(RQL.aberta===r.id);
         var its=(r.itens||[]).map(function(it,idx){
-          // cruza com o estoque do WMS: acha vagas ocupadas com esse produto
+          // cruza com o estoque do WMS: acha vagas ocupadas com esse produto (por código, ou por descrição se não tiver código)
           var locs=[];
           try{
             var cod=it.codigo||'';
@@ -2648,18 +2648,32 @@ updateStageBadge();
               locs=S.filter(function(x){return x.w===cfg.warehouse&&x.o&&x.q>0&&x.pr&&(x.pr===cod||String(x.pr).indexOf(cod)>=0||cod.indexOf(x.pr)>=0);})
                     .sort(function(a,b){return (a.upd||'')<(b.upd||'')?-1:1;});
             }
+            // fallback por descrição: pega palavras-chave do texto do material e cruza com a descrição de cada vaga
+            if(!locs.length){
+              var txt=String(it.material||'').toUpperCase().replace(/[0-9]{4,}/g,' ').replace(/[^A-ZÀ-Ú0-9]+/g,' ').trim();
+              var kws=txt.split(' ').filter(function(w){return w.length>=4;});
+              if(kws.length){
+                locs=S.filter(function(x){
+                  if(!(x.w===cfg.warehouse&&x.o&&x.q>0&&x.pr))return false;
+                  var d=(typeof descOf==='function'?descOf(x.pr):'')||'';
+                  d=(String(x.pr)+' '+d).toUpperCase();
+                  var hits=kws.filter(function(w){return d.indexOf(w)>=0;}).length;
+                  return hits>=Math.min(2,kws.length); // pelo menos 2 palavras-chave batendo
+                }).sort(function(a,b){return (a.upd||'')<(b.upd||'')?-1:1;});
+              }
+            }
           }catch(e){}
           var locHTML='';
-          if(it.codigo){
-            if(locs.length){
-              var totKg=locs.reduce(function(s,x){return s+(Number(x.q)||0);},0);
-              locHTML='<div style="margin-top:3px;font-size:.72rem;color:#15803d;background:#f0fdf4;border-radius:6px;padding:4px 8px">📍 '
-                +locs.slice(0,6).map(function(x){return '<b>'+code(x)+'</b> ('+fmt(x.q)+'kg)';}).join(' · ')
-                +(locs.length>6?(' +'+(locs.length-6)+' vagas'):'')
-                +' · total '+fmt(totKg)+'kg no armazém</div>';
-            }else{
-              locHTML='<div style="margin-top:3px;font-size:.72rem;color:#b45309;background:#fffbeb;border-radius:6px;padding:4px 8px">⚠ Sem esse produto localizado no armazém</div>';
-            }
+          if(locs.length){
+            var totKg=locs.reduce(function(s,x){return s+(Number(x.q)||0);},0);
+            var porDesc=!it.codigo;
+            locHTML='<div style="margin-top:3px;font-size:.72rem;color:#15803d;background:#f0fdf4;border-radius:6px;padding:4px 8px">📍 '
+              +(porDesc?'<i>(por descrição)</i> ':'')
+              +locs.slice(0,6).map(function(x){return '<b>'+code(x)+'</b> ('+fmt(x.q)+'kg)';}).join(' · ')
+              +(locs.length>6?(' +'+(locs.length-6)+' vagas'):'')
+              +' · total '+fmt(totKg)+'kg no armazém</div>';
+          }else{
+            locHTML='<div style="margin-top:3px;font-size:.72rem;color:#b45309;background:#fffbeb;border-radius:6px;padding:4px 8px">⚠ Sem esse produto localizado no armazém</div>';
           }
           var jaSep=(it.separado)?'✓ ':'';
           var qtdInfo=(it.qtd!=null?it.qtd:'')+' '+(it.un||'');

@@ -35,8 +35,8 @@ module.exports = async function handler(req, res) {
 
   try {
     const [reqs, items] = await Promise.all([
-      b44('Requisicao', { sort: '-created_date', limit: '60' }),
-      b44('ItemRequisicao', { sort: '-created_date', limit: '400' })
+      b44('Requisicao', { sort: '-created_date', limit: '200' }),
+      b44('ItemRequisicao', { sort: '-created_date', limit: '1000' })
     ]);
 
     const itemsByReq = {};

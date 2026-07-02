@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v38</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v39</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v38</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v39</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2596,41 +2596,91 @@ updateStageBadge();
   addNavAfter('v-vsm','v-reqlive','reqlive','Requisições ao vivo');
   var RQL={data:null,err:'',at:0,loading:false,filtro:'pendente',aberta:null,baixando:false};
   function rqlStatusChip(st){
-    var m={pendente:['Pendente','#b45309','#fef3c7'],em_separacao:['Em separação','#1d4ed8','#dbeafe'],pausado:['Pausado','#6b7280','#f3f4f6'],separado:['Separado','#0f766e','#ccfbf1'],entregue:['Entregue','#15803d','#dcfce7'],cancelado:['Cancelado','#b91c1c','#fee2e2']};
+    var m={pendente:['Pendente','#b45309','#fef3c7'],em_separacao:['Em separação','#1d4ed8','#dbeafe'],pausado:['Pausado','#c2410c','#ffedd5'],separado:['Separado','#0f766e','#ccfbf1'],entregue:['Entregue','#15803d','#dcfce7'],cancelado:['Cancelado','#b91c1c','#fee2e2']};
     var v=m[st]||[st||'—','#6b7280','#f3f4f6'];
-    return '<span style="font-size:.66rem;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:'+v[1]+';background:'+v[2]+';border-radius:20px;padding:3px 10px;white-space:nowrap">'+v[0]+'</span>';
+    return '<span class="rql-chip" style="color:'+v[1]+';background:'+v[2]+'">'+v[0]+'</span>';
   }
   function rqlPrioChip(p){
-    if(p==='critico')return '<span style="font-size:.66rem;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#fff;background:#dc2626;border-radius:20px;padding:3px 10px;white-space:nowrap">Crítico</span>';
-    if(p==='urgente')return '<span style="font-size:.66rem;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#fff;background:#ea580c;border-radius:20px;padding:3px 10px;white-space:nowrap">Urgente</span>';
+    if(p==='critico')return '<span class="rql-chip" style="color:#fff;background:#dc2626">🔴 Crítico</span>';
+    if(p==='urgente')return '<span class="rql-chip" style="color:#fff;background:#ea580c">Urgente</span>';
     return '';
   }
   function rqlAgo(iso){try{var s=Math.max(0,(Date.now()-new Date(iso).getTime())/1000);if(s<60)return 'agora';if(s<3600)return Math.floor(s/60)+' min atrás';if(s<86400)return Math.floor(s/3600)+' h atrás';return Math.floor(s/86400)+' d atrás';}catch(e){return '';}}
   function rqlDraw(){
     var box=document.getElementById('v-reqlive');if(!box)return;
+    // injeta o CSS uma vez
+    if(!document.getElementById('rqlCSS')){
+      var st=document.createElement('style');st.id='rqlCSS';st.textContent=
+       '.rql-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0 16px}'
+      +'.rql-live{display:inline-flex;align-items:center;gap:7px;font-size:.72rem;font-weight:700;color:#15803d;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;padding:5px 12px}'
+      +'.rql-live .dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 0 rgba(34,197,94,.6);animation:rqlpulse 1.8s infinite}'
+      +'@keyframes rqlpulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}'
+      +'.rql-refresh{display:inline-flex;align-items:center;gap:7px;font-size:.8rem;font-weight:600;color:var(--muted);background:var(--card,#fff);border:1px solid var(--line,#e5e7eb);border-radius:10px;padding:8px 14px;cursor:pointer;transition:all .15s}'
+      +'.rql-refresh:hover{border-color:var(--brand);color:var(--brand)}'
+      +'.rql-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}'
+      +'.rql-tab{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;font-weight:600;color:var(--muted);background:var(--card,#fff);border:1px solid var(--line,#e5e7eb);border-radius:12px;padding:9px 15px;cursor:pointer;transition:all .15s}'
+      +'.rql-tab:hover{border-color:var(--brand)}'
+      +'.rql-tab .n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 6px;border-radius:20px;font-size:.72rem;font-weight:800;background:var(--line,#eef1f4);color:var(--muted)}'
+      +'.rql-tab.on{color:#fff;border-color:transparent}'
+      +'.rql-tab.on.t-pend{background:linear-gradient(135deg,#d97706,#f59e0b)}'
+      +'.rql-tab.on.t-sep{background:linear-gradient(135deg,#2563eb,#3b82f6)}'
+      +'.rql-tab.on.t-pau{background:linear-gradient(135deg,#ea580c,#fb923c)}'
+      +'.rql-tab.on.t-fim{background:linear-gradient(135deg,#059669,#10b981)}'
+      +'.rql-tab.on .n{background:rgba(255,255,255,.28);color:#fff}'
+      +'.rql-card{background:var(--card,#fff);border:1px solid var(--line,#e8ebef);border-radius:16px;padding:16px 18px;margin-bottom:12px;transition:box-shadow .2s,border-color .2s}'
+      +'.rql-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.06)}'
+      +'.rql-card.crit{border-left:4px solid #dc2626}'
+      +'.rql-card.urg{border-left:4px solid #ea580c}'
+      +'.rql-card.open{border:2px solid var(--brand);box-shadow:0 6px 24px rgba(0,0,0,.09)}'
+      +'.rql-chead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}'
+      +'.rql-num{font-family:var(--mono,monospace);font-weight:800;font-size:1.1rem;letter-spacing:-.3px}'
+      +'.rql-badges{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:5px}'
+      +'.rql-chip{font-size:.64rem;font-weight:800;letter-spacing:.5px;text-transform:uppercase;border-radius:20px;padding:3px 10px;white-space:nowrap}'
+      +'.rql-meta{font-size:.78rem;color:var(--muted);margin-top:8px;display:flex;flex-wrap:wrap;gap:4px 0;align-items:center}'
+      +'.rql-meta .sep{margin:0 8px;opacity:.4}'
+      +'.rql-item{padding:10px 0;border-top:1px dashed var(--line,#eef1f4)}'
+      +'.rql-item:first-child{border-top:none}'
+      +'.rql-itop{display:flex;justify-content:space-between;gap:12px;align-items:baseline}'
+      +'.rql-iname{font-size:.85rem;font-weight:500;line-height:1.35}'
+      +'.rql-iqty{font-family:var(--mono,monospace);font-size:.82rem;font-weight:700;white-space:nowrap}'
+      +'.rql-loc{margin-top:6px;font-size:.74rem;color:#15803d;background:#f0fdf4;border:1px solid #dcfce7;border-radius:8px;padding:6px 10px;line-height:1.5}'
+      +'.rql-loc.none{color:#b45309;background:#fffbeb;border-color:#fef3c7}'
+      +'.rql-loc b{font-family:var(--mono,monospace)}'
+      +'.rql-btn{width:100%;height:44px;border:none;border-radius:11px;font-weight:700;font-size:.86rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:filter .15s}'
+      +'.rql-btn:hover{filter:brightness(1.06)}'
+      +'.rql-btn-open{background:linear-gradient(135deg,var(--brand),var(--brand2,var(--brand)));color:#fff;margin-top:12px}'
+      +'.rql-btn-sep{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;height:40px;margin-top:8px}'
+      +'.rql-btn-conf{background:linear-gradient(135deg,#059669,#10b981);color:#fff}'
+      +'.rql-btn-close{width:100%;height:40px;background:var(--card2,#f8fafc);border:1px solid var(--line,#e5e7eb);border-radius:10px;color:var(--muted);font-weight:600;font-size:.82rem;cursor:pointer;margin-top:12px}'
+      +'.rql-scan{margin-top:10px;background:var(--card2,#f8fafc);border:1px solid var(--line,#e8ebef);border-radius:12px;padding:14px}'
+      +'.rql-prog{height:5px;border-radius:20px;background:var(--line,#eef1f4);overflow:hidden;margin-top:7px}'
+      +'.rql-prog>i{display:block;height:100%;background:linear-gradient(90deg,#2563eb,#3b82f6);border-radius:20px;transition:width .4s}'
+      +'.rql-empty{text-align:center;color:var(--muted);padding:48px 16px;background:var(--card,#fff);border:1px dashed var(--line,#e5e7eb);border-radius:16px}';
+      document.head.appendChild(st);
+    }
     var head='<div class="ph-head"><div><p class="eb">Produção → Almoxarifado · Base44</p><h1>Requisições ao vivo</h1></div></div>'
-      +'<div style="display:flex;align-items:center;gap:10px;margin:6px 0 14px;flex-wrap:wrap">'
-      +'<button class="gbtn" id="rqlRefresh" style="justify-content:center">'+(RQL.loading?'Atualizando…':'↻ Atualizar agora')+'</button>'
-      +'<span style="font-size:.75rem;color:var(--muted)">'+(RQL.at?('Atualizado '+rqlAgo(new Date(RQL.at).toISOString())+' · recarrega sozinho a cada 30s'):'')+'</span></div>';
+      +'<div class="rql-top">'
+      +'<span class="rql-live"><span class="dot"></span>AO VIVO'+(RQL.at?(' · '+rqlAgo(new Date(RQL.at).toISOString())):'')+'</span>'
+      +'<button class="rql-refresh" id="rqlRefresh">'+(RQL.loading?'Atualizando…':'↻ Atualizar')+'</button>'
+      +'</div>';
     var body='';
-    if(RQL.err){body='<div class="panel" style="border-color:#fca5a5"><b style="color:#b91c1c">Não consegui buscar as requisições</b><div style="color:var(--muted);font-size:.8rem;margin-top:6px">'+RQL.err+'</div></div>';}
-    else if(!RQL.data){body='<div class="panel" style="text-align:center;color:var(--muted)">Carregando requisições…</div>';}
-    else if(!RQL.data.length){body='<div class="panel" style="text-align:center;color:var(--muted)">Nenhuma requisição encontrada.</div>';}
+    if(RQL.err){body='<div class="rql-card crit"><b style="color:#b91c1c">Não consegui buscar as requisições</b><div style="color:var(--muted);font-size:.82rem;margin-top:6px">'+RQL.err+'</div></div>';}
+    else if(!RQL.data){body='<div class="rql-empty">Carregando requisições…</div>';}
+    else if(!RQL.data.length){body='<div class="rql-empty">Nenhuma requisição encontrada.</div>';}
     else{
       var pend=RQL.data.filter(function(r){return r.status==='pendente';});
       var sep=RQL.data.filter(function(r){return r.status==='em_separacao';});
       var pau=RQL.data.filter(function(r){return r.status==='pausado';});
       var fechadas=RQL.data.filter(function(r){return !(r.status==='pendente'||r.status==='em_separacao'||r.status==='pausado');});
-      // aba padrão: Pendente (não existe mais 'Abertas' juntando tudo)
       if(RQL.filtro==='todas')RQL.filtro='pendente';
-      var tabs=[['pendente','Pendente',pend.length],['em_separacao','Em separação',sep.length],['pausado','Pausado',pau.length],['fechadas','Finalizadas',fechadas.length]];
-      var tabsHTML='<div class="ruatabs" id="rqlTabs" style="margin-bottom:12px;flex-wrap:wrap">'+tabs.map(function(t){return '<button class="'+(RQL.filtro===t[0]?'on':'')+'" data-f="'+t[0]+'">'+t[1]+' ('+t[2]+')</button>';}).join('')+'</div>';
+      var tabs=[['pendente','Pendente',pend.length,'t-pend'],['em_separacao','Em separação',sep.length,'t-sep'],['pausado','Pausado',pau.length,'t-pau'],['fechadas','Finalizadas',fechadas.length,'t-fim']];
+      var tabsHTML='<div class="rql-tabs" id="rqlTabs">'+tabs.map(function(t){return '<button class="rql-tab '+t[3]+(RQL.filtro===t[0]?' on':'')+'" data-f="'+t[0]+'">'+t[1]+'<span class="n">'+t[2]+'</span></button>';}).join('')+'</div>';
       var lista;
       if(RQL.filtro==='em_separacao')lista=sep;
       else if(RQL.filtro==='pausado')lista=pau;
       else if(RQL.filtro==='fechadas')lista=fechadas.slice(0,20);
       else lista=pend;
-      body=tabsHTML+(lista.length?lista.map(card).join(''):'<div class="panel" style="text-align:center;color:var(--muted)">Nenhuma requisição nesta lista 🎉</div>');
+      body=tabsHTML+(lista.length?lista.map(card).join(''):'<div class="rql-empty">Nenhuma requisição nesta lista 🎉</div>');
     }
     box.innerHTML=head+body;
     var rb=document.getElementById('rqlRefresh');if(rb)rb.onclick=function(){rqlFetch(true);};
@@ -2667,44 +2717,59 @@ updateStageBadge();
           if(locs.length){
             var totKg=locs.reduce(function(s,x){return s+(Number(x.q)||0);},0);
             var porDesc=!it.codigo;
-            locHTML='<div style="margin-top:3px;font-size:.72rem;color:#15803d;background:#f0fdf4;border-radius:6px;padding:4px 8px">📍 '
-              +(porDesc?'<i>(por descrição)</i> ':'')
+            locHTML='<div class="rql-loc">📍 '
+              +(porDesc?'<i style="opacity:.7">por descrição · </i>':'')
               +locs.slice(0,6).map(function(x){return '<b>'+code(x)+'</b> ('+fmt(x.q)+'kg)';}).join(' · ')
-              +(locs.length>6?(' +'+(locs.length-6)+' vagas'):'')
-              +' · total '+fmt(totKg)+'kg no armazém</div>';
+              +(locs.length>6?(' <span style="opacity:.7">+'+(locs.length-6)+' vagas</span>'):'')
+              +' · <span style="opacity:.75">total '+fmt(totKg)+'kg</span></div>';
           }else{
-            locHTML='<div style="margin-top:3px;font-size:.72rem;color:#b45309;background:#fffbeb;border-radius:6px;padding:4px 8px">⚠ Sem esse produto localizado no armazém</div>';
+            locHTML='<div class="rql-loc none">⚠ Sem esse produto localizado no armazém</div>';
           }
-          var jaSep=(it.separado)?'✓ ':'';
-          var qtdInfo=(it.qtd!=null?it.qtd:'')+' '+(it.un||'');
-          if(it.qtd_separada!=null&&it.qtd_separada>0&&!it.separado)qtdInfo+=' <span style="color:#1d4ed8">('+fmt(it.qtd_separada)+' já sep.)</span>';
-          // botão separar (só quando a requisição está aberta e o item não está totalmente separado)
+          // progresso de separação do item
+          var progHTML='';
+          if(it.qtd_separada!=null&&it.qtd_separada>0&&it.qtd>0){
+            var pct=Math.min(100,Math.round((it.qtd_separada/it.qtd)*100));
+            progHTML='<div class="rql-prog"><i style="width:'+pct+'%"></i></div>';
+          }
+          var jaSep=(it.separado)?'<span style="color:#15803d;font-weight:800">✓ </span>':'';
+          var qtdInfo=fmt(it.qtd!=null?it.qtd:0)+' '+(it.un||'');
+          if(it.qtd_separada!=null&&it.qtd_separada>0&&!it.separado)qtdInfo='<span style="color:#1d4ed8">'+fmt(it.qtd_separada)+'</span>/'+qtdInfo;
+          // botão separar
           var sepBtn='';
           if(aberta&&!it.separado){
            if(it.id){
             var sug=locs.length?code(locs[0]):'';
-            sepBtn='<div style="margin-top:6px"><button class="btn brand" style="width:100%;height:40px" onclick="rqlAbrirBaixa(\''+r.id+'\',\''+it.id+'\')">📤 Separar este item'+(sug?(' · sugestão '+sug):'')+'</button></div>'
-              +'<div id="rqlscan-'+it.id+'" style="display:none;margin-top:8px;background:var(--card2,#f8fafc);border-radius:8px;padding:10px">'
-              +'<label class="fld" style="margin:0 0 8px"><span class="lab">Bipe o ENDEREÇO</span><input class="input code" id="rqladdr-'+it.id+'" value="'+sug+'" autocomplete="off"></label>'
-              +'<label class="fld" style="margin:0 0 8px"><span class="lab">Bipe a ETIQUETA da bobina (opcional)</span><input class="input code" id="rqlet-'+it.id+'" placeholder="bipe a etiqueta" autocomplete="off"></label>'
-              +'<button class="btn in" style="width:100%;height:44px" onclick="rqlConfirmaBaixa(\''+r.id+'\',\''+it.id+'\')">✓ Confirmar saída e dar baixa</button></div>';
+            sepBtn='<button class="rql-btn rql-btn-sep" onclick="rqlAbrirBaixa(\''+r.id+'\',\''+it.id+'\')">📤 Separar'+(sug?(' · '+sug):'')+'</button>'
+              +'<div id="rqlscan-'+it.id+'" class="rql-scan" style="display:none">'
+              +'<label class="fld" style="margin:0 0 10px"><span class="lab">📍 Bipe o ENDEREÇO</span><input class="input code" id="rqladdr-'+it.id+'" value="'+sug+'" autocomplete="off"></label>'
+              +'<label class="fld" style="margin:0 0 12px"><span class="lab">🏷️ Bipe a ETIQUETA (opcional)</span><input class="input code" id="rqlet-'+it.id+'" placeholder="bipe a etiqueta" autocomplete="off"></label>'
+              +'<button class="rql-btn rql-btn-conf" onclick="rqlConfirmaBaixa(\''+r.id+'\',\''+it.id+'\')">✓ Confirmar saída e dar baixa</button></div>';
            }else{
-            sepBtn='<div style="margin-top:6px;font-size:.72rem;color:#b45309;background:#fffbeb;border-radius:6px;padding:5px 8px">⚠ Atualize o requisicoes.js na pasta api/ (falta o id do item)</div>';
+            sepBtn='<div class="rql-loc none" style="margin-top:8px">⚠ Atualize o requisicoes.js na pasta api/ (falta o id do item)</div>';
            }
           }
-          return '<div style="padding:6px 0;border-top:1px dashed var(--line,rgba(0,0,0,.08))"><div style="display:flex;justify-content:space-between;gap:10px;font-size:.78rem"><span>'+jaSep+(it.maquina?('<b>'+it.maquina+'</b> · '):'')+(it.material||'')+(it.falta?' <span style="color:#b91c1c;font-weight:700">· FALTA</span>':'')+'</span><span class="mono" style="white-space:nowrap">'+qtdInfo+'</span></div>'+locHTML+sepBtn+'</div>';
+          return '<div class="rql-item">'
+            +'<div class="rql-itop"><span class="rql-iname">'+jaSep+(it.maquina?('<b>'+it.maquina+'</b> · '):'')+(it.material||'')+(it.falta?' <span style="color:#b91c1c;font-weight:700">· FALTA</span>':'')+'</span><span class="rql-iqty">'+qtdInfo+'</span></div>'
+            +progHTML+locHTML+sepBtn+'</div>';
         }).join('');
         var acaoBtn;
         if(aberta){
-          acaoBtn='<button class="gbtn" style="margin-top:10px" onclick="rqlFechar()">Fechar separação desta requisição</button>';
+          acaoBtn='<button class="rql-btn-close" onclick="rqlFechar()">✕ Fechar separação</button>';
         }else if(r.status==='pendente'||r.status==='em_separacao'||r.status==='pausado'){
-          acaoBtn='<button class="btn brand" style="margin-top:10px;width:100%;height:44px" onclick="rqlAbrir(\''+r.id+'\')">▶ Abrir e separar esta requisição</button>';
+          acaoBtn='<button class="rql-btn rql-btn-open" onclick="rqlAbrir(\''+r.id+'\')">▶ Abrir e separar</button>';
         }else{acaoBtn='';}
-        return '<div class="panel" style="margin-bottom:10px'+(aberta?';border:2px solid var(--brand)':'')+'">'
-          +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px"><b class="mono" style="font-size:1rem">'+(r.numero||'—')+'</b>'+rqlStatusChip(r.status)+rqlPrioChip(r.prioridade)+'</div>'
-          +'<div style="font-size:.78rem;color:var(--muted)">'+(r.solicitante||'')+(r.setor?(' · '+r.setor):'')+(r.turno?(' · '+r.turno):'')+(r.hora?(' · '+r.hora):'')+(r.operador?(' · separando: <b>'+r.operador+'</b>'):'')+(r.tempo_min!=null?(' · '+r.tempo_min+' min'):'')+'</div>'
-          +(r.obs?'<div style="font-size:.76rem;color:var(--muted);margin-top:4px">Obs: '+r.obs+'</div>':'')
-          +(its?'<div style="margin-top:8px">'+its+'</div>':'')
+        var cls='rql-card'+(aberta?' open':(r.prioridade==='critico'?' crit':(r.prioridade==='urgente'?' urg':'')));
+        return '<div class="'+cls+'">'
+          +'<div class="rql-chead"><div><div class="rql-num">'+(r.numero||'—')+'</div>'
+          +'<div class="rql-badges">'+rqlStatusChip(r.status)+rqlPrioChip(r.prioridade)+'</div></div></div>'
+          +'<div class="rql-meta"><b style="color:var(--ink,#111)">'+(r.solicitante||'')+'</b>'
+          +(r.setor?('<span class="sep">•</span>'+r.setor):'')
+          +(r.turno?('<span class="sep">•</span>'+r.turno):'')
+          +(r.hora?('<span class="sep">•</span>'+r.hora):'')
+          +(r.operador?('<span class="sep">•</span>separando: <b style="color:var(--ink,#111)">'+r.operador+'</b>'):'')
+          +(r.tempo_min!=null?('<span class="sep">•</span>'+r.tempo_min+' min'):'')+'</div>'
+          +(r.obs?'<div style="font-size:.76rem;color:var(--muted);margin-top:6px;font-style:italic">"'+r.obs+'"</div>':'')
+          +(its?'<div style="margin-top:12px">'+its+'</div>':'')
           +acaoBtn
           +'</div>';
       }

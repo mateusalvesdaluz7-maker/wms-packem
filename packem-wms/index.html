@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v33</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v35</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v33</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v35</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2594,7 +2594,7 @@ updateStageBadge();
   /* ===== Requisições ao vivo (integração Base44 · REQUISIÇÃO PACKEM) ===== */
   if(typeof ICONS!=='undefined')ICONS.reqlive=ICONS.reqlive||'<svg class="i" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M3 6l1.2 1.2L6.5 5M3 12l1.2 1.2L6.5 11M3 18l1.2 1.2L6.5 17"/></svg>';
   addNavAfter('v-vsm','v-reqlive','reqlive','Requisições ao vivo');
-  var RQL={data:null,err:'',at:0,loading:false};
+  var RQL={data:null,err:'',at:0,loading:false,filtro:'todas',aberta:null,baixando:false};
   function rqlStatusChip(st){
     var m={pendente:['Pendente','#b45309','#fef3c7'],em_separacao:['Em separação','#1d4ed8','#dbeafe'],pausado:['Pausado','#6b7280','#f3f4f6'],separado:['Separado','#0f766e','#ccfbf1'],entregue:['Entregue','#15803d','#dcfce7'],cancelado:['Cancelado','#b91c1c','#fee2e2']};
     var v=m[st]||[st||'—','#6b7280','#f3f4f6'];
@@ -2617,10 +2617,29 @@ updateStageBadge();
     else if(!RQL.data){body='<div class="panel" style="text-align:center;color:var(--muted)">Carregando requisições…</div>';}
     else if(!RQL.data.length){body='<div class="panel" style="text-align:center;color:var(--muted)">Nenhuma requisição encontrada.</div>';}
     else{
+      var pend=RQL.data.filter(function(r){return r.status==='pendente';});
+      var sep=RQL.data.filter(function(r){return r.status==='em_separacao';});
+      var pau=RQL.data.filter(function(r){return r.status==='pausado';});
       var abertas=RQL.data.filter(function(r){return r.status==='pendente'||r.status==='em_separacao'||r.status==='pausado';});
       var fechadas=RQL.data.filter(function(r){return !(r.status==='pendente'||r.status==='em_separacao'||r.status==='pausado');});
+      var tabs=[['todas','Abertas',abertas.length],['pendente','Pendente',pend.length],['em_separacao','Em separação',sep.length],['pausado','Pausado',pau.length],['fechadas','Finalizadas',fechadas.length]];
+      var tabsHTML='<div class="ruatabs" id="rqlTabs" style="margin-bottom:12px;flex-wrap:wrap">'+tabs.map(function(t){return '<button class="'+(RQL.filtro===t[0]?'on':'')+'" data-f="'+t[0]+'">'+t[1]+' ('+t[2]+')</button>';}).join('')+'</div>';
+      var lista;
+      if(RQL.filtro==='pendente')lista=pend;
+      else if(RQL.filtro==='em_separacao')lista=sep;
+      else if(RQL.filtro==='pausado')lista=pau;
+      else if(RQL.filtro==='fechadas')lista=fechadas.slice(0,20);
+      else lista=abertas;
+      body=tabsHTML+(lista.length?lista.map(card).join(''):'<div class="panel" style="text-align:center;color:var(--muted)">Nenhuma requisição nesta lista 🎉</div>');
+    }
+    box.innerHTML=head+body;
+    var rb=document.getElementById('rqlRefresh');if(rb)rb.onclick=function(){rqlFetch(true);};
+    var tabsEl=document.getElementById('rqlTabs');
+    if(tabsEl)[].slice.call(tabsEl.querySelectorAll('button')).forEach(function(b){b.onclick=function(){RQL.filtro=b.dataset.f;rqlDraw();};});
+  }
       function card(r){
-        var its=(r.itens||[]).map(function(it){
+        var aberta=(RQL.aberta===r.id);
+        var its=(r.itens||[]).map(function(it,idx){
           // cruza com o estoque do WMS: acha vagas ocupadas com esse produto
           var locs=[];
           try{
@@ -2642,23 +2661,88 @@ updateStageBadge();
               locHTML='<div style="margin-top:3px;font-size:.72rem;color:#b45309;background:#fffbeb;border-radius:6px;padding:4px 8px">⚠ Sem esse produto localizado no armazém</div>';
             }
           }
-          return '<div style="padding:6px 0;border-top:1px dashed var(--line,rgba(0,0,0,.08))"><div style="display:flex;justify-content:space-between;gap:10px;font-size:.78rem"><span>'+(it.separado?'✓ ':'')+(it.maquina?('<b>'+it.maquina+'</b> · '):'')+(it.material||'')+(it.falta?' <span style="color:#b91c1c;font-weight:700">· FALTA</span>':'')+'</span><span class="mono" style="white-space:nowrap">'+(it.qtd!=null?it.qtd:'')+' '+(it.un||'')+'</span></div>'+locHTML+'</div>';
+          var jaSep=(it.separado)?'✓ ':'';
+          var qtdInfo=(it.qtd!=null?it.qtd:'')+' '+(it.un||'');
+          if(it.qtd_separada!=null&&it.qtd_separada>0&&!it.separado)qtdInfo+=' <span style="color:#1d4ed8">('+fmt(it.qtd_separada)+' já sep.)</span>';
+          // botão separar (só quando a requisição está aberta e o item não está totalmente separado)
+          var sepBtn='';
+          if(aberta&&!it.separado&&it.id){
+            var sug=locs.length?code(locs[0]):'';
+            sepBtn='<div style="margin-top:6px"><button class="btn brand" style="width:100%;height:40px" onclick="rqlAbrirBaixa(\''+r.id+'\',\''+it.id+'\')">📤 Separar este item'+(sug?(' · sugestão '+sug):'')+'</button></div>'
+              +'<div id="rqlscan-'+it.id+'" style="display:none;margin-top:8px;background:var(--card2,#f8fafc);border-radius:8px;padding:10px">'
+              +'<label class="fld" style="margin:0 0 8px"><span class="lab">Bipe o ENDEREÇO</span><input class="input code" id="rqladdr-'+it.id+'" value="'+sug+'" autocomplete="off"></label>'
+              +'<label class="fld" style="margin:0 0 8px"><span class="lab">Bipe a ETIQUETA da bobina (opcional)</span><input class="input code" id="rqlet-'+it.id+'" placeholder="bipe a etiqueta" autocomplete="off"></label>'
+              +'<button class="btn in" style="width:100%;height:44px" onclick="rqlConfirmaBaixa(\''+r.id+'\',\''+it.id+'\')">✓ Confirmar saída e dar baixa</button></div>';
+          }
+          return '<div style="padding:6px 0;border-top:1px dashed var(--line,rgba(0,0,0,.08))"><div style="display:flex;justify-content:space-between;gap:10px;font-size:.78rem"><span>'+jaSep+(it.maquina?('<b>'+it.maquina+'</b> · '):'')+(it.material||'')+(it.falta?' <span style="color:#b91c1c;font-weight:700">· FALTA</span>':'')+'</span><span class="mono" style="white-space:nowrap">'+qtdInfo+'</span></div>'+locHTML+sepBtn+'</div>';
         }).join('');
-        return '<div class="panel" style="margin-bottom:10px">'
+        var acaoBtn;
+        if(aberta){
+          acaoBtn='<button class="gbtn" style="margin-top:10px" onclick="rqlFechar()">Fechar separação desta requisição</button>';
+        }else if(r.status==='pendente'||r.status==='em_separacao'||r.status==='pausado'){
+          acaoBtn='<button class="btn brand" style="margin-top:10px;width:100%;height:44px" onclick="rqlAbrir(\''+r.id+'\')">▶ Abrir e separar esta requisição</button>';
+        }else{acaoBtn='';}
+        return '<div class="panel" style="margin-bottom:10px'+(aberta?';border:2px solid var(--brand)':'')+'">'
           +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px"><b class="mono" style="font-size:1rem">'+(r.numero||'—')+'</b>'+rqlStatusChip(r.status)+rqlPrioChip(r.prioridade)+'</div>'
           +'<div style="font-size:.78rem;color:var(--muted)">'+(r.solicitante||'')+(r.setor?(' · '+r.setor):'')+(r.turno?(' · '+r.turno):'')+(r.hora?(' · '+r.hora):'')+(r.operador?(' · separando: <b>'+r.operador+'</b>'):'')+(r.tempo_min!=null?(' · '+r.tempo_min+' min'):'')+'</div>'
           +(r.obs?'<div style="font-size:.76rem;color:var(--muted);margin-top:4px">Obs: '+r.obs+'</div>':'')
           +(its?'<div style="margin-top:8px">'+its+'</div>':'')
+          +acaoBtn
           +'</div>';
       }
-      body='<div class="ph" style="margin:4px 0 8px"><span class="pdot"></span>Abertas ('+abertas.length+')</div>'
-        +(abertas.length?abertas.map(card).join(''):'<div class="panel" style="text-align:center;color:var(--muted)">Nenhuma requisição aberta agora 🎉</div>')
-        +'<div class="ph" style="margin:18px 0 8px"><span class="pdot"></span>Finalizadas recentes ('+fechadas.length+')</div>'
-        +fechadas.slice(0,15).map(card).join('');
+  // abre/fecha requisição pra separação
+  window.rqlAbrir=function(reqId){RQL.aberta=reqId;RQL.filtro='todas';rqlDraw();var el=document.getElementById('v-reqlive');if(el)el.scrollTop=0;};
+  window.rqlFechar=function(){RQL.aberta=null;rqlDraw();};
+  window.rqlAbrirBaixa=function(reqId,itemId){var p=document.getElementById('rqlscan-'+itemId);if(p){p.style.display=(p.style.display==='none')?'block':'none';if(p.style.display==='block'){var a=document.getElementById('rqladdr-'+itemId);if(a)setTimeout(function(){a.focus();},50);}}};
+  // confirma a saída: baixa na vaga do WMS + escreve no Base44
+  window.rqlConfirmaBaixa=function(reqId,itemId){
+    if(RQL.baixando){toast('Aguarde a baixa anterior…',false);return;}
+    if(!isAdmin&&typeof isAdmin==='function'){}
+    var req=(RQL.data||[]).find(function(x){return x.id===reqId;});
+    var it=req&&(req.itens||[]).find(function(x){return x.id===itemId;});
+    if(!it){toast('Item não encontrado',false);return;}
+    var addrEl=document.getElementById('rqladdr-'+itemId),etEl=document.getElementById('rqlet-'+itemId);
+    var codeStr=norm(addrEl?addrEl.value:'');var et=norm(etEl?etEl.value:'');
+    if(!codeStr){toast('Bipe o endereço',false);if(addrEl)addrEl.focus();return;}
+    var sp=findSpace(codeStr);
+    if(!sp){toast('Endereço '+codeStr+' não existe',false);return;}
+    if(!sp.o||sp.q<=0){toast('Vaga '+codeStr+' está vazia',false);return;}
+    // validações de etiqueta (se bipada)
+    if(et){
+      if(typeof BOB!=='undefined'&&!BOB[et]){toast('Etiqueta '+et+' não está no catálogo',false);return;}
+      if(typeof LOC!=='undefined'&&LOC[et]&&norm(LOC[et])!==codeStr){toast('Etiqueta '+et+' está em '+LOC[et]+', não em '+codeStr,false);return;}
     }
-    box.innerHTML=head+body;
-    var rb=document.getElementById('rqlRefresh');if(rb)rb.onclick=function(){rqlFetch(true);};
-  }
+    var take=et&&BOB[et]?Math.min(sp.q,Number(BOB[et].pl)||sp.q):sp.q;
+    if(take<=0){toast('Sem saldo nessa vaga',false);return;}
+    // 1) baixa na vaga do WMS (igual ao fluxo de saída já existente)
+    var before=sp.q;sp.q=Math.max(0,before-take);
+    if(et){if(typeof LOC!=='undefined')delete LOC[et];if(typeof BOB!=='undefined'&&BOB[et])BOB[et].rem=0;}
+    if(sp.q<=0){sp.q=0;sp.o=false;sp.pr='';if(typeof LOC!=='undefined')Object.keys(LOC).forEach(function(k){if(norm(LOC[k])===codeStr){delete LOC[k];if(BOB[k])BOB[k].rem=0;}});}
+    sp.upd=nowISO();sp.by=(typeof session!=='undefined'&&session?session.u:'');
+    MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:codeStr,pr:it.codigo||it.material||'',q:take,u:'KG',before:before,after:sp.o?sp.q:0,at:nowISO(),by:(session?session.u:''),dest:it.maquina||'',req:req.numero||''});
+    try{enqueue3dTask(codeStr,'out');}catch(e){}
+    if(typeof saveLOC==='function')saveLOC();if(typeof saveBOB==='function')saveBOB();persist();
+    try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',S.map(spRow));}catch(e){}
+    if(typeof logAct==='function')logAct('separacao',(it.codigo||'')+' −'+fmt(take)+'kg '+codeStr+(it.maquina?(' → '+it.maquina):'')+' ['+(req.numero||'')+']');
+    toast('Baixa no WMS: '+fmt(take)+'kg de '+codeStr+' · enviando p/ requisição…');
+    // 2) escreve no Base44 (marca separado + soma quantidade)
+    RQL.baixando=true;
+    fetch('/api/req-baixa',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({item_id:itemId,requisicao_id:reqId,kg:take,endereco:codeStr,usuario:(session?session.u:'WMS')})})
+      .then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,d:d};});})
+      .then(function(res){
+        RQL.baixando=false;
+        if(res.ok&&res.d&&res.d.ok){
+          // atualiza o item local pra refletir na hora
+          it.qtd_separada=res.d.quantidade_separada;it.separado=res.d.separado;
+          if(res.d.requisicao_status==='entregue'){req.status='entregue';toast('✓ Requisição '+(req.numero||'')+' concluída e entregue!');RQL.aberta=null;}
+          else{toast('✓ Item baixado na requisição'+(res.d.separado?' (completo)':' (parcial)'));}
+          rqlFetch(true);
+        }else{
+          toast('Baixa no WMS OK, mas falhou escrever na requisição: '+((res.d&&res.d.error)||'erro'),false);
+          rqlDraw();
+        }
+      }).catch(function(){RQL.baixando=false;toast('Baixa no WMS OK, mas sem conexão com /api/req-baixa',false);rqlDraw();});
+  };
   function rqlFetch(force){
     if(RQL.loading)return;
     if(!force&&RQL.at&&Date.now()-RQL.at<15000){rqlDraw();return;}
@@ -2670,7 +2754,7 @@ updateStageBadge();
       rqlDraw();
     }).catch(function(){RQL.loading=false;RQL.err='Sem conexão com /api/requisicoes — confira se o arquivo requisicoes.js foi publicado dentro da pasta api/.';rqlDraw();});
   }
-  setInterval(function(){var v=document.getElementById('v-reqlive');if(v&&v.offsetParent!==null&&!RQL.loading)rqlFetch(true);},30000);
+  setInterval(function(){var v=document.getElementById('v-reqlive');if(v&&v.offsetParent!==null&&!RQL.loading&&!RQL.aberta&&!RQL.baixando)rqlFetch(true);},30000);
   var _rrq=render;render=function(id){if(id==='v-reqlive'){rqlFetch(false);return;}return _rrq(id);};
 
   function vsmKpi(lab,val,sec){return '<div class="kpi3"><div class="k3l">'+lab+'</div><div class="k3v">'+val+'</div><div class="k3s">'+(sec||'')+'</div></div>';}

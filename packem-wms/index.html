@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v28</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v29</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v28</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v29</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2767,13 +2767,16 @@ updateStageBadge();
   /* ---- gera etiqueta de rastreio a partir de uma vaga ocupada (produto+peso+endereço) ---- */
   window.nfMakeLabel=function(data){
     data=data||{};
-    /* se o código não tem descrição cadastrada, pede uma vez e salva no cadastro */
+    /* sempre gera a etiqueta, mesmo sem descrição cadastrada — nunca bloqueia por causa disso */
     if(!data.xProd&&data.cProd){
       var achou=(typeof nfDescByCode==='function')?nfDescByCode(data.cProd):'';
-      if(achou){data.xProd=achou;}
-      else{
-        var dig=null;try{dig=window.prompt('Código '+data.cProd+' sem descrição.\nDigite a descrição (será salva no cadastro de Produtos e usada nas próximas):','');}catch(e){}
-        if(dig&&dig.trim()){data.xProd=dig.trim();if(typeof window.nfSaveDesc==='function')window.nfSaveDesc(data.cProd,data.xProd);}
+      if(achou){
+        data.xProd=achou;
+      }else{
+        /* sem descrição no cadastro: usa o próprio código digitado como descrição também,
+           e salva ele no cadastro em segundo plano (sem travar em popup) pra próxima vez já vir pronto */
+        data.xProd=String(data.cProd).trim();
+        if(typeof window.nfSaveDesc==='function'){try{window.nfSaveDesc(data.cProd,data.xProd);}catch(e){}}
       }
     }
     var seq=0,id,base='R'+Date.now().toString(36).toUpperCase().slice(-5);

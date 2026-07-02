@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v30</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v31</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v30</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v31</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2590,6 +2590,68 @@ updateStageBadge();
   addNavAfter('v-floor','v-nf','nf','Nota Fiscal');
   if(typeof ICONS!=='undefined')ICONS.vsm=ICONS.vsm||'<svg class="i" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>';
   addNavAfter('v-nf','v-vsm','vsm','VSM ao vivo');
+
+  /* ===== Requisições ao vivo (integração Base44 · REQUISIÇÃO PACKEM) ===== */
+  if(typeof ICONS!=='undefined')ICONS.reqlive=ICONS.reqlive||'<svg class="i" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M3 6l1.2 1.2L6.5 5M3 12l1.2 1.2L6.5 11M3 18l1.2 1.2L6.5 17"/></svg>';
+  addNavAfter('v-vsm','v-reqlive','reqlive','Requisições ao vivo');
+  var RQL={data:null,err:'',at:0,loading:false};
+  function rqlStatusChip(st){
+    var m={pendente:['Pendente','#b45309','#fef3c7'],em_separacao:['Em separação','#1d4ed8','#dbeafe'],pausado:['Pausado','#6b7280','#f3f4f6'],separado:['Separado','#0f766e','#ccfbf1'],entregue:['Entregue','#15803d','#dcfce7'],cancelado:['Cancelado','#b91c1c','#fee2e2']};
+    var v=m[st]||[st||'—','#6b7280','#f3f4f6'];
+    return '<span style="font-size:.66rem;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:'+v[1]+';background:'+v[2]+';border-radius:20px;padding:3px 10px;white-space:nowrap">'+v[0]+'</span>';
+  }
+  function rqlPrioChip(p){
+    if(p==='critico')return '<span style="font-size:.66rem;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#fff;background:#dc2626;border-radius:20px;padding:3px 10px;white-space:nowrap">Crítico</span>';
+    if(p==='urgente')return '<span style="font-size:.66rem;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#fff;background:#ea580c;border-radius:20px;padding:3px 10px;white-space:nowrap">Urgente</span>';
+    return '';
+  }
+  function rqlAgo(iso){try{var s=Math.max(0,(Date.now()-new Date(iso).getTime())/1000);if(s<60)return 'agora';if(s<3600)return Math.floor(s/60)+' min atrás';if(s<86400)return Math.floor(s/3600)+' h atrás';return Math.floor(s/86400)+' d atrás';}catch(e){return '';}}
+  function rqlDraw(){
+    var box=document.getElementById('v-reqlive');if(!box)return;
+    var head='<div class="ph-head"><div><p class="eb">Produção → Almoxarifado · Base44</p><h1>Requisições ao vivo</h1></div></div>'
+      +'<div style="display:flex;align-items:center;gap:10px;margin:6px 0 14px;flex-wrap:wrap">'
+      +'<button class="gbtn" id="rqlRefresh" style="justify-content:center">'+(RQL.loading?'Atualizando…':'↻ Atualizar agora')+'</button>'
+      +'<span style="font-size:.75rem;color:var(--muted)">'+(RQL.at?('Atualizado '+rqlAgo(new Date(RQL.at).toISOString())+' · recarrega sozinho a cada 30s'):'')+'</span></div>';
+    var body='';
+    if(RQL.err){body='<div class="panel" style="border-color:#fca5a5"><b style="color:#b91c1c">Não consegui buscar as requisições</b><div style="color:var(--muted);font-size:.8rem;margin-top:6px">'+RQL.err+'</div></div>';}
+    else if(!RQL.data){body='<div class="panel" style="text-align:center;color:var(--muted)">Carregando requisições…</div>';}
+    else if(!RQL.data.length){body='<div class="panel" style="text-align:center;color:var(--muted)">Nenhuma requisição encontrada.</div>';}
+    else{
+      var abertas=RQL.data.filter(function(r){return r.status==='pendente'||r.status==='em_separacao'||r.status==='pausado';});
+      var fechadas=RQL.data.filter(function(r){return !(r.status==='pendente'||r.status==='em_separacao'||r.status==='pausado');});
+      function card(r){
+        var its=(r.itens||[]).map(function(it){
+          return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:.78rem;padding:4px 0;border-top:1px dashed var(--line,rgba(0,0,0,.08))"><span>'+(it.separado?'✓ ':'')+(it.maquina?('<b>'+it.maquina+'</b> · '):'')+(it.material||'')+(it.falta?' <span style="color:#b91c1c;font-weight:700">· FALTA</span>':'')+'</span><span class="mono" style="white-space:nowrap">'+(it.qtd!=null?it.qtd:'')+' '+(it.un||'')+'</span></div>';
+        }).join('');
+        return '<div class="panel" style="margin-bottom:10px">'
+          +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px"><b class="mono" style="font-size:1rem">'+(r.numero||'—')+'</b>'+rqlStatusChip(r.status)+rqlPrioChip(r.prioridade)+'</div>'
+          +'<div style="font-size:.78rem;color:var(--muted)">'+(r.solicitante||'')+(r.setor?(' · '+r.setor):'')+(r.turno?(' · '+r.turno):'')+(r.hora?(' · '+r.hora):'')+(r.operador?(' · separando: <b>'+r.operador+'</b>'):'')+(r.tempo_min!=null?(' · '+r.tempo_min+' min'):'')+'</div>'
+          +(r.obs?'<div style="font-size:.76rem;color:var(--muted);margin-top:4px">Obs: '+r.obs+'</div>':'')
+          +(its?'<div style="margin-top:8px">'+its+'</div>':'')
+          +'</div>';
+      }
+      body='<div class="ph" style="margin:4px 0 8px"><span class="pdot"></span>Abertas ('+abertas.length+')</div>'
+        +(abertas.length?abertas.map(card).join(''):'<div class="panel" style="text-align:center;color:var(--muted)">Nenhuma requisição aberta agora 🎉</div>')
+        +'<div class="ph" style="margin:18px 0 8px"><span class="pdot"></span>Finalizadas recentes ('+fechadas.length+')</div>'
+        +fechadas.slice(0,15).map(card).join('');
+    }
+    box.innerHTML=head+body;
+    var rb=document.getElementById('rqlRefresh');if(rb)rb.onclick=function(){rqlFetch(true);};
+  }
+  function rqlFetch(force){
+    if(RQL.loading)return;
+    if(!force&&RQL.at&&Date.now()-RQL.at<15000){rqlDraw();return;}
+    RQL.loading=true;rqlDraw();
+    fetch('/api/requisicoes').then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,d:d};});}).then(function(res){
+      RQL.loading=false;RQL.at=Date.now();
+      if(res.ok&&res.d&&res.d.ok){RQL.data=res.d.requisicoes||[];RQL.err='';}
+      else{RQL.err=(res.d&&res.d.error)||('Erro HTTP '+(res.ok?'':'')+' ao buscar');}
+      rqlDraw();
+    }).catch(function(){RQL.loading=false;RQL.err='Sem conexão com /api/requisicoes — confira se a function foi publicada.';rqlDraw();});
+  }
+  setInterval(function(){var v=document.getElementById('v-reqlive');if(v&&v.offsetParent!==null&&!RQL.loading)rqlFetch(true);},30000);
+  var _rrq=render;render=function(id){if(id==='v-reqlive'){rqlFetch(false);return;}return _rrq(id);};
+
   function vsmKpi(lab,val,sec){return '<div class="kpi3"><div class="k3l">'+lab+'</div><div class="k3v">'+val+'</div><div class="k3s">'+(sec||'')+'</div></div>';}
   function vsmDonut(pct,col){
     var r=26,c=2*Math.PI*r,off=c*(1-Math.min(100,Math.max(0,pct))/100);

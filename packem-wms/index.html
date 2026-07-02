@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v29</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v30</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v29</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v30</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -607,7 +607,6 @@ function renderBoard(){
     <div class="ph-head"><div><p class="eb">${whLabel(wh)}</p><h1>Mapa do armazém</h1></div></div>
     <div class="board-ctrl">
       <div class="ruatabs whpick">${whs.map(w=>`<button class="${w===wh?'on':''}" data-wh="${w}">${whLabel(w)}</button>`).join('')}</div>
-      <div class="fld" style="margin:8px 0"><input class="input code" id="boardSearch" autocomplete="off" placeholder="Buscar produto, endereço ou bobina"></div>
       ${allStreets.length?`<div class="ruatabs"><button class="${!boardStreet?'on':''}" data-r="">Todas as ruas</button>${allStreets.map(s=>`<button class="${s===boardStreet?'on':''}" data-r="${s}">Rua ${s}</button>`).join('')}</div>`:''}
       ${byStreet||!levels.length?'':`<div class="lvtabs">${levels.map(l=>`<button class="${Number(l)===Number(boardLevel)?'on':''}" data-l="${l}">Nível ${l}</button>`).join('')}</div>`}
       <div class="legend"><span><i style="background:linear-gradient(135deg,#15A34A,#22c55e)"></i>Vago</span><span><i style="background:linear-gradient(135deg,#ef4444,#f87171)"></i>Ocupado</span><span><i style="background:linear-gradient(135deg,#d97706,#fbbf24)"></i>+20 dias</span><span><i style="background:linear-gradient(135deg,#7f1d1d,#b91c1c)"></i>+40 dias</span><span style="color:var(--faint)">${occ} ocupadas</span></div>

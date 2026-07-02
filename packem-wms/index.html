@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v56</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v57</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v56</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v57</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -3019,7 +3019,7 @@ updateStageBadge();
       rqlDraw();
     }).catch(function(){RQL.loading=false;RQL.err='Sem conexão com /api/requisicoes — confira se o arquivo requisicoes.js foi publicado dentro da pasta api/.';rqlDraw();});
   }
-  setInterval(function(){var v=document.getElementById('v-reqlive');if(v&&v.offsetParent!==null&&!RQL.loading&&!RQL.aberta&&!RQL.baixando)rqlFetch(true);},30000);
+  setInterval(function(){var v=document.getElementById('v-reqlive');if(v&&v.offsetParent!==null&&!RQL.loading&&!RQL.aberta&&!RQL.baixando)rqlFetch(true);},15000);
   var _rrq=render;render=function(id){if(id==='v-reqlive'){rqlFetch(false);return;}return _rrq(id);};
 
   function vsmKpi(lab,val,sec){return '<div class="kpi3"><div class="k3l">'+lab+'</div><div class="k3v">'+val+'</div><div class="k3s">'+(sec||'')+'</div></div>';}
@@ -3314,7 +3314,7 @@ const SUPA_URL='https://aekqhtutrfwjoebsebeq.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFla3FodHV0cmZ3am9lYnNlYmVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODc2ODUsImV4cCI6MjA5Nzc2MzY4NX0.kVaopyzLq64B9E3ON2YxZERT0o62BYIX9uh7-dHi1Tg';
 let supa=null;
 function loadSupa(){return window.supabase?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js';s.onload=res;s.onerror=()=>rej(new Error('cdn'));document.head.appendChild(s);});}
-function setNet(state){const c=document.getElementById('netChip');if(!c)return;if(state==='on'){c.textContent='● Nuvem';c.style.color='var(--in)';}else if(state==='sync'){c.textContent='● sincronizando…';c.style.color='var(--b)';}else{c.textContent='● offline';c.style.color='var(--faint)';}}
+function setNet(state){const c=document.getElementById('netChip');if(!c)return;if(state==='on'){c.textContent='● Ao vivo';c.style.color='var(--in)';}else if(state==='sync'){c.textContent='● atualizando…';c.style.color='var(--in)';c.style.opacity='.7';setTimeout(function(){if(c)c.style.opacity='1';},400);}else{c.textContent='● offline';c.style.color='var(--faint)';}}
 function spRow(x){return {id:x.id,w:x.w,s:x.s,l:x.l,p:x.p,pr:x.pr||'',q:Number(x.q)||0,u:x.u||'KG',o:!!x.o,src:x.src||'',upd:x.upd||null,by_user:x.by||''};}
 function syncSpace(x){if(!supa||!x)return;supa.from('espacos').upsert(spRow(x)).then(()=>{},()=>{});}
 function syncMov(m){if(!supa||!m)return;supa.from('movimentos').upsert({id:m.id,action:m.action,w:m.w,code:m.code,pr:m.pr,q:Number(m.q)||0,u:m.u,et:m.et||'',before_q:Number(m.before)||0,after_q:Number(m.after)||0,at:m.at,by_user:m.by||''}).then(()=>{},()=>{});}
@@ -3387,14 +3387,15 @@ function startRealtime(){if(!supa)return;
   _rtChan=supa.channel('wms-all-'+Date.now())
    .on('postgres_changes',{event:'*',schema:'public'},p=>applyRealtime(p))
    .subscribe(function(status){
-     if(status==='SUBSCRIBED'){_rtOk=true;_rtRetry=0;setNet('on');}
-     else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){_rtOk=false;setNet('sync');
-       // reconecta com espera crescente (2s,4s,8s… até 30s)
-       _rtRetry++;var wait=Math.min(30000,2000*Math.pow(2,Math.min(4,_rtRetry)));
-       clearTimeout(startRealtime._t);startRealtime._t=setTimeout(function(){startRealtime();try{pullAll();}catch(e){}},wait);
+     if(status==='SUBSCRIBED'){_rtOk=true;_rtRetry=0;}
+     else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){_rtOk=false;
+       // reconecta em SILÊNCIO no fundo (não mexe no status visual — quem manda no status é o auto-sync).
+       // espera crescente (3s,6s,12s… até 60s) pra não ficar num loop agressivo.
+       _rtRetry++;var wait=Math.min(60000,3000*Math.pow(2,Math.min(4,_rtRetry)));
+       clearTimeout(startRealtime._t);startRealtime._t=setTimeout(function(){startRealtime();},wait);
      }
    });
- }catch(e){setNet('sync');clearTimeout(startRealtime._t);startRealtime._t=setTimeout(startRealtime,5000);}
+ }catch(e){clearTimeout(startRealtime._t);startRealtime._t=setTimeout(startRealtime,8000);}
 }
 /* rede de segurança: mesmo se o realtime falhar, puxa tudo da nuvem periodicamente.
    pausa quando há um painel/drawer aberto pra não atrapalhar o que você está fazendo. */
@@ -3408,7 +3409,7 @@ function autoSyncTick(){
  }catch(e){}
 }
 let _autoSyncTimer=null;
-function startAutoSync(){clearInterval(_autoSyncTimer);_autoSyncTimer=setInterval(autoSyncTick,20000);}
+function startAutoSync(){clearInterval(_autoSyncTimer);_autoSyncTimer=setInterval(autoSyncTick,12000);}
 /* wraps p/ gravar cada ação na nuvem */
 (function(){
  const _cm=confirmMov;confirmMov=function(){const n0=MV.length;_cm();if(MV.length>n0){const m=MV[0];syncMov(m);const sp=findSpace(m.code);if(sp)syncSpace(sp);if(m.et){if(m.action==='entrada')syncLoc(m.et,m.code);else if(m.action==='saida')syncDelLoc(m.et);}}};

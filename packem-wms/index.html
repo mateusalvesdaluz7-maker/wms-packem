@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v36</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v37</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -454,7 +454,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v36</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v37</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2594,7 +2594,7 @@ updateStageBadge();
   /* ===== Requisições ao vivo (integração Base44 · REQUISIÇÃO PACKEM) ===== */
   if(typeof ICONS!=='undefined')ICONS.reqlive=ICONS.reqlive||'<svg class="i" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M3 6l1.2 1.2L6.5 5M3 12l1.2 1.2L6.5 11M3 18l1.2 1.2L6.5 17"/></svg>';
   addNavAfter('v-vsm','v-reqlive','reqlive','Requisições ao vivo');
-  var RQL={data:null,err:'',at:0,loading:false,filtro:'todas',aberta:null,baixando:false};
+  var RQL={data:null,err:'',at:0,loading:false,filtro:'pendente',aberta:null,baixando:false};
   function rqlStatusChip(st){
     var m={pendente:['Pendente','#b45309','#fef3c7'],em_separacao:['Em separação','#1d4ed8','#dbeafe'],pausado:['Pausado','#6b7280','#f3f4f6'],separado:['Separado','#0f766e','#ccfbf1'],entregue:['Entregue','#15803d','#dcfce7'],cancelado:['Cancelado','#b91c1c','#fee2e2']};
     var v=m[st]||[st||'—','#6b7280','#f3f4f6'];
@@ -2620,16 +2620,16 @@ updateStageBadge();
       var pend=RQL.data.filter(function(r){return r.status==='pendente';});
       var sep=RQL.data.filter(function(r){return r.status==='em_separacao';});
       var pau=RQL.data.filter(function(r){return r.status==='pausado';});
-      var abertas=RQL.data.filter(function(r){return r.status==='pendente'||r.status==='em_separacao'||r.status==='pausado';});
       var fechadas=RQL.data.filter(function(r){return !(r.status==='pendente'||r.status==='em_separacao'||r.status==='pausado');});
-      var tabs=[['todas','Abertas',abertas.length],['pendente','Pendente',pend.length],['em_separacao','Em separação',sep.length],['pausado','Pausado',pau.length],['fechadas','Finalizadas',fechadas.length]];
+      // aba padrão: Pendente (não existe mais 'Abertas' juntando tudo)
+      if(RQL.filtro==='todas')RQL.filtro='pendente';
+      var tabs=[['pendente','Pendente',pend.length],['em_separacao','Em separação',sep.length],['pausado','Pausado',pau.length],['fechadas','Finalizadas',fechadas.length]];
       var tabsHTML='<div class="ruatabs" id="rqlTabs" style="margin-bottom:12px;flex-wrap:wrap">'+tabs.map(function(t){return '<button class="'+(RQL.filtro===t[0]?'on':'')+'" data-f="'+t[0]+'">'+t[1]+' ('+t[2]+')</button>';}).join('')+'</div>';
       var lista;
-      if(RQL.filtro==='pendente')lista=pend;
-      else if(RQL.filtro==='em_separacao')lista=sep;
+      if(RQL.filtro==='em_separacao')lista=sep;
       else if(RQL.filtro==='pausado')lista=pau;
       else if(RQL.filtro==='fechadas')lista=fechadas.slice(0,20);
-      else lista=abertas;
+      else lista=pend;
       body=tabsHTML+(lista.length?lista.map(card).join(''):'<div class="panel" style="text-align:center;color:var(--muted)">Nenhuma requisição nesta lista 🎉</div>');
     }
     box.innerHTML=head+body;
@@ -2705,7 +2705,7 @@ updateStageBadge();
           +'</div>';
       }
   // abre/fecha requisição pra separação
-  window.rqlAbrir=function(reqId){RQL.aberta=reqId;RQL.filtro='todas';rqlDraw();var el=document.getElementById('v-reqlive');if(el)el.scrollTop=0;};
+  window.rqlAbrir=function(reqId){RQL.aberta=reqId;rqlDraw();var el=document.getElementById('v-reqlive');if(el)el.scrollTop=0;};
   window.rqlFechar=function(){RQL.aberta=null;rqlDraw();};
   window.rqlAbrirBaixa=function(reqId,itemId){var p=document.getElementById('rqlscan-'+itemId);if(p){p.style.display=(p.style.display==='none')?'block':'none';if(p.style.display==='block'){var a=document.getElementById('rqladdr-'+itemId);if(a)setTimeout(function(){a.focus();},50);}}};
   // confirma a saída: baixa na vaga do WMS + escreve no Base44

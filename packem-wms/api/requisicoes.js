@@ -43,9 +43,13 @@ module.exports = async function handler(req, res) {
     items.forEach(function (it) {
       const rid = it.requisicao_id;
       if (!rid) return;
+      // tenta achar o código do produto dentro do texto (ex: "CT08 - CORPO - 0303450132 - TECIDO..." → 0303450132)
+      var mat = String(it.material || '');
+      var codMatch = mat.match(/\b\d{6,}\b/);
       (itemsByReq[rid] = itemsByReq[rid] || []).push({
         maquina: it.maquina || '',
-        material: it.material || '',
+        material: mat,
+        codigo: codMatch ? codMatch[0] : '',
         qtd: it.quantidade,
         un: it.unidade || 'kg',
         separado: !!it.separado,

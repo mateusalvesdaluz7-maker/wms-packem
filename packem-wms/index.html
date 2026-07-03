@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v89</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v91</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v89</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v91</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2318,7 +2318,6 @@ updateStageBadge();
       +'<div style="color:var(--muted);font-size:.85rem;margin-bottom:10px">Selecione a <b>planilha do romaneio</b> de entrada/saída (Seq, Nº da bobina, OP, Lote, Gramatura, Peso bruto, Peso líquido). Uma etiqueta é gerada para <b>cada bobina</b> do romaneio.</div>'
       +'<input type="file" id="romFile" accept=".xlsx,.xls" style="display:none">'
       +'<button class="gbtn" id="romPick" style="width:100%;justify-content:center">'+ICONS.nf+' Escolher planilha do romaneio</button>'
-      +'<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)"><button class="gbtn" id="nfResync" style="width:100%;justify-content:center;font-size:.82rem">↻ Reenviar etiquetas/romaneios para a nuvem (aparecer em todos os aparelhos)</button><div style="color:var(--faint);font-size:.72rem;margin-top:6px;text-align:center">Use se algo não apareceu em outro dispositivo</div></div>'
       +'</div>'+romPreview+scanPanel+list+romList;
 
     var fileInp=document.getElementById('nfFile');
@@ -2344,7 +2343,6 @@ updateStageBadge();
     };
     var romFileInp=document.getElementById('romFile');
     document.getElementById('romPick').onclick=function(){romFileInp.click();};
-    var _rsBtn=document.getElementById('nfResync');if(_rsBtn)_rsBtn.onclick=function(){if(typeof window.resyncTudoNF==='function')window.resyncTudoNF();};
     romFileInp.onchange=function(){var f=romFileInp.files&&romFileInp.files[0];if(!f)return;
       toast('Lendo planilha do romaneio…');
       loadXLSX().then(function(){
@@ -2652,12 +2650,12 @@ updateStageBadge();
         var e=ETQ[id],ok=e.status==='entrada';
         var codeDisp=e.bobina||e.cProd||e.id;
         var sub=e.lote?('lote '+e.lote):(e.xProd||e.gramatura||'');
-        var qrTxt=e.id||codeDisp; /* o QR representa o id da etiqueta gerada (o que é bipado) */
-        var qrHTML=(typeof qrSvg==='function')?('<div style="flex:none;width:38px;height:38px;background:#fff;border-radius:6px;padding:2px;display:flex;align-items:center;justify-content:center">'+qrSvg(qrTxt)+'</div>'):'';
+        var etqId=e.id; /* id único da etiqueta gerada (o que o QR codifica e o que é bipado) */
         return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line,rgba(255,255,255,.06))">'
           +'<span style="flex:none;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;background:'+(ok?'#16a34a':'var(--line,rgba(255,255,255,.08))')+';color:'+(ok?'#fff':'var(--faint)')+'">'+(ok?'✓':'')+'</span>'
-          +qrHTML
-          +'<div style="flex:1;min-width:0"><div class="mono" style="font-weight:700;font-size:.85rem">'+esc(codeDisp)+'</div>'+(sub?'<div style="color:var(--faint);font-size:.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(sub)+'</div>':'')+'</div>'
+          +'<div style="flex:1;min-width:0"><div class="mono" style="font-weight:700;font-size:.85rem">'+esc(codeDisp)+'</div>'
+            +'<div class="mono" style="color:var(--brand);font-size:.72rem;font-weight:700;margin-top:1px">ID: '+esc(etqId)+'</div>'
+            +(sub?'<div style="color:var(--faint);font-size:.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(sub)+'</div>':'')+'</div>'
           +'<div style="font-family:var(--mono);font-weight:700;font-size:.8rem;color:'+(ok?'var(--ink)':'var(--muted)')+'">'+fmt(e.kg||0)+' kg</div>'
           +'</div>';
       }).join('');
@@ -2671,8 +2669,6 @@ updateStageBadge();
       +'<div class="fld"><input class="input code" id="rbdScan" autocomplete="off" placeholder="Bipe ou digite o código da etiqueta"></div>'
       +'<div id="rbdList" style="margin-top:10px;max-height:48vh;overflow-y:auto">'+st.rows+'</div>';
     openDrawer((ICONS.tag||'')+' '+label,body);
-    /* carrega a lib de QR e redesenha a lista com os QR codes prontos */
-    if(typeof loadQR==='function'){loadQR().then(function(){var list=document.getElementById('rbdList');if(list){var s3=calc();list.innerHTML=s3.rows;}}).catch(function(){});}
     function refresh(){
       var s2=calc();
       var bar=document.getElementById('rbdBar');if(bar){bar.style.width=s2.pct+'%';bar.style.background=(s2.ent>=s2.tot&&s2.tot>0?'#16a34a':'var(--brand)');}

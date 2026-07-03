@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v77</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v78</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v77</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v78</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -539,7 +539,7 @@ function normUnit(u){
   if(u==='KG'||u==='KGS'||u==='K'||u==='QUILO'||u==='QUILOS')return 'KG';
   return '';
 }
-function unitOf(prOrDesc){
+function unitOfReal(prOrDesc){
   try{
     // extrai o código, seja objeto de vaga {pr}, código puro, ou string
     var cod='';var uVaga='';
@@ -557,7 +557,7 @@ function unitOf(prOrDesc){
     return 'KG'; // padrão: sem nada = kg
   }catch(e){return 'KG';}
 }
-window.unitOf=unitOf;
+window.unitOfReal=unitOfReal;
 const fmt=n=>{const v=Number(n)||0;return Number.isInteger(v)?v.toLocaleString('pt-BR'):v.toLocaleString('pt-BR',{maximumFractionDigits:2});};
 const money=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const nowISO=()=>new Date().toISOString();
@@ -771,7 +771,6 @@ function drawBoardStreet(){
 function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdmin();
   openDrawer(`${ICONS.map=ICONS.grid} <span class="mono">${code(x)}</span>`,`
     <div style="display:flex;gap:10px;margin-bottom:18px"><span class="pill muted">${whLabel(x.w)}</span><span class="pill ${x.o?(x.q>0?'in':'b'):'muted'}">${x.o?(x.q>0?'ocupado':'ocupado · 0'):'livre'}</span></div>
-    ${adm&&x.pr?`<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:.72rem;color:#475569;font-family:monospace">diag: unitOf="${unitOf(x)}" · VL tem ${(typeof VL!=='undefined'&&Array.isArray(VL))?VL.length:0} produtos · esse código no VL: ${(function(){try{var c=String(x.pr).toUpperCase().replace(/\\s+/g,'');var r=VL.find(function(v){return String(v.codigo||'').toUpperCase().replace(/\\s+/g,'')===c;});return r?('un="'+(r.un||'vazio')+'"'):'NÃO ENCONTRADO';}catch(e){return 'erro';}})()}</div>`:''}
     ${adm?`<label class="fld"><span class="lab">Produto</span><input class="input code" id="spProd" value="${x.pr||''}"></label>
     <label class="fld"><span class="lab">Unidade deste produto (salva no cadastro)</span><select class="input" id="spUn"><option value="KG"${unitOf(x)==='KG'?' selected':''}>KG · quilos</option><option value="MT"${unitOf(x)==='MT'?' selected':''}>MT · metros</option><option value="UN"${unitOf(x)==='UN'?' selected':''}>UN · unidades</option></select></label>
     <label class="fld"><span class="lab">Peso / quantidade (<span id="spUnLab">${unitOf(x).toLowerCase()}</span>)</span><input class="input" id="spQty" type="number" value="${x.q||0}"></label>
@@ -3665,7 +3664,9 @@ function qSane(v){var n=Number(v)||0;return (n>10000000||n<0)?0:n;}
 function qBad(v){var n=Number(v)||0;return n>10000000;}
 function isNoLabel(pr){var n=String(pr==null?'':pr).toUpperCase().replace(/[^A-Z]/g,'');return n.indexOf('SETIQUETA')===0||n.indexOf('SEMETIQUETA')===0;}
 function isAlcaCad(pr){var d=rastNoAcc(descOf(pr)||pr||'').replace(/^[^A-Z]+/,'');return /^ALCA|^CADARC/.test(d);}
-function unitOf(x){return isAlcaCad(x&&x.pr)?'M':((x&&x.u)||'KG');}
+// unitOf agora usa SEMPRE a unidade cadastrada no produto (unitOfReal). Esta é a definição final e vale para todo o sistema.
+function unitOf(x){return (typeof unitOfReal==='function')?unitOfReal(x):'KG';}
+window.unitOf=unitOf;
 /* limpa automaticamente pesos impossíveis (dado corrompido) zerando-os, salva e empurra a correção pra nuvem 1x por sessão */
 var _wPushed=false,_wToasted=false;
 function autoFixWeights(){try{if(typeof S==='undefined'||!Array.isArray(S))return 0;var bad=S.filter(function(x){return qBad(x.q);});if(!bad.length)return 0;bad.forEach(function(x){x.q=0;x.upd=(typeof nowISO==='function'?nowISO():new Date().toISOString());x.by=(session&&session.u)||'sistema';});try{if(typeof DB!=='undefined'&&DB.saveSpaces)DB.saveSpaces(S);}catch(e){}if(!_wPushed){_wPushed=true;try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',bad.map(spRow));}catch(e){}}if(!_wToasted){_wToasted=true;try{toast(bad.length+' peso(s) inválido(s) corrigido(s) automaticamente');}catch(e){}}return bad.length;}catch(e){return 0;}}

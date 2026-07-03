@@ -4862,7 +4862,9 @@ function printDoc(bodyHTML,css){var f=document.getElementById('pkPrintFrame');if
  f=document.createElement('iframe');f.id='pkPrintFrame';f.setAttribute('aria-hidden','true');f.style.cssText='position:fixed;left:-9999px;top:0;width:170mm;height:230mm;border:0;background:#fff';
  document.body.appendChild(f);
  var win=f.contentWindow||f,d=win.document;d.open();d.write('<!doctype html><html><head><meta charset="utf-8"><style>'+css+'</style></head><body>'+bodyHTML+'</body></html>');d.close();
- var fired=false;function go(){if(fired)return;fired=true;try{win.focus();win.print();}catch(e){console.warn('print',e);}setTimeout(function(){if(f&&f.parentNode)f.parentNode.removeChild(f);},2500);}
+ /* AUTO-FIT: qualquer conteúdo dentro de .zfit é medido e reduzido (scale) para caber SEMPRE dentro da etiqueta, centralizado — nada fica cortado ou fora */
+ function fitz(){try{var els=d.querySelectorAll('.zfit');for(var i=0;i<els.length;i++){var el=els[i],p=el.parentElement;if(!p)continue;el.style.transform='';var cs=win.getComputedStyle(p);var aw=p.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0);var ah=p.clientHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);var w=Math.max(1,el.scrollWidth),h=Math.max(1,el.scrollHeight);var s=Math.min(1,aw/w,ah/h);if(s<0.999){el.style.transformOrigin='center center';el.style.transform='scale('+(Math.floor(s*1000)/1000)+')';}}}catch(e){}}
+ var fired=false;function go(){if(fired)return;fired=true;try{fitz();}catch(e){}try{win.focus();win.print();}catch(e){console.warn('print',e);}setTimeout(function(){if(f&&f.parentNode)f.parentNode.removeChild(f);},2500);}
  var imgs=d.images,total=imgs?imgs.length:0,loaded=0;
  if(total){for(var i=0;i<total;i++){var im=imgs[i];if(im.complete){loaded++;}else{im.onload=im.onerror=function(){loaded++;if(loaded>=total)go();};}}if(loaded>=total)setTimeout(go,150);setTimeout(go,1800);}else{setTimeout(go,250);}}
 printZebra=function(codes,w,dim){if(!codes||!codes.length){toast('Nada para imprimir',false);return;}dim=dim||ZSIZES.z150;
@@ -4960,21 +4962,23 @@ function zEtqCard(e,dim,H,u,kind){
  return '<div class="zlbl" style="width:'+W+u+';height:'+H+u+'">'
   +'<div class="zbar" style="height:'+f(0.028)+'"></div>'
   +'<img class="zwm" src="'+PACKEM_SYM+'" style="width:'+f(0.82)+'">'
-  +'<div class="zin" style="padding:'+f(0.032)+' '+f(0.04)+';gap:'+f(0.012)+'">'
+  +'<div class="zin" style="padding:'+f(0.032)+' '+f(0.04)+'">'
+   +'<div class="zfit" style="gap:'+f(0.012)+'">'
    +'<div class="zhead" style="gap:'+f(0.024)+'"><img class="zlogo" src="'+PACKEM_SYM+'" style="width:'+f(0.075)+'"><div class="zbt" style="font-size:'+f(0.05)+'">PACKEM<span style="font-size:'+f(0.024)+'">'+top+'</span></div></div>'
    +(codigoGrande?'<div class="zcode" style="font-size:'+f(0.125)+'">'+codigoGrande+'</div>':'')
    +(desc?'<div class="zds" style="font-size:'+f(0.062)+'">'+rastEsc(desc)+'</div>':'')
    +loteLine
    +(e.kg>0?'<div class="zkgbig" style="font-size:'+f(0.155)+'">'+fmt(e.kg)+' '+unit+'</div>':'')
    +'<div class="zqr" style="width:'+f(0.3)+';margin-top:'+f(0.008)+'">'+qrSvg(qrPayload)+'</div>'
-  +'</div></div>';
+  +'</div></div></div>';
 }
 function zEtqCSS(dim){
  return '*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:'+dim.w+'mm '+dim.h+'mm;margin:0}'
   +'.zlbl{position:relative;background:#fff;color:#0a0c10;display:flex;flex-direction:column;overflow:hidden;page-break-after:always;break-after:page;font-family:"Segoe UI",Arial,Helvetica,sans-serif}'
   +'.zlbl .zbar{width:100%;flex:none;background:#EA5A0C}'
   +'.zlbl .zwm{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);height:auto;opacity:.07;object-fit:contain;pointer-events:none;z-index:0}'
-  +'.zlbl .zin{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}'
+  +'.zlbl .zin{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}'
+  +'.zlbl .zfit{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;max-width:100%;flex:none}'
   +'.zlbl .zhead{display:flex;align-items:center;justify-content:center}'
   +'.zlbl .zlogo{object-fit:contain;flex:none}'
   +'.zlbl .zbt{font-weight:900;line-height:1;display:flex;flex-direction:column;color:#0a0c10;text-align:left}'
@@ -4983,7 +4987,7 @@ function zEtqCSS(dim){
   +'.zlbl .zqr{display:flex;align-items:center;justify-content:center}.zlbl .zqr svg{width:100%;height:auto;display:block}svg.qr{max-width:100%;height:auto}'
   +'.zlbl .zds{color:#0a0c10;font-weight:800;line-height:1.05;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;padding:0 1mm}'
   +'.zlbl .zlote{font-weight:800;color:#0a0c10;background:#f0f0f0;border-radius:1.4mm;letter-spacing:.2mm;display:inline-block}'
-  +'.zlbl .zkgbig{font-weight:900;color:#0a0c10;line-height:1;letter-spacing:-.3mm;font-family:"Arial Black",Arial,sans-serif}';
+  +'.zlbl .zkgbig{font-weight:900;color:#0a0c10;line-height:1;letter-spacing:-.3mm;font-family:"Arial Black",Arial,sans-serif;white-space:nowrap}';
 }
 function printZebraEtq(arr,dim,kind){
  if(!arr||!arr.length){toast('Nada para imprimir',false);return;}
@@ -5050,14 +5054,15 @@ var ZLBL2_CSS='*{box-sizing:border-box}html,body{margin:0;padding:0;background:#
  +'.zlbl2{width:100mm;height:100mm;position:relative;background:#fff;color:#0a0c10;overflow:hidden;font-family:"Segoe UI",Arial,Helvetica,sans-serif;display:flex;flex-direction:column}'
  +'.zbar2{height:2.8mm;flex:none;background:#EA5A0C}'
  +'.zwm2{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);width:82mm;height:auto;opacity:.07;pointer-events:none;z-index:0}'
- +'.zbody2{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3mm 4mm;gap:1.6mm}'
+ +'.zbody2{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3mm 4mm}'
+ +'.zbody2 .zfit{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;max-width:100%;flex:none;gap:1.6mm}'
  +'.zhd2{display:flex;align-items:center;justify-content:center;gap:1.6mm}'
  +'.zhd2 img{height:6mm;width:auto}'
  +'.zhd2 .zbt2{font-weight:900;font-size:5mm;line-height:1;text-align:left;color:#0a0c10;display:flex;flex-direction:column}'
  +'.zhd2 .zbt2 span{font-weight:700;font-size:2.4mm;color:#EA5A0C;letter-spacing:.6mm;margin-top:.4mm}'
  +'.zcode2{font-family:"Arial Black",Arial,sans-serif;font-size:12.5mm;font-weight:900;line-height:1;color:#0a0c10;letter-spacing:.3mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}'
  +'.zdesc2{font-size:6.2mm;font-weight:800;line-height:1.12;color:#0a0c10;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;max-width:100%}'
- +'.zkg2{font-family:"Arial Black",Arial,sans-serif;font-size:15.5mm;font-weight:900;line-height:1;color:#0a0c10;letter-spacing:-.3mm}'
+ +'.zkg2{font-family:"Arial Black",Arial,sans-serif;font-size:15.5mm;font-weight:900;line-height:1;color:#0a0c10;letter-spacing:-.3mm;white-space:nowrap}'
  +'.zqrwrap{width:29mm;margin-top:1mm}'
  +'.zqrwrap svg{width:100%;height:auto;display:block}';
 function etqCard2(top,code,desc,serial,kgText){
@@ -5066,13 +5071,13 @@ function etqCard2(top,code,desc,serial,kgText){
  return '<div class="zlbl2" style="width:100mm;height:100mm">'
   +'<div class="zbar2"></div>'
   +'<img class="zwm2" src="'+sym+'">'
-  +'<div class="zbody2">'
+  +'<div class="zbody2"><div class="zfit">'
     +'<div class="zhd2"><img src="'+sym+'"><div class="zbt2">PACKEM<span>RASTREIO</span></div></div>'
     +(code?'<div class="zcode2">'+code+'</div>':'')
     +(desc?'<div class="zdesc2">'+desc+'</div>':'')
     +(kgText?'<div class="zkg2">'+kgText.toUpperCase()+'</div>':'')
     +(qr?'<div class="zqrwrap">'+qr+'</div>':'')
-  +'</div></div>';
+  +'</div></div></div>';
 }
 function printEtq2(top,code,desc,serial,kgText){
  var build=function(){printDoc(etqCard2(top,code,desc,serial,kgText),ZLBL2_CSS);};

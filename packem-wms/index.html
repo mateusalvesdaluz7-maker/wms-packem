@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v91</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v94</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v91</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v94</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2309,7 +2309,20 @@ updateStageBadge();
             +'</div>';
         }).join('')+'</div>';
     }
-    el.innerHTML='<div class="panel"><div class="ph"><span class="pdot"></span>Importar nota fiscal (XML ou PDF)</div>'
+    var _se=window._syncErrs||{etq:0,rom:0,lastErr:''};
+    var syncWarn='';
+    if((_se.etq>0||_se.rom>0)&&_se.lastErr){
+      syncWarn='<div style="background:rgba(220,150,40,.12);border:1px solid rgba(220,150,40,.4);border-radius:10px;padding:11px 13px;margin-bottom:14px;font-size:.82rem">'
+        +'<b style="color:#b45309">⚠️ Algo não subiu para a nuvem</b>'
+        +'<div style="color:var(--muted);margin-top:3px">'+_se.etq+' etiqueta(s) e '+_se.rom+' nota(s)/romaneio(s) falharam. Erro: <span class="mono" style="color:#b45309">'+esc(_se.lastErr)+'</span></div>'
+        +'<button class="btn" id="nfRetrySync" style="margin-top:8px;font-size:.78rem">↻ Tentar reenviar agora</button>'
+        +'</div>';
+    }
+    var _offWarn='<div id="nfNetWarn" style="display:'+((window._netState==='off')?'block':'none')+';background:rgba(220,90,90,.12);border:1px solid rgba(220,90,90,.4);border-radius:10px;padding:11px 13px;margin-bottom:14px;font-size:.82rem">'
+      +'<b style="color:#dc2626">⚠️ Este aparelho está SEM conexão com a nuvem</b>'
+      +'<div style="color:var(--muted);margin-top:3px">O que você importar aqui <b>não vai aparecer</b> nos outros aparelhos até reconectar. Verifique a internet e recarregue a página (Ctrl+Shift+R). Se persistir, a rede deste PC pode estar bloqueando o servidor.</div>'
+      +'</div>';
+    el.innerHTML=_offWarn+syncWarn+'<div class="panel"><div class="ph"><span class="pdot"></span>Importar nota fiscal (XML ou PDF)</div>'
       +'<div style="color:var(--muted);font-size:.85rem;margin-bottom:10px">Selecione o <b>XML da NF-e</b> (mais preciso) ou o <b>PDF da DANFE</b>. Item, quantidade, <b>peso (kg)</b> e lote são lidos automaticamente — pelo PDF, confira os valores na prévia. O lote pode ser digitado se a nota não trouxer.</div>'
       +'<input type="file" id="nfFile" accept=".xml,.pdf,text/xml,application/xml,application/pdf" style="display:none">'
       +'<button class="gbtn" id="nfPick" style="width:100%;justify-content:center">'+ICONS.nf+' Escolher XML ou PDF da nota</button>'
@@ -2343,6 +2356,7 @@ updateStageBadge();
     };
     var romFileInp=document.getElementById('romFile');
     document.getElementById('romPick').onclick=function(){romFileInp.click();};
+    var _retryBtn=document.getElementById('nfRetrySync');if(_retryBtn)_retryBtn.onclick=function(){if(typeof window.resyncTudoNF==='function')window.resyncTudoNF();setTimeout(function(){if(typeof renderNF==='function')renderNF();},4500);};
     romFileInp.onchange=function(){var f=romFileInp.files&&romFileInp.files[0];if(!f)return;
       toast('Lendo planilha do romaneio…');
       loadXLSX().then(function(){
@@ -2538,8 +2552,10 @@ updateStageBadge();
       var kgPer=kgTot>0?Math.round((kgTot/n)*1000)/1000:0;
       for(var i=0;i<n;i++){
         seq++;
-        var id=(nfParsed.nNF||'NF')+'-'+String(seq).padStart(3,'0');
-        while(ETQ[id]){seq++;id=(nfParsed.nNF||'NF')+'-'+String(seq).padStart(3,'0');}
+        /* ID GLOBALMENTE ÚNICO: nº NF + série + sequência + carimbo único (nunca repete entre notas) */
+        var _uniqNF=Date.now().toString(36).toUpperCase().slice(-5)+Math.random().toString(36).toUpperCase().slice(2,5);
+        var id=(nfParsed.nNF||'NF')+'-'+(nfParsed.serie?nfParsed.serie+'-':'')+String(seq).padStart(3,'0')+'-'+_uniqNF;
+        while(ETQ[id]){seq++;_uniqNF=Date.now().toString(36).toUpperCase().slice(-5)+Math.random().toString(36).toUpperCase().slice(2,5);id=(nfParsed.nNF||'NF')+'-'+(nfParsed.serie?nfParsed.serie+'-':'')+String(seq).padStart(3,'0')+'-'+_uniqNF;}
         ETQ[id]={id:id,nf:nfParsed.key,nNF:nfParsed.nNF,cProd:cProd,xProd:xProd,lote:lote,uCom:it.uCom,kg:kgPer,vol:(i+1),volTot:n,idx:seq,status:'gerada',hist:[{ev:'gerada',at:nowISO(),by:session.u}]};
         created.push(id);
       }
@@ -2603,7 +2619,12 @@ updateStageBadge();
       /* o campo bobina e gramatura já mostram os valores Packem convertidos (e são editáveis) */
       var _cProd=(it._convertido&&it.cProd)?it.cProd:op;
       var _xProd=gram; /* usa o que está no campo gramatura (já convertido no preview, ou editado pelo usuário) */
-      var id=norm(bobina);
+      /* ID GLOBALMENTE ÚNICO: nunca repete, mesmo em notas/romaneios diferentes com o mesmo produto.
+         Combina o código do produto (visível) + nº romaneio + sequência + carimbo único. */
+      var _codBase=norm(bobina)||'ETQ';
+      var _uniq=Date.now().toString(36).toUpperCase().slice(-5)+Math.random().toString(36).toUpperCase().slice(2,5);
+      var id=_codBase+'-'+(hdr.nRomaneio?norm(hdr.nRomaneio)+'-':'')+String(idx+1).padStart(3,'0')+'-'+_uniq;
+      /* garantia extra: se por acaso colidir (praticamente impossível), acrescenta contador */
       if(ETQ[id]){var s=2,base=id;while(ETQ[id]){id=base+'-'+s;s++;}}
       ETQ[id]={id:id,nf:romParsed.key,nRomaneio:hdr.nRomaneio,nNFe:hdr.nfe,cliente:hdr.cliente,bobina:bobina,op:op,lote:lote,gramatura:gram,xProd:_xProd,cProd:_cProd,uCom:'KG',kg:pesoLiquido,pesoBruto:pesoBruto,vol:(idx+1),volTot:romParsed.items.length,idx:(idx+1),status:'gerada',hist:[{ev:'gerada',at:nowISO(),by:session.u}]};
       created.push(id);
@@ -3484,8 +3505,23 @@ $('#genEnd').onclick=function(){const st=$('#lblStreet').value,scope=$('#lblScop
 const SUPA_URL='https://aekqhtutrfwjoebsebeq.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFla3FodHV0cmZ3am9lYnNlYmVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODc2ODUsImV4cCI6MjA5Nzc2MzY4NX0.kVaopyzLq64B9E3ON2YxZERT0o62BYIX9uh7-dHi1Tg';
 let supa=null;
-function loadSupa(){return window.supabase?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js';s.onload=res;s.onerror=()=>rej(new Error('cdn'));document.head.appendChild(s);});}
-function setNet(state){const c=document.getElementById('netChip');if(!c)return;if(state==='on'){c.textContent='● Ao vivo';c.style.color='var(--in)';}else if(state==='sync'){c.textContent='● atualizando…';c.style.color='var(--in)';c.style.opacity='.7';setTimeout(function(){if(c)c.style.opacity='1';},400);}else{c.textContent='● offline';c.style.color='var(--faint)';}}
+function loadSupa(){
+  if(window.supabase)return Promise.resolve();
+  var cdns=['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js','https://unpkg.com/@supabase/supabase-js@2.45.0/dist/umd/supabase.js'];
+  function tryCdn(i){
+    return new Promise(function(res,rej){
+      if(i>=cdns.length){rej(new Error('todos os CDN falharam'));return;}
+      var s=document.createElement('script');s.src=cdns[i];
+      s.onload=function(){res();};
+      s.onerror=function(){tryCdn(i+1).then(res,rej);};
+      document.head.appendChild(s);
+    });
+  }
+  return tryCdn(0);
+}
+function setNet(state){window._netState=state;const c=document.getElementById('netChip');if(!c)return;if(state==='on'){c.textContent='● Ao vivo';c.style.color='var(--in)';}else if(state==='sync'){c.textContent='● atualizando…';c.style.color='var(--in)';c.style.opacity='.7';setTimeout(function(){if(c)c.style.opacity='1';},400);}else{c.textContent='● offline';c.style.color='var(--faint)';}
+  /* se a tela de NF estiver aberta, atualiza o aviso de conexão */
+  try{var _av=document.getElementById('nfNetWarn');if(_av){_av.style.display=(state==='off')?'block':'none';}}catch(e){}}
 function spRow(x){return {id:x.id,w:x.w,s:x.s,l:x.l,p:x.p,pr:x.pr||'',q:Number(x.q)||0,u:x.u||'KG',o:!!x.o,src:x.src||'',upd:x.upd||null,by_user:x.by||''};}
 function syncSpace(x,_try){if(!supa||!x)return;var t=_try||0;supa.from('espacos').upsert(spRow(x)).then(function(r){if(r&&r.error&&t<3){try{markLocalWrite();}catch(e){}setTimeout(function(){syncSpace(x,t+1);},1200*(t+1));}},function(){if(t<3){try{markLocalWrite();}catch(e){}setTimeout(function(){syncSpace(x,t+1);},1200*(t+1));}});}
 function syncMov(m,_try){if(!supa||!m)return;var t=_try||0;supa.from('movimentos').upsert({id:m.id,action:m.action,w:m.w,code:m.code,pr:m.pr,q:Number(m.q)||0,u:m.u,et:m.et||'',before_q:Number(m.before)||0,after_q:Number(m.after)||0,at:m.at,by_user:m.by||''}).then(function(r){if(r&&r.error&&t<3){setTimeout(function(){syncMov(m,t+1);},1200*(t+1));}},function(){if(t<3){setTimeout(function(){syncMov(m,t+1);},1200*(t+1));}});}
@@ -3503,7 +3539,11 @@ function syncEtiqueta(e,_try){if(!supa||!e||!e.id)return;var row={id:e.id,doc_ke
     }
   },function(err){window._syncErrs.etq++;window._syncErrs.lastErr='etiquetas: rede';if((_try||0)<2){setTimeout(function(){syncEtiqueta(e,(_try||0)+1);},1200*((_try||0)+1));}});}
 function syncDelEtiqueta(id){if(!supa||!id)return;supa.from('etiquetas').delete().eq('id',id).then(()=>{},()=>{});}
-function syncNota(n){if(!supa||!n||!n.key)return;supa.from('notas_fiscais').upsert({key:n.key,data:n,updated_at:new Date().toISOString()}).then(()=>{},()=>{});}
+function syncNota(n,_try){if(!supa||!n||!n.key)return;supa.from('notas_fiscais').upsert({key:n.key,data:n,updated_at:new Date().toISOString()}).then(function(res){
+    if(res&&res.error){window._syncErrs.rom++;window._syncErrs.lastErr='notas: '+(res.error.message||res.error.code||'erro');
+      if((_try||0)<2){setTimeout(function(){syncNota(n,(_try||0)+1);},1200*((_try||0)+1));}
+    }
+  },function(err){window._syncErrs.rom++;window._syncErrs.lastErr='notas: rede';if((_try||0)<2){setTimeout(function(){syncNota(n,(_try||0)+1);},1200*((_try||0)+1));}});}
 function syncDelNota(key){if(!supa||!key)return;supa.from('notas_fiscais').delete().eq('key',key).then(()=>{},()=>{});}
 function syncRomaneio(r,_try){if(!supa||!r||!r.key)return;supa.from('romaneios').upsert({key:r.key,data:r,updated_at:new Date().toISOString()}).then(function(res){
     if(res&&res.error){window._syncErrs.rom++;window._syncErrs.lastErr='romaneios: '+(res.error.message||res.error.code||'erro');
@@ -3656,7 +3696,26 @@ async function checkNet(){
  _netChecking=false;
 }
 /* inicia */
-loadSupa().then(()=>{try{supa=window.supabase.createClient(SUPA_URL,SUPA_KEY);setNet('sync');startRealtime();pullAll();startAutoSync();}catch(e){setNet('off');}}).catch(()=>setNet('off'));
+loadSupa().then(()=>{
+  try{
+    supa=window.supabase.createClient(SUPA_URL,SUPA_KEY);
+    setNet('sync');startRealtime();startAutoSync();
+    /* pull inicial com retry: um aparelho que demora a conectar não fica sem dados */
+    var _pullTry=0;
+    function _initPull(){
+      pullAll().then(function(ok){
+        if(ok){setNet('on');}
+        else if(_pullTry<4){_pullTry++;setTimeout(_initPull,2000*_pullTry);}
+        else{setNet('off');}
+      },function(){if(_pullTry<4){_pullTry++;setTimeout(_initPull,2000*_pullTry);}else{setNet('off');}});
+    }
+    _initPull();
+  }catch(e){setNet('off');}
+}).catch(()=>{setNet('off');
+  /* falhou carregar a lib do Supabase (CDN bloqueado): avisa e tenta de novo em 8s */
+  try{if(typeof toast==='function')toast('Sem conexão com a nuvem neste aparelho — tentando reconectar…',false);}catch(e){}
+  setTimeout(function(){try{loadSupa().then(function(){location.reload();},function(){});}catch(e){}},8000);
+});
 /* ao voltar pra aba (celular/tablet que estava em segundo plano): puxa na hora e religa o realtime se precisar */
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&supa){checkNet();try{pullAll();}catch(e){}if(!_rtOk){try{startRealtime();}catch(e){}}}});
 /* ao reconectar a internet: destrava, puxa e religa o realtime */

@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v76</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v77</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v76</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v77</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -771,6 +771,7 @@ function drawBoardStreet(){
 function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdmin();
   openDrawer(`${ICONS.map=ICONS.grid} <span class="mono">${code(x)}</span>`,`
     <div style="display:flex;gap:10px;margin-bottom:18px"><span class="pill muted">${whLabel(x.w)}</span><span class="pill ${x.o?(x.q>0?'in':'b'):'muted'}">${x.o?(x.q>0?'ocupado':'ocupado · 0'):'livre'}</span></div>
+    ${adm&&x.pr?`<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:.72rem;color:#475569;font-family:monospace">diag: unitOf="${unitOf(x)}" · VL tem ${(typeof VL!=='undefined'&&Array.isArray(VL))?VL.length:0} produtos · esse código no VL: ${(function(){try{var c=String(x.pr).toUpperCase().replace(/\\s+/g,'');var r=VL.find(function(v){return String(v.codigo||'').toUpperCase().replace(/\\s+/g,'')===c;});return r?('un="'+(r.un||'vazio')+'"'):'NÃO ENCONTRADO';}catch(e){return 'erro';}})()}</div>`:''}
     ${adm?`<label class="fld"><span class="lab">Produto</span><input class="input code" id="spProd" value="${x.pr||''}"></label>
     <label class="fld"><span class="lab">Unidade deste produto (salva no cadastro)</span><select class="input" id="spUn"><option value="KG"${unitOf(x)==='KG'?' selected':''}>KG · quilos</option><option value="MT"${unitOf(x)==='MT'?' selected':''}>MT · metros</option><option value="UN"${unitOf(x)==='UN'?' selected':''}>UN · unidades</option></select></label>
     <label class="fld"><span class="lab">Peso / quantidade (<span id="spUnLab">${unitOf(x).toLowerCase()}</span>)</span><input class="input" id="spQty" type="number" value="${x.q||0}"></label>

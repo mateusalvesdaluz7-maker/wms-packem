@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v68</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v69</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v68</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v69</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -877,11 +877,22 @@ $('#importValBtn').onclick=function(){
   if(!novos.length){toast('Nenhum produto novo — todos já estão cadastrados',false);return;}
   if(!confirm('Encontrei '+novos.length+' produto(s) no estoque que ainda não estão cadastrados.\n\nAdicionar todos ao cadastro? (unidade padrão KG — você ajusta depois os que forem metro)'))return;
   novos.forEach(function(n){VL.push({codigo:n.codigo,valor:0,descricao:n.descricao||'',un:'KG'});});
+  try{if(typeof markLocalWrite==='function')markLocalWrite();}catch(e){} // trava: impede o auto-sync de sobrescrever antes de subir
   if(typeof DB!=='undefined'&&DB.saveValues)DB.saveValues(VL);
-  // sincroniza na nuvem
-  try{if(typeof supa!=='undefined'&&supa)supa.from('valores').upsert(novos.map(function(n){return {codigo:n.codigo,valor:0,descricao:n.descricao||'',un:'KG'};})).then(function(){},function(){});}catch(e){}
   renderValues();
-  toast(novos.length+' produto(s) importado(s) do estoque · ajuste a unidade dos que forem metro');
+  toast('Enviando '+novos.length+' produto(s) para a nuvem…');
+  // sobe pra nuvem em blocos e SÓ libera a trava quando terminar (evita 'aparece e some')
+  var linhas=novos.map(function(n){return {codigo:n.codigo,valor:0,descricao:n.descricao||'',un:'KG'};});
+  function subirBloco(i){
+    try{if(typeof markLocalWrite==='function')markLocalWrite();}catch(e){} // renova a trava a cada bloco
+    if(!supa||i>=linhas.length){toast(novos.length+' produto(s) importado(s) do estoque · ajuste a unidade dos que forem metro');return;}
+    var bloco=linhas.slice(i,i+200);
+    supa.from('valores').upsert(bloco).then(function(r){
+      if(r&&r.error){/* se a coluna un não existe, tenta sem ela */ supa.from('valores').upsert(bloco.map(function(x){return {codigo:x.codigo,valor:x.valor,descricao:x.descricao};})).then(function(){subirBloco(i+200);},function(){subirBloco(i+200);});}
+      else{subirBloco(i+200);}
+    },function(){setTimeout(function(){subirBloco(i);},1500);});
+  }
+  subirBloco(0);
 };
 function renderValues(){const q=norm($('#valSearch').value);let rows=VL.slice();if(q)rows=rows.filter(v=>(v.codigo||'').toUpperCase().includes(q)||(v.descricao||'').toUpperCase().includes(q));rows.sort((a,b)=>a.codigo.localeCompare(b.codigo));$('#valCount').textContent=rows.length+' produtos';
   $('#valTable').innerHTML=`<thead><tr><th>Código</th><th>Descrição</th><th class="num">Valor (R$/kg)</th><th></th></tr></thead><tbody>`+(rows.length?rows.map(v=>`<tr class="click" data-cod="${v.codigo}"><td class="mono">${v.codigo}</td><td style="color:var(--muted)">${v.descricao||'—'}</td><td class="num">${v.valor>0?money(v.valor):'—'}</td><td style="color:var(--faint)">editar ›</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">Sem produtos</td></tr>')+'</tbody>';
@@ -3411,7 +3422,7 @@ async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
   const bo=await pgAll('bobinas');if(bo.length&&!guard){BOB={};bo.forEach(r=>BOB[r.etiqueta]={pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0});saveBOB();}
   const lo=await pgAll('locais');if(lo.length&&!guard){LOC={};lo.forEach(r=>LOC[r.etiqueta]=r.code);saveLOC();}
   const sg=await pgAll('stage');if(!guard){STAGE=sg.map(r=>({et:r.etiqueta,pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0,at:r.at,by:r.by_user||''}));saveStage();}
-  const vl=await pgAll('valores');if(vl.length&&!guard){VL=vl.map(r=>({codigo:r.codigo,valor:Number(r.valor)||0,descricao:r.descricao||'',un:(r.un||'')}));DB.saveValues(VL);}
+  const vl=await pgAll('valores');if(vl.length&&!guard){var _vlmap={};VL.forEach(function(v){_vlmap[String(v.codigo).toUpperCase()]=v;});vl.forEach(function(r){_vlmap[String(r.codigo).toUpperCase()]={codigo:r.codigo,valor:Number(r.valor)||0,descricao:r.descricao||'',un:(r.un||'')};});VL=Object.keys(_vlmap).map(function(k){return _vlmap[k];});DB.saveValues(VL);}
   const us=await pgAll('usuarios');if(us.length&&!guard){US=us.map(r=>({u:r.u,p:r.p,role:r.role,active:r.active!==false}));DB.saveUsers(US);}
   const mv=await supa.from('movimentos').select('*').order('at',{ascending:false}).limit(5000);if(mv.data&&mv.data.length&&!guard){MV=mv.data.map(r=>({id:r.id,action:r.action,w:r.w,code:r.code,pr:r.pr,q:Number(r.q)||0,u:r.u,et:r.et||'',before:Number(r.before_q)||0,after:Number(r.after_q)||0,at:r.at,by:r.by_user||''}));DB.saveMovs(MV);}
   try{

@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v94</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v95</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v94</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v95</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2310,8 +2310,15 @@ updateStageBadge();
         }).join('')+'</div>';
     }
     var _se=window._syncErrs||{etq:0,rom:0,lastErr:''};
+    var _re=window._cloudReadErr||null;
     var syncWarn='';
-    if((_se.etq>0||_se.rom>0)&&_se.lastErr){
+    if(_re){
+      syncWarn='<div style="background:rgba(220,90,90,.12);border:1px solid rgba(220,90,90,.45);border-radius:10px;padding:11px 13px;margin-bottom:14px;font-size:.82rem">'
+        +'<b style="color:#dc2626">⚠️ A nuvem recusou a leitura (por isso não aparece em todos)</b>'
+        +'<div style="color:var(--muted);margin-top:3px">Tabela <span class="mono">'+esc(_re.table)+'</span> · erro: <span class="mono" style="color:#dc2626">'+esc(_re.msg)+'</span></div>'
+        +'<div style="color:var(--muted);margin-top:5px">Isso é permissão no Supabase (RLS). Rode o arquivo <b>LIBERAR_NUVEM.sql</b> no SQL Editor do Supabase — resolve de vez.</div>'
+        +'</div>';
+    }else if((_se.etq>0||_se.rom>0)&&_se.lastErr){
       syncWarn='<div style="background:rgba(220,150,40,.12);border:1px solid rgba(220,150,40,.4);border-radius:10px;padding:11px 13px;margin-bottom:14px;font-size:.82rem">'
         +'<b style="color:#b45309">⚠️ Algo não subiu para a nuvem</b>'
         +'<div style="color:var(--muted);margin-top:3px">'+_se.etq+' etiqueta(s) e '+_se.rom+' nota(s)/romaneio(s) falharam. Erro: <span class="mono" style="color:#b45309">'+esc(_se.lastErr)+'</span></div>'
@@ -3583,7 +3590,13 @@ async function pushAll(btn){if(!supa){toast('Sem conexão com a nuvem',false);re
   toast('Tudo enviado para a nuvem ✓');setNet('on');
  }catch(e){toast('Erro ao enviar',false);setNet('on');}
  if(btn){btn.disabled=false;btn.textContent='↥ Enviar p/ nuvem';}}
-async function pgAll(table,order){let out=[],from=0,page=1000;for(;;){let q=supa.from(table).select('*').range(from,from+page-1);if(order)q=q.order(order,{ascending:false});const r=await q;if(r.error||!r.data||!r.data.length)break;out=out.concat(r.data);if(r.data.length<page)break;from+=page;if(from>60000)break;}return out;}
+async function pgAll(table,order){let out=[],from=0,page=1000;for(;;){let q=supa.from(table).select('*').range(from,from+page-1);if(order)q=q.order(order,{ascending:false});const r=await q;
+  if(r.error){
+    /* guarda o erro de leitura (ex: RLS/permissão) para avisar na tela */
+    try{window._cloudReadErr={table:table,msg:(r.error.message||r.error.code||'erro'),code:r.error.code||''};}catch(e){}
+    break;
+  }
+  if(!r.data||!r.data.length)break;out=out.concat(r.data);if(r.data.length<page)break;from+=page;if(from>60000)break;}return out;}
 /* trava anti-corrida: quando você grava algo local, o pullAll não pode sobrescrever
    os espaços/movimentos com a versão antiga da nuvem enquanto seu dado ainda está subindo. */
 window._lastLocalWrite=0;

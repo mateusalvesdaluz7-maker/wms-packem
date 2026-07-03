@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v84</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v85</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v84</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v85</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -1861,11 +1861,25 @@ updateStageBadge();
   var CONV_MAP={"167 X 91":{"cod":"0303410035","desc":"ALCA PET 1000 KGF 70MM CRISTAL"},"66 X 65":{"cod":"0303480154","desc":"TEC.TUBULAR PP LAM.54G+12GX65CM BR EXT.02"},"137 X 97":{"cod":"0303550015","desc":"TEC.PLANO PP 140G X 97CM - EXT-02"},"66 X 97":{"cod":"0303480152","desc":"TEC. PLANO PP LAM. 54+12G 97CM BRANCO EXT-02"},"155 X 360":{"cod":"0303450156","desc":"TEC.TUBULAR PP 156G 360CM BRANCO EXT 02"},"66 X 45":{"cod":"0303480153","desc":"TEC.TUBULAR PP LAM.54+12G X 45CM BRANCO"},"137 X 105":{"cod":"0303490013","desc":"TEC.PLANO PP 140G 105CM BRANCO"},"155 X 396":{"cod":"0303450157","desc":"TEC.TUBULAR PP 156G 396CM BRANCO EXT-02"},"66 X 55":{"cod":"0303480107","desc":"TEC.TUBULAR PP LAM. 54+12G 55CM BRANCO EXT-01"},"167 X 198":{"cod":"0303450137","desc":"TEC.TUBULAR PET 165G X 392CM CRISTAL R.ALCA"},"97 X 62":{"cod":"0303480151","desc":"TEC.TUB LAM. PET 70+20G 62CM CRISTAL COMPRADO-02"},"167 X 178":{"cod":"0303450132","desc":"TECIDO TUBULAR PET 165GX356CM CRISTAL"},"167 X 100":{"cod":"0303470059","desc":"TEC.PLANO PET 160G 100CM CRISTAL"},"87 X 65":{"cod":"0303480148","desc":"TEC.TUBULAR LAM. PET 70+30G 65CM CRISTAL- INTERNO"},"167 X 97":{"cod":"0303470108","desc":"TEC.PLANO PET 160G 97M CRISTAL"},"177 X 178":{"cod":"0303450132","desc":"TECIDO TUBULAR PET 165GX356CM CRISTAL"},"87 X 103":{"cod":"0303480078","desc":"TEC.PLANO LAM. PET 70+20G 105CM CRISTAL"},"167 X 107":{"cod":"0303470074","desc":"TEC.PLANO PET 160G 105CM CRISTAL"},"54 X 97":{"cod":"0303490095","desc":"TEC.PLANO PP 54G 97CM BRANCO EXT-02"},"54 X 45":{"cod":"0303490098","desc":"TEC.TUBULAR PP 54G 45CM BRANCO EXT-02"},"54 X 55":{"cod":"0303490094","desc":"TEC.TUBULAR PP 54G 55CM BRANCO EXT-02"},"54 X 65":{"cod":"0303490099","desc":"TEC.TUBULAR PP 54G 65CM BRANCO EXT-03"},"POLIPROPILENO":{"cod":"101120035","desc":"POLIPROPILENO PG 480 BR25 - BF"},"POLIPROPILENO H-503 HS":{"cod":"101110007","desc":"POLIPROPILENO HOMOPOLIMERO BRASKEM H503HS-AF"},"POLIETILENO BAIXA DENSIDADE IPHETENE 670":{"cod":"101110033","desc":"POLIETILENO BAIXA DENSIDADE IPHETENE 670"},"POLOPROPILENO COPOLIMERO 2500 E":{"cod":"101000013","desc":"POLIPROPILENO COPOLIMERO 2500 E PETROCUYO"},"PEDB FILME IND - IPETHENE100":{"cod":"101110011","desc":"POLIETILENO BAIXA DENSIDADE IPHETENE 100"},"PEBD COATING 7019EC":{"cod":"101110063","desc":"POLIETILENO BAIXA DENSIDADE COATING - 7019EC"},"POLIPROPILENO RP 144":{"cod":"101110016","desc":"POLIPROPILENO COPOLIMERO BRASKEM PP RP144"},"POLOPROPILENO H107":{"cod":"101110012","desc":"POLIPROPILENO HOMOPOLIMERO BRASKEM H107-AF"},"POLIPROPILENO H 103":{"cod":"101110021","desc":"POLIPROPILENO HOMOPOLIMERO BRASKEM H103-AF"},"MLLDPE 7118A":{"cod":"101210004","desc":"MLLDPE 7118A"},"METALOCENO 7115A":{"cod":"101120037","desc":"METALOCENO 7115A"},"POLIETILENO BC 818":{"cod":"101110010","desc":"POLIETILENO BAIXA DENSIDADE BRASKEM BC818"}};
   var CONV_AMB={"SUCATA PET":["103580008 - PET FLAKE AZUL","103580003 - PET FLAKE CRISTAL"]};
   function convNorm(s){try{s=String(s==null?'':s).toUpperCase();s=s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');s=s.replace(/\s+/g,' ').trim();return s;}catch(e){return String(s||'').toUpperCase().trim();}}
+  /* extrai as medidas do texto do romaneio: "ART MAT PLAST 137GM² 97CM" → "137 X 97" (gramatura X largura) */
+  function convExtraiMedidas(gram){
+    try{
+      var t=String(gram||'').toUpperCase();
+      var mG=t.match(/(\d{2,4})\s*G(?:M[\u00b2\u00b3\d]?)?/); // gramatura: 137GM², 137G, 137GM2
+      var mC=t.match(/(\d{2,4})\s*CM/);                        // largura: 97CM
+      if(mG&&mC)return mG[1]+' X '+mC[1];
+    }catch(e){}
+    return null;
+  }
   /* recebe a descrição da NF; devolve {cod,desc} se casar único, {amb:true,opcoes} se ambíguo, ou null */
   function convLookup(descNF){
     var k=convNorm(descNF); if(!k)return null;
+    // 1) casamento direto (ex: já vem "137 X 91")
     if(CONV_MAP[k])return {cod:CONV_MAP[k].cod,desc:CONV_MAP[k].desc};
     if(CONV_AMB[k])return {amb:true,chave:k,opcoes:CONV_AMB[k]};
+    // 2) extrai as medidas do texto (ex: "ART MAT PLAST 137GM² 97CM" → "137 X 97") e tenta de novo
+    var med=convExtraiMedidas(descNF);
+    if(med){var k2=convNorm(med);if(CONV_MAP[k2])return {cod:CONV_MAP[k2].cod,desc:CONV_MAP[k2].desc};if(CONV_AMB[k2])return {amb:true,chave:k2,opcoes:CONV_AMB[k2]};}
     return null;
   }
   window.convLookup=convLookup;
@@ -2112,10 +2126,11 @@ updateStageBadge();
           if(!bobinaV)continue;
           var _gram=romCell(row2[idx.gram]);
           var _it={seq:seqV||String(items.length+1),bobina:bobinaV,op:romCell(row2[idx.op]),lote:romCell(row2[idx.lote]),gramatura:_gram,pesoBruto:brNum(row2[idx.pb]),pesoLiquido:brNum(row2[idx.pl])};
-          /* CONVERSÃO: casa a gramatura/descrição do romaneio na tabela → adiciona código+descrição Packem */
+          /* CONVERSÃO: casa a gramatura/descrição do romaneio na tabela.
+             Se casar: grava o CÓDIGO PACKEM direto no campo bobina (fica fixo, editável) + descrição Packem. */
           try{var cv=convLookup(_gram);
             if(cv&&cv.amb){if(!romConvAvisos.some(function(a){return a.nf===convNorm(_gram);}))romConvAvisos.push({nf:convNorm(_gram),opcoes:cv.opcoes});}
-            else if(cv){_it.cProd=cv.cod;_it.descPackem=cv.desc;_it._convertido=true;_it._nfDescOrig=_gram;}
+            else if(cv){_it.cProd=cv.cod;_it.descPackem=cv.desc;_it._convertido=true;_it._nfDescOrig=_gram;_it._bobinaFisica=bobinaV;_it.bobina=cv.cod;}
           }catch(e){}
           items.push(_it);
         }
@@ -2183,10 +2198,9 @@ updateStageBadge();
     var romPreview='';
     if(romParsed){
       var rrows=romParsed.items.map(function(it,idx){
-        var _bobinaShow=(it._convertido&&it.cProd)?it.cProd:it.bobina;
         return '<tr>'
           +'<td style="padding:6px 4px;color:var(--faint);font-size:.72rem">'+esc(it.seq)+' <button class="gbtn" data-rmrow="'+idx+'" title="Remover esta linha" style="padding:1px 6px;font-size:.65rem;margin-left:4px">✕</button></td>'
-          +'<td style="padding:6px 4px;min-width:130px"><input class="input code" id="rb_'+idx+'" value="'+esc(_bobinaShow)+'" style="width:100%;font-weight:700'+(it._convertido?';color:#15803d':'')+'" title="'+(it._convertido?'código Packem (convertido de: '+esc(it._nfDescOrig||'')+')':'número da bobina (id da etiqueta)')+'"></td>'
+          +'<td style="padding:6px 4px;min-width:130px"><input class="input code" id="rb_'+idx+'" value="'+esc(it.bobina)+'" style="width:100%;font-weight:700'+(it._convertido?';color:#15803d':'')+'" title="'+(it._convertido?'código Packem (convertido de: '+esc(it._nfDescOrig||'')+' · bobina física: '+esc(it._bobinaFisica||'')+')':'número da bobina (id da etiqueta)')+'"></td>'
           +'<td style="padding:6px 4px;min-width:80px"><input class="input" id="ro_'+idx+'" value="'+esc(it.op)+'" style="width:100%" title="OP"></td>'
           +'<td style="padding:6px 4px;min-width:90px"><input class="input" id="rl_'+idx+'" value="'+esc(it.lote)+'" style="width:100%" title="lote"></td>'
           +'<td style="padding:6px 4px;min-width:200px"><input class="input" id="rg_'+idx+'" value="'+esc(it.gramatura)+'" style="width:100%;font-size:.8rem" title="gramatura / descrição do material"></td>'

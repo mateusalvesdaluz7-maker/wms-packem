@@ -653,6 +653,8 @@ function renderHome(){
 /* BOARD */
 function renderBoard(){
   const box=$('#v-board');if(!box)return;
+  /* guarda a posição de rolagem antes de reconstruir (senão o sync joga o mapa de volta pro início) */
+  let _prevSL=0,_prevST=0;try{const _pb=box.querySelector('.board');if(_pb){_prevSL=_pb.scrollLeft;_prevST=_pb.scrollTop;}}catch(e){}
   const SS=Array.isArray(S)?S:[];
   const wh=(cfg&&cfg.warehouse)||'70';
   const all=SS.filter(x=>x&&x.w===wh);
@@ -690,6 +692,8 @@ function renderBoard(){
   try{
     if(!all.length){bb.innerHTML='<div class="empty" style="padding:34px 16px;text-align:center;color:var(--muted)"><b>Este depósito está vazio</b><div class="es" style="margin-top:6px">Toque em <b>Dep 70</b>, <b>Novo</b> ou <b>Chão</b> acima para ver outro mapa. Se os dados ainda estiverem carregando, puxe a tela para baixo para atualizar.</div></div>';return;}
     drawBoard();
+    /* devolve a posição de rolagem que o operador tinha antes do redesenho por sync */
+    if(_prevSL||_prevST){try{const _nb=box.querySelector('.board');if(_nb){_nb.scrollLeft=_prevSL;_nb.scrollTop=_prevST;}}catch(e){}}
   }catch(e){bb.innerHTML='<div class="empty" style="padding:28px 16px;text-align:center;color:var(--muted)"><b>Não consegui desenhar o mapa</b><div class="es" style="margin-top:6px;font-family:var(--mono);font-size:.74rem">'+String((e&&e.message)||e).replace(/</g,'&lt;')+'</div></div>';}
 }
 function cellHTML(x){if(!x)return '<td><div class="cellx none"></div></td>';let cls='free',ageTxt='';if(x.o){const dd=x.upd?Math.floor((Date.now()-Date.parse(x.upd))/86400000):0;ageTxt=' · '+dd+'d parado';cls=dd>40?'crit':(dd>20?'warn':'occ');}return `<td><div class="cellx ${cls}" data-id="${x.id}" title="${code(x)}${x.pr?' · '+x.pr+' · '+fmt(x.q)+unitOf(x).toLowerCase()+ageTxt:' · vago'}"></div></td>`;}
@@ -2423,7 +2427,7 @@ updateStageBadge();
     if(rsc){
       rsc.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=rsc.value;rsc.value='';nfRecvBip(v);}});
       if(typeof addCam==='function')addCam('nfRecvScan',{continuous:true,title:'Bipar recebimento',onResult:function(v){nfRecvBip(v);}});
-      setTimeout(function(){try{rsc.focus();}catch(e){}},30);
+      /* sem autofocus: a tela redesenha a cada sync e ficava pulando pro campo de bipe sozinho */
     }
     if(nfParsed){
       /* base de sugestões (código + descrição) a partir do cadastro de Produtos e bobinas */
@@ -2850,7 +2854,7 @@ updateStageBadge();
     if(inp){
       inp.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=inp.value;inp.value='';nfRecvBip(v);refresh();}});
       if(typeof addCam==='function')addCam('rbdScan',{continuous:true,title:label,onResult:function(v){nfRecvBip(v);refresh();}});
-      setTimeout(function(){try{inp.focus();}catch(e){}},30);
+      setTimeout(function(){try{inp.focus({preventScroll:true});}catch(e){try{inp.focus();}catch(_){}}},30);
     }
   }
 

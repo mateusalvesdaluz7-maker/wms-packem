@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v72</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v76</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v72</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v76</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -542,17 +542,19 @@ function normUnit(u){
 function unitOf(prOrDesc){
   try{
     // extrai o código, seja objeto de vaga {pr}, código puro, ou string
-    var cod='';
-    if(prOrDesc&&typeof prOrDesc==='object'){cod=String(prOrDesc.pr||prOrDesc.codigo||'');}
+    var cod='';var uVaga='';
+    if(prOrDesc&&typeof prOrDesc==='object'){cod=String(prOrDesc.pr||prOrDesc.codigo||'');uVaga=String(prOrDesc.u||'');}
     else{cod=String(prOrDesc||'');}
-    cod=cod.toUpperCase().replace(/\s+/g,' ').trim();
+    cod=cod.toUpperCase().replace(/\s+/g,'').trim(); // remove TODOS os espaços
     if(!cod)return 'KG';
-    // procura a unidade cadastrada no VL (cadastro de produtos), comparando normalizado
+    // 1) procura a unidade cadastrada no VL (cadastro de produtos) — tem prioridade
     if(typeof VL!=='undefined'&&Array.isArray(VL)){
-      var reg=VL.find(function(v){return String(v.codigo||'').toUpperCase().replace(/\s+/g,' ').trim()===cod;});
-      if(reg&&reg.un){var u=normUnit(reg.un);if(u)return u;}
+      var reg=VL.find(function(v){return String(v.codigo||'').toUpperCase().replace(/\s+/g,'')===cod;});
+      if(reg&&reg.un){var u=(typeof normUnit==='function')?normUnit(reg.un):String(reg.un).toUpperCase().trim();if(u==='KG'||u==='MT'||u==='UN')return u;}
     }
-    return 'KG'; // padrão: sem unidade cadastrada = kg
+    // 2) sem cadastro: se a vaga tem unidade salva (dado antigo tipo 'M'), normaliza
+    if(uVaga&&typeof normUnit==='function'){var u2=normUnit(uVaga);if(u2==='MT'||u2==='UN')return u2;}
+    return 'KG'; // padrão: sem nada = kg
   }catch(e){return 'KG';}
 }
 window.unitOf=unitOf;
@@ -770,14 +772,19 @@ function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdm
   openDrawer(`${ICONS.map=ICONS.grid} <span class="mono">${code(x)}</span>`,`
     <div style="display:flex;gap:10px;margin-bottom:18px"><span class="pill muted">${whLabel(x.w)}</span><span class="pill ${x.o?(x.q>0?'in':'b'):'muted'}">${x.o?(x.q>0?'ocupado':'ocupado · 0'):'livre'}</span></div>
     ${adm?`<label class="fld"><span class="lab">Produto</span><input class="input code" id="spProd" value="${x.pr||''}"></label>
-    <label class="fld"><span class="lab">Peso (${unitOf(x)})</span><input class="input" id="spQty" type="number" value="${x.q||0}"></label>
+    <label class="fld"><span class="lab">Unidade deste produto (salva no cadastro)</span><select class="input" id="spUn"><option value="KG"${unitOf(x)==='KG'?' selected':''}>KG · quilos</option><option value="MT"${unitOf(x)==='MT'?' selected':''}>MT · metros</option><option value="UN"${unitOf(x)==='UN'?' selected':''}>UN · unidades</option></select></label>
+    <label class="fld"><span class="lab">Peso / quantidade (<span id="spUnLab">${unitOf(x).toLowerCase()}</span>)</span><input class="input" id="spQty" type="number" value="${x.q||0}"></label>
     <label class="fld"><span class="lab">Origem</span><input class="input code" id="spSrc" value="${x.src||''}" placeholder="DEP26"></label>
     <button class="btn brand" id="spSave" style="width:100%;height:48px;margin-bottom:10px">Salvar</button>
     <button class="gbtn" id="spFree" style="width:100%;justify-content:center">${ICONS.out||''} Enviar para produção</button>`
-    :`<div style="font-size:.85rem;color:var(--muted)">Produto</div><div class="mono" style="font-size:1.2rem;font-weight:700;margin:4px 0 14px">${x.pr||'(livre)'}</div><div style="font-size:.85rem;color:var(--muted)">Peso</div><div style="font-family:var(--disp);font-size:1.8rem;font-weight:700">${fmt(x.q||0)} <small style="font-size:.9rem;color:var(--muted)">${unitOf(x)}</small></div>`}
+    :`<div style="font-size:.85rem;color:var(--muted)">Produto</div><div class="mono" style="font-size:1.2rem;font-weight:700;margin:4px 0 14px">${x.pr||'(livre)'}</div><div style="font-size:.85rem;color:var(--muted)">Peso</div><div style="font-family:var(--disp);font-size:1.8rem;font-weight:700">${fmt(x.q||0)} <small style="font-size:.9rem;color:var(--muted)">${unitOf(x).toLowerCase()}</small></div>`}
     <button class="gbtn" id="spLabel" style="width:100%;justify-content:center;margin-top:14px">${ICONS.tag} Ver etiqueta</button>`);
   if(adm){if(window.addCam){var _pe=document.getElementById('spProd');if(_pe)window.addCam('spProd',{title:'Bipe a bobina',onResult:function(v){var p=parseBobina(v);if(p&&p.pr)_pe.value=p.pr;var _q=document.getElementById('spQty');if(_q&&p&&p.peso!=null&&!isNaN(p.peso))_q.value=p.peso;var _s=document.getElementById('spSrc');toast('Etiqueta '+(p&&(p.et||p.pr)||v)+' lida · confira e Salvar');}});}
-  $('#spSave').onclick=()=>{x.pr=norm($('#spProd').value);x.q=Number($('#spQty').value)||0;x.src=norm($('#spSrc').value);x.o=!!(x.pr&&x.pr!=='0');x.upd=nowISO();x.by=session.u;persist();logAct('edit','posição '+code(x));closeDrawer();render($('.view.active').id);toast('Posição salva');};
+  var _spUn=document.getElementById('spUn');if(_spUn){_spUn.addEventListener('change',function(){var _l=document.getElementById('spUnLab');if(_l)_l.textContent=(_spUn.value||'KG').toLowerCase();});}
+  $('#spSave').onclick=()=>{x.pr=norm($('#spProd').value);x.q=Number($('#spQty').value)||0;x.src=norm($('#spSrc').value);x.o=!!(x.pr&&x.pr!=='0');x.upd=nowISO();x.by=session.u;
+    // salva a unidade escolhida no CADASTRO do produto (VL) — vale pro sistema todo
+    try{var _un=(document.getElementById('spUn')&&document.getElementById('spUn').value||'KG').toUpperCase();if(x.pr){var _cod=norm(x.pr);var _reg=VL.find(function(v){return norm(v.codigo)===_cod;});if(_reg){_reg.un=_un;}else{VL.push({codigo:_cod,valor:0,descricao:(typeof descOf==='function'?(descOf(x.pr)||''):''),un:_un});}if(DB.saveValues)DB.saveValues(VL);if(typeof supa!=='undefined'&&supa){supa.from('valores').upsert({codigo:_cod,valor:(_reg?_reg.valor:0)||0,descricao:(_reg?_reg.descricao:'')||'',un:_un}).then(function(r){if(r&&r.error){supa.from('valores').upsert({codigo:_cod,valor:(_reg?_reg.valor:0)||0,descricao:(_reg?_reg.descricao:'')||''}).then(function(){},function(){});}},function(){});}}}catch(e){}
+    persist();logAct('edit','posição '+code(x));closeDrawer();render($('.view.active').id);toast('Posição salva · unidade aplicada no cadastro');};
   $('#spFree').onclick=()=>{const before=Number(x.q)||0;if(!x.o||before<=0){toast('Posição já está vazia',false);return;}
    const doSend=(et)=>{x.upd=nowISO();x.by=session.u;const m={id:uid(),action:'producao',w:cfg.warehouse,code:code(x),pr:x.pr||'',q:before,u:unitOf(x),et:et||'',before:before,after:0,at:nowISO(),by:session.u};MV.unshift(m);if(MV.length>20000)MV.length=20000;x.pr='';x.q=0;x.o=false;x.src='';persist();try{syncMov(m);}catch(e){}try{syncSpace(x);}catch(e){}logAct('producao','enviou p/ produção '+fmt(before)+' @ '+code(x));try{enqueue3dTask(code(x),'out');}catch(e){}closeDrawer();render($('.view.active').id);try{renderMovRecent();}catch(e){}toast('Enviado para produção · '+fmt(before)+' '+unitOf(x));};
    const head='<div style="margin-bottom:14px"><div class="mono" style="font-size:1.1rem;font-weight:700">'+code(x)+'</div><div style="color:var(--muted);font-size:.9rem">'+(x.pr||'(sem produto)')+' · '+fmt(before)+' '+unitOf(x)+'</div></div>';
@@ -3679,6 +3686,7 @@ filterStock=function(){const q=($('#stSearch').value||'').trim().toUpperCase(),s
   const k=stSort.k,d=stSort.d;rows.sort((a,b)=>{let va,vb;if(k==='code'){va=code(a);vb=code(b);}else if(k==='pr'){va=a.pr;vb=b.pr;}else if(k==='q'){va=a.q;vb=b.q;}else{va=a.upd;vb=b.upd;}if(va<vb)return -d;if(va>vb)return d;return 0;});return rows;};
 
 renderStockTable=_renderStockTableNova=function(){const rows=filterStock();
+  // DIAGNÓSTICO (temporário): quantos produtos estão cadastrados como MT no VL?
   var pesoKg=0,pesoMt=0,pesoUn=0;rows.forEach(function(x){var n=Number(x.q)||0;if(n>10000000||n<0)return;var u=(typeof unitOf==='function'?unitOf(x):'KG');if(u==='MT')pesoMt+=n;else if(u==='UN')pesoUn+=n;else pesoKg+=n;});
   const prods=new Set(rows.map(x=>x.pr).filter(Boolean));
   const semEtq=S.filter(x=>x.w===cfg.warehouse&&x.o&&isNoLabel(x.pr)).length;

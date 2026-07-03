@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v80</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v81</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v80</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v81</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2363,7 +2363,18 @@ updateStageBadge();
     var e=ETQ[id];
     if(!e){toast('Etiqueta '+id+' não encontrada',false);return;}
     var jaBip=(e.status==='entrada');
-    if(!jaBip){e.status='entrada';e.hist.push({ev:'entrada',at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')});saveNF();if(typeof logAct==='function')logAct('recebimento-nf',id);if(typeof syncEtiqueta==='function')syncEtiqueta(e);}
+    if(!jaBip){e.status='entrada';e.hist.push({ev:'entrada',at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')});saveNF();if(typeof logAct==='function')logAct('recebimento-nf',id);if(typeof syncEtiqueta==='function')syncEtiqueta(e);
+      /* cria movimento no Rastreador (MV) — recebimento pela bipagem do romaneio/NF ao vivo */
+      try{
+        if(typeof MV!=='undefined'&&MV){
+          var _un=(typeof unitOf==='function')?unitOf(e.cProd):'KG';
+          var _mv={id:uid(),action:'recebimento',w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:e.cProd||id,q:Number(e.kg)||0,u:_un,et:id,before:0,after:Number(e.kg)||0,at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:''),req:(e.nf&&e.nf!=='__vaga__'?e.nf:'')};
+          MV.unshift(_mv); if(MV.length>20000)MV.length=20000;
+          if(typeof persist==='function')persist(); else if(DB&&DB.saveMovs)DB.saveMovs(MV);
+          if(typeof syncMov==='function')syncMov(MV[0]);
+        }
+      }catch(err){}
+    }
     /* empurra pro estoque intermediário (STAGE) se ainda não estiver lá */
     var desc=e.xProd||(typeof nfDescByCode==='function'?nfDescByCode(e.cProd):'')||'';
     var caiu=false;

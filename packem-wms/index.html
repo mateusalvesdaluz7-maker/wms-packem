@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v87</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v88</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v87</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v88</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -1889,13 +1889,18 @@ updateStageBadge();
   window.nfGetState=function(){return {ETQ:ETQ,NFS:NFS,ROMS:ROMS};};
   window.nfPullCloud=function(rowsEtq,rowsNotas,rowsRom){
     try{
-      var newETQ={};
+      var fromCloud={};
       (rowsEtq||[]).forEach(function(r){
-        newETQ[r.id]={id:r.id,nf:r.doc_key||'',nNF:r.n_nf||'',nRomaneio:r.n_romaneio||'',nNFe:r.n_nf||'',cliente:r.cliente||'',bobina:r.bobina||'',op:r.op||'',lote:r.lote||'',addr:r.addr||'',gramatura:r.gramatura||'',xProd:r.gramatura||'',cProd:r.c_prod||'',uCom:r.u_com||'',kg:Number(r.kg)||0,pesoBruto:Number(r.peso_bruto)||0,vol:Number(r.vol)||0,volTot:Number(r.vol_tot)||0,idx:Number(r.idx)||0,status:r.status||'',hist:r.hist||[]};
+        fromCloud[r.id]={id:r.id,nf:r.doc_key||'',nNF:r.n_nf||'',nRomaneio:r.n_romaneio||'',nNFe:r.n_nf||'',cliente:r.cliente||'',bobina:r.bobina||'',op:r.op||'',lote:r.lote||'',addr:r.addr||'',gramatura:r.gramatura||'',xProd:r.gramatura||'',cProd:r.c_prod||'',uCom:r.u_com||'',kg:Number(r.kg)||0,pesoBruto:Number(r.peso_bruto)||0,vol:Number(r.vol)||0,volTot:Number(r.vol_tot)||0,idx:Number(r.idx)||0,status:r.status||'',hist:r.hist||[]};
       });
-      ETQ=newETQ;
-      var newNFS={};(rowsNotas||[]).forEach(function(r){if(r.data)newNFS[r.key]=r.data;});NFS=newNFS;
-      var newROMS={};(rowsRom||[]).forEach(function(r){if(r.data)newROMS[r.key]=r.data;});ROMS=newROMS;
+      /* MERGE: a nuvem tem prioridade, mas mantém etiquetas locais que ainda não subiram
+         (evita 'sumir' quando um aparelho gerou e ainda não sincronizou) */
+      if(rowsEtq&&rowsEtq.length){
+        Object.keys(ETQ).forEach(function(id){if(!fromCloud[id])fromCloud[id]=ETQ[id];});
+        ETQ=fromCloud;
+      }
+      if(rowsNotas&&rowsNotas.length){var newNFS={};(rowsNotas||[]).forEach(function(r){if(r.data)newNFS[r.key]=r.data;});Object.keys(NFS).forEach(function(k){if(!newNFS[k])newNFS[k]=NFS[k];});NFS=newNFS;}
+      if(rowsRom&&rowsRom.length){var newROMS={};(rowsRom||[]).forEach(function(r){if(r.data)newROMS[r.key]=r.data;});Object.keys(ROMS).forEach(function(k){if(!newROMS[k])newROMS[k]=ROMS[k];});ROMS=newROMS;}
       saveNF();
       var act=document.querySelector('.view.active');if(act&&act.id==='v-nf'&&typeof renderNF==='function')renderNF();
       if(typeof updateStageBadge==='function')updateStageBadge();
@@ -2313,6 +2318,7 @@ updateStageBadge();
       +'<div style="color:var(--muted);font-size:.85rem;margin-bottom:10px">Selecione a <b>planilha do romaneio</b> de entrada/saída (Seq, Nº da bobina, OP, Lote, Gramatura, Peso bruto, Peso líquido). Uma etiqueta é gerada para <b>cada bobina</b> do romaneio.</div>'
       +'<input type="file" id="romFile" accept=".xlsx,.xls" style="display:none">'
       +'<button class="gbtn" id="romPick" style="width:100%;justify-content:center">'+ICONS.nf+' Escolher planilha do romaneio</button>'
+      +'<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)"><button class="gbtn" id="nfResync" style="width:100%;justify-content:center;font-size:.82rem">↻ Reenviar etiquetas/romaneios para a nuvem (aparecer em todos os aparelhos)</button><div style="color:var(--faint);font-size:.72rem;margin-top:6px;text-align:center">Use se algo não apareceu em outro dispositivo</div></div>'
       +'</div>'+romPreview+scanPanel+list+romList;
 
     var fileInp=document.getElementById('nfFile');
@@ -2338,6 +2344,7 @@ updateStageBadge();
     };
     var romFileInp=document.getElementById('romFile');
     document.getElementById('romPick').onclick=function(){romFileInp.click();};
+    var _rsBtn=document.getElementById('nfResync');if(_rsBtn)_rsBtn.onclick=function(){if(typeof window.resyncTudoNF==='function')window.resyncTudoNF();};
     romFileInp.onchange=function(){var f=romFileInp.files&&romFileInp.files[0];if(!f)return;
       toast('Lendo planilha do romaneio…');
       loadXLSX().then(function(){
@@ -3487,12 +3494,40 @@ function syncStage(it){if(!supa||!it)return;supa.from('stage').upsert({etiqueta:
 function syncDelStage(et){if(!supa||!et)return;supa.from('stage').delete().eq('etiqueta',et).then(()=>{},()=>{});}
 function syncChao(item){if(!supa||!item||!item.et)return;supa.from('chao').upsert({et:item.et,pr:item.pr||'',descricao:item.desc||'',pl:Number(item.pl)||0,at:item.at||new Date().toISOString(),by_user:item.by||''}).then(()=>{},()=>{});}
 function syncDelChao(et){if(!supa||!et)return;supa.from('chao').delete().eq('et',et).then(()=>{},()=>{});}
-function syncEtiqueta(e){if(!supa||!e||!e.id)return;supa.from('etiquetas').upsert({id:e.id,doc_key:e.nf||'',doc_type:e.nRomaneio?'romaneio':(e.addr?'vaga':'nf'),n_nf:e.nNF||'',n_romaneio:e.nRomaneio||'',cliente:e.cliente||'',bobina:e.bobina||'',op:e.op||'',lote:e.lote||'',addr:e.addr||'',gramatura:e.gramatura||e.xProd||'',c_prod:e.cProd||'',u_com:e.uCom||'',kg:Number(e.kg)||0,peso_bruto:Number(e.pesoBruto)||0,vol:Number(e.vol)||0,vol_tot:Number(e.volTot)||0,idx:Number(e.idx)||0,status:e.status||'',hist:e.hist||[],updated_at:new Date().toISOString()}).then(()=>{},()=>{});}
+window._syncErrs={etq:0,rom:0,lastErr:''};
+function syncEtiqueta(e,_try){if(!supa||!e||!e.id)return;var row={id:e.id,doc_key:e.nf||'',doc_type:e.nRomaneio?'romaneio':(e.addr?'vaga':'nf'),n_nf:e.nNF||'',n_romaneio:e.nRomaneio||'',cliente:e.cliente||'',bobina:e.bobina||'',op:e.op||'',lote:e.lote||'',addr:e.addr||'',gramatura:e.gramatura||e.xProd||'',c_prod:e.cProd||'',u_com:e.uCom||'',kg:Number(e.kg)||0,peso_bruto:Number(e.pesoBruto)||0,vol:Number(e.vol)||0,vol_tot:Number(e.volTot)||0,idx:Number(e.idx)||0,status:e.status||'',hist:e.hist||[],updated_at:new Date().toISOString()};
+  supa.from('etiquetas').upsert(row).then(function(r){
+    if(r&&r.error){window._syncErrs.etq++;window._syncErrs.lastErr='etiquetas: '+(r.error.message||r.error.code||'erro');
+      if((_try||0)<2){setTimeout(function(){syncEtiqueta(e,(_try||0)+1);},1200*((_try||0)+1));}
+    }
+  },function(err){window._syncErrs.etq++;window._syncErrs.lastErr='etiquetas: rede';if((_try||0)<2){setTimeout(function(){syncEtiqueta(e,(_try||0)+1);},1200*((_try||0)+1));}});}
 function syncDelEtiqueta(id){if(!supa||!id)return;supa.from('etiquetas').delete().eq('id',id).then(()=>{},()=>{});}
 function syncNota(n){if(!supa||!n||!n.key)return;supa.from('notas_fiscais').upsert({key:n.key,data:n,updated_at:new Date().toISOString()}).then(()=>{},()=>{});}
 function syncDelNota(key){if(!supa||!key)return;supa.from('notas_fiscais').delete().eq('key',key).then(()=>{},()=>{});}
-function syncRomaneio(r){if(!supa||!r||!r.key)return;supa.from('romaneios').upsert({key:r.key,data:r,updated_at:new Date().toISOString()}).then(()=>{},()=>{});}
+function syncRomaneio(r,_try){if(!supa||!r||!r.key)return;supa.from('romaneios').upsert({key:r.key,data:r,updated_at:new Date().toISOString()}).then(function(res){
+    if(res&&res.error){window._syncErrs.rom++;window._syncErrs.lastErr='romaneios: '+(res.error.message||res.error.code||'erro');
+      if((_try||0)<2){setTimeout(function(){syncRomaneio(r,(_try||0)+1);},1200*((_try||0)+1));}
+    }
+  },function(err){window._syncErrs.rom++;window._syncErrs.lastErr='romaneios: rede';if((_try||0)<2){setTimeout(function(){syncRomaneio(r,(_try||0)+1);},1200*((_try||0)+1));}});}
 function syncDelRomaneio(key){if(!supa||!key)return;supa.from('romaneios').delete().eq('key',key).then(()=>{},()=>{});}
+/* diagnóstico: reenvia TODAS as etiquetas e romaneios locais pra nuvem, e mostra erro se houver */
+window.resyncTudoNF=function(){
+  if(!supa){toast('Sem conexão com a nuvem',false);return;}
+  window._syncErrs={etq:0,rom:0,lastErr:''};
+  var idsE=Object.keys(ETQ), idsR=Object.keys(ROMS), idsN=Object.keys(NFS);
+  var totalOk=0;
+  idsN.forEach(function(k){try{syncNota(NFS[k]);}catch(e){}});
+  idsR.forEach(function(k){try{syncRomaneio(ROMS[k]);totalOk++;}catch(e){}});
+  idsE.forEach(function(id){try{syncEtiqueta(ETQ[id]);}catch(e){}});
+  toast('Reenviando '+idsE.length+' etiqueta(s) e '+idsR.length+' romaneio(s) para a nuvem…');
+  setTimeout(function(){
+    if(window._syncErrs.etq>0||window._syncErrs.rom>0){
+      alert('⚠️ Falhas ao enviar para a nuvem:\n\n'+window._syncErrs.etq+' etiqueta(s) e '+window._syncErrs.rom+' romaneio(s) falharam.\n\nÚltimo erro: '+window._syncErrs.lastErr+'\n\nIsso geralmente significa que falta uma coluna na tabela do Supabase. Me mande este erro.');
+    }else{
+      toast('✓ Tudo reenviado para a nuvem sem erros ('+idsE.length+' etiquetas)');
+    }
+  },4000);
+};
 function syncBobAll(){if(!supa)return;const rows=Object.keys(BOB).map(et=>({etiqueta:et,pr:BOB[et].pr,descricao:BOB[et].desc||'',pl:Number(BOB[et].pl)||0}));chunkUp('bobinas',rows);toast('Sincronizando catálogo na nuvem…');}
 async function chunkUp(table,rows){if(!supa)return;for(let i=0;i<rows.length;i+=400){try{await supa.from(table).upsert(rows.slice(i,i+400));}catch(e){}}}
 async function pushAll(btn){if(!supa){toast('Sem conexão com a nuvem',false);return;}if(btn){btn.disabled=true;btn.textContent='Enviando…';}setNet('sync');

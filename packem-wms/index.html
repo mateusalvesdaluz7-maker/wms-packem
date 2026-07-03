@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v104</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v105</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v104</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v105</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -1902,7 +1902,11 @@ updateStageBadge();
       if(rowsNotas&&rowsNotas.length){var newNFS={};(rowsNotas||[]).forEach(function(r){if(r.data)newNFS[r.key]=r.data;});Object.keys(NFS).forEach(function(k){if(!newNFS[k])newNFS[k]=NFS[k];});NFS=newNFS;}
       if(rowsRom&&rowsRom.length){var newROMS={};(rowsRom||[]).forEach(function(r){if(r.data)newROMS[r.key]=r.data;});Object.keys(ROMS).forEach(function(k){if(!newROMS[k])newROMS[k]=ROMS[k];});ROMS=newROMS;}
       saveNF();
-      var act=document.querySelector('.view.active');if(act&&act.id==='v-nf'&&typeof renderNF==='function')renderNF();
+      /* NÃO redesenha a tela se o usuário está no meio de importar/editar uma NF ou romaneio,
+         ou com o foco num campo de texto — senão perde o que está digitando */
+      var _edt=(typeof nfParsed!=='undefined'&&nfParsed)||(typeof romParsed!=='undefined'&&romParsed);
+      var _af=document.activeElement; var _foco=_af&&(_af.tagName==='INPUT'||_af.tagName==='SELECT'||_af.tagName==='TEXTAREA');
+      var act=document.querySelector('.view.active');if(act&&act.id==='v-nf'&&!_edt&&!_foco&&typeof renderNF==='function')renderNF();
       if(typeof updateStageBadge==='function')updateStageBadge();
     }catch(e){}
   };
@@ -1917,7 +1921,9 @@ updateStageBadge();
         if(ev==='DELETE'&&o){delete ROMS[o.key];}else if(n&&n.data){ROMS[n.key]=n.data;}
       }else{return;}
       saveNF();
-      var act=document.querySelector('.view.active');if(act&&act.id==='v-nf'&&typeof renderNF==='function')renderNF();
+      var _edt2=(typeof nfParsed!=='undefined'&&nfParsed)||(typeof romParsed!=='undefined'&&romParsed);
+      var _af2=document.activeElement; var _foco2=_af2&&(_af2.tagName==='INPUT'||_af2.tagName==='SELECT'||_af2.tagName==='TEXTAREA');
+      var act2=document.querySelector('.view.active');if(act2&&act2.id==='v-nf'&&!_edt2&&!_foco2&&typeof renderNF==='function')renderNF();
       if(typeof updateStageBadge==='function')updateStageBadge();
     }catch(e){}
   };

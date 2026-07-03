@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v86</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v87</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v86</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v87</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2544,8 +2544,9 @@ updateStageBadge();
     saveNF();logAct('nf-etiquetas','NF '+nfParsed.nNF+' · '+created.length+' etiquetas');
     if(typeof syncNota==='function')syncNota(NFS[nfParsed.key]);
     if(typeof syncEtiqueta==='function')created.forEach(function(id){syncEtiqueta(ETQ[id]);});
-    toast(created.length+' etiquetas geradas');
-    var key=nfParsed.key; renderNF(); openLabelSheet(key);
+    toast(created.length+' etiquetas geradas · salvas no sistema');
+    var key=nfParsed.key; renderNF();
+    try{openLabelSheet(key);}catch(e){toast('Etiquetas salvas. A impressão não abriu — reimprima depois pela lista.',false);}
   }
 
   /* ---- folha de etiquetas (QR + código de barras) ---- */
@@ -2569,8 +2570,9 @@ updateStageBadge();
   function openLabelSheet(key){
     var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;}).sort(function(a,b){return (ETQ[a].idx||0)-(ETQ[b].idx||0);});
     if(!ids.length){toast('Sem etiquetas',false);return;}
-    if(typeof printZebraRast==='function')printZebraRast(ids.map(function(id){return ETQ[id];}),(typeof ZSIZES!=='undefined'?ZSIZES.z100:null));
-    else toast('Recarregue a página (Ctrl+Shift+R)',false);
+    try{if(typeof printZebraRast==='function')printZebraRast(ids.map(function(id){return ETQ[id];}),(typeof ZSIZES!=='undefined'?ZSIZES.z100:null));
+    else toast('Etiquetas salvas. Recarregue (Ctrl+Shift+R) para reimprimir.',false);}
+    catch(e){toast('Etiquetas salvas. A impressão falhou — reimprima pela lista quando quiser.',false);}
   }
 
   /* ---- gerar etiquetas do romaneio (1 por bobina) ---- */
@@ -2606,14 +2608,16 @@ updateStageBadge();
     saveNF();logAct('romaneio-etiquetas','Romaneio '+hdr.nRomaneio+' · '+created.length+' etiquetas');
     if(typeof syncRomaneio==='function')syncRomaneio(ROMS[romParsed.key]);
     if(typeof syncEtiqueta==='function')created.forEach(function(id){syncEtiqueta(ETQ[id]);});
-    toast(created.length+' etiquetas geradas');
-    var key=romParsed.key; romParsed=null; renderNF(); openRomLabelSheet(key);
+    toast(created.length+' etiquetas geradas · salvas no sistema');
+    var key=romParsed.key; romParsed=null; renderNF();
+    try{openRomLabelSheet(key);}catch(e){toast('Etiquetas salvas. A impressão não abriu — você pode reimprimir depois pela lista.',false);}
   }
   function openRomLabelSheet(key){
     var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;}).sort(function(a,b){return (ETQ[a].idx||0)-(ETQ[b].idx||0);});
     if(!ids.length){toast('Sem etiquetas',false);return;}
-    if(typeof printZebraRom==='function')printZebraRom(ids.map(function(id){return ETQ[id];}),(typeof ZSIZES!=='undefined'?ZSIZES.z100:null));
-    else toast('Recarregue a página (Ctrl+Shift+R)',false);
+    try{if(typeof printZebraRom==='function')printZebraRom(ids.map(function(id){return ETQ[id];}),(typeof ZSIZES!=='undefined'?ZSIZES.z100:null));
+    else toast('Etiquetas salvas. Recarregue (Ctrl+Shift+R) para reimprimir.',false);}
+    catch(e){toast('Etiquetas salvas. A impressão falhou — reimprima pela lista quando quiser.',false);}
   }
   function nfDeleteRomaneio(key){
     var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;});

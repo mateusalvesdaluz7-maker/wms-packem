@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v103</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v104</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v103</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v104</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2407,22 +2407,60 @@ updateStageBadge();
       setTimeout(function(){try{rsc.focus();}catch(e){}},30);
     }
     if(nfParsed){
-      /* sugestões de código (autocomplete) a partir do cadastro de Produtos e bobinas */
-      var seen={}, opts='';
-      var addOpt=function(codigo,desc){codigo=String(codigo==null?'':codigo).trim();if(!codigo)return;var K=codigo.toUpperCase();if(seen[K])return;seen[K]=1;opts+='<option value="'+esc(codigo)+'">'+esc(desc||'')+'</option>';};
-      try{if(typeof VL!=='undefined'&&VL)VL.forEach(function(v){if(v&&v.descricao)addOpt(v.codigo,v.descricao);});}catch(e){}
-      try{if(typeof BOB!=='undefined'&&BOB)for(var bk in BOB){if(BOB[bk]&&BOB[bk].desc)addOpt(BOB[bk].pr,BOB[bk].desc);}}catch(e){}
-      var dl=document.getElementById('nfCodes'); if(!dl){dl=document.createElement('datalist');dl.id='nfCodes';el.appendChild(dl);} dl.innerHTML=opts;
+      /* base de sugestões (código + descrição) a partir do cadastro de Produtos e bobinas */
+      var _acList=[]; var _acSeen={};
+      var addAc=function(codigo,desc){codigo=String(codigo==null?'':codigo).trim();if(!codigo)return;var K=codigo.toUpperCase();if(_acSeen[K])return;_acSeen[K]=1;_acList.push({cod:codigo,desc:desc||''});};
+      try{if(typeof VL!=='undefined'&&VL)VL.forEach(function(v){if(v&&v.codigo)addAc(v.codigo,v.descricao);});}catch(e){}
+      try{if(typeof BOB!=='undefined'&&BOB)for(var bk in BOB){if(BOB[bk]&&BOB[bk].pr)addAc(BOB[bk].pr,BOB[bk].desc);}}catch(e){}
+      window._nfAcList=_acList;
       nfParsed.items.forEach(function(it,idx){
         var ci=document.getElementById('nc_'+idx), di=document.getElementById('nd_'+idx);
         if(!ci||!di)return;
-        ci.setAttribute('list','nfCodes'); ci.setAttribute('autocomplete','off');
+        ci.setAttribute('autocomplete','off'); ci.removeAttribute('list');
+        /* preenche descrição inicial se vazia */
         if(!di.value){var d0=(typeof nfDescByCode==='function')?nfDescByCode(ci.value):'';if(d0){di.value=d0;di.dataset.auto='1';}}
-        var fill=function(){var d=(typeof nfDescByCode==='function')?nfDescByCode(ci.value):'';if(d&&(!di.value||di.dataset.auto==='1')){di.value=d;di.dataset.auto='1';}};
-        ci.addEventListener('input',fill); ci.addEventListener('change',fill);
+        var fillDesc=function(){var d=(typeof nfDescByCode==='function')?nfDescByCode(ci.value):'';if(d&&(!di.value||di.dataset.auto==='1')){di.value=d;di.dataset.auto='1';}};
         di.addEventListener('input',function(){di.dataset.auto='';});
+        /* autocomplete leve: caixa de sugestões só quando digita 2+ caracteres */
+        if(typeof attachCodeAC==='function')attachCodeAC(ci,di,fillDesc);
       });
     }
+  }
+  /* autocomplete customizado (substitui o <datalist> nativo que trava com muitos itens) */
+  function attachCodeAC(ci,di,fillDesc){
+    var box=null;
+    function close(){if(box&&box.parentNode)box.parentNode.removeChild(box);box=null;}
+    function pick(cod,desc){ci.value=cod;if(desc){di.value=desc;di.dataset.auto='1';}else if(fillDesc)fillDesc();close();ci.focus();}
+    function render(){
+      var q=(ci.value||'').trim().toUpperCase();
+      close();
+      if(q.length<2)return;
+      var list=window._nfAcList||[];
+      var hits=[];
+      for(var i=0;i<list.length&&hits.length<8;i++){
+        var it=list[i];
+        if(it.cod.toUpperCase().indexOf(q)>=0||(it.desc&&it.desc.toUpperCase().indexOf(q)>=0))hits.push(it);
+      }
+      if(!hits.length)return;
+      box=document.createElement('div');
+      box.style.cssText='position:absolute;z-index:9999;background:var(--card,#fff);border:1px solid var(--line,#ddd);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.18);max-height:220px;overflow-y:auto;min-width:230px;margin-top:2px';
+      hits.forEach(function(h){
+        var row=document.createElement('div');
+        row.style.cssText='padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--line,#eee)';
+        row.innerHTML='<div style="font-weight:700;font-family:var(--mono);font-size:.82rem">'+esc(h.cod)+'</div>'+(h.desc?'<div style="font-size:.72rem;color:var(--muted)">'+esc(h.desc)+'</div>':'');
+        row.addEventListener('mousedown',function(ev){ev.preventDefault();pick(h.cod,h.desc);});
+        row.addEventListener('mouseenter',function(){row.style.background='var(--hover,rgba(0,0,0,.05))';});
+        row.addEventListener('mouseleave',function(){row.style.background='';});
+        box.appendChild(row);
+      });
+      var r=ci.getBoundingClientRect();
+      box.style.position='fixed';box.style.left=r.left+'px';box.style.top=r.bottom+'px';box.style.width=Math.max(230,r.width)+'px';
+      document.body.appendChild(box);
+    }
+    ci.addEventListener('input',function(){if(fillDesc)fillDesc();render();});
+    ci.addEventListener('focus',render);
+    ci.addEventListener('blur',function(){setTimeout(close,150);});
+    ci.addEventListener('keydown',function(ev){if(ev.key==='Escape')close();});
   }
 
   /* ---- bipar recebimento da NF: marca entrada (enche a barra) e joga no estoque intermediário ---- */
@@ -2494,7 +2532,7 @@ updateStageBadge();
       var kgTot=gids.reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);
       var desc=e0.xProd||(typeof nfDescByCode==='function'?nfDescByCode(e0.cProd):'')||'';
       return '<div style="border-top:1px solid var(--line,rgba(255,255,255,.08));padding:10px 0">'
-        +'<div class="fld"><label class="lab">Código</label><input class="input" id="eg_c_'+gi+'" value="'+esc(e0.cProd||'')+'" list="nfCodesE" autocomplete="off"></div>'
+        +'<div class="fld"><label class="lab">Código</label><input class="input" id="eg_c_'+gi+'" value="'+esc(e0.cProd||'')+'" autocomplete="off"></div>'
         +'<div class="fld"><label class="lab">Descrição</label><input class="input" id="eg_d_'+gi+'" value="'+esc(desc)+'" placeholder="descrição do item"></div>'
         +'<div style="display:flex;gap:8px">'
         +'<div class="fld" style="flex:1"><label class="lab">Peso total (kg)</label><input class="input" id="eg_k_'+gi+'" inputmode="decimal" value="'+esc(fmt(kgTot))+'"></div>'
@@ -2504,21 +2542,21 @@ updateStageBadge();
         +'</div>';
     }).join('');
     /* sugestões de código */
-    var seen={}, opts='';
-    var addOpt=function(c,d){c=String(c==null?'':c).trim();if(!c)return;var K=c.toUpperCase();if(seen[K])return;seen[K]=1;opts+='<option value="'+esc(c)+'">'+esc(d||'')+'</option>';};
-    try{if(typeof VL!=='undefined'&&VL)VL.forEach(function(v){if(v&&v.descricao)addOpt(v.codigo,v.descricao);});}catch(e){}
-    try{if(typeof BOB!=='undefined'&&BOB)for(var bk in BOB){if(BOB[bk]&&BOB[bk].desc)addOpt(BOB[bk].pr,BOB[bk].desc);}}catch(e){}
+    /* base de sugestões pro autocomplete leve */
+    window._nfAcList=[];var _acS={};
+    try{if(typeof VL!=='undefined'&&VL)VL.forEach(function(v){if(v&&v.codigo){var K=String(v.codigo).toUpperCase();if(!_acS[K]){_acS[K]=1;window._nfAcList.push({cod:v.codigo,desc:v.descricao||''});}}});}catch(e){}
+    try{if(typeof BOB!=='undefined'&&BOB)for(var bk in BOB){if(BOB[bk]&&BOB[bk].pr){var K2=String(BOB[bk].pr).toUpperCase();if(!_acS[K2]){_acS[K2]=1;window._nfAcList.push({cod:BOB[bk].pr,desc:BOB[bk].desc||''});}}}}catch(e){}
     openDrawer('Editar NF '+esc(n.nNF||''),
       '<div style="color:var(--muted);font-size:.82rem;margin-bottom:4px">Ajuste código, descrição, peso total e lote. O peso é redistribuído entre as etiquetas de cada item. A descrição é salva no cadastro.</div>'
-      +'<datalist id="nfCodesE">'+opts+'</datalist>'+rows
+      +rows
       +'<button class="gbtn" id="egSave" style="width:100%;justify-content:center;margin-top:12px">'+ICONS.save+' Salvar alterações</button>');
     /* autopreencher descrição ao trocar código dentro do editor */
     order.forEach(function(k,gi){
       var ci=document.getElementById('eg_c_'+gi), di=document.getElementById('eg_d_'+gi);
       if(!ci||!di)return;
       var fill=function(){var d=(typeof nfDescByCode==='function')?nfDescByCode(ci.value):'';if(d&&(!di.value||di.dataset.auto==='1')){di.value=d;di.dataset.auto='1';}};
-      ci.addEventListener('input',fill); ci.addEventListener('change',fill);
       di.addEventListener('input',function(){di.dataset.auto='';});
+      if(typeof attachCodeAC==='function')attachCodeAC(ci,di,fill);
     });
     var sv=document.getElementById('egSave'); if(sv)sv.onclick=function(){
       order.forEach(function(k,gi){

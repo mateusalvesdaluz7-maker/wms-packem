@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v85</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v86</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v85</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v86</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2203,7 +2203,7 @@ updateStageBadge();
           +'<td style="padding:6px 4px;min-width:130px"><input class="input code" id="rb_'+idx+'" value="'+esc(it.bobina)+'" style="width:100%;font-weight:700'+(it._convertido?';color:#15803d':'')+'" title="'+(it._convertido?'código Packem (convertido de: '+esc(it._nfDescOrig||'')+' · bobina física: '+esc(it._bobinaFisica||'')+')':'número da bobina (id da etiqueta)')+'"></td>'
           +'<td style="padding:6px 4px;min-width:80px"><input class="input" id="ro_'+idx+'" value="'+esc(it.op)+'" style="width:100%" title="OP"></td>'
           +'<td style="padding:6px 4px;min-width:90px"><input class="input" id="rl_'+idx+'" value="'+esc(it.lote)+'" style="width:100%" title="lote"></td>'
-          +'<td style="padding:6px 4px;min-width:200px"><input class="input" id="rg_'+idx+'" value="'+esc(it.gramatura)+'" style="width:100%;font-size:.8rem" title="gramatura / descrição do material"></td>'
+          +'<td style="padding:6px 4px;min-width:200px"><input class="input" id="rg_'+idx+'" value="'+esc(it._convertido&&it.descPackem?it.descPackem:it.gramatura)+'" style="width:100%;font-size:.8rem'+(it._convertido?';color:#15803d':'')+'" title="'+(it._convertido?'descrição Packem (convertida de: '+esc(it._nfDescOrig||'')+')':'gramatura / descrição do material')+'"></td>'
           +'<td style="padding:6px 4px;text-align:right"><input class="input" id="rpb_'+idx+'" type="text" inputmode="decimal" value="'+fmt(it.pesoBruto||0)+'" style="width:84px;text-align:right" title="peso bruto (kg)"></td>'
           +'<td style="padding:6px 4px;text-align:right"><input class="input" id="rpl_'+idx+'" type="text" inputmode="decimal" value="'+fmt(it.pesoLiquido||0)+'" style="width:84px;text-align:right" title="peso líquido (kg) — vai na etiqueta"></td>'
           +'</tr>';
@@ -2593,9 +2593,9 @@ updateStageBadge();
       var gram=gI?gI.value.trim():(it.gramatura||'');
       var pesoBruto=pbI?brNum(pbI.value):(it.pesoBruto||0);
       var pesoLiquido=plI?brNum(plI.value):(it.pesoLiquido||0);
-      /* se casou na tabela: descrição e código Packem (o campo bobina já mostra o código Packem) */
+      /* o campo bobina e gramatura já mostram os valores Packem convertidos (e são editáveis) */
       var _cProd=(it._convertido&&it.cProd)?it.cProd:op;
-      var _xProd=(it._convertido&&it.descPackem)?it.descPackem:gram;
+      var _xProd=gram; /* usa o que está no campo gramatura (já convertido no preview, ou editado pelo usuário) */
       var id=norm(bobina);
       if(ETQ[id]){var s=2,base=id;while(ETQ[id]){id=base+'-'+s;s++;}}
       ETQ[id]={id:id,nf:romParsed.key,nRomaneio:hdr.nRomaneio,nNFe:hdr.nfe,cliente:hdr.cliente,bobina:bobina,op:op,lote:lote,gramatura:gram,xProd:_xProd,cProd:_cProd,uCom:'KG',kg:pesoLiquido,pesoBruto:pesoBruto,vol:(idx+1),volTot:romParsed.items.length,idx:(idx+1),status:'gerada',hist:[{ev:'gerada',at:nowISO(),by:session.u}]};

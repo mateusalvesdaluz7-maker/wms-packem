@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v106</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v107</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v106</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v107</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -2584,6 +2584,9 @@ updateStageBadge();
   function genLabels(){
     if(!nfParsed)return;
     if(NFS[nfParsed.key]){toast('Nota já gerada — use reimprimir',false);return;}
+    /* LIMPEZA: remove etiquetas órfãs da mesma NF (caso tenha sido excluída antes e voltado pela nuvem) — evita acumular */
+    var _orf=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===nfParsed.key;});
+    if(_orf.length){_orf.forEach(function(id){delete ETQ[id];if(typeof syncDelEtiqueta==='function')syncDelEtiqueta(id);});}
     var seq=0, created=[];
     var brNumLocal=function(v){v=String(v==null?'':v).trim().replace(/\./g,'').replace(',','.');return parseFloat(v)||0;};
     nfParsed.items.forEach(function(it,idx){
@@ -2684,6 +2687,9 @@ updateStageBadge();
   function genRomLabels(){
     if(!romParsed)return;
     if(ROMS[romParsed.key]){toast('Romaneio já gerado — use reimprimir',false);return;}
+    /* LIMPEZA: remove etiquetas órfãs do mesmo romaneio (caso excluído antes e voltado pela nuvem) — evita acumular */
+    var _orfR=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===romParsed.key;});
+    if(_orfR.length){_orfR.forEach(function(id){delete ETQ[id];if(typeof syncDelEtiqueta==='function')syncDelEtiqueta(id);});}
     var hN=document.getElementById('rmHdrNum'), hF=document.getElementById('rmHdrNfe'), hD=document.getElementById('rmHdrData'), hC=document.getElementById('rmHdrCli');
     var hdr={
       nRomaneio:(hN?hN.value:(romParsed.nRomaneio||'')).trim(),
@@ -3659,19 +3665,19 @@ function syncEtiqueta(e,_try){if(!supa||!e||!e.id)return;var row={id:e.id,doc_ke
       if((_try||0)<2){setTimeout(function(){syncEtiqueta(e,(_try||0)+1);},1200*((_try||0)+1));}
     }
   },function(err){window._syncErrs.etq++;window._syncErrs.lastErr='etiquetas: rede';if((_try||0)<2){setTimeout(function(){syncEtiqueta(e,(_try||0)+1);},1200*((_try||0)+1));}});}
-function syncDelEtiqueta(id){if(!supa||!id)return;supa.from('etiquetas').delete().eq('id',id).then(()=>{},()=>{});}
+function syncDelEtiqueta(id,_t){if(!supa||!id)return;supa.from('etiquetas').delete().eq('id',id).then(function(r){if(r&&r.error&&(_t||0)<3){setTimeout(function(){syncDelEtiqueta(id,(_t||0)+1);},1000*((_t||0)+1));}},function(){if((_t||0)<3){setTimeout(function(){syncDelEtiqueta(id,(_t||0)+1);},1000*((_t||0)+1));}});}
 function syncNota(n,_try){if(!supa||!n||!n.key)return;supa.from('notas_fiscais').upsert({key:n.key,data:n,updated_at:new Date().toISOString()}).then(function(res){
     if(res&&res.error){window._syncErrs.rom++;window._syncErrs.lastErr='notas: '+(res.error.message||res.error.code||'erro');
       if((_try||0)<2){setTimeout(function(){syncNota(n,(_try||0)+1);},1200*((_try||0)+1));}
     }
   },function(err){window._syncErrs.rom++;window._syncErrs.lastErr='notas: rede';if((_try||0)<2){setTimeout(function(){syncNota(n,(_try||0)+1);},1200*((_try||0)+1));}});}
-function syncDelNota(key){if(!supa||!key)return;supa.from('notas_fiscais').delete().eq('key',key).then(()=>{},()=>{});}
+function syncDelNota(key,_t){if(!supa||!key)return;supa.from('notas_fiscais').delete().eq('key',key).then(function(r){if(r&&r.error&&(_t||0)<3){setTimeout(function(){syncDelNota(key,(_t||0)+1);},1000*((_t||0)+1));}},function(){if((_t||0)<3){setTimeout(function(){syncDelNota(key,(_t||0)+1);},1000*((_t||0)+1));}});}
 function syncRomaneio(r,_try){if(!supa||!r||!r.key)return;supa.from('romaneios').upsert({key:r.key,data:r,updated_at:new Date().toISOString()}).then(function(res){
     if(res&&res.error){window._syncErrs.rom++;window._syncErrs.lastErr='romaneios: '+(res.error.message||res.error.code||'erro');
       if((_try||0)<2){setTimeout(function(){syncRomaneio(r,(_try||0)+1);},1200*((_try||0)+1));}
     }
   },function(err){window._syncErrs.rom++;window._syncErrs.lastErr='romaneios: rede';if((_try||0)<2){setTimeout(function(){syncRomaneio(r,(_try||0)+1);},1200*((_try||0)+1));}});}
-function syncDelRomaneio(key){if(!supa||!key)return;supa.from('romaneios').delete().eq('key',key).then(()=>{},()=>{});}
+function syncDelRomaneio(key,_t){if(!supa||!key)return;supa.from('romaneios').delete().eq('key',key).then(function(r){if(r&&r.error&&(_t||0)<3){setTimeout(function(){syncDelRomaneio(key,(_t||0)+1);},1000*((_t||0)+1));}},function(){if((_t||0)<3){setTimeout(function(){syncDelRomaneio(key,(_t||0)+1);},1000*((_t||0)+1));}});}
 /* diagnóstico: reenvia TODAS as etiquetas e romaneios locais pra nuvem, e mostra erro se houver */
 window.resyncTudoNF=function(){
   if(!supa){toast('Sem conexão com a nuvem',false);return;}

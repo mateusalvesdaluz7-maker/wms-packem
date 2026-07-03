@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v82</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v84</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v82</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v84</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -1855,6 +1855,20 @@ updateStageBadge();
 
   /* ---- estado / persistência ---- */
   var NFS={}, ETQ={}, ROMS={}, nfParsed=null, romParsed=null, rastMode='entrada';
+  /* ===== TABELA DE CONVERSÃO: descrição da NF → código+descrição Packem =====
+     Casa pela DESCRIÇÃO que vem na nota (ex: "167 X 91" → 0303410035 · ALCA PET...).
+     Casamento exato (ignora acento, caixa e espaços repetidos). Ambíguos NÃO convertem e avisam. */
+  var CONV_MAP={"167 X 91":{"cod":"0303410035","desc":"ALCA PET 1000 KGF 70MM CRISTAL"},"66 X 65":{"cod":"0303480154","desc":"TEC.TUBULAR PP LAM.54G+12GX65CM BR EXT.02"},"137 X 97":{"cod":"0303550015","desc":"TEC.PLANO PP 140G X 97CM - EXT-02"},"66 X 97":{"cod":"0303480152","desc":"TEC. PLANO PP LAM. 54+12G 97CM BRANCO EXT-02"},"155 X 360":{"cod":"0303450156","desc":"TEC.TUBULAR PP 156G 360CM BRANCO EXT 02"},"66 X 45":{"cod":"0303480153","desc":"TEC.TUBULAR PP LAM.54+12G X 45CM BRANCO"},"137 X 105":{"cod":"0303490013","desc":"TEC.PLANO PP 140G 105CM BRANCO"},"155 X 396":{"cod":"0303450157","desc":"TEC.TUBULAR PP 156G 396CM BRANCO EXT-02"},"66 X 55":{"cod":"0303480107","desc":"TEC.TUBULAR PP LAM. 54+12G 55CM BRANCO EXT-01"},"167 X 198":{"cod":"0303450137","desc":"TEC.TUBULAR PET 165G X 392CM CRISTAL R.ALCA"},"97 X 62":{"cod":"0303480151","desc":"TEC.TUB LAM. PET 70+20G 62CM CRISTAL COMPRADO-02"},"167 X 178":{"cod":"0303450132","desc":"TECIDO TUBULAR PET 165GX356CM CRISTAL"},"167 X 100":{"cod":"0303470059","desc":"TEC.PLANO PET 160G 100CM CRISTAL"},"87 X 65":{"cod":"0303480148","desc":"TEC.TUBULAR LAM. PET 70+30G 65CM CRISTAL- INTERNO"},"167 X 97":{"cod":"0303470108","desc":"TEC.PLANO PET 160G 97M CRISTAL"},"177 X 178":{"cod":"0303450132","desc":"TECIDO TUBULAR PET 165GX356CM CRISTAL"},"87 X 103":{"cod":"0303480078","desc":"TEC.PLANO LAM. PET 70+20G 105CM CRISTAL"},"167 X 107":{"cod":"0303470074","desc":"TEC.PLANO PET 160G 105CM CRISTAL"},"54 X 97":{"cod":"0303490095","desc":"TEC.PLANO PP 54G 97CM BRANCO EXT-02"},"54 X 45":{"cod":"0303490098","desc":"TEC.TUBULAR PP 54G 45CM BRANCO EXT-02"},"54 X 55":{"cod":"0303490094","desc":"TEC.TUBULAR PP 54G 55CM BRANCO EXT-02"},"54 X 65":{"cod":"0303490099","desc":"TEC.TUBULAR PP 54G 65CM BRANCO EXT-03"},"POLIPROPILENO":{"cod":"101120035","desc":"POLIPROPILENO PG 480 BR25 - BF"},"POLIPROPILENO H-503 HS":{"cod":"101110007","desc":"POLIPROPILENO HOMOPOLIMERO BRASKEM H503HS-AF"},"POLIETILENO BAIXA DENSIDADE IPHETENE 670":{"cod":"101110033","desc":"POLIETILENO BAIXA DENSIDADE IPHETENE 670"},"POLOPROPILENO COPOLIMERO 2500 E":{"cod":"101000013","desc":"POLIPROPILENO COPOLIMERO 2500 E PETROCUYO"},"PEDB FILME IND - IPETHENE100":{"cod":"101110011","desc":"POLIETILENO BAIXA DENSIDADE IPHETENE 100"},"PEBD COATING 7019EC":{"cod":"101110063","desc":"POLIETILENO BAIXA DENSIDADE COATING - 7019EC"},"POLIPROPILENO RP 144":{"cod":"101110016","desc":"POLIPROPILENO COPOLIMERO BRASKEM PP RP144"},"POLOPROPILENO H107":{"cod":"101110012","desc":"POLIPROPILENO HOMOPOLIMERO BRASKEM H107-AF"},"POLIPROPILENO H 103":{"cod":"101110021","desc":"POLIPROPILENO HOMOPOLIMERO BRASKEM H103-AF"},"MLLDPE 7118A":{"cod":"101210004","desc":"MLLDPE 7118A"},"METALOCENO 7115A":{"cod":"101120037","desc":"METALOCENO 7115A"},"POLIETILENO BC 818":{"cod":"101110010","desc":"POLIETILENO BAIXA DENSIDADE BRASKEM BC818"}};
+  var CONV_AMB={"SUCATA PET":["103580008 - PET FLAKE AZUL","103580003 - PET FLAKE CRISTAL"]};
+  function convNorm(s){try{s=String(s==null?'':s).toUpperCase();s=s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');s=s.replace(/\s+/g,' ').trim();return s;}catch(e){return String(s||'').toUpperCase().trim();}}
+  /* recebe a descrição da NF; devolve {cod,desc} se casar único, {amb:true,opcoes} se ambíguo, ou null */
+  function convLookup(descNF){
+    var k=convNorm(descNF); if(!k)return null;
+    if(CONV_MAP[k])return {cod:CONV_MAP[k].cod,desc:CONV_MAP[k].desc};
+    if(CONV_AMB[k])return {amb:true,chave:k,opcoes:CONV_AMB[k]};
+    return null;
+  }
+  window.convLookup=convLookup;
   try{var _raw=JSON.parse(localStorage.getItem('wmsx_nf')||'{}');NFS=_raw.NFS||{};ETQ=_raw.ETQ||{};ROMS=_raw.ROMS||{};}catch(e){NFS={};ETQ={};ROMS={};}
   function saveNF(){localStorage.setItem('wmsx_nf',JSON.stringify({NFS:NFS,ETQ:ETQ,ROMS:ROMS}));}
   /* ---- ponte com a nuvem (Supabase): substitui tudo local pelo estado da nuvem ---- */
@@ -1927,21 +1941,28 @@ updateStageBadge();
   function finalizeNF(h,raw){
     var isPeso=function(u){return /^(KG|KGS|KG\.|QUILO|KILO)/i.test(String(u||'').trim());};
     var somaQ=0; raw.forEach(function(it){somaQ+=it.qCom||0;});
-    var items=[];
+    var items=[]; var convAvisos=[];
     raw.forEach(function(it){
       var pesoItem;
       if(isPeso(it.uCom)) pesoItem=it.qCom;
       else if(h.pesoL>0) pesoItem=(raw.length===1?h.pesoL:(somaQ>0?h.pesoL*it.qCom/somaQ:0));
       else pesoItem=0;
       pesoItem=Math.round(pesoItem*1000)/1000;
-      var base={cProd:it.cProd,xProd:it.xProd,uCom:it.uCom,qtd:it.qCom,kg:pesoItem,wPeso:isPeso(it.uCom),qVol:h.qVol};
+      /* CONVERSÃO: casa a descrição da NF (xProd) na tabela → troca código+descrição Packem */
+      var _cProd=it.cProd, _xProd=it.xProd;
+      try{
+        var cv=convLookup(it.xProd);
+        if(cv&&cv.amb){convAvisos.push({nf:it.xProd,opcoes:cv.opcoes});}
+        else if(cv){_cProd=cv.cod; _xProd=cv.desc||it.xProd; it._convertido=true;}
+      }catch(e){}
+      var base={cProd:_cProd,xProd:_xProd,uCom:it.uCom,qtd:it.qCom,kg:pesoItem,wPeso:isPeso(it.uCom),qVol:h.qVol,_nfDescOrig:it.xProd};
       if(it.rastros&&it.rastros.length){
         it.rastros.forEach(function(rr){var o=Object.assign({},base);o.lote=rr.lote||'';o.qtd=rr.qLote||it.qCom;items.push(o);});
       }else{var o2=Object.assign({},base);o2.lote='';items.push(o2);}
     });
     if(!items.length)return {ok:false,err:'Nenhum item encontrado na nota'};
     var key=h.chave||((h.nNF||'?')+'-'+(h.serie||'0'));
-    return {ok:true,key:key,chave:h.chave,nNF:h.nNF,serie:h.serie,dh:h.dh,emit:h.emit,qVol:h.qVol,pesoL:h.pesoL,pesoB:h.pesoB,items:items};
+    return {ok:true,key:key,chave:h.chave,nNF:h.nNF,serie:h.serie,dh:h.dh,emit:h.emit,qVol:h.qVol,pesoL:h.pesoL,pesoB:h.pesoB,items:items,convAvisos:convAvisos};
   }
   function parseNFXML(raw){
     try{
@@ -2065,7 +2086,7 @@ updateStageBadge();
       if(!blocks.length)return {ok:false,err:'Não encontrei a tabela (coluna "Seq") nesta planilha. Confira se é o arquivo certo.'};
       var hr=blocks[0].r, headerRow=rows[hr]||[];
       var cols=blocks.map(function(b){return b.c;}).sort(function(a,b){return a-b;});
-      var items=[];
+      var items=[]; var romConvAvisos=[];
       cols.forEach(function(c0){
         var nextC0=cols.filter(function(x){return x>c0;}).sort(function(a,b){return a-b;})[0];
         var endC=nextC0!=null?nextC0:headerRow.length;
@@ -2089,13 +2110,20 @@ updateStageBadge();
           var row2=rows[r2]||[];
           var seqV=romCell(row2[c0]), bobinaV=romCell(row2[idx.bobina]);
           if(!bobinaV)continue;
-          items.push({seq:seqV||String(items.length+1),bobina:bobinaV,op:romCell(row2[idx.op]),lote:romCell(row2[idx.lote]),gramatura:romCell(row2[idx.gram]),pesoBruto:brNum(row2[idx.pb]),pesoLiquido:brNum(row2[idx.pl])});
+          var _gram=romCell(row2[idx.gram]);
+          var _it={seq:seqV||String(items.length+1),bobina:bobinaV,op:romCell(row2[idx.op]),lote:romCell(row2[idx.lote]),gramatura:_gram,pesoBruto:brNum(row2[idx.pb]),pesoLiquido:brNum(row2[idx.pl])};
+          /* CONVERSÃO: casa a gramatura/descrição do romaneio na tabela → adiciona código+descrição Packem */
+          try{var cv=convLookup(_gram);
+            if(cv&&cv.amb){if(!romConvAvisos.some(function(a){return a.nf===convNorm(_gram);}))romConvAvisos.push({nf:convNorm(_gram),opcoes:cv.opcoes});}
+            else if(cv){_it.cProd=cv.cod;_it.descPackem=cv.desc;_it._convertido=true;_it._nfDescOrig=_gram;}
+          }catch(e){}
+          items.push(_it);
         }
       });
       if(!items.length)return {ok:false,err:'Não encontrei bobinas nesta planilha. Confira se é o arquivo certo.'};
       items.sort(function(a,b){return (parseInt(a.seq,10)||0)-(parseInt(b.seq,10)||0);});
       var key='ROM-'+(nRomaneio||('SEM-NUM-'+Date.now()));
-      return {ok:true,key:key,nRomaneio:nRomaneio,nfe:nfe,dataSaida:dataSaida,cliente:cliente,lacre:lacre,booking:booking,items:items};
+      return {ok:true,key:key,nRomaneio:nRomaneio,nfe:nfe,dataSaida:dataSaida,cliente:cliente,lacre:lacre,booking:booking,items:items,convAvisos:romConvAvisos};
     }catch(e){return {ok:false,err:'Falha ao ler a planilha do romaneio.'};}
   }
 
@@ -2135,6 +2163,7 @@ updateStageBadge();
         +(nfParsed.chave?'<div style="color:var(--faint);font-size:.68rem;word-break:break-all;margin-bottom:6px">chave '+esc(nfParsed.chave)+'</div>':'')
         +resumo
         +(dup?'<div style="background:var(--out-bg,rgba(220,90,90,.12));color:var(--out);border-radius:8px;padding:8px 10px;font-size:.8rem;margin:6px 0">Esta nota já foi importada e tem etiquetas geradas. Você pode reimprimir abaixo.</div>':'')
+        +((nfParsed.convAvisos&&nfParsed.convAvisos.length)?('<div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:10px 12px;font-size:.78rem;margin:6px 0">⚠️ <b>Conversão manual necessária:</b> '+nfParsed.convAvisos.length+' item(ns) têm descrição que casa com mais de um código. Corrija o código na mão antes de gerar:<ul style="margin:6px 0 0 16px;padding:0">'+nfParsed.convAvisos.map(function(a){return '<li style="margin:2px 0"><b>"'+esc(a.nf)+'"</b> → '+a.opcoes.map(esc).join(' ou ')+'</li>';}).join('')+'</ul></div>'):'')
         +'<div style="background:rgba(234,90,12,.1);color:var(--brand);border-radius:8px;padding:8px 10px;font-size:.78rem;margin:6px 0 10px">✏️ <b>Tudo editável antes de gerar:</b> toque para corrigir <b>código</b>, <b>descrição</b> e <b>peso</b> de cada item. A descrição corrigida fica salva no cadastro.</div>'
         +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.9rem">'
         +'<thead><tr style="text-align:left;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">'
@@ -2154,9 +2183,10 @@ updateStageBadge();
     var romPreview='';
     if(romParsed){
       var rrows=romParsed.items.map(function(it,idx){
+        var _bobinaShow=(it._convertido&&it.cProd)?it.cProd:it.bobina;
         return '<tr>'
           +'<td style="padding:6px 4px;color:var(--faint);font-size:.72rem">'+esc(it.seq)+' <button class="gbtn" data-rmrow="'+idx+'" title="Remover esta linha" style="padding:1px 6px;font-size:.65rem;margin-left:4px">✕</button></td>'
-          +'<td style="padding:6px 4px;min-width:130px"><input class="input code" id="rb_'+idx+'" value="'+esc(it.bobina)+'" style="width:100%;font-weight:700" title="número da bobina (id da etiqueta)"></td>'
+          +'<td style="padding:6px 4px;min-width:130px"><input class="input code" id="rb_'+idx+'" value="'+esc(_bobinaShow)+'" style="width:100%;font-weight:700'+(it._convertido?';color:#15803d':'')+'" title="'+(it._convertido?'código Packem (convertido de: '+esc(it._nfDescOrig||'')+')':'número da bobina (id da etiqueta)')+'"></td>'
           +'<td style="padding:6px 4px;min-width:80px"><input class="input" id="ro_'+idx+'" value="'+esc(it.op)+'" style="width:100%" title="OP"></td>'
           +'<td style="padding:6px 4px;min-width:90px"><input class="input" id="rl_'+idx+'" value="'+esc(it.lote)+'" style="width:100%" title="lote"></td>'
           +'<td style="padding:6px 4px;min-width:200px"><input class="input" id="rg_'+idx+'" value="'+esc(it.gramatura)+'" style="width:100%;font-size:.8rem" title="gramatura / descrição do material"></td>'
@@ -2176,6 +2206,7 @@ updateStageBadge();
       romPreview='<div class="panel" style="margin-top:16px">'
         +'<div class="ph"><span class="pdot"></span>Romaneio '+esc(romParsed.nRomaneio||'?')+'</div>'
         +(rdup?'<div style="background:var(--out-bg,rgba(220,90,90,.12));color:var(--out);border-radius:8px;padding:8px 10px;font-size:.8rem;margin:6px 0">Este romaneio já foi importado e tem etiquetas geradas. Você pode reimprimir abaixo.</div>':'')
+        +((romParsed.convAvisos&&romParsed.convAvisos.length)?('<div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:10px 12px;font-size:.78rem;margin:6px 0">⚠️ <b>Conversão manual necessária:</b> '+romParsed.convAvisos.length+' descrição(ões) casam com mais de um código. Corrija na mão antes de gerar:<ul style="margin:6px 0 0 16px;padding:0">'+romParsed.convAvisos.map(function(a){return '<li style="margin:2px 0"><b>"'+esc(a.nf)+'"</b> → '+a.opcoes.map(esc).join(' ou ')+'</li>';}).join('')+'</ul></div>'):'')
         +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
         +'<div class="fld" style="flex:1;min-width:140px;margin:0"><label class="lab">Nº Romaneio</label><input class="input" id="rmHdrNum" value="'+esc(romParsed.nRomaneio||'')+'"></div>'
         +'<div class="fld" style="flex:1;min-width:140px;margin:0"><label class="lab">Nº NF-e</label><input class="input" id="rmHdrNfe" value="'+esc(romParsed.nfe||'')+'"></div>'
@@ -2548,9 +2579,12 @@ updateStageBadge();
       var gram=gI?gI.value.trim():(it.gramatura||'');
       var pesoBruto=pbI?brNum(pbI.value):(it.pesoBruto||0);
       var pesoLiquido=plI?brNum(plI.value):(it.pesoLiquido||0);
+      /* se casou na tabela: descrição e código Packem (o campo bobina já mostra o código Packem) */
+      var _cProd=(it._convertido&&it.cProd)?it.cProd:op;
+      var _xProd=(it._convertido&&it.descPackem)?it.descPackem:gram;
       var id=norm(bobina);
       if(ETQ[id]){var s=2,base=id;while(ETQ[id]){id=base+'-'+s;s++;}}
-      ETQ[id]={id:id,nf:romParsed.key,nRomaneio:hdr.nRomaneio,nNFe:hdr.nfe,cliente:hdr.cliente,bobina:bobina,op:op,lote:lote,gramatura:gram,xProd:gram,cProd:op,uCom:'KG',kg:pesoLiquido,pesoBruto:pesoBruto,vol:(idx+1),volTot:romParsed.items.length,idx:(idx+1),status:'gerada',hist:[{ev:'gerada',at:nowISO(),by:session.u}]};
+      ETQ[id]={id:id,nf:romParsed.key,nRomaneio:hdr.nRomaneio,nNFe:hdr.nfe,cliente:hdr.cliente,bobina:bobina,op:op,lote:lote,gramatura:gram,xProd:_xProd,cProd:_cProd,uCom:'KG',kg:pesoLiquido,pesoBruto:pesoBruto,vol:(idx+1),volTot:romParsed.items.length,idx:(idx+1),status:'gerada',hist:[{ev:'gerada',at:nowISO(),by:session.u}]};
       created.push(id);
     });
     if(!created.length){toast('Nenhuma bobina válida para gerar',false);return;}

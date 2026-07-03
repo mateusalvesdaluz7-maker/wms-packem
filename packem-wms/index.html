@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v78</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v80</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v78</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v80</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -772,19 +772,14 @@ function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdm
   openDrawer(`${ICONS.map=ICONS.grid} <span class="mono">${code(x)}</span>`,`
     <div style="display:flex;gap:10px;margin-bottom:18px"><span class="pill muted">${whLabel(x.w)}</span><span class="pill ${x.o?(x.q>0?'in':'b'):'muted'}">${x.o?(x.q>0?'ocupado':'ocupado · 0'):'livre'}</span></div>
     ${adm?`<label class="fld"><span class="lab">Produto</span><input class="input code" id="spProd" value="${x.pr||''}"></label>
-    <label class="fld"><span class="lab">Unidade deste produto (salva no cadastro)</span><select class="input" id="spUn"><option value="KG"${unitOf(x)==='KG'?' selected':''}>KG · quilos</option><option value="MT"${unitOf(x)==='MT'?' selected':''}>MT · metros</option><option value="UN"${unitOf(x)==='UN'?' selected':''}>UN · unidades</option></select></label>
-    <label class="fld"><span class="lab">Peso / quantidade (<span id="spUnLab">${unitOf(x).toLowerCase()}</span>)</span><input class="input" id="spQty" type="number" value="${x.q||0}"></label>
+    <label class="fld"><span class="lab">Peso / quantidade (${unitOf(x).toLowerCase()})</span><input class="input" id="spQty" type="number" value="${x.q||0}"></label>
     <label class="fld"><span class="lab">Origem</span><input class="input code" id="spSrc" value="${x.src||''}" placeholder="DEP26"></label>
     <button class="btn brand" id="spSave" style="width:100%;height:48px;margin-bottom:10px">Salvar</button>
     <button class="gbtn" id="spFree" style="width:100%;justify-content:center">${ICONS.out||''} Enviar para produção</button>`
     :`<div style="font-size:.85rem;color:var(--muted)">Produto</div><div class="mono" style="font-size:1.2rem;font-weight:700;margin:4px 0 14px">${x.pr||'(livre)'}</div><div style="font-size:.85rem;color:var(--muted)">Peso</div><div style="font-family:var(--disp);font-size:1.8rem;font-weight:700">${fmt(x.q||0)} <small style="font-size:.9rem;color:var(--muted)">${unitOf(x).toLowerCase()}</small></div>`}
     <button class="gbtn" id="spLabel" style="width:100%;justify-content:center;margin-top:14px">${ICONS.tag} Ver etiqueta</button>`);
   if(adm){if(window.addCam){var _pe=document.getElementById('spProd');if(_pe)window.addCam('spProd',{title:'Bipe a bobina',onResult:function(v){var p=parseBobina(v);if(p&&p.pr)_pe.value=p.pr;var _q=document.getElementById('spQty');if(_q&&p&&p.peso!=null&&!isNaN(p.peso))_q.value=p.peso;var _s=document.getElementById('spSrc');toast('Etiqueta '+(p&&(p.et||p.pr)||v)+' lida · confira e Salvar');}});}
-  var _spUn=document.getElementById('spUn');if(_spUn){_spUn.addEventListener('change',function(){var _l=document.getElementById('spUnLab');if(_l)_l.textContent=(_spUn.value||'KG').toLowerCase();});}
-  $('#spSave').onclick=()=>{x.pr=norm($('#spProd').value);x.q=Number($('#spQty').value)||0;x.src=norm($('#spSrc').value);x.o=!!(x.pr&&x.pr!=='0');x.upd=nowISO();x.by=session.u;
-    // salva a unidade escolhida no CADASTRO do produto (VL) — vale pro sistema todo
-    try{var _un=(document.getElementById('spUn')&&document.getElementById('spUn').value||'KG').toUpperCase();if(x.pr){var _cod=norm(x.pr);var _reg=VL.find(function(v){return norm(v.codigo)===_cod;});if(_reg){_reg.un=_un;}else{VL.push({codigo:_cod,valor:0,descricao:(typeof descOf==='function'?(descOf(x.pr)||''):''),un:_un});}if(DB.saveValues)DB.saveValues(VL);if(typeof supa!=='undefined'&&supa){supa.from('valores').upsert({codigo:_cod,valor:(_reg?_reg.valor:0)||0,descricao:(_reg?_reg.descricao:'')||'',un:_un}).then(function(r){if(r&&r.error){supa.from('valores').upsert({codigo:_cod,valor:(_reg?_reg.valor:0)||0,descricao:(_reg?_reg.descricao:'')||''}).then(function(){},function(){});}},function(){});}}}catch(e){}
-    persist();logAct('edit','posição '+code(x));closeDrawer();render($('.view.active').id);toast('Posição salva · unidade aplicada no cadastro');};
+  $('#spSave').onclick=()=>{x.pr=norm($('#spProd').value);x.q=Number($('#spQty').value)||0;x.src=norm($('#spSrc').value);x.o=!!(x.pr&&x.pr!=='0');x.upd=nowISO();x.by=session.u;persist();logAct('edit','posição '+code(x));closeDrawer();render($('.view.active').id);toast('Posição salva');};
   $('#spFree').onclick=()=>{const before=Number(x.q)||0;if(!x.o||before<=0){toast('Posição já está vazia',false);return;}
    const doSend=(et)=>{x.upd=nowISO();x.by=session.u;const m={id:uid(),action:'producao',w:cfg.warehouse,code:code(x),pr:x.pr||'',q:before,u:unitOf(x),et:et||'',before:before,after:0,at:nowISO(),by:session.u};MV.unshift(m);if(MV.length>20000)MV.length=20000;x.pr='';x.q=0;x.o=false;x.src='';persist();try{syncMov(m);}catch(e){}try{syncSpace(x);}catch(e){}logAct('producao','enviou p/ produção '+fmt(before)+' @ '+code(x));try{enqueue3dTask(code(x),'out');}catch(e){}closeDrawer();render($('.view.active').id);try{renderMovRecent();}catch(e){}toast('Enviado para produção · '+fmt(before)+' '+unitOf(x));};
    const head='<div style="margin-bottom:14px"><div class="mono" style="font-size:1.1rem;font-weight:700">'+code(x)+'</div><div style="color:var(--muted);font-size:.9rem">'+(x.pr||'(sem produto)')+' · '+fmt(before)+' '+unitOf(x)+'</div></div>';
@@ -869,11 +864,14 @@ $('#genBobStock').onclick=()=>{const sel=$('#lblStreet').value;let rows=occSpace
   var pr=norm(($('#rastProd').value)||''),qt=Number($('#rastQtd').value)||0,d=(($('#rastDesc').value)||'').trim(),un=(($('#rastUn').value)||'KG'),lote=(($('#rastLote').value)||'').trim(),cp=Math.max(1,Number($('#rastCopies').value)||1);
   if(!pr&&!d){toast('Informe o código ou a descrição',false);return;}
   if(typeof window.nfMakeLabel!=='function'){toast('Recarregue a página (Ctrl+Shift+R)',false);return;}
-  var ids=[];
-  for(var i=0;i<cp;i++){var id=window.nfMakeLabel({cProd:pr,xProd:d,kg:qt,lote:lote,un:un});if(id)ids.push(id);}
-  var box=document.getElementById('rastLast');
-  if(box&&ids.length){box.innerHTML='<div style="background:#f0fdf4;border:1px solid #dcfce7;border-radius:10px;padding:12px;font-size:.84rem;color:#15803d">'+ids.length+' etiqueta(s) gerada(s): <b>'+ids.join(', ')+'</b><div style="color:var(--muted);font-size:.76rem;margin-top:4px">Já pode rastrear na aba Rastreador. A impressão abriu em outra janela.</div></div>';}
-  toast(ids.length+' etiqueta(s) rastreável(is) criada(s)');
+  var _fazer=function(fmtOpt){
+    var ids=[];
+    for(var i=0;i<cp;i++){var id=window.nfMakeLabel({cProd:pr,xProd:d,kg:qt,lote:lote,un:un,_dim:(fmtOpt&&fmtOpt.dim)||null,_orient:(fmtOpt&&fmtOpt.orient)||'retrato'});if(id)ids.push(id);}
+    var box=document.getElementById('rastLast');
+    if(box&&ids.length){box.innerHTML='<div style="background:#f0fdf4;border:1px solid #dcfce7;border-radius:10px;padding:12px;font-size:.84rem;color:#15803d">'+ids.length+' etiqueta(s) gerada(s): <b>'+ids.join(', ')+'</b><div style="color:var(--muted);font-size:.76rem;margin-top:4px">Já pode rastrear na aba Rastreador.</div></div>';}
+    toast(ids.length+' etiqueta(s) rastreável(is) criada(s)');
+  };
+  if(typeof askLabelFormat==='function')askLabelFormat('Etiqueta rastreável',_fazer);else _fazer(null);
 };})();
 $('#printLabels').onclick=()=>window.print();
 function showLabelSheet(c,desc,w){openDrawer(`${ICONS.tag} Etiqueta`,`<div id="printArea"><div class="labels" style="grid-template-columns:1fr">${labelHTML(c,desc,w)}</div></div><button class="gbtn" id="shPrint" style="width:100%;justify-content:center;margin-top:16px">${ICONS.print} Imprimir</button>`);$('#shPrint').onclick=()=>window.print();}
@@ -1442,7 +1440,7 @@ function renderStageList(){const el=$('#stageList');if(!el)return;const adm=isAd
  el.querySelectorAll('[data-az]').forEach(b=>b.onclick=()=>stageArmazenar(b.dataset.az));
  el.querySelectorAll('[data-pp]').forEach(b=>b.onclick=()=>stageProducao(b.dataset.pp));
  el.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{STAGE=STAGE.filter(x=>x.et!==b.dataset.rm);saveStage();if(typeof syncDelStage==='function')syncDelStage(b.dataset.rm);renderRecv();updateStageBadge();toast('Removido do intermediário');});
- el.querySelectorAll('[data-lbl]').forEach(b=>b.onclick=()=>showBobLabel(b.dataset.lbl));}
+ el.querySelectorAll('[data-lbl]').forEach(b=>b.onclick=()=>{var et=norm(b.dataset.lbl);var o=BOB[et]||{};var s=STAGE.find(function(x){return x.et===et;})||{};var it={et:et,pr:o.pr||s.pr||'',desc:o.desc||s.desc||'',pl:(o.pl!=null?o.pl:s.pl)};if(typeof printIntakeLabelChoose==='function')printIntakeLabelChoose(it);else showBobLabel(et);});}
 function showBobLabel(et){et=norm(et);const o=BOB[et]||{};const it=(typeof STAGE!=='undefined'&&STAGE?STAGE.find(s=>s.et===et):null)||{};const pr=o.pr||it.pr||'';const desc=o.desc||it.desc||'';const pl=(o.pl!=null?o.pl:it.pl);
  const lbl='<style>#bobQRbox svg{width:96px!important;height:96px!important}</style>'
   +'<div id="printArea"><div style="background:#fff;color:#000;border:1px solid #cfd6de;border-radius:10px;padding:20px 16px;max-width:340px;margin:0 auto;text-align:center;font-family:Arial,Helvetica,sans-serif">'
@@ -3304,7 +3302,7 @@ updateStageBadge();
     saveNF();
     if(typeof syncEtiqueta==='function')syncEtiqueta(ETQ[id]);
     if(typeof logAct==='function')logAct('rastreio-vaga',id+(data.addr?(' · '+data.addr):''));
-    if(typeof printZebraRast==='function')printZebraRast([ETQ[id]],(typeof ZSIZES!=='undefined'?ZSIZES.z100:null));
+    if(typeof printZebraRast==='function')printZebraRast([ETQ[id]],(data._dim||(typeof ZSIZES!=='undefined'?ZSIZES.z100:null)),data._orient||'retrato');
     else toast('Recarregue a página (Ctrl+Shift+R)',false);
     if(typeof toast==='function')toast('Etiqueta '+id+' criada');
     return id;
@@ -4677,7 +4675,7 @@ function printZebraEtq(arr,dim,kind){
  var render=function(){var labels=arr.map(function(e){return zEtqCard(e,dim,dim.h,'mm',kind);}).join('');printDoc(labels,zEtqCSS(dim));};
  loadQR().then(render).catch(render);
 }
-function printZebraRast(arr,dim){return printZebraEtq(arr,dim,'rast');}
+function printZebraRast(arr,dim,orient){var d=dim||(typeof ZSIZES!=='undefined'?ZSIZES.z100:{w:100,h:100,n:'100×100'});if(orient==='paisagem'){d={w:d.h,h:d.w,n:(d.n||'')+' (deitada)'};}return printZebraEtq(arr,d,'rast');}
 function printZebraRom(arr,dim){return printZebraEtq(arr,dim,'rom');}
 function romQRPayload(e){
  var L=[e.bobina||e.id];
@@ -4772,22 +4770,44 @@ function stationPrint(it){if(!it||!it.et)return;if(!isPrintStation()||!autoLabel
 
 
 /* ===== IMPRESSÃO DIRETA NA ZEBRA (ZPL via Browser Print) — 100x100mm @ 203dpi ===== */
-function zplIntakeLabel(it){
+function zplIntakeLabel(it,opt){
+ opt=opt||{};
+ var dim=opt.dim||{w:100,h:100};
+ var land=(opt.orient==='paisagem'); // paisagem = deitada
  var sd=shortDesc(it.desc||it.pr||'').replace(/[\^~]/g,' ');
- var wt=(it.pl>0)?(fmt(it.pl)+' KG'):'';
+ var un=(typeof unitOf==='function')?unitOf(it.pr):'KG';
+ var wt=(it.pl>0)?(fmt(it.pl)+' '+un):'';
  var et=String(it.et||'').replace(/[\^~]/g,'');
  var pr=String(it.pr||'').replace(/[\^~]/g,'');
  var etbc=et.toUpperCase();
  var wh=(typeof whLabel==='function'?whLabel(cfg.warehouse):'DEP 70').toString().toUpperCase().replace(/[\^~]/g,'');
- var z='^XA^CI28^PW800^LL800^LH0,0';
- z+='^FO6,6^GB788,788,3^FS';                                 /* borda (100x100mm, padrão) */
- z+='^FO30,20^GB0,760,3^FS';                                 /* linha vertical separando QR do texto */
- if(etbc)z+='^FO60,80^BQN,2,7^FDMA,'+etbc+'^FS';             /* QR grande à esquerda */
- z+='^FO400,22^A0N,26,26^FDPACKEM · '+wh+'^FS';              /* marca + deposito */
- if(pr)z+='^FO400,58^A0N,80,64^FD'+pr+'^FS';                 /* CODIGO grande */
- if(sd)z+='^FO400,150^FB380,3,4,L^A0N,38,34^FD'+sd+'^FS';    /* descricao (ate 3 linhas) */
- if(et)z+='^FO400,300^A0N,28,26^FD'+et+'^FS';                /* etiqueta/serial */
- if(wt)z+='^FO400,340^A0N,100,60^FD'+wt+'^FS';               /* peso grande */
+ // dots a 203dpi: 1mm ≈ 8 dots
+ var W=Math.round(dim.w*8), H=Math.round(dim.h*8);
+ // em paisagem, troca largura/altura da mídia e usa rotação do texto
+ var PW=land?H:W, LL=land?W:H;
+ var rot=land?'R':'N'; // R = rotacionado 90° (paisagem)
+ var z='^XA^CI28^PW'+PW+'^LL'+LL+'^LH0,0';
+ // borda
+ z+='^FO8,8^GB'+(PW-16)+','+(LL-16)+',3^FS';
+ if(land){
+   // ===== PAISAGEM (deitada): conteúdo rotacionado =====
+   if(etbc)z+='^FO'+(PW-120)+',40^BQN,2,6^FDMA,'+etbc+'^FS';
+   z+='^FO40,40^A0R,26,26^FDPACKEM · '+wh+'^FS';
+   if(pr)z+='^FO90,40^A0R,70,56^FD'+pr+'^FS';
+   if(sd)z+='^FO170,40^FB'+(LL-80)+',3,4,L^A0R,32,28^FD'+sd+'^FS';
+   if(et)z+='^FO250,40^A0R,26,24^FD'+et+'^FS';
+   if(wt)z+='^FO300,40^A0R,80,50^FD'+wt+'^FS';
+ }else{
+   // ===== RETRATO (em pé): layout padrão =====
+   var half=Math.round(PW*0.38);
+   z+='^FO'+half+',20^GB0,'+(LL-40)+',3^FS'; // linha vertical
+   if(etbc)z+='^FO60,80^BQN,2,'+(dim.w>=90?7:5)+'^FDMA,'+etbc+'^FS';
+   z+='^FO'+(half+20)+',22^A0N,26,26^FDPACKEM · '+wh+'^FS';
+   if(pr)z+='^FO'+(half+20)+',58^A0N,'+(dim.w>=90?80:54)+','+(dim.w>=90?64:44)+'^FD'+pr+'^FS';
+   if(sd)z+='^FO'+(half+20)+','+(dim.w>=90?150:120)+'^FB'+(PW-half-40)+',3,4,L^A0N,'+(dim.w>=90?38:28)+','+(dim.w>=90?34:24)+'^FD'+sd+'^FS';
+   if(et)z+='^FO'+(half+20)+','+(dim.w>=90?300:220)+'^A0N,28,26^FD'+et+'^FS';
+   if(wt)z+='^FO'+(half+20)+','+(dim.w>=90?340:255)+'^A0N,'+(dim.w>=90?100:60)+','+(dim.w>=90?60:40)+'^FD'+wt+'^FS';
+ }
  z+='^XZ';
  return z;
 }
@@ -4809,8 +4829,31 @@ async function sendToZebra(zpl){
  if(!dev)return false;
  try{var w=await bpFetch(base+'/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device:dev,data:zpl})},4000);return !!(w&&w.ok);}catch(e){return false;}
 }
+/* seletor de tamanho + orientação (retrato/paisagem) — usado ao imprimir etiquetas manualmente */
+function askLabelFormat(titulo,onOk){
+ var sizes=(typeof ZSIZES!=='undefined')?ZSIZES:{z100:{w:100,h:100,n:'100×100 mm'}};
+ var opts=Object.keys(sizes).map(function(k){return '<option value="'+k+'">'+sizes[k].n+'</option>';}).join('');
+ openDrawer(titulo||'Formato da etiqueta',
+   '<label class="fld"><span class="lab">Tamanho</span><select class="input" id="lfSize">'+opts+'</select></label>'
+   +'<label class="fld"><span class="lab">Orientação</span><select class="input" id="lfOri"><option value="retrato">Retrato (em pé)</option><option value="paisagem">Paisagem (deitada)</option></select></label>'
+   +'<button class="btn brand" id="lfGo" style="width:100%;height:48px">Imprimir</button>');
+ var sz=document.getElementById('lfSize');if(sz)sz.value='z100';
+ var go=document.getElementById('lfGo');if(go)go.onclick=function(){
+   var k=document.getElementById('lfSize').value, ori=document.getElementById('lfOri').value;
+   var dim=sizes[k]||sizes.z100;
+   closeDrawer();
+   if(typeof onOk==='function')onOk({dim:dim,orient:ori});
+ };
+}
+/* imprime a etiqueta de recebimento perguntando tamanho/orientação */
+function printIntakeLabelChoose(it){
+ askLabelFormat('Etiqueta de recebimento',function(opt){
+   try{sendToZebra(zplIntakeLabel(it,opt)).then(function(ok){if(!ok)printIntakeFallback(it);toast(ok?'Enviado para a Zebra':'Sem Zebra — abriu impressão normal');}).catch(function(){printIntakeFallback(it);});}
+   catch(e){printIntakeFallback(it);}
+ });
+}
 function printIntakeLabel(it){if(!it)return;
- try{sendToZebra(zplIntakeLabel(it)).then(function(ok){if(!ok)printIntakeFallback(it);}).catch(function(){printIntakeFallback(it);});}
+ try{sendToZebra(zplIntakeLabel(it,{dim:{w:100,h:100},orient:'retrato'})).then(function(ok){if(!ok)printIntakeFallback(it);}).catch(function(){printIntakeFallback(it);});}
  catch(e){printIntakeFallback(it);}}
 
 

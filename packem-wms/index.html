@@ -3630,11 +3630,11 @@ $('#genEnd').onclick=function(){const st=$('#lblStreet').value,scope=$('#lblScop
 
 /* ===== SUPABASE SYNC ===== */
 const SUPA_URL='https://aekqhtutrfwjoebsebeq.supabase.co';
-const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFla3FodHV0cmZ3am9lYnNlYmVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODc2ODUsImV4cCI6MjA5Nzc2MzY4NX0.kVaopyzLq64B9E3ON2YxZERT0o62BYIX9uh7-dHi1Tg';
+const SUPA_KEY='sb_publishable_fx7cQutj5eGGFFrPGA7yBA_GtFkaVXN';
 let supa=null;
 function loadSupa(){
   if(window.supabase)return Promise.resolve();
-  var cdns=['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js','https://unpkg.com/@supabase/supabase-js@2.45.0/dist/umd/supabase.js'];
+  var cdns=['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0/dist/umd/supabase.js','https://unpkg.com/@supabase/supabase-js@2.110.0/dist/umd/supabase.js'];
   function tryCdn(i){
     return new Promise(function(res,rej){
       if(i>=cdns.length){rej(new Error('todos os CDN falharam'));return;}

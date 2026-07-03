@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v81</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v82</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v81</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v82</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -3009,9 +3009,10 @@ updateStageBadge();
     var addrEl=document.getElementById('rqladdr-'+itemId),etEl=document.getElementById('rqlet-'+itemId);
     var codeStr=norm(addrEl?addrEl.value:'');var et=norm(etEl?etEl.value:'');
     var take=0, ondeMsg='';
-    // é medido em metros? (alça/cadarço, ou unidade do item = mt) → baixa o item inteiro em metros, não o kg da vaga
+    // unidade: usa a CADASTRADA no produto; se não tiver, cai na regra antiga (alça/cadarço) ou no un do item
     var txtItem=((it.material||'')+' '+(it.codigo||'')).toUpperCase();
-    var ehMetro=(String(it.un||'').toLowerCase()==='mt')||/AL[ÇC]A|CADAR[ÇC]O/.test(txtItem);
+    var unCad=(typeof unitOf==='function'&&it.codigo)?unitOf(it.codigo):'';
+    var ehMetro=(unCad==='MT')||(!unCad&&((String(it.un||'').toLowerCase()==='mt')||/AL[ÇC]A|CADAR[ÇC]O/.test(txtItem)));
 
     if(codeStr){
       // ===== baixa numa VAGA do armazém =====
@@ -3062,6 +3063,7 @@ updateStageBadge();
     var qtdReq=take;
     var unReq=ehMetro?'mt':'kg';
     if(typeof logAct==='function')logAct('separacao',(it.codigo||it.material||'')+' −'+fmt(take)+unReq+' '+ondeMsg+(it.maquina?(' → '+it.maquina):'')+' ['+(req.numero||'')+']');
+    try{var _av=document.querySelector('.view.active');if(_av&&_av.id==='v-track'&&typeof renderTrackTable==='function')renderTrackTable();}catch(e){}
     toast('Baixa: '+fmt(take)+unReq+' de '+ondeMsg+' · enviando…');
     RQL.baixando=true;
     fetch('/api/req-baixa',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({item_id:itemId,requisicao_id:reqId,kg:qtdReq,un:unReq,modo:'somar',endereco:ondeMsg,usuario:(session?session.u:'WMS')})})
@@ -3089,6 +3091,18 @@ updateStageBadge();
     if(!confirm('Dar baixa de "'+(it.material||'')+'" ('+fmt(qtd)+' '+(it.un||'')+') como SEPARADO na requisição?\n\nEsse item não fica em vaga do armazém, então nada será descontado do estoque — só marca como separado no sistema de requisição.')){return;}
     RQL.baixando=true;
     if(typeof logAct==='function')logAct('separacao',(it.material||'')+' (sem vaga) ['+(req.numero||'')+']');
+    /* registra no Rastreador (MV) — saída de matéria-prima sem vaga */
+    try{
+      if(typeof MV!=='undefined'&&MV){
+        var _txt=((it.material||'')+' '+(it.codigo||'')).toUpperCase();
+        var _un=(String(it.un||'').toLowerCase()==='mt')?'MT':((typeof unitOf==='function'&&it.codigo)?unitOf(it.codigo):'KG');
+        var _mv={id:uid(),action:'saida',w:cfg.warehouse,code:'SEM VAGA',pr:it.codigo||it.material||'',q:qtd,u:_un,before:0,after:0,at:nowISO(),by:(session?session.u:''),dest:it.maquina||'',req:req.numero||'',note:'baixa sem vaga (matéria-prima)'};
+        MV.unshift(_mv); if(MV.length>20000)MV.length=20000;
+        if(typeof persist==='function')persist();
+        if(typeof syncMov==='function')syncMov(MV[0]);
+      }
+    }catch(err){}
+    try{var _av2=document.querySelector('.view.active');if(_av2&&_av2.id==='v-track'&&typeof renderTrackTable==='function')renderTrackTable();}catch(e){}
     toast('Marcando '+fmt(qtd)+' '+(it.un||'')+' como separado…');
     fetch('/api/req-baixa',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({item_id:itemId,requisicao_id:reqId,kg:qtd,endereco:'(sem vaga)',usuario:(session?session.u:'WMS')})})
       .then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,d:d};});})

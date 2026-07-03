@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v70</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v72</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v70</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v72</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -525,12 +525,20 @@ function cleanQ(v){var n=Number(v)||0;return (n>10000000||n<0)?0:n;}
 try{S.forEach(function(x){x.q=cleanQ(x.q);});}catch(e){}
 let session=null,mode='entrada',abcMetric='peso',lblTab='end',boardLevel=null,boardStreet=null,boardWH=null;
 let stSort={k:'upd',d:-1};
+var _renderStockTableNova=null;
 
 const norm=s=>(s||'').trim().toUpperCase();
 // unidade do produto: alça e cadarço são sempre METRO (mt); todo o resto é KG.
 // olha o código E a descrição cadastrada, então funciona mesmo passando só o código.
 // unidade do produto: usa a UNIDADE CADASTRADA no produto (aba Produtos/Valores).
 // Se o produto não tem unidade cadastrada, o padrão é KG.
+function normUnit(u){
+  u=String(u||'').toUpperCase().trim();
+  if(u==='M'||u==='MT'||u==='MTS'||u==='METRO'||u==='METROS'||u==='ML')return 'MT';
+  if(u==='U'||u==='UN'||u==='UND'||u==='UNID'||u==='UNIDADE'||u==='PC'||u==='PÇ')return 'UN';
+  if(u==='KG'||u==='KGS'||u==='K'||u==='QUILO'||u==='QUILOS')return 'KG';
+  return '';
+}
 function unitOf(prOrDesc){
   try{
     // extrai o código, seja objeto de vaga {pr}, código puro, ou string
@@ -542,7 +550,7 @@ function unitOf(prOrDesc){
     // procura a unidade cadastrada no VL (cadastro de produtos), comparando normalizado
     if(typeof VL!=='undefined'&&Array.isArray(VL)){
       var reg=VL.find(function(v){return String(v.codigo||'').toUpperCase().replace(/\s+/g,' ').trim()===cod;});
-      if(reg&&reg.un){var u=String(reg.un).toUpperCase().trim();if(u==='KG'||u==='MT'||u==='UN')return u;}
+      if(reg&&reg.un){var u=normUnit(reg.un);if(u)return u;}
     }
     return 'KG'; // padrão: sem unidade cadastrada = kg
   }catch(e){return 'KG';}
@@ -807,9 +815,9 @@ $('#stExport').onclick=()=>{const h=['Endereco','Produto','Peso','Un','Origem','
 function filterStock(){const q=norm($('#stSearch').value),sr=$('#stStreet').value,stt=$('#stStatus').value;let rows=S.filter(x=>x.w===cfg.warehouse);if(stt===''||!stt)rows=rows.filter(x=>x.o&&x.q>0);else if(stt==='zero')rows=rows.filter(x=>x.o&&x.q<=0);if(sr)rows=rows.filter(x=>x.s===sr);if(q)rows=rows.filter(x=>code(x).includes(q)||(x.pr||'').toUpperCase().includes(q));
   const k=stSort.k,d=stSort.d;rows.sort((a,b)=>{let va,vb;if(k==='code'){va=code(a);vb=code(b);}else if(k==='pr'){va=a.pr;vb=b.pr;}else if(k==='q'){va=a.q;vb=b.q;}else{va=a.upd;vb=b.upd;}if(va<vb)return -d;if(va>vb)return d;return 0;});return rows;}
 function sa(k){return stSort.k===k?`<span class="sa">${stSort.d>0?'▲':'▼'}</span>`:'';}
-function renderStockTable(){const rows=filterStock();$('#stCount').textContent=rows.length+' itens';const cap=rows.slice(0,300);
+function renderStockTable(){/* versão antiga desativada — a definição real (com KG/MT separados e unidade do cadastro) está mais abaixo e sobrescreve esta */ if(typeof _renderStockTableNova==='function')return _renderStockTableNova(); const rows=filterStock();$('#stCount').textContent=rows.length+' itens';const cap=rows.slice(0,300);
   $('#stTable').innerHTML=`<thead><tr><th data-k="code">Endereço${sa('code')}</th><th data-k="pr">Produto${sa('pr')}</th><th data-k="q" class="num">Peso${sa('q')}</th><th>Un</th><th>Origem</th><th data-k="upd">Atualizado${sa('upd')}</th><th>Operador</th></tr></thead><tbody>`+
-    (cap.length?cap.map(x=>`<tr class="click" data-id="${x.id}"><td class="mono">${code(x)}</td><td class="mono">${x.pr||'—'}</td><td class="num">${fmt(x.q)}</td><td>${x.u}</td><td class="mono" style="color:var(--muted)">${x.src||'—'}</td><td style="color:var(--muted)">${rel(x.upd)}</td><td style="color:var(--muted)">${x.by||'—'}</td></tr>`).join('')
+    (cap.length?cap.map(x=>`<tr class="click" data-id="${x.id}"><td class="mono">${code(x)}</td><td class="mono">${x.pr||'—'}</td><td class="num">${fmt(x.q)}</td><td>${(typeof unitOf==='function'?unitOf(x):x.u)}</td><td class="mono" style="color:var(--muted)">${x.src||'—'}</td><td style="color:var(--muted)">${rel(x.upd)}</td><td style="color:var(--muted)">${x.by||'—'}</td></tr>`).join('')
     :'<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">Nada encontrado</td></tr>')+'</tbody>';
   $$('#stTable thead th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(stSort.k===k)stSort.d*=-1;else stSort={k,d:k==='q'?-1:1};renderStockTable();});
   $$('#stTable tbody tr[data-id]').forEach(tr=>tr.onclick=()=>openSpace(tr.dataset.id));
@@ -3670,7 +3678,7 @@ function autoFixWeights(){try{if(typeof S==='undefined'||!Array.isArray(S))retur
 filterStock=function(){const q=($('#stSearch').value||'').trim().toUpperCase(),sr=$('#stStreet').value,stt=$('#stStatus').value;let rows=S.filter(x=>x.w===cfg.warehouse);if(stt===''||!stt)rows=rows.filter(x=>x.o&&x.q>0);else if(stt==='zero')rows=rows.filter(x=>x.o&&x.q<=0);else if(stt==='sem_etq'){rows=rows.filter(x=>x.o&&isNoLabel(x.pr));}if(sr)rows=rows.filter(x=>x.s===sr);if(q)rows=rows.filter(x=>{if(code(x).toUpperCase().indexOf(q)>=0)return true;if((x.pr||'').toUpperCase().indexOf(q)>=0)return true;const d=descOf(x.pr);return !!d&&d.toUpperCase().indexOf(q)>=0;});
   const k=stSort.k,d=stSort.d;rows.sort((a,b)=>{let va,vb;if(k==='code'){va=code(a);vb=code(b);}else if(k==='pr'){va=a.pr;vb=b.pr;}else if(k==='q'){va=a.q;vb=b.q;}else{va=a.upd;vb=b.upd;}if(va<vb)return -d;if(va>vb)return d;return 0;});return rows;};
 
-renderStockTable=function(){const rows=filterStock();
+renderStockTable=_renderStockTableNova=function(){const rows=filterStock();
   var pesoKg=0,pesoMt=0,pesoUn=0;rows.forEach(function(x){var n=Number(x.q)||0;if(n>10000000||n<0)return;var u=(typeof unitOf==='function'?unitOf(x):'KG');if(u==='MT')pesoMt+=n;else if(u==='UN')pesoUn+=n;else pesoKg+=n;});
   const prods=new Set(rows.map(x=>x.pr).filter(Boolean));
   const semEtq=S.filter(x=>x.w===cfg.warehouse&&x.o&&isNoLabel(x.pr)).length;

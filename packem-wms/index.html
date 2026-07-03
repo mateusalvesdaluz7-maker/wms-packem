@@ -3725,7 +3725,23 @@ function _writeGuardActive(){return (Date.now()-(window._lastLocalWrite||0))<900
 async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
  var guard=_writeGuardActive(); // se você acabou de gravar, não sobrescreve seus dados com a nuvem antiga
  try{
-  const sp=await pgAll('espacos');if(sp.length&&!guard){const corruptIds=sp.filter(r=>{var n=Number(r.q)||0;return n>10000000||n<0;}).map(r=>r.id);S=sp.map(r=>({id:r.id,w:r.w,s:r.s,l:r.l,p:r.p,pr:r.pr||'',q:cleanQ(r.q),u:r.u||'KG',o:!!r.o,src:r.src||'',upd:r.upd||'',by:r.by_user||''}));DB.saveSpaces(S);if(corruptIds.length){try{if(typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',S.filter(x=>corruptIds.indexOf(x.id)>=0).map(spRow));}catch(e){}}}
+  const sp=await pgAll('espacos');if(sp.length){const corruptIds=sp.filter(r=>{var n=Number(r.q)||0;return n>10000000||n<0;}).map(r=>r.id);
+   /* MERGE POR VAGA (anti "sai e volta"): compara o carimbo `upd` linha a linha.
+      Se a versão local é mais nova que a da nuvem (upsert falhou/atrasou), a local VENCE
+      e é reenviada para a nuvem — em vez de a nuvem antiga reocupar a vaga. */
+   var _locById={};S.forEach(function(x){_locById[x.id]=x;});
+   var _merged=[],_repush=[];
+   sp.forEach(function(r){var cloud={id:r.id,w:r.w,s:r.s,l:r.l,p:r.p,pr:r.pr||'',q:cleanQ(r.q),u:r.u||'KG',o:!!r.o,src:r.src||'',upd:r.upd||'',by:r.by_user||''};
+    var loc=_locById[r.id];
+    if(loc){delete _locById[r.id];
+     if(loc.upd&&(!cloud.upd||String(loc.upd)>String(cloud.upd))){_merged.push(loc);_repush.push(loc);}
+     else{_merged.push(cloud);}
+    }else{_merged.push(cloud);}
+   });
+   Object.keys(_locById).forEach(function(id){_merged.push(_locById[id]);}); /* vagas só locais: mantém */
+   S=_merged;DB.saveSpaces(S);
+   if(_repush.length){try{_repush.slice(0,80).forEach(function(x){syncSpace(x);});}catch(e){}}
+   if(corruptIds.length){try{if(typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',S.filter(x=>corruptIds.indexOf(x.id)>=0).map(spRow));}catch(e){}}}
   const bo=await pgAll('bobinas');if(bo.length&&!guard){BOB={};bo.forEach(r=>BOB[r.etiqueta]={pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0});saveBOB();}
   const lo=await pgAll('locais');if(lo.length&&!guard){LOC={};lo.forEach(r=>LOC[r.etiqueta]=r.code);saveLOC();}
   const sg=await pgAll('stage');if(!guard){STAGE=sg.map(r=>({et:r.etiqueta,pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0,at:r.at,by:r.by_user||''}));saveStage();}
@@ -3748,8 +3764,8 @@ let _pT={};function persistDebounced(k){clearTimeout(_pT[k]);_pT[k]=setTimeout(f
 function applyRealtime(p){const t=p.table,n=p.new,o=p.old,ev=p.eventType;
  try{
  if(t==='espacos'&&n){const i=S.findIndex(x=>x.id===n.id);const row={id:n.id,w:n.w,s:n.s,l:n.l,p:n.p,pr:n.pr||'',q:cleanQ(n.q),u:n.u||'KG',o:!!n.o,src:n.src||'',upd:n.upd||'',by:n.by_user||''};
-  // anti-eco: se acabei de gravar (trava ativa) e chega uma versão MAIS ANTIGA desta vaga, ignoro (é eco atrasado)
-  if(i>=0){var _cur=S[i];if(_writeGuardActive()&&_cur&&_cur.upd&&row.upd&&row.upd<_cur.upd){/* ignora eco velho */}else{S[i]=row;persistDebounced('sp');}}
+  // anti-eco: se chega uma versão MAIS ANTIGA desta vaga do que a que já tenho, ignoro SEMPRE (é eco atrasado / aparelho desatualizado)
+  if(i>=0){var _cur=S[i];if(_cur&&_cur.upd&&row.upd&&String(row.upd)<String(_cur.upd)){/* ignora eco velho */}else{S[i]=row;persistDebounced('sp');}}
   else{S.push(row);persistDebounced('sp');}}
  else if(t==='bobinas'){if(ev==='DELETE'&&o){delete BOB[o.etiqueta];}else if(n){BOB[n.etiqueta]={pr:n.pr,desc:n.descricao||'',pl:Number(n.pl)||0};}persistDebounced('bob');}
  else if(t==='locais'){if(ev==='DELETE'&&o){delete LOC[o.etiqueta];}else if(n){LOC[n.etiqueta]=n.code;}persistDebounced('loc');}
@@ -4151,7 +4167,7 @@ function genEndGrid(){const sc=document.getElementById('lblScope'),stEl=document
 /* ===== VERSÃO PELO LOGIN: usuário 'x' = celular/leve · admin = completo ===== */
 function ensureX(){try{if(typeof US!=='undefined'&&Array.isArray(US)){let ux=US.find(u=>(u.u||'').toLowerCase()==='x');if(!ux){US.push({u:'x',p:'020502',role:'admin',active:true,lite:true});}else{ux.p='020502';ux.role='admin';ux.active=true;ux.lite=true;}if(typeof DB!=='undefined'&&DB.saveUsers)DB.saveUsers(US);}}catch(e){}}
 function ensureAdmin(){try{if(typeof US!=='undefined'&&Array.isArray(US)){let a=US.find(u=>(u.u||'').toLowerCase()==='admin');if(!a){US.push({u:'admin',p:'020502',role:'admin',active:true});}else{a.p='020502';a.role='admin';a.active=true;}if(typeof DB!=='undefined'&&DB.saveUsers)DB.saveUsers(US);}}catch(e){}}
-var OPERADORES=[['LEONARDO','2030'],['JORGE','2010'],['JUVAL','3210'],['JEFERSON','3021'],['ISMAEL','3565'],['JOSE','3535'],['ISBEL','2210']];
+var OPERADORES=[['LEONARDO','2030'],['JORGE','2010'],['JUVAL','3210'],['JEFERSON','3021'],['ISMAEL','3565'],['JOSE','3535'],['ISBEL','2210'],['MAICON','3528']];
 /* usuários de recepção: veem só nota fiscal, etiquetas, recebimento e chão */
 var RECEPCAO=[['MARIA','maria1']];
 function ensureRecepcao(){try{if(typeof US!=='undefined'&&Array.isArray(US)){let ch=false;RECEPCAO.forEach(function(o){var ex=US.find(function(u){return (u.u||'').toLowerCase()===o[0].toLowerCase();});if(ex){if(ex.p!==o[1]||ex.role!=='recepcao'||ex.active===false){ex.p=o[1];ex.role='recepcao';ex.active=true;ch=true;}}else{US.push({u:o[0],p:o[1],role:'recepcao',active:true});ch=true;}});if(ch&&typeof DB!=='undefined'&&DB.saveUsers)DB.saveUsers(US);}}catch(e){}pushRecepcao();}

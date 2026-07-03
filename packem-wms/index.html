@@ -309,7 +309,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v105</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v106</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -471,7 +471,7 @@
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v105</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v106</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -4949,7 +4949,7 @@ function zEtqCard(e,dim,H,u,kind){
  var codigoGrande=rastEsc(e.cProd||e.bobina||'');
  /* se cProd e bobina estiverem vazios, aí sim usa o id como último recurso */
  if(!codigoGrande)codigoGrande=rastEsc(e.id||'');
- var loteLine=(isRom&&e.lote)?('<div class="zlote" style="font-size:'+f(0.05)+';padding:'+f(0.01)+' '+f(0.028)+'">LOTE '+rastEsc(e.lote)+'</div>'):'';
+ var loteLine=(e.lote)?('<div class="zlote" style="font-size:'+f(0.05)+';padding:'+f(0.01)+' '+f(0.028)+'">LOTE '+rastEsc(e.lote)+'</div>'):'';
  var qrPayload=isRom?romQRPayload(e):rastQRPayload(e);
  return '<div class="zlbl" style="width:'+W+u+';height:'+H+u+'">'
   +'<div class="zbar" style="height:'+f(0.028)+'"></div>'

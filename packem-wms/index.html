@@ -927,7 +927,7 @@ function editVal(cod){const v=cod?VL.find(x=>x.codigo===cod):{codigo:'',valor:0,
 /* USUÁRIOS */
 $('#addUserBtn').onclick=()=>editUser(null);
 function renderUsers(){$('#userTable').innerHTML=`<thead><tr><th>Usuário</th><th>Perfil</th><th>Status</th><th></th></tr></thead><tbody>`+US.map((u,i)=>`<tr class="click" data-eu="${i}"><td style="font-weight:600">${u.u}</td><td><span class="pill ${u.role==='admin'?'a':'c'}">${u.role}</span></td><td>${u.active===false?'<span class="pill out">inativo</span>':'<span class="pill in">ativo</span>'}</td><td style="color:var(--faint)">editar ›</td></tr>`).join('')+'</tbody>';$$('#userTable tbody tr[data-eu]').forEach(t=>t.onclick=()=>editUser(Number(t.dataset.eu)));}
-function editUser(i){const u=i!=null?US[i]:{u:'',p:'',role:'viewer',active:true};openDrawer(`${i!=null?'Editar':'Novo'} usuário`,`<label class="fld"><span class="lab">Usuário</span><input class="input" id="uU" value="${u.u}"></label><label class="fld"><span class="lab">Senha</span><input class="input" id="uP" value="${u.p}"></label><label class="fld"><span class="lab">Perfil</span><select class="input" id="uR"><option value="admin" ${u.role==='admin'?'selected':''}>Admin · acesso total</option><option value="operador" ${u.role==='operador'?'selected':''}>Operador · 6 abas (mapa, recebimento, chão, mov., estoque, etiquetas)</option><option value="recepcao" ${u.role==='recepcao'?'selected':''}>Recepção · 4 abas (nota fiscal, etiquetas, recebimento, chão)</option><option value="viewer" ${u.role==='viewer'?'selected':''}>Viewer · só consulta</option></select></label><label class="fld"><span class="lab">Status</span><select class="input" id="uA"><option value="1" ${u.active!==false?'selected':''}>Ativo</option><option value="0" ${u.active===false?'selected':''}>Inativo</option></select></label><button class="btn brand" id="uSave" style="width:100%;height:48px;margin-bottom:10px">Salvar</button>${i!=null&&US.length>1?'<button class="gbtn danger" id="uDel" style="width:100%;justify-content:center">Excluir</button>':''}`);$('#uSave').onclick=()=>{const nu={u:$('#uU').value.trim(),p:$('#uP').value,role:$('#uR').value,active:$('#uA').value==='1'};if(!nu.u||!nu.p){toast('Preencha usuário e senha',false);return;}if(i!=null)US[i]=nu;else US.push(nu);DB.saveUsers(US);closeDrawer();renderUsers();toast('Salvo');};if($('#uDel'))$('#uDel').onclick=()=>{US.splice(i,1);DB.saveUsers(US);closeDrawer();renderUsers();toast('Excluído');};}
+function editUser(i){const u=i!=null?US[i]:{u:'',p:'',role:'viewer',active:true};openDrawer(`${i!=null?'Editar':'Novo'} usuário`,`<label class="fld"><span class="lab">Usuário</span><input class="input" id="uU" value="${u.u}"></label><label class="fld"><span class="lab">Senha</span><input class="input" id="uP" value="${u.p}"></label><label class="fld"><span class="lab">Perfil</span><select class="input" id="uR"><option value="admin" ${u.role==='admin'?'selected':''}>Admin · acesso total</option><option value="operador" ${u.role==='operador'?'selected':''}>Operador · 6 abas (mapa, recebimento, chão, mov., estoque, etiquetas)</option><option value="recepcao" ${u.role==='recepcao'?'selected':''}>Recepção · 4 abas (nota fiscal, etiquetas, recebimento, chão)</option><option value="viewer" ${u.role==='viewer'?'selected':''}>Viewer · só consulta</option></select></label><label class="fld"><span class="lab">Status</span><select class="input" id="uA"><option value="1" ${u.active!==false?'selected':''}>Ativo</option><option value="0" ${u.active===false?'selected':''}>Inativo</option></select></label><button class="btn brand" id="uSave" style="width:100%;height:48px;margin-bottom:10px">Salvar</button>${i!=null&&US.length>1?'<button class="gbtn danger" id="uDel" style="width:100%;justify-content:center">Excluir</button>':''}`);$('#uSave').onclick=()=>{const nu={u:$('#uU').value.trim(),p:$('#uP').value,role:$('#uR').value,active:$('#uA').value==='1'};if(!nu.u||!nu.p){toast('Preencha usuário e senha',false);return;}const oldU=(i!=null&&US[i])?US[i].u:'';if(i!=null)US[i]=nu;else US.push(nu);DB.saveUsers(US);try{markLocalWrite();}catch(e){}try{if(typeof _seedMark==='function')_seedMark(nu.u);}catch(e){}try{if(typeof supa!=='undefined'&&supa){supa.from('usuarios').upsert({u:nu.u,p:nu.p,role:nu.role,active:nu.active}).then(()=>{},()=>{});if(oldU&&oldU!==nu.u)supa.from('usuarios').delete().eq('u',oldU).then(()=>{},()=>{});}}catch(e){}closeDrawer();renderUsers();toast('Salvo · sincronizado');};if($('#uDel'))$('#uDel').onclick=()=>{const du=US[i]?US[i].u:'';US.splice(i,1);DB.saveUsers(US);try{markLocalWrite();}catch(e){}try{if(typeof _seedMark==='function')_seedMark(du);}catch(e){}try{if(typeof supa!=='undefined'&&supa&&du)supa.from('usuarios').delete().eq('u',du).then(()=>{},()=>{});}catch(e){}closeDrawer();renderUsers();toast('Excluído');};}
 
 /* ATIVIDADE */
 function renderAct(){$('#actTable').innerHTML=`<thead><tr><th>Ação</th><th>Detalhe</th><th>Usuário</th><th>Data/hora</th></tr></thead><tbody>`+(AC.length?AC.slice(0,300).map(a=>`<tr><td><span class="pill ${a.action==='entrada'?'in':a.action==='saida'?'out':'muted'}">${a.action}</span></td><td class="mono" style="color:var(--muted)">${a.details||'—'}</td><td>${a.u}</td><td style="color:var(--muted)">${new Date(a.at).toLocaleString('pt-BR')}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">Sem registros</td></tr>')+'</tbody>';}
@@ -1935,7 +1935,10 @@ updateStageBadge();
   function domExtract(doc,inf){
     var emitEl=inf.getElementsByTagName('emit')[0];
     var volEl=inf.getElementsByTagName('vol')[0];
-    var header={chave:(inf.getAttribute('Id')||'').replace(/\D/g,''),nNF:txt(inf,'nNF'),serie:txt(inf,'serie'),dh:txt(inf,'dhEmi')||txt(inf,'dEmi'),emit:emitEl?txt(emitEl,'xNome'):'',qVol:nfNum(volEl?txt(volEl,'qVol'):''),pesoL:nfNum(volEl?txt(volEl,'pesoL'):''),pesoB:nfNum(volEl?txt(volEl,'pesoB'):'')};
+    /* nNF/serie/data têm que vir do <ide> direto — dentro de <NFref><refNF> também existe nNF/serie (NF referenciada) e pegava o errado */
+    var ideEl=inf.getElementsByTagName('ide')[0];
+    function ideTxt(tag){if(!ideEl)return txt(inf,tag);var ns=ideEl.getElementsByTagName(tag);for(var k=0;k<ns.length;k++){if(ns[k].parentNode===ideEl)return (ns[k].textContent||'').trim();}return '';}
+    var header={chave:(inf.getAttribute('Id')||'').replace(/\D/g,''),nNF:ideTxt('nNF'),serie:ideTxt('serie'),dh:ideTxt('dhEmi')||ideTxt('dEmi'),emit:emitEl?txt(emitEl,'xNome'):'',qVol:nfNum(volEl?txt(volEl,'qVol'):''),pesoL:nfNum(volEl?txt(volEl,'pesoL'):''),pesoB:nfNum(volEl?txt(volEl,'pesoB'):'')};
     var items=[], dets=inf.getElementsByTagName('det');
     for(var i=0;i<dets.length;i++){
       var prod=dets[i].getElementsByTagName('prod')[0]; if(!prod)continue;
@@ -1951,7 +1954,11 @@ updateStageBadge();
     var chaveM=/Id=["']NFe(\d+)["']/i.exec(s);
     var emitBlock=(/<(?:\w+:)?emit(?:\s[^>]*)?>[\s\S]*?<\/(?:\w+:)?emit>/i.exec(s)||[''])[0];
     var volBlock=(/<(?:\w+:)?vol(?:\s[^>]*)?>[\s\S]*?<\/(?:\w+:)?vol>/i.exec(s)||[''])[0];
-    var header={chave:chaveM?chaveM[1]:'',nNF:g('nNF'),serie:g('serie'),dh:g('dhEmi')||g('dEmi'),emit:emitBlock?g('xNome',emitBlock):'',qVol:nfNum(volBlock?g('qVol',volBlock):''),pesoL:nfNum(volBlock?g('pesoL',volBlock):''),pesoB:nfNum(volBlock?g('pesoB',volBlock):'')};
+    /* escopo do cabeçalho: bloco <ide> SEM os <NFref> (a NF referenciada tem nNF/serie próprios e pegava o errado) */
+    var stripRef=function(x){return String(x||'').replace(/<(?:\w+:)?NFref(?:\s[^>]*)?>[\s\S]*?<\/(?:\w+:)?NFref>/gi,'');};
+    var ideBlock=(/<(?:\w+:)?ide(?:\s[^>]*)?>[\s\S]*?<\/(?:\w+:)?ide>/i.exec(s)||[''])[0];
+    var hdrScope=ideBlock?stripRef(ideBlock):stripRef(s);
+    var header={chave:chaveM?chaveM[1]:'',nNF:g('nNF',hdrScope),serie:g('serie',hdrScope),dh:g('dhEmi',hdrScope)||g('dEmi',hdrScope),emit:emitBlock?g('xNome',emitBlock):'',qVol:nfNum(volBlock?g('qVol',volBlock):''),pesoL:nfNum(volBlock?g('pesoL',volBlock):''),pesoB:nfNum(volBlock?g('pesoB',volBlock):'')};
     var items=[], detRe=/<(?:\w+:)?det\b[\s\S]*?<\/(?:\w+:)?det>/gi, dm;
     while((dm=detRe.exec(s))){
       var det=dm[0];
@@ -2012,16 +2019,18 @@ updateStageBadge();
   /* ---- parser da DANFE (PDF) — melhor esforço, valores conferíveis na prévia ---- */
   function nfValidChave(d){return !!d&&d.length===44&&(d.substr(20,2)==='55'||d.substr(20,2)==='65');}
   function nfFindChave(lines,full){
-    var cands=[];
-    var scan=function(run){var d=String(run).replace(/\D/g,'');if(d.length<44)return;for(var k=0;k+44<=d.length;k++){var w=d.substr(k,44);if(nfValidChave(w)){cands.unshift(w);return;}}if(d.length===44)cands.push(d);};
+    var valid=[], refs=[], loose=[];
+    var scan=function(run,isRef){var d=String(run).replace(/\D/g,'');if(d.length<44)return;for(var k=0;k+44<=d.length;k++){var w=d.substr(k,44);if(nfValidChave(w)){(isRef?refs:valid).push(w);return;}}if(d.length===44)loose.push(d);};
     for(var i=0;i<lines.length;i++){
       var L=String(lines[i]);
+      /* chave em linha de NF REFERENCIADA (dados adicionais) não é a chave desta nota */
+      var ctx=L+' '+String(lines[i-1]||'')+' '+String(lines[i-2]||'');
+      var isRef=/REFEREN|NF-?E\s*REF|DOC(?:UMENTO)?S?\s*FISCA(?:L|IS)/i.test(ctx);
       var g=L.match(/(?:\d{4}\D{0,2}){10}\d{4}/);
-      if(g)scan(g[0]); else scan(L);
+      if(g)scan(g[0],isRef); else scan(L,isRef);
     }
-    if(!cands.length){var gg=full.match(/(?:\d{4}\D{0,2}){10}\d{4}/);if(gg)scan(gg[0]);}
-    for(var j=0;j<cands.length;j++)if(nfValidChave(cands[j]))return cands[j];
-    return cands[0]||'';
+    if(!valid.length&&!refs.length&&!loose.length){var gg=full.match(/(?:\d{4}\D{0,2}){10}\d{4}/);if(gg)scan(gg[0],false);}
+    return valid[0]||refs[0]||loose[0]||'';
   }
   function parseDANFE(lines){
     try{
@@ -2184,9 +2193,13 @@ updateStageBadge();
         +(nfParsed.pesoB>0&&nfParsed.pesoB!==nfParsed.pesoL?'<span>'+fmt(nfParsed.pesoB)+' kg bruto</span>':'')
         +'</div>';
       preview='<div class="panel" style="margin-top:16px">'
-        +'<div class="ph"><span class="pdot"></span>NF '+esc(nfParsed.nNF||'?')+' · série '+esc(nfParsed.serie||'0')+'</div>'
-        +'<div style="color:var(--muted);font-size:.85rem;margin:2px 0 4px">'+esc(nfParsed.emit||'')+'</div>'
-        +(nfParsed.chave?'<div style="color:var(--faint);font-size:.68rem;word-break:break-all;margin-bottom:6px">chave '+esc(nfParsed.chave)+'</div>':'')
+        +'<div class="ph"><span class="pdot"></span>Nota fiscal <span style="font-weight:400;color:var(--muted);font-size:.72rem">— cabeçalho editável ✏️ (confira, o PDF às vezes engana)</span></div>'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 6px">'
+          +'<label style="flex:1;min-width:110px"><span style="display:block;font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Nº da NF ✏️</span><input class="input code" id="nfHdrNum" value="'+esc(nfParsed.nNF||'')+'" style="width:100%;font-weight:700"></label>'
+          +'<label style="width:80px"><span style="display:block;font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Série ✏️</span><input class="input" id="nfHdrSerie" value="'+esc(nfParsed.serie||'')+'" style="width:100%"></label>'
+          +'<label style="flex:2;min-width:170px"><span style="display:block;font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Emitente ✏️</span><input class="input" id="nfHdrEmit" value="'+esc(nfParsed.emit||'')+'" style="width:100%"></label>'
+        +'</div>'
+        +'<label style="display:block;margin-bottom:6px"><span style="display:block;font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Chave de acesso (44 dígitos) ✏️</span><input class="input" id="nfHdrChave" value="'+esc(nfParsed.chave||'')+'" style="width:100%;font-size:.72rem;letter-spacing:.3px"></label>'
         +resumo
         +(dup?'<div style="background:var(--out-bg,rgba(220,90,90,.12));color:var(--out);border-radius:8px;padding:8px 10px;font-size:.8rem;margin:6px 0">Esta nota já foi importada e tem etiquetas geradas. Você pode reimprimir abaixo.</div>':'')
         +((nfParsed.convAvisos&&nfParsed.convAvisos.length)?('<div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:10px 12px;font-size:.78rem;margin:6px 0">⚠️ <b>Conversão manual necessária:</b> '+nfParsed.convAvisos.length+' item(ns) têm descrição que casa com mais de um código. Corrija o código na mão antes de gerar:<ul style="margin:6px 0 0 16px;padding:0">'+nfParsed.convAvisos.map(function(a){return '<li style="margin:2px 0"><b>"'+esc(a.nf)+'"</b> → '+a.opcoes.map(esc).join(' ou ')+'</li>';}).join('')+'</ul></div>'):'')
@@ -2583,6 +2596,15 @@ updateStageBadge();
   /* ---- gerar etiquetas (1 por volume) ---- */
   function genLabels(){
     if(!nfParsed)return;
+    /* aplica o cabeçalho editado na prévia (nº, série, emitente, chave) */
+    try{
+      var hn=document.getElementById('nfHdrNum'),hs=document.getElementById('nfHdrSerie'),he=document.getElementById('nfHdrEmit'),hc=document.getElementById('nfHdrChave');
+      if(hn){var nv=(hn.value||'').replace(/\D/g,'').replace(/^0+/,'');if(nv)nfParsed.nNF=nv;}
+      if(hs){var sv=(hs.value||'').replace(/\D/g,'').replace(/^0+/,'');nfParsed.serie=sv||nfParsed.serie||'0';}
+      if(he&&(he.value||'').trim())nfParsed.emit=he.value.trim();
+      if(hc){var cv=(hc.value||'').replace(/\D/g,'');if(cv.length===44)nfParsed.chave=cv;else if(!cv)nfParsed.chave='';else if(cv!==(nfParsed.chave||'')){toast('Chave precisa ter 44 dígitos — mantive a anterior',false);}}
+      nfParsed.key=nfParsed.chave||((nfParsed.nNF||'?')+'-'+(nfParsed.serie||'0'));
+    }catch(e){}
     if(NFS[nfParsed.key]){toast('Nota já gerada — use reimprimir',false);return;}
     /* LIMPEZA: remove etiquetas órfãs da mesma NF (caso tenha sido excluída antes e voltado pela nuvem) — evita acumular */
     var _orf=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===nfParsed.key;});
@@ -4167,16 +4189,29 @@ function genEndGrid(){const sc=document.getElementById('lblScope'),stEl=document
 /* ===== VERSÃO PELO LOGIN: usuário 'x' = celular/leve · admin = completo ===== */
 function ensureX(){try{if(typeof US!=='undefined'&&Array.isArray(US)){let ux=US.find(u=>(u.u||'').toLowerCase()==='x');if(!ux){US.push({u:'x',p:'020502',role:'admin',active:true,lite:true});}else{ux.p='020502';ux.role='admin';ux.active=true;ux.lite=true;}if(typeof DB!=='undefined'&&DB.saveUsers)DB.saveUsers(US);}}catch(e){}}
 function ensureAdmin(){try{if(typeof US!=='undefined'&&Array.isArray(US)){let a=US.find(u=>(u.u||'').toLowerCase()==='admin');if(!a){US.push({u:'admin',p:'020502',role:'admin',active:true});}else{a.p='020502';a.role='admin';a.active=true;}if(typeof DB!=='undefined'&&DB.saveUsers)DB.saveUsers(US);}}catch(e){}}
-var OPERADORES=[['LEONARDO','2030'],['JORGE','2010'],['JUVAL','3210'],['JEFERSON','3021'],['ISMAEL','3565'],['JOSE','3535'],['ISBEL','2210'],['MAICON','3528']];
+var OPERADORES=[['LEONARDO','2030'],['JORGE','2010'],['JUVAL','3210'],['JEFERSON','3021'],['ISMAEL','3565'],['JOSE','3535'],['ISBEL','2210']];
 /* usuários de recepção: veem só nota fiscal, etiquetas, recebimento e chão */
-var RECEPCAO=[['MARIA','maria1']];
-function ensureRecepcao(){try{if(typeof US!=='undefined'&&Array.isArray(US)){let ch=false;RECEPCAO.forEach(function(o){var ex=US.find(function(u){return (u.u||'').toLowerCase()===o[0].toLowerCase();});if(ex){if(ex.p!==o[1]||ex.role!=='recepcao'||ex.active===false){ex.p=o[1];ex.role='recepcao';ex.active=true;ch=true;}}else{US.push({u:o[0],p:o[1],role:'recepcao',active:true});ch=true;}});if(ch&&typeof DB!=='undefined'&&DB.saveUsers)DB.saveUsers(US);}}catch(e){}pushRecepcao();}
-var _recPushed=false;
-function pushRecepcao(){try{if(_recPushed)return;if(typeof supa==='undefined'||!supa||typeof chunkUp!=='function')return;_recPushed=true;chunkUp('usuarios',RECEPCAO.map(function(o){return {u:o[0],p:o[1],role:'recepcao',active:true};})).then(function(){}).catch(function(){_recPushed=false;});}catch(e){}}
-function ensureOperators(){try{if(typeof US!=='undefined'&&Array.isArray(US)){let ch=false;OPERADORES.forEach(function(o){var ex=US.find(function(u){return (u.u||'').toLowerCase()===o[0].toLowerCase();});if(ex){if(ex.p!==o[1]||ex.role!=='operador'||ex.active===false){ex.p=o[1];ex.role='operador';ex.active=true;ch=true;}}else{US.push({u:o[0],p:o[1],role:'operador',active:true});ch=true;}});if(ch&&typeof DB!=='undefined'&&DB.saveUsers)DB.saveUsers(US);}}catch(e){}pushOperators();}
-/* envia os operadores pra nuvem (1x por sessão) — assim celulares recebem pelo sync mesmo sem ter o código novo */
-var _opsPushed=false;
-function pushOperators(){try{if(_opsPushed)return;if(typeof supa==='undefined'||!supa||typeof chunkUp!=='function')return;_opsPushed=true;chunkUp('usuarios',OPERADORES.map(function(o){return {u:o[0],p:o[1],role:'operador',active:true};})).then(function(){try{if(typeof pullAll==='function'){}}catch(e){}}).catch(function(){_opsPushed=false;});}catch(e){}}
+var RECEPCAO=[['MARIA','maria1'],['MAICON','3528']];
+/* ===== SEED de usuários: só CRIA quem não existe. NUNCA sobrescreve perfil/senha/status
+   editados na tela de usuários (era isso que revertia o perfil a cada sync de 4s). ===== */
+function _seedMem(){try{return JSON.parse(localStorage.getItem('wmsx_seededUsers')||'[]');}catch(e){return [];}}
+function _seedMark(n){try{var a=_seedMem();n=String(n||'').toLowerCase();if(n&&a.indexOf(n)<0){a.push(n);localStorage.setItem('wmsx_seededUsers',JSON.stringify(a));}}catch(e){}}
+window._seedPend=window._seedPend||[];
+function _seedList(list,role){try{if(typeof US==='undefined'||!Array.isArray(US))return;var mem=_seedMem();var ch=false;
+ list.forEach(function(o){var n=o[0].toLowerCase();if(mem.indexOf(n)>=0)return; /* já semeado neste aparelho: a tela de usuários manda */
+  var ex=US.find(function(u){return (u.u||'').toLowerCase()===n;});
+  if(!ex){US.push({u:o[0],p:o[1],role:role,active:true});if(window._seedPend.indexOf(o[0])<0)window._seedPend.push(o[0]);ch=true;}
+  _seedMark(o[0]);});
+ if(ch&&typeof DB!=='undefined'&&DB.saveUsers)DB.saveUsers(US);}catch(e){}}
+function ensureRecepcao(){_seedList(RECEPCAO,'recepcao');
+ /* migração única (03/07/26): MAICON passa a perfil Recepção */
+ try{if(localStorage.getItem('wmsx_maicon_recep_v1')!=='1'){var mk=(US||[]).find(function(u){return (u.u||'').toLowerCase()==='maicon';});if(mk){if(mk.role!=='recepcao'){mk.role='recepcao';mk.p='3528';mk.active=true;if(typeof DB!=='undefined'&&DB.saveUsers)DB.saveUsers(US);if(window._seedPend.indexOf('MAICON')<0)window._seedPend.push('MAICON');}localStorage.setItem('wmsx_maicon_recep_v1','1');}}}catch(e){}
+ pushSeedUsers();}
+function ensureOperators(){_seedList(OPERADORES,'operador');pushSeedUsers();}
+/* envia pra nuvem SÓ os usuários recém-semeados/migrados — não regrava os existentes */
+function pushSeedUsers(){try{if(typeof supa==='undefined'||!supa||typeof chunkUp!=='function')return;var pend=(window._seedPend||[]).slice();if(!pend.length)return;window._seedPend=[];var low=pend.map(function(x){return String(x).toLowerCase();});var rows=(US||[]).filter(function(u){return low.indexOf((u.u||'').toLowerCase())>=0;}).map(function(u){return {u:u.u,p:u.p,role:u.role,active:u.active!==false};});if(!rows.length)return;chunkUp('usuarios',rows).catch(function(){window._seedPend=pend.concat(window._seedPend||[]);});}catch(e){}}
+var _recPushed=false;function pushRecepcao(){pushSeedUsers();}
+var _opsPushed=false;function pushOperators(){pushSeedUsers();}
 function isLite(){try{if(!session)return false;const u=US.find(x=>(x.u||'').toLowerCase()===(session.u||'').toLowerCase());if(u&&u.lite)return true;return (session.u||'').toLowerCase()==='x';}catch(e){return false;}}
 const LITE_ALLOWED=['v-recv','v-mov','v-stock'];
 (function(){

@@ -1774,9 +1774,24 @@ updateStageBadge();
 (function(){
   ICONS.layers='<svg class="i" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5M3 17l9 5 9-5"/></svg>';
   let FLOOR={};try{FLOOR=JSON.parse(localStorage.getItem('wmsx_floor'))||{};}catch(e){FLOOR={};}
+  /* REPARO no load: normaliza etiquetas, remove duplicadas e reorganiza por código —
+     conserta contagens antigas que podiam somar errado ou travar em "já contada" invisível. */
+  (function _fixCh(){try{
+    var U=function(s){return String(s==null?'':s).trim().toUpperCase();};
+    var flat=[];Object.keys(FLOOR).forEach(function(k){var g=FLOOR[k]||{};(g.ets||[]).forEach(function(x){
+      var et=U((typeof x==='string')?x:(x&&x.et));if(!et)return;
+      var pl=(typeof x==='string')?0:(Number(x&&x.pl)||0);
+      var pr=(g.pr&&String(g.pr).trim())||(BOB[et]&&BOB[et].pr)||'—';
+      flat.push({et:et,pl:pl,pr:String(pr),desc:(g.desc||(BOB[et]&&BOB[et].desc)||''),at:g.at||nowISO(),by:g.by||''});});});
+    var seen={},nf={};
+    flat.forEach(function(x){if(seen[x.et])return;seen[x.et]=1;if(!nf[x.pr])nf[x.pr]={pr:x.pr,desc:x.desc,qtd:0,kg:0,ets:[],at:x.at,by:x.by};nf[x.pr].ets.push({et:x.et,pl:x.pl});if((x.at||'')>(nf[x.pr].at||''))nf[x.pr].at=x.at;});
+    Object.keys(nf).forEach(function(pr){nf[pr].qtd=nf[pr].ets.length;nf[pr].kg=nf[pr].ets.reduce(function(s,y){return s+(Number(y.pl)||0);},0);});
+    FLOOR=nf;try{localStorage.setItem('wmsx_floor',JSON.stringify(FLOOR));}catch(e){}
+  }catch(e){}})();
   function saveFloor(){try{localStorage.setItem('wmsx_floor',JSON.stringify(FLOOR));}catch(e){}}
-  function etList(g){return (g.ets||[]).map(x=>typeof x==='string'?{et:x,pl:(BOB[x]?Number(BOB[x].pl)||0:0)}:x);}
-  function floorHasEt(et){return Object.values(FLOOR).some(g=>etList(g).some(x=>x.et===et));}
+  function _eCh(s){return String(s==null?'':s).trim().toUpperCase();}
+  function etList(g){return (g.ets||[]).map(x=>typeof x==='string'?{et:_eCh(x),pl:(BOB[x]?Number(BOB[x].pl)||0:0)}:{et:_eCh(x.et),pl:x.pl});}
+  function floorHasEt(et){et=_eCh(et);return Object.values(FLOOR).some(g=>etList(g).some(x=>x.et===et));}
   function floorTotals(){let q=0,kg=0,codes=0;Object.values(FLOOR).forEach(g=>{q+=g.qtd||0;kg+=g.kg||0;codes++;});return{q,kg,codes};}
   /* etiquetas recém-zeradas (não podem voltar da nuvem) e horário do último bipe (distingue "novo" de "deletado por outro") */
   var _delCh=Object.create(null), _bipCh=Object.create(null);
@@ -1788,7 +1803,7 @@ updateStageBadge();
     (rows||[]).forEach(function(r){
       var pr=r.pr||'—';
       if(!nf[pr])nf[pr]={pr:pr,desc:r.descricao||'',qtd:0,kg:0,ets:[],at:r.at||nowISO(),by:r.by_user||''};
-      nf[pr].ets.push({et:r.et,pl:Number(r.pl)||0});
+      nf[pr].ets.push({et:_eCh(r.et),pl:Number(r.pl)||0});
       if((r.at||'')>(nf[pr].at||''))nf[pr].at=r.at;
     });
     Object.keys(nf).forEach(function(pr){nf[pr].qtd=nf[pr].ets.length;nf[pr].kg=nf[pr].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);});
@@ -1798,25 +1813,25 @@ updateStageBadge();
   window.floorPullCloud=function(rows,readErr){
     try{
       /* remove das linhas da nuvem tudo que acabei de zerar; se ainda está lá, reforça o delete */
-      rows=(rows||[]).filter(function(r){var k=r&&r.et?String(r.et).toUpperCase():'';if(k&&_delCh[k]){try{if(typeof syncDelChao==='function')syncDelChao(r.et);}catch(e){}return false;}return true;});
-      var cloudEts={};rows.forEach(function(r){if(r&&r.et)cloudEts[String(r.et).toUpperCase()]=1;});
+      rows=(rows||[]).filter(function(r){var k=r&&r.et?_eCh(r.et):'';if(k&&_delCh[k]){try{if(typeof syncDelChao==='function')syncDelChao(r.et);}catch(e){}return false;}return true;});
+      var cloudEts={};rows.forEach(function(r){if(r&&r.et)cloudEts[_eCh(r.et)]=1;});
       var localEts=[];Object.values(FLOOR).forEach(function(g){etList(g).forEach(function(x){localEts.push({et:x.et,pl:x.pl,pr:g.pr,desc:g.desc,at:g.at,by:g.by});});});
-      localEts=localEts.filter(function(x){return !_delCh[String(x.et).toUpperCase()];});
+      localEts=localEts.filter(function(x){return !_delCh[_eCh(x.et)];});
       /* leitura falhou/veio vazia com contagem local: mantém local e reenvia só o recém-bipado */
       if(readErr || ((!rows||!rows.length) && localEts.length)){
         var _ag0=Date.now();
-        localEts.forEach(function(x){if((_bipCh[String(x.et).toUpperCase()]||0)>(_ag0-25000)){try{if(typeof syncChao==='function')syncChao({et:x.et,pr:x.pr||'',desc:x.desc||'',pl:x.pl,at:x.at||nowISO(),by:x.by||''});}catch(e){}}});
+        localEts.forEach(function(x){var _xe=_eCh(x.et);if((_bipCh[_xe]||0)>(_ag0-25000)){try{if(typeof syncChao==='function')syncChao({et:_xe,pr:x.pr||'',desc:x.desc||'',pl:x.pl,at:x.at||nowISO(),by:x.by||''});}catch(e){}}});
         return;
       }
       /* MERGE: base = nuvem. Local que sumiu da nuvem: reenvia só se bipado há <25s; senão foi deletado → some */
       var merged=rebuildFloorFromRows(rows);
-      var onlyLocal=localEts.filter(function(x){return !cloudEts[String(x.et).toUpperCase()];});
+      var onlyLocal=localEts.filter(function(x){return !cloudEts[_eCh(x.et)];});
       var GRACE=25000, agora=Date.now();
       onlyLocal.forEach(function(x){
-        if((_bipCh[String(x.et).toUpperCase()]||0) <= (agora-GRACE))return; /* antiga e sumiu = deletada */
+        var _xe=_eCh(x.et);if((_bipCh[_xe]||0) <= (agora-GRACE))return; /* antiga e sumiu = deletada */
         var pr=x.pr||'—';if(!merged[pr])merged[pr]={pr:pr,desc:x.desc||'',qtd:0,kg:0,ets:[],at:x.at||nowISO(),by:x.by||''};
-        merged[pr].ets=(merged[pr].ets||[]);merged[pr].ets.unshift({et:x.et,pl:Number(x.pl)||0});
-        try{if(typeof syncChao==='function')syncChao({et:x.et,pr:pr,desc:x.desc||'',pl:x.pl,at:x.at||nowISO(),by:x.by||''});}catch(e){}
+        merged[pr].ets=(merged[pr].ets||[]);merged[pr].ets.unshift({et:_xe,pl:Number(x.pl)||0});
+        try{if(typeof syncChao==='function')syncChao({et:_xe,pr:pr,desc:x.desc||'',pl:x.pl,at:x.at||nowISO(),by:x.by||''});}catch(e){}
       });
       Object.keys(merged).forEach(function(pr){merged[pr].qtd=merged[pr].ets.length;merged[pr].kg=merged[pr].ets.reduce(function(s,y){return s+(Number(y.pl)||0);},0);});
       FLOOR=merged;saveFloor();var act=document.querySelector('.view.active');if(act&&act.id==='v-floor')renderFloor();
@@ -1827,11 +1842,11 @@ updateStageBadge();
       if(ev==='DELETE'&&o){
         Object.keys(FLOOR).forEach(function(pr){var g=FLOOR[pr];g.ets=etList(g).filter(function(x){return x.et!==o.et;});if(!g.ets.length)delete FLOOR[pr];else{g.qtd=g.ets.length;g.kg=g.ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);}});
       }else if(n){
-        if(n.et&&_delCh[String(n.et).toUpperCase()]){try{if(typeof syncDelChao==='function')syncDelChao(n.et);}catch(e){}return;}
-        Object.keys(FLOOR).forEach(function(pr){var g=FLOOR[pr];g.ets=etList(g).filter(function(x){return x.et!==n.et;});if(!g.ets.length)delete FLOOR[pr];});
+        var _net=_eCh(n.et);if(_net&&_delCh[_net]){try{if(typeof syncDelChao==='function')syncDelChao(n.et);}catch(e){}return;}
+        Object.keys(FLOOR).forEach(function(pr){var g=FLOOR[pr];g.ets=etList(g).filter(function(x){return x.et!==_net;});if(!g.ets.length)delete FLOOR[pr];});
         var pr2=n.pr||'—';
         if(!FLOOR[pr2])FLOOR[pr2]={pr:pr2,desc:n.descricao||'',qtd:0,kg:0,ets:[],at:n.at||nowISO(),by:n.by_user||''};
-        FLOOR[pr2].ets=etList(FLOOR[pr2]);FLOOR[pr2].ets.unshift({et:n.et,pl:Number(n.pl)||0});
+        FLOOR[pr2].ets=etList(FLOOR[pr2]);FLOOR[pr2].ets.unshift({et:_net,pl:Number(n.pl)||0});
         FLOOR[pr2].qtd=FLOOR[pr2].ets.length;FLOOR[pr2].kg=FLOOR[pr2].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);FLOOR[pr2].at=n.at||nowISO();
       }
       saveFloor();
@@ -1844,20 +1859,20 @@ updateStageBadge();
     const et=norm(v);if(!et)return;
     var b=BOB[et];if(!b&&typeof window.etqLookup==='function')b=window.etqLookup(et);
     if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
-    if(floorHasEt(et)){toast('Etiqueta '+et+' já contada no chão',false);return;}
-    try{delete _delCh[String(et).toUpperCase()];_bipCh[String(et).toUpperCase()]=Date.now();}catch(e){}
+    if(floorHasEt(et)){var _ac='';Object.values(FLOOR).forEach(function(g){if(etList(g).some(function(x){return x.et===_eCh(et);}))_ac=g.pr;});renderFloor();toast('Etiqueta '+et+' já contada'+(_ac?(' em '+_ac):'')+' no chão',false);return;}
+    try{var _kc=_eCh(et);delete _delCh[_kc];_bipCh[_kc]=Date.now();}catch(e){}
     const pr=b.pr||'—',pl=Number(b.pl)||0;
     let g=FLOOR[pr];
     if(!g){g={pr:pr,desc:b.desc||'',qtd:0,kg:0,ets:[],at:nowISO(),by:session?session.u:''};FLOOR[pr]=g;}
-    g.ets=etList(g);g.ets.unshift({et:et,pl:pl});g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);g.at=nowISO();
+    g.ets=etList(g);g.ets.unshift({et:_eCh(et),pl:pl});g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);g.at=nowISO();
     saveFloor();
     if(typeof logAct==='function')logAct('chao',et+' · '+pr);
-    if(typeof syncChao==='function')syncChao({et:et,pr:pr,desc:b.desc||'',pl:pl,at:g.at,by:session?session.u:''});
+    if(typeof syncChao==='function')syncChao({et:_eCh(et),pr:pr,desc:b.desc||'',pl:pl,at:g.at,by:session?session.u:''});
     renderFloor();
     toast('+1 no chão · '+pr+' ('+g.qtd+' bob · '+fmt(g.kg)+' kg)');
   };
-  function floorRemoveEt(pr,et){const g=FLOOR[pr];if(!g)return;g.ets=etList(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveFloor();try{_delCh[String(et).toUpperCase()]=Date.now();delete _bipCh[String(et).toUpperCase()];}catch(e){}if(typeof syncDelChao==='function')syncDelChao(et);renderFloor();toast('Removido '+et);}
-  function floorRemoveCode(pr){if(!FLOOR[pr])return;const ets=etList(FLOOR[pr]);delete FLOOR[pr];saveFloor();if(typeof syncDelChao==='function')ets.forEach(function(x){try{_delCh[String(x.et).toUpperCase()]=Date.now();delete _bipCh[String(x.et).toUpperCase()];}catch(e){}syncDelChao(x.et);});renderFloor();toast('Código '+pr+' zerado');}
+  function floorRemoveEt(pr,et){et=_eCh(et);const g=FLOOR[pr];if(!g)return;g.ets=etList(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveFloor();try{_delCh[et]=Date.now();delete _bipCh[et];}catch(e){}if(typeof syncDelChao==='function')syncDelChao(et);renderFloor();toast('Removido '+et);}
+  function floorRemoveCode(pr){if(!FLOOR[pr])return;const ets=etList(FLOOR[pr]);delete FLOOR[pr];saveFloor();if(typeof syncDelChao==='function')ets.forEach(function(x){var _xe=_eCh(x.et);try{_delCh[_xe]=Date.now();delete _bipCh[_xe];}catch(e){}syncDelChao(x.et);});renderFloor();toast('Código '+pr+' zerado');}
   function floorClear(){if(!Object.keys(FLOOR).length)return;if(!confirm('Limpar TODO o chão? Isso apaga a contagem atual.'))return;FLOOR={};saveFloor();if(typeof supa!=='undefined'&&supa){try{supa.from('chao').delete().neq('et','').then(function(){},function(){});}catch(e){}}renderFloor();toast('Chão limpo');}
 
   window.renderFloor=function(){
@@ -1917,11 +1932,26 @@ updateStageBadge();
 /* ===== CHÃO 70 — segundo chão, contagem 100% independente do Chão (tabela 'chao70', storage 'wmsx_floor70') ===== */
 (function(){
   let FLOOR70={};try{FLOOR70=JSON.parse(localStorage.getItem('wmsx_floor70'))||{};}catch(e){FLOOR70={};}
+  /* REPARO: conserta grupos quebrados que travavam em "já contada" sem aparecer na lista
+     (grupo sem pr, etiqueta sem et, contadores errados). Reorganiza pela etiqueta. */
+  (function _fix70(){try{
+    var flat=[];Object.keys(FLOOR70).forEach(function(k){var g=FLOOR70[k]||{};var arr=(g.ets||[]);
+      arr.forEach(function(x){var et=(typeof x==='string')?x:(x&&x.et);if(!et)return;et=String(et).trim().toUpperCase();
+        var pl=(typeof x==='string')?0:(Number(x&&x.pl)||0);
+        var pr=(g.pr&&String(g.pr).trim())||(BOB[et]&&BOB[et].pr)||'—';
+        var desc=(g.desc||(BOB[et]&&BOB[et].desc)||'');
+        flat.push({et:et,pl:pl,pr:String(pr),desc:desc,at:g.at||nowISO(),by:g.by||''});});});
+    var seen={},nf={};
+    flat.forEach(function(x){if(seen[x.et])return;seen[x.et]=1;if(!nf[x.pr])nf[x.pr]={pr:x.pr,desc:x.desc,qtd:0,kg:0,ets:[],at:x.at,by:x.by};nf[x.pr].ets.push({et:x.et,pl:x.pl});if((x.at||'')>(nf[x.pr].at||''))nf[x.pr].at=x.at;});
+    Object.keys(nf).forEach(function(pr){nf[pr].qtd=nf[pr].ets.length;nf[pr].kg=nf[pr].ets.reduce(function(s,y){return s+(Number(y.pl)||0);},0);});
+    FLOOR70=nf;try{localStorage.setItem('wmsx_floor70',JSON.stringify(FLOOR70));}catch(e){}
+  }catch(e){}})();
   function saveF70(){try{localStorage.setItem('wmsx_floor70',JSON.stringify(FLOOR70));}catch(e){}}
-  function etL(g){return (g.ets||[]).map(x=>typeof x==='string'?{et:x,pl:(BOB[x]?Number(BOB[x].pl)||0:0)}:x);}
-  function f70HasEt(et){return Object.values(FLOOR70).some(g=>etL(g).some(x=>x.et===et));}
+  function _e70(s){return String(s==null?'':s).trim().toUpperCase();}
+  function etL(g){return (g.ets||[]).map(x=>typeof x==='string'?{et:_e70(x),pl:(BOB[x]?Number(BOB[x].pl)||0:0)}:{et:_e70(x.et),pl:x.pl});}
+  function f70HasEt(et){et=_e70(et);return Object.values(FLOOR70).some(g=>etL(g).some(x=>x.et===et));}
   function f70Totals(){let q=0,kg=0,codes=0;Object.values(FLOOR70).forEach(g=>{q+=g.qtd||0;kg+=g.kg||0;codes++;});return{q,kg,codes};}
-  function rebuild70(rows){var nf={};(rows||[]).forEach(function(r){var pr=r.pr||'—';if(!nf[pr])nf[pr]={pr:pr,desc:r.descricao||'',qtd:0,kg:0,ets:[],at:r.at||nowISO(),by:r.by_user||''};nf[pr].ets.push({et:r.et,pl:Number(r.pl)||0});if((r.at||'')>(nf[pr].at||''))nf[pr].at=r.at;});Object.keys(nf).forEach(function(pr){nf[pr].qtd=nf[pr].ets.length;nf[pr].kg=nf[pr].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);});return nf;}
+  function rebuild70(rows){var nf={};(rows||[]).forEach(function(r){var pr=r.pr||'—';if(!nf[pr])nf[pr]={pr:pr,desc:r.descricao||'',qtd:0,kg:0,ets:[],at:r.at||nowISO(),by:r.by_user||''};nf[pr].ets.push({et:_e70(r.et),pl:Number(r.pl)||0});if((r.at||'')>(nf[pr].at||''))nf[pr].at=r.at;});Object.keys(nf).forEach(function(pr){nf[pr].qtd=nf[pr].ets.length;nf[pr].kg=nf[pr].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);});return nf;}
   /* ---- ponte com a nuvem: tabela 'chao70' ---- */
   function sync70(item){if(typeof supa==='undefined'||!supa||!item||!item.et)return;supa.from('chao70').upsert({et:item.et,pr:item.pr||'',descricao:item.desc||'',pl:Number(item.pl)||0,at:item.at||new Date().toISOString(),by_user:item.by||''}).then(()=>{},()=>{});}
   /* etiquetas que o operador acabou de zerar: o pull da nuvem NÃO pode trazer de volta
@@ -1929,23 +1959,31 @@ updateStageBadge();
   var _del70=Object.create(null);
   /* horário do último bipe de cada etiqueta — usado pra distinguir "recém-bipada" de "deletada por outro" */
   var _bip70=Object.create(null);
-  function syncDel70(et,_try){if(!et)return;var key=String(et).toUpperCase();_del70[key]=Date.now();
+  /* "geração" por etiqueta: cada bipe/zerar incrementa. Um retry de delete só continua se
+     a geração dele ainda for a atual — assim, re-bipar CANCELA um delete que estava em retry
+     (era o cabo de guerra que fazia a etiqueta bipada sumir logo depois). */
+  var _gen70=Object.create(null);
+  function _bump70(et){var k=String(et).toUpperCase();_gen70[k]=(_gen70[k]||0)+1;return _gen70[k];}
+  function syncDel70(et,_try,_g){if(!et)return;var key=String(et).toUpperCase();
+    var g=(_g==null)?_bump70(et):_g;         /* 1ª chamada cria uma geração nova; retries herdam a mesma */
+    _del70[key]=Date.now();
     if(typeof supa==='undefined'||!supa)return;var t=_try||0;
     supa.from('chao70').delete().eq('et',et).then(function(r){
-      if(r&&r.error){if(t<4)setTimeout(function(){syncDel70(et,t+1);},600*(t+1));}
-      else{delete _del70[key];} /* confirmou o apagamento: pode liberar */
-    },function(){if(t<4)setTimeout(function(){syncDel70(et,t+1);},600*(t+1));});
+      if(g!==_gen70[key])return;             /* re-bipado no meio do caminho: aborta este delete */
+      if(r&&r.error){if(t<4)setTimeout(function(){if(g===_gen70[key])syncDel70(et,t+1,g);},600*(t+1));}
+      else{delete _del70[key];}              /* confirmou o apagamento: pode liberar */
+    },function(){if(g!==_gen70[key])return;if(t<4)setTimeout(function(){if(g===_gen70[key])syncDel70(et,t+1,g);},600*(t+1));});
   }
   window.floor70PullCloud=function(rows,readErr){
     try{
       /* remove das linhas da nuvem tudo que o operador acabou de zerar (exclusão pendente).
          Se ainda está na nuvem, reforça o delete — assim o item zerado não volta. */
       var _pend=_del70;
-      rows=(rows||[]).filter(function(r){var k=r&&r.et?String(r.et).toUpperCase():'';if(k&&_pend[k]){try{syncDel70(r.et);}catch(e){}return false;}return true;});
-      var cloudEts={};rows.forEach(function(r){if(r&&r.et)cloudEts[String(r.et).toUpperCase()]=1;});
+      rows=(rows||[]).filter(function(r){var k=r&&r.et?_e70(r.et):'';if(k&&_pend[k]){try{syncDel70(r.et);}catch(e){}return false;}return true;});
+      var cloudEts={};rows.forEach(function(r){if(r&&r.et)cloudEts[_e70(r.et)]=1;});
       var localEts=[];Object.values(FLOOR70).forEach(function(g){etL(g).forEach(function(x){localEts.push({et:x.et,pl:x.pl,pr:g.pr,desc:g.desc,at:g.at,by:g.by});});});
       /* nunca reponho localmente uma etiqueta que está em exclusão pendente */
-      localEts=localEts.filter(function(x){return !_pend[String(x.et).toUpperCase()];});
+      localEts=localEts.filter(function(x){return !_pend[_e70(x.et)];});
       /* se a leitura da nuvem FALHOU (ex: tabela chao70 ainda não existe) ou veio vazia enquanto
          eu tenho contagem local, NÃO zero — mantenho o local e reenvio pra nuvem. (era isso que
          fazia o item "aparecer e zerar" a cada sync.) */
@@ -1960,14 +1998,14 @@ updateStageBadge();
          Distingo pelos ~25s de "janela de graça" desde o bipe. Sem isso, um aparelho
          reenviava o que o outro tinha zerado, e o item voltava pra sempre. */
       var merged=rebuild70(rows);
-      var onlyLocal=localEts.filter(function(x){return !cloudEts[String(x.et).toUpperCase()];});
+      var onlyLocal=localEts.filter(function(x){return !cloudEts[_e70(x.et)];});
       var GRACE=25000, agora=Date.now();
       onlyLocal.forEach(function(x){
-        var recente=(_bip70[String(x.et).toUpperCase()]||0) > (agora-GRACE);
+        var _xe=_e70(x.et);var recente=(_bip70[_xe]||0) > (agora-GRACE);
         if(!recente)return; /* antiga e sumiu da nuvem = foi deletada: deixa sumir */
         var pr=x.pr||'—';if(!merged[pr])merged[pr]={pr:pr,desc:x.desc||'',qtd:0,kg:0,ets:[],at:x.at||nowISO(),by:x.by||''};
-        merged[pr].ets=(merged[pr].ets||[]);merged[pr].ets.unshift({et:x.et,pl:Number(x.pl)||0});
-        try{sync70({et:x.et,pr:pr,desc:x.desc||'',pl:x.pl,at:x.at||nowISO(),by:x.by||''});}catch(e){}
+        merged[pr].ets=(merged[pr].ets||[]);merged[pr].ets.unshift({et:_xe,pl:Number(x.pl)||0});
+        try{sync70({et:_xe,pr:pr,desc:x.desc||'',pl:x.pl,at:x.at||nowISO(),by:x.by||''});}catch(e){}
       });
       Object.keys(merged).forEach(function(pr){merged[pr].qtd=merged[pr].ets.length;merged[pr].kg=merged[pr].ets.reduce(function(s,y){return s+(Number(y.pl)||0);},0);});
       FLOOR70=merged;saveF70();
@@ -1976,11 +2014,11 @@ updateStageBadge();
   };
   window.floor70ApplyRealtimeRow=function(ev,n,o){
     try{
-      if(ev==='DELETE'&&o){Object.keys(FLOOR70).forEach(function(pr){var g=FLOOR70[pr];g.ets=etL(g).filter(function(x){return x.et!==o.et;});if(!g.ets.length)delete FLOOR70[pr];else{g.qtd=g.ets.length;g.kg=g.ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);}});}
+      if(ev==='DELETE'&&o){var _oet=_e70(o.et);Object.keys(FLOOR70).forEach(function(pr){var g=FLOOR70[pr];g.ets=etL(g).filter(function(x){return x.et!==_oet;});if(!g.ets.length)delete FLOOR70[pr];else{g.qtd=g.ets.length;g.kg=g.ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);}});}
       else if(n){
         /* ignora eventos de uma etiqueta que este aparelho acabou de zerar (senão ela voltaria) */
-        if(n.et&&_del70[String(n.et).toUpperCase()]){try{syncDel70(n.et);}catch(e){}return;}
-        Object.keys(FLOOR70).forEach(function(pr){var g=FLOOR70[pr];g.ets=etL(g).filter(function(x){return x.et!==n.et;});if(!g.ets.length)delete FLOOR70[pr];});var pr2=n.pr||'—';if(!FLOOR70[pr2])FLOOR70[pr2]={pr:pr2,desc:n.descricao||'',qtd:0,kg:0,ets:[],at:n.at||nowISO(),by:n.by_user||''};FLOOR70[pr2].ets=etL(FLOOR70[pr2]);FLOOR70[pr2].ets.unshift({et:n.et,pl:Number(n.pl)||0});FLOOR70[pr2].qtd=FLOOR70[pr2].ets.length;FLOOR70[pr2].kg=FLOOR70[pr2].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);FLOOR70[pr2].at=n.at||nowISO();}
+        var _net=_e70(n.et);if(_net&&_del70[_net]){try{syncDel70(n.et);}catch(e){}return;}
+        Object.keys(FLOOR70).forEach(function(pr){var g=FLOOR70[pr];g.ets=etL(g).filter(function(x){return x.et!==_net;});if(!g.ets.length)delete FLOOR70[pr];});var pr2=n.pr||'—';if(!FLOOR70[pr2])FLOOR70[pr2]={pr:pr2,desc:n.descricao||'',qtd:0,kg:0,ets:[],at:n.at||nowISO(),by:n.by_user||''};FLOOR70[pr2].ets=etL(FLOOR70[pr2]);FLOOR70[pr2].ets.unshift({et:_net,pl:Number(n.pl)||0});FLOOR70[pr2].qtd=FLOOR70[pr2].ets.length;FLOOR70[pr2].kg=FLOOR70[pr2].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);FLOOR70[pr2].at=n.at||nowISO();}
       saveF70();var act=document.querySelector('.view.active');if(act&&act.id==='v-floor70')updateF70();
     }catch(e){}
   };
@@ -1990,15 +2028,21 @@ updateStageBadge();
     const et=norm(v);if(!et)return;
     var b=BOB[et];if(!b&&typeof window.etqLookup==='function')b=window.etqLookup(et);
     if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
-    if(f70HasEt(et)){toast('Etiqueta '+et+' já contada no Chão 70',false);return;}
-    try{delete _del70[String(et).toUpperCase()];_bip70[String(et).toUpperCase()]=Date.now();}catch(e){}/* voltou a bipar: cancela exclusão pendente e marca como recente */
+    if(f70HasEt(et)){
+      /* já está na contagem: reforça a exibição (caso a lista não tivesse atualizado) e avisa onde */
+      var _achou='';Object.values(FLOOR70).forEach(function(g){if(etL(g).some(function(x){return x.et===_e70(et);}))_achou=g.pr;});
+      updateF70();
+      toast('Etiqueta '+et+' já contada'+(_achou?(' em '+_achou):'')+' no Chão 70',false);
+      return;
+    }
+    try{var _k=String(et).toUpperCase();delete _del70[_k];_bip70[_k]=Date.now();_bump70(et);}catch(e){}/* voltou a bipar: cancela exclusão pendente/retry e marca como recente */
     const pr=b.pr||'—',pl=Number(b.pl)||0;
     let g=FLOOR70[pr];
     if(!g){g={pr:pr,desc:b.desc||'',qtd:0,kg:0,ets:[],at:nowISO(),by:session?session.u:''};FLOOR70[pr]=g;}
-    g.ets=etL(g);g.ets.unshift({et:et,pl:pl});g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);g.at=nowISO();
+    g.ets=etL(g);g.ets.unshift({et:_e70(et),pl:pl});g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);g.at=nowISO();
     saveF70();
     if(typeof logAct==='function')logAct('chao70',et+' · '+pr);
-    try{sync70({et:et,pr:pr,desc:b.desc||'',pl:pl,at:g.at,by:session?session.u:''});}catch(e){}
+    try{sync70({et:_e70(et),pr:pr,desc:b.desc||'',pl:pl,at:g.at,by:session?session.u:''});}catch(e){}
     updateF70();/* atualização LEVE: não recria o input nem a câmera (senão a câmera contínua fechava e a tela não atualizava) */
     toast('+1 no Chão 70 · '+pr+' ('+g.qtd+' bob · '+fmt(g.kg)+' kg)');
   };
@@ -2013,8 +2057,8 @@ updateStageBadge();
     var cb=v.querySelector('#f70Clear');if(cb)cb.onclick=f70Clear;
     renderF70List();
   }
-  function f70RemoveEt(pr,et){const g=FLOOR70[pr];if(!g)return;g.ets=etL(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR70[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveF70();try{delete _bip70[String(et).toUpperCase()];}catch(e){}syncDel70(et);updateF70();toast('Removido '+et);}
-  function f70RemoveCode(pr){if(!FLOOR70[pr])return;const ets=etL(FLOOR70[pr]);delete FLOOR70[pr];saveF70();ets.forEach(function(x){try{delete _bip70[String(x.et).toUpperCase()];}catch(e){}syncDel70(x.et);});updateF70();toast('Código '+pr+' zerado');}
+  function f70RemoveEt(pr,et){et=_e70(et);const g=FLOOR70[pr];if(!g)return;g.ets=etL(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR70[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveF70();try{delete _bip70[et];_bump70(et);}catch(e){}syncDel70(et);updateF70();toast('Removido '+et);}
+  function f70RemoveCode(pr){if(!FLOOR70[pr])return;const ets=etL(FLOOR70[pr]);delete FLOOR70[pr];saveF70();ets.forEach(function(x){try{delete _bip70[_e70(x.et)];_bump70(x.et);}catch(e){}syncDel70(x.et);});updateF70();toast('Código '+pr+' zerado');}
   function f70Clear(){if(!Object.keys(FLOOR70).length)return;if(!confirm('Limpar TODO o Chão 70? Isso apaga a contagem atual.'))return;FLOOR70={};saveF70();if(typeof supa!=='undefined'&&supa){try{supa.from('chao70').delete().neq('et','').then(function(){},function(){});}catch(e){}}renderFloor70();toast('Chão 70 limpo');}
 
   window.renderFloor70=function(){

@@ -1884,11 +1884,26 @@ updateStageBadge();
   function rebuild70(rows){var nf={};(rows||[]).forEach(function(r){var pr=r.pr||'—';if(!nf[pr])nf[pr]={pr:pr,desc:r.descricao||'',qtd:0,kg:0,ets:[],at:r.at||nowISO(),by:r.by_user||''};nf[pr].ets.push({et:r.et,pl:Number(r.pl)||0});if((r.at||'')>(nf[pr].at||''))nf[pr].at=r.at;});Object.keys(nf).forEach(function(pr){nf[pr].qtd=nf[pr].ets.length;nf[pr].kg=nf[pr].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);});return nf;}
   /* ---- ponte com a nuvem: tabela 'chao70' ---- */
   function sync70(item){if(typeof supa==='undefined'||!supa||!item||!item.et)return;supa.from('chao70').upsert({et:item.et,pr:item.pr||'',descricao:item.desc||'',pl:Number(item.pl)||0,at:item.at||new Date().toISOString(),by_user:item.by||''}).then(()=>{},()=>{});}
-  function syncDel70(et){if(typeof supa==='undefined'||!supa||!et)return;supa.from('chao70').delete().eq('et',et).then(()=>{},()=>{});}
+  /* etiquetas que o operador acabou de zerar: o pull da nuvem NÃO pode trazer de volta
+     enquanto o delete não confirmar (era isso que fazia o item "voltar salvo" ao zerar). */
+  var _del70=Object.create(null);
+  function syncDel70(et,_try){if(!et)return;var key=String(et).toUpperCase();_del70[key]=Date.now();
+    if(typeof supa==='undefined'||!supa)return;var t=_try||0;
+    supa.from('chao70').delete().eq('et',et).then(function(r){
+      if(r&&r.error){if(t<4)setTimeout(function(){syncDel70(et,t+1);},600*(t+1));}
+      else{delete _del70[key];} /* confirmou o apagamento: pode liberar */
+    },function(){if(t<4)setTimeout(function(){syncDel70(et,t+1);},600*(t+1));});
+  }
   window.floor70PullCloud=function(rows,readErr){
     try{
-      var cloudEts={};(rows||[]).forEach(function(r){if(r&&r.et)cloudEts[String(r.et).toUpperCase()]=1;});
+      /* remove das linhas da nuvem tudo que o operador acabou de zerar (exclusão pendente).
+         Se ainda está na nuvem, reforça o delete — assim o item zerado não volta. */
+      var _pend=_del70;
+      rows=(rows||[]).filter(function(r){var k=r&&r.et?String(r.et).toUpperCase():'';if(k&&_pend[k]){try{syncDel70(r.et);}catch(e){}return false;}return true;});
+      var cloudEts={};rows.forEach(function(r){if(r&&r.et)cloudEts[String(r.et).toUpperCase()]=1;});
       var localEts=[];Object.values(FLOOR70).forEach(function(g){etL(g).forEach(function(x){localEts.push({et:x.et,pl:x.pl,pr:g.pr,desc:g.desc,at:g.at,by:g.by});});});
+      /* nunca reponho localmente uma etiqueta que está em exclusão pendente */
+      localEts=localEts.filter(function(x){return !_pend[String(x.et).toUpperCase()];});
       /* se a leitura da nuvem FALHOU (ex: tabela chao70 ainda não existe) ou veio vazia enquanto
          eu tenho contagem local, NÃO zero — mantenho o local e reenvio pra nuvem. (era isso que
          fazia o item "aparecer e zerar" a cada sync.) */
@@ -1912,7 +1927,10 @@ updateStageBadge();
   window.floor70ApplyRealtimeRow=function(ev,n,o){
     try{
       if(ev==='DELETE'&&o){Object.keys(FLOOR70).forEach(function(pr){var g=FLOOR70[pr];g.ets=etL(g).filter(function(x){return x.et!==o.et;});if(!g.ets.length)delete FLOOR70[pr];else{g.qtd=g.ets.length;g.kg=g.ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);}});}
-      else if(n){Object.keys(FLOOR70).forEach(function(pr){var g=FLOOR70[pr];g.ets=etL(g).filter(function(x){return x.et!==n.et;});if(!g.ets.length)delete FLOOR70[pr];});var pr2=n.pr||'—';if(!FLOOR70[pr2])FLOOR70[pr2]={pr:pr2,desc:n.descricao||'',qtd:0,kg:0,ets:[],at:n.at||nowISO(),by:n.by_user||''};FLOOR70[pr2].ets=etL(FLOOR70[pr2]);FLOOR70[pr2].ets.unshift({et:n.et,pl:Number(n.pl)||0});FLOOR70[pr2].qtd=FLOOR70[pr2].ets.length;FLOOR70[pr2].kg=FLOOR70[pr2].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);FLOOR70[pr2].at=n.at||nowISO();}
+      else if(n){
+        /* ignora eventos de uma etiqueta que este aparelho acabou de zerar (senão ela voltaria) */
+        if(n.et&&_del70[String(n.et).toUpperCase()]){try{syncDel70(n.et);}catch(e){}return;}
+        Object.keys(FLOOR70).forEach(function(pr){var g=FLOOR70[pr];g.ets=etL(g).filter(function(x){return x.et!==n.et;});if(!g.ets.length)delete FLOOR70[pr];});var pr2=n.pr||'—';if(!FLOOR70[pr2])FLOOR70[pr2]={pr:pr2,desc:n.descricao||'',qtd:0,kg:0,ets:[],at:n.at||nowISO(),by:n.by_user||''};FLOOR70[pr2].ets=etL(FLOOR70[pr2]);FLOOR70[pr2].ets.unshift({et:n.et,pl:Number(n.pl)||0});FLOOR70[pr2].qtd=FLOOR70[pr2].ets.length;FLOOR70[pr2].kg=FLOOR70[pr2].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);FLOOR70[pr2].at=n.at||nowISO();}
       saveF70();var act=document.querySelector('.view.active');if(act&&act.id==='v-floor70')updateF70();
     }catch(e){}
   };
@@ -1922,6 +1940,7 @@ updateStageBadge();
     const b=BOB[et];
     if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo',false);return;}
     if(f70HasEt(et)){toast('Etiqueta '+et+' já contada no Chão 70',false);return;}
+    try{delete _del70[String(et).toUpperCase()];}catch(e){}/* voltou a bipar: cancela exclusão pendente */
     const pr=b.pr||'—',pl=Number(b.pl)||0;
     let g=FLOOR70[pr];
     if(!g){g={pr:pr,desc:b.desc||'',qtd:0,kg:0,ets:[],at:nowISO(),by:session?session.u:''};FLOOR70[pr]=g;}

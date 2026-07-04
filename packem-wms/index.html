@@ -1881,12 +1881,12 @@ updateStageBadge();
   /* ---- ponte com a nuvem: tabela 'chao70' ---- */
   function sync70(item){if(typeof supa==='undefined'||!supa||!item||!item.et)return;supa.from('chao70').upsert({et:item.et,pr:item.pr||'',descricao:item.desc||'',pl:Number(item.pl)||0,at:item.at||new Date().toISOString(),by_user:item.by||''}).then(()=>{},()=>{});}
   function syncDel70(et){if(typeof supa==='undefined'||!supa||!et)return;supa.from('chao70').delete().eq('et',et).then(()=>{},()=>{});}
-  window.floor70PullCloud=function(rows){try{FLOOR70=rebuild70(rows);saveF70();var act=document.querySelector('.view.active');if(act&&act.id==='v-floor70')renderFloor70();}catch(e){}};
+  window.floor70PullCloud=function(rows){try{FLOOR70=rebuild70(rows);saveF70();var act=document.querySelector('.view.active');if(act&&act.id==='v-floor70')updateF70();}catch(e){}};
   window.floor70ApplyRealtimeRow=function(ev,n,o){
     try{
       if(ev==='DELETE'&&o){Object.keys(FLOOR70).forEach(function(pr){var g=FLOOR70[pr];g.ets=etL(g).filter(function(x){return x.et!==o.et;});if(!g.ets.length)delete FLOOR70[pr];else{g.qtd=g.ets.length;g.kg=g.ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);}});}
       else if(n){Object.keys(FLOOR70).forEach(function(pr){var g=FLOOR70[pr];g.ets=etL(g).filter(function(x){return x.et!==n.et;});if(!g.ets.length)delete FLOOR70[pr];});var pr2=n.pr||'—';if(!FLOOR70[pr2])FLOOR70[pr2]={pr:pr2,desc:n.descricao||'',qtd:0,kg:0,ets:[],at:n.at||nowISO(),by:n.by_user||''};FLOOR70[pr2].ets=etL(FLOOR70[pr2]);FLOOR70[pr2].ets.unshift({et:n.et,pl:Number(n.pl)||0});FLOOR70[pr2].qtd=FLOOR70[pr2].ets.length;FLOOR70[pr2].kg=FLOOR70[pr2].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);FLOOR70[pr2].at=n.at||nowISO();}
-      saveF70();var act=document.querySelector('.view.active');if(act&&act.id==='v-floor70')renderFloor70();
+      saveF70();var act=document.querySelector('.view.active');if(act&&act.id==='v-floor70')updateF70();
     }catch(e){}
   };
 
@@ -1901,28 +1901,39 @@ updateStageBadge();
     g.ets=etL(g);g.ets.unshift({et:et,pl:pl});g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);g.at=nowISO();
     saveF70();
     if(typeof logAct==='function')logAct('chao70',et+' · '+pr);
-    sync70({et:et,pr:pr,desc:b.desc||'',pl:pl,at:g.at,by:session?session.u:''});
-    renderFloor70();
+    try{sync70({et:et,pr:pr,desc:b.desc||'',pl:pl,at:g.at,by:session?session.u:''});}catch(e){}
+    updateF70();/* atualização LEVE: não recria o input nem a câmera (senão a câmera contínua fechava e a tela não atualizava) */
     toast('+1 no Chão 70 · '+pr+' ('+g.qtd+' bob · '+fmt(g.kg)+' kg)');
   };
-  function f70RemoveEt(pr,et){const g=FLOOR70[pr];if(!g)return;g.ets=etL(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR70[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveF70();syncDel70(et);renderFloor70();toast('Removido '+et);}
-  function f70RemoveCode(pr){if(!FLOOR70[pr])return;const ets=etL(FLOOR70[pr]);delete FLOOR70[pr];saveF70();ets.forEach(function(x){syncDel70(x.et);});renderFloor70();toast('Código '+pr+' zerado');}
+  /* atualiza só os números e a lista, sem reconstruir a tela toda */
+  function updateF70(){
+    var v=$('#v-floor70');if(!v)return;
+    if(!v.querySelector('#f70List')){renderFloor70();return;}/* tela ainda não montada: monta */
+    var t=f70Totals();
+    var big=v.querySelector('#f70Big');if(big)big.textContent=t.q;
+    var sub=v.querySelector('#f70Sub');if(sub)sub.innerHTML=t.q?(fmt(t.kg)+' kg · '+t.codes+' '+(t.codes===1?'código':'códigos')):'';
+    var act=v.querySelector('#f70Actions');if(act)act.innerHTML=t.q?('<button class="gbtn" id="f70Clear">'+ICONS.reload+' Limpar Chão 70</button>'):'';
+    var cb=v.querySelector('#f70Clear');if(cb)cb.onclick=f70Clear;
+    renderF70List();
+  }
+  function f70RemoveEt(pr,et){const g=FLOOR70[pr];if(!g)return;g.ets=etL(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR70[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveF70();syncDel70(et);updateF70();toast('Removido '+et);}
+  function f70RemoveCode(pr){if(!FLOOR70[pr])return;const ets=etL(FLOOR70[pr]);delete FLOOR70[pr];saveF70();ets.forEach(function(x){syncDel70(x.et);});updateF70();toast('Código '+pr+' zerado');}
   function f70Clear(){if(!Object.keys(FLOOR70).length)return;if(!confirm('Limpar TODO o Chão 70? Isso apaga a contagem atual.'))return;FLOOR70={};saveF70();if(typeof supa!=='undefined'&&supa){try{supa.from('chao70').delete().neq('et','').then(function(){},function(){});}catch(e){}}renderFloor70();toast('Chão 70 limpo');}
 
   window.renderFloor70=function(){
     const v=$('#v-floor70');if(!v)return;
     const t=f70Totals();
     v.innerHTML='<div class="ph-head"><div><p class="eb">Operação · contagem</p><h1>Chão 70</h1></div>'
-      +(t.q?'<div class="actions"><button class="gbtn" id="f70Clear">'+ICONS.reload+' Limpar Chão 70</button></div>':'')
+      +'<div class="actions" id="f70Actions">'+(t.q?'<button class="gbtn" id="f70Clear">'+ICONS.reload+' Limpar Chão 70</button>':'')+'</div>'
       +'</div>'
       +'<div class="two">'
         +'<div class="panel"><div class="ph"><span class="pdot"></span>Bipar etiqueta para somar no Chão 70</div>'
           +'<label class="fld"><span class="lab">Etiqueta (T…)</span><input class="input code" id="f70Scan" placeholder="ex: T40364663"></label>'
           +'<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">Contagem <b>separada</b> do Chão. Cada bipe soma <b>+1 bobina</b> e o <b>peso</b> no código. A mesma etiqueta não conta duas vezes.</p></div>'
         +'<div class="panel" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">'
-          +'<div style="font-family:var(--disp);font-size:3rem;font-weight:800;line-height:1">'+t.q+'</div>'
+          +'<div id="f70Big" style="font-family:var(--disp);font-size:3rem;font-weight:800;line-height:1">'+t.q+'</div>'
           +'<div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px">bobinas no Chão 70</div>'
-          +(t.q?'<div style="font-family:var(--mono);font-size:.85rem;color:var(--muted);margin-top:8px">'+fmt(t.kg)+' kg · '+t.codes+' '+(t.codes===1?'código':'códigos')+'</div>':'')
+          +'<div id="f70Sub" style="font-family:var(--mono);font-size:.85rem;color:var(--muted);margin-top:8px">'+(t.q?(fmt(t.kg)+' kg · '+t.codes+' '+(t.codes===1?'código':'códigos')):'')+'</div>'
         +'</div>'
       +'</div><h3 class="sub">Totais por código</h3><div id="f70List"></div>';
     const sc=$('#f70Scan');
@@ -3748,7 +3759,7 @@ $('#genEnd').onclick=function(){const st=$('#lblStreet').value,scope=$('#lblScop
    }else hint(txt2);
   }
   starting=false;}
- function fill(val){if(O.onResult){O.onResult(val);return;}const el=document.getElementById(O.inputId);if(!el)return;el.value=val;el.dispatchEvent(new Event('input'));if(O.enter)el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));}
+ function fill(val){if(O.onResult){try{O.onResult(val);}catch(e){try{console.warn('scan onResult',e);}catch(_){}}return;}const el=document.getElementById(O.inputId);if(!el)return;el.value=val;el.dispatchEvent(new Event('input'));if(O.enter)el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));}
  function hit(val){val=(val||'').trim();if(!val||!active)return;const now=Date.now();if(O.continuous){if(val===lastV&&now-lastT<1600)return;lastV=val;lastT=now;beep();if(navigator.vibrate)navigator.vibrate(60);fill(val);hint('Lido: '+val);}else{beep();if(navigator.vibrate)navigator.vibrate(60);fill(val);close();}}
  function close(){active=false;modal.classList.remove('show');lastV='';if(h5){const x=h5;h5=null;try{x.stop().then(()=>{try{x.clear();}catch(e){}}).catch(()=>{try{x.clear();}catch(e){}});}catch(e){}}}
  document.getElementById('scanX').onclick=close;

@@ -1779,7 +1779,11 @@ updateStageBadge();
   }
   window.floorGetState=function(){return FLOOR;};
   window.floorPullCloud=function(rows){
-    try{FLOOR=rebuildFloorFromRows(rows);saveFloor();var act=document.querySelector('.view.active');if(act&&act.id==='v-floor')renderFloor();}catch(e){}
+    try{
+      /* leitura vazia da nuvem não pode zerar uma contagem local existente (reenvia o local) */
+      if((!rows||!rows.length)){var _has=Object.keys(FLOOR).length;if(_has){try{Object.values(FLOOR).forEach(function(g){(g.ets||[]).forEach(function(x){var et=(typeof x==='string')?x:x.et;var pl=(typeof x==='string')?(BOB[x]?Number(BOB[x].pl)||0:0):x.pl;if(typeof syncChao==='function')syncChao({et:et,pr:g.pr,desc:g.desc||'',pl:pl,at:g.at,by:g.by});});});}catch(e){}return;}}
+      FLOOR=rebuildFloorFromRows(rows);saveFloor();var act=document.querySelector('.view.active');if(act&&act.id==='v-floor')renderFloor();
+    }catch(e){}
   };
   window.floorApplyRealtimeRow=function(ev,n,o){
     try{
@@ -1881,7 +1885,30 @@ updateStageBadge();
   /* ---- ponte com a nuvem: tabela 'chao70' ---- */
   function sync70(item){if(typeof supa==='undefined'||!supa||!item||!item.et)return;supa.from('chao70').upsert({et:item.et,pr:item.pr||'',descricao:item.desc||'',pl:Number(item.pl)||0,at:item.at||new Date().toISOString(),by_user:item.by||''}).then(()=>{},()=>{});}
   function syncDel70(et){if(typeof supa==='undefined'||!supa||!et)return;supa.from('chao70').delete().eq('et',et).then(()=>{},()=>{});}
-  window.floor70PullCloud=function(rows){try{FLOOR70=rebuild70(rows);saveF70();var act=document.querySelector('.view.active');if(act&&act.id==='v-floor70')updateF70();}catch(e){}};
+  window.floor70PullCloud=function(rows,readErr){
+    try{
+      var cloudEts={};(rows||[]).forEach(function(r){if(r&&r.et)cloudEts[String(r.et).toUpperCase()]=1;});
+      var localEts=[];Object.values(FLOOR70).forEach(function(g){etL(g).forEach(function(x){localEts.push({et:x.et,pl:x.pl,pr:g.pr,desc:g.desc,at:g.at,by:g.by});});});
+      /* se a leitura da nuvem FALHOU (ex: tabela chao70 ainda não existe) ou veio vazia enquanto
+         eu tenho contagem local, NÃO zero — mantenho o local e reenvio pra nuvem. (era isso que
+         fazia o item "aparecer e zerar" a cada sync.) */
+      if(readErr || ((!rows||!rows.length) && localEts.length)){
+        localEts.forEach(function(x){try{sync70({et:x.et,pr:x.pr||'',desc:x.desc||'',pl:x.pl,at:x.at||nowISO(),by:x.by||''});}catch(e){}});
+        return;
+      }
+      /* MERGE: base = nuvem; junta etiquetas que só existem localmente (ainda não subiram) e reenvia */
+      var merged=rebuild70(rows);
+      var onlyLocal=localEts.filter(function(x){return !cloudEts[String(x.et).toUpperCase()];});
+      onlyLocal.forEach(function(x){
+        var pr=x.pr||'—';if(!merged[pr])merged[pr]={pr:pr,desc:x.desc||'',qtd:0,kg:0,ets:[],at:x.at||nowISO(),by:x.by||''};
+        merged[pr].ets=(merged[pr].ets||[]);merged[pr].ets.unshift({et:x.et,pl:Number(x.pl)||0});
+        try{sync70({et:x.et,pr:pr,desc:x.desc||'',pl:x.pl,at:x.at||nowISO(),by:x.by||''});}catch(e){}
+      });
+      Object.keys(merged).forEach(function(pr){merged[pr].qtd=merged[pr].ets.length;merged[pr].kg=merged[pr].ets.reduce(function(s,y){return s+(Number(y.pl)||0);},0);});
+      FLOOR70=merged;saveF70();
+      var act=document.querySelector('.view.active');if(act&&act.id==='v-floor70')updateF70();
+    }catch(e){}
+  };
   window.floor70ApplyRealtimeRow=function(ev,n,o){
     try{
       if(ev==='DELETE'&&o){Object.keys(FLOOR70).forEach(function(pr){var g=FLOOR70[pr];g.ets=etL(g).filter(function(x){return x.et!==o.et;});if(!g.ets.length)delete FLOOR70[pr];else{g.qtd=g.ets.length;g.kg=g.ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);}});}
@@ -3816,8 +3843,8 @@ function setNet(state){window._netState=state;const c=document.getElementById('n
   /* se a tela de NF estiver aberta, atualiza o aviso de conexão */
   try{var _av=document.getElementById('nfNetWarn');if(_av){_av.style.display=(state==='off')?'block':'none';}}catch(e){}}
 function spRow(x){return {id:x.id,w:x.w,s:x.s,l:x.l,p:x.p,pr:x.pr||'',q:Number(x.q)||0,u:x.u||'KG',o:!!x.o,src:x.src||'',upd:x.upd||null,by_user:x.by||''};}
-function syncSpace(x,_try){if(!supa||!x)return;var t=_try||0;supa.from('espacos').upsert(spRow(x)).then(function(r){if(r&&r.error&&t<3){try{markLocalWrite();}catch(e){}setTimeout(function(){syncSpace(x,t+1);},1200*(t+1));}},function(){if(t<3){try{markLocalWrite();}catch(e){}setTimeout(function(){syncSpace(x,t+1);},1200*(t+1));}});}
-function syncMov(m,_try){if(!supa||!m)return;var t=_try||0;supa.from('movimentos').upsert({id:m.id,action:m.action,w:m.w,code:m.code,pr:m.pr,q:Number(m.q)||0,u:m.u,et:m.et||'',before_q:Number(m.before)||0,after_q:Number(m.after)||0,at:m.at,by_user:m.by||''}).then(function(r){if(r&&r.error&&t<3){setTimeout(function(){syncMov(m,t+1);},1200*(t+1));}},function(){if(t<3){setTimeout(function(){syncMov(m,t+1);},1200*(t+1));}});}
+function syncSpace(x,_try){if(!supa||!x)return;var t=_try||0;supa.from('espacos').upsert(spRow(x)).then(function(r){if(r&&r.error&&t<3){try{markLocalWrite();}catch(e){}setTimeout(function(){syncSpace(x,t+1);},500*(t+1));}},function(){if(t<3){try{markLocalWrite();}catch(e){}setTimeout(function(){syncSpace(x,t+1);},500*(t+1));}});}
+function syncMov(m,_try){if(!supa||!m)return;var t=_try||0;supa.from('movimentos').upsert({id:m.id,action:m.action,w:m.w,code:m.code,pr:m.pr,q:Number(m.q)||0,u:m.u,et:m.et||'',before_q:Number(m.before)||0,after_q:Number(m.after)||0,at:m.at,by_user:m.by||''}).then(function(r){if(r&&r.error&&t<3){setTimeout(function(){syncMov(m,t+1);},500*(t+1));}},function(){if(t<3){setTimeout(function(){syncMov(m,t+1);},500*(t+1));}});}
 function syncLoc(et,c){if(!supa||!et)return;supa.from('locais').upsert({etiqueta:et,code:c}).then(()=>{},()=>{});}
 function syncDelLoc(et){if(!supa||!et)return;supa.from('locais').delete().eq('etiqueta',et).then(()=>{},()=>{});}
 function syncStage(it){if(!supa||!it)return;supa.from('stage').upsert({etiqueta:it.et,pr:it.pr,descricao:it.desc||'',pl:Number(it.pl)||0,at:it.at,by_user:it.by||''}).then(()=>{},()=>{});}
@@ -3887,7 +3914,9 @@ async function pgAll(table,order){let out=[],from=0,page=1000;for(;;){let q=supa
    os espaços/movimentos com a versão antiga da nuvem enquanto seu dado ainda está subindo. */
 window._lastLocalWrite=0;
 function markLocalWrite(){window._lastLocalWrite=Date.now();}
-function _writeGuardActive(){return (Date.now()-(window._lastLocalWrite||0))<9000;}
+function _writeGuardActive(){return (Date.now()-(window._lastLocalWrite||0))<12000;}
+/* compara o miolo de duas vagas (ocupação/produto/peso) — usado pra só reenviar quando realmente diferiu */
+function _sameSpace(a,b){if(!a||!b)return false;return (!!a.o===!!b.o)&&((a.pr||'')===(b.pr||''))&&((Number(a.q)||0)===(Number(b.q)||0));}
 async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
  var guard=_writeGuardActive(); // se você acabou de gravar, não sobrescreve seus dados com a nuvem antiga
  try{
@@ -3900,7 +3929,11 @@ async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
    sp.forEach(function(r){var cloud={id:r.id,w:r.w,s:r.s,l:r.l,p:r.p,pr:r.pr||'',q:cleanQ(r.q),u:r.u||'KG',o:!!r.o,src:r.src||'',upd:r.upd||'',by:r.by_user||''};
     var loc=_locById[r.id];
     if(loc){delete _locById[r.id];
-     if(loc.upd&&(!cloud.upd||String(loc.upd)>String(cloud.upd))){_merged.push(loc);_repush.push(loc);}
+     /* Se acabei de gravar (guard ativo), a versão LOCAL vence sempre — sem depender de comparar
+        carimbos (o upsert pode não ter chegado ao servidor ainda; era isso que exigia salvar várias vezes).
+        Fora do guard, mantém local só quando o carimbo local é mais novo. */
+     var localMaisNova = loc.upd && (!cloud.upd || String(loc.upd) >= String(cloud.upd));
+     if(guard || localMaisNova){_merged.push(loc);if(!_sameSpace(loc,cloud))_repush.push(loc);}
      else{_merged.push(cloud);}
     }else{_merged.push(cloud);}
    });
@@ -3933,23 +3966,28 @@ async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
     if(typeof window.floorPullCloud==='function')window.floorPullCloud(ch);
   }catch(e){}
   try{
+    try{window._cloudReadErr=null;}catch(e){}
     const ch70=await pgAll('chao70');
-    if(typeof window.floor70PullCloud==='function')window.floor70PullCloud(ch70);
-  }catch(e){}
+    var _err70=(window._cloudReadErr&&window._cloudReadErr.table==='chao70')?window._cloudReadErr:null;
+    if(typeof window.floor70PullCloud==='function')window.floor70PullCloud(ch70,_err70);
+  }catch(e){try{if(typeof window.floor70PullCloud==='function')window.floor70PullCloud([],{table:'chao70',msg:'exceção'});}catch(_){}}
   try{if(typeof _spSnapInit==='function')_spSnapInit();}catch(e){}
   if(!silent)setNet('on');if(session){var _ae=document.activeElement;var _digitando=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');if(!_digitando){const v=document.querySelector('.view.active');if(v)render(v.id);}}updateStageBadge();return true;
  }catch(e){if(!silent)setNet('on');return false;}}
-let _rt=null;function scheduleRerender(){clearTimeout(_rt);_rt=setTimeout(()=>{if(session){var _ae=document.activeElement;var _dig=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');var _drawer=document.querySelector('#drawer.show');if(!_dig&&!_drawer){const v=document.querySelector('.view.active');if(v)render(v.id);}}updateStageBadge();},350);}
+let _rt=null;function scheduleRerender(){clearTimeout(_rt);_rt=setTimeout(()=>{if(session){var _ae=document.activeElement;var _dig=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');var _drawer=document.querySelector('#drawer.show');if(!_dig&&!_drawer){const v=document.querySelector('.view.active');if(v)render(v.id);}}updateStageBadge();},120);}
 /* grava no localStorage de forma agrupada: durante uma rajada de sync, salva 1x por tabela depois que acalmar (evita travar o celular regravando arrays gigantes a cada evento) */
-let _pT={};function persistDebounced(k){clearTimeout(_pT[k]);_pT[k]=setTimeout(function(){try{if(k==='sp')DB.saveSpaces(S);else if(k==='bob')saveBOB();else if(k==='loc')saveLOC();else if(k==='stage')saveStage();else if(k==='mv')DB.saveMovs(MV);else if(k==='vl')DB.saveValues(VL);else if(k==='us')DB.saveUsers(US);}catch(e){}},600);}
+let _pT={};function persistDebounced(k){clearTimeout(_pT[k]);_pT[k]=setTimeout(function(){try{if(k==='sp')DB.saveSpaces(S);else if(k==='bob')saveBOB();else if(k==='loc')saveLOC();else if(k==='stage')saveStage();else if(k==='mv')DB.saveMovs(MV);else if(k==='vl')DB.saveValues(VL);else if(k==='us')DB.saveUsers(US);}catch(e){}},200);}
 function applyRealtime(p){const t=p.table,n=p.new,o=p.old,ev=p.eventType;
  try{
  if(t==='espacos'&&n){const i=S.findIndex(x=>x.id===n.id);const row={id:n.id,w:n.w,s:n.s,l:n.l,p:n.p,pr:n.pr||'',q:cleanQ(n.q),u:n.u||'KG',o:!!n.o,src:n.src||'',upd:n.upd||'',by:n.by_user||''};
   // anti-eco: se chega uma versão MAIS ANTIGA desta vaga do que a que já tenho, ignoro SEMPRE (é eco atrasado / aparelho desatualizado)
   if(i>=0){var _cur=S[i];
     var _curU=String(_cur&&_cur.upd||''),_rowU=String(row.upd||'');
+    var _guard=(typeof _writeGuardActive==='function'&&_writeGuardActive());
     // eco velho OU empate de carimbo (eco do próprio aparelho): ignora
     if(_curU&&_rowU&&_rowU<=_curU){/* ignora eco velho/igual */}
+    // acabei de gravar (guard) e o evento não é comprovadamente mais novo: protege o que está aqui
+    else if(_guard&&!(_rowU&&(!_curU||_rowU>_curU))){/* protege gravação recente */}
     // a nuvem quer ESVAZIAR/trocar uma vaga que aqui está ocupada, mas NÃO é comprovadamente mais nova: protege o dado local
     else if(_cur&&_cur.o&&_cur.pr&&(!row.o||!row.pr)&&!(_rowU&&(!_curU||_rowU>_curU))){/* protege ocupação local */}
     else{S[i]=row;persistDebounced('sp');}
@@ -3995,7 +4033,7 @@ function autoSyncTick(){
  }catch(e){}
 }
 let _autoSyncTimer=null;
-function startAutoSync(){clearInterval(_autoSyncTimer);_autoSyncTimer=setInterval(autoSyncTick,4000);}
+function startAutoSync(){clearInterval(_autoSyncTimer);_autoSyncTimer=setInterval(autoSyncTick,2500);}
 /* wraps p/ gravar cada ação na nuvem */
 (function(){
  const _cm=confirmMov;confirmMov=function(){const n0=MV.length;_cm();if(MV.length>n0){const m=MV[0];syncMov(m);const sp=findSpace(m.code);if(sp)syncSpace(sp);if(m.et){if(m.action==='entrada'){syncLoc(m.et,m.code);}else if(m.action==='saida'){

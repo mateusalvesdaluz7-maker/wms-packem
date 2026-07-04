@@ -1799,11 +1799,12 @@ updateStageBadge();
   window._floorDelClear=function(et){try{delete _delCh[String(et).toUpperCase()];}catch(e){}};
   /* ---- ponte com a nuvem (Supabase): tabela 'chao', 1 linha por bobina bipada ---- */
   function rebuildFloorFromRows(rows){
-    var nf={};
+    var nf={},seen={};
     (rows||[]).forEach(function(r){
+      var et=_eCh(r.et);if(!et||seen[et])return;seen[et]=1;
       var pr=r.pr||'—';
       if(!nf[pr])nf[pr]={pr:pr,desc:r.descricao||'',qtd:0,kg:0,ets:[],at:r.at||nowISO(),by:r.by_user||''};
-      nf[pr].ets.push({et:_eCh(r.et),pl:Number(r.pl)||0});
+      nf[pr].ets.push({et:et,pl:Number(r.pl)||0});
       if((r.at||'')>(nf[pr].at||''))nf[pr].at=r.at;
     });
     Object.keys(nf).forEach(function(pr){nf[pr].qtd=nf[pr].ets.length;nf[pr].kg=nf[pr].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);});
@@ -1812,6 +1813,7 @@ updateStageBadge();
   window.floorGetState=function(){return FLOOR;};
   window.floorPullCloud=function(rows,readErr){
     try{
+      try{var _tn=Date.now();Object.keys(_delCh).forEach(function(k){if(_tn-(_delCh[k]||0)>20000)delete _delCh[k];});}catch(e){}
       /* remove das linhas da nuvem tudo que acabei de zerar; se ainda está lá, reforça o delete */
       rows=(rows||[]).filter(function(r){var k=r&&r.et?_eCh(r.et):'';if(k&&_delCh[k]){try{if(typeof syncDelChao==='function')syncDelChao(r.et);}catch(e){}return false;}return true;});
       var cloudEts={};rows.forEach(function(r){if(r&&r.et)cloudEts[_eCh(r.et)]=1;});
@@ -1859,8 +1861,9 @@ updateStageBadge();
     const et=norm(v);if(!et)return;
     var b=BOB[et];if(!b&&typeof window.etqLookup==='function')b=window.etqLookup(et);
     if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
-    if(floorHasEt(et)){var _ac='';Object.values(FLOOR).forEach(function(g){if(etList(g).some(function(x){return x.et===_eCh(et);}))_ac=g.pr;});renderFloor();toast('Etiqueta '+et+' já contada'+(_ac?(' em '+_ac):'')+' no chão',false);return;}
-    try{var _kc=_eCh(et);delete _delCh[_kc];_bipCh[_kc]=Date.now();}catch(e){}
+    var _kc=_eCh(et);
+    try{delete _delCh[_kc];_bipCh[_kc]=Date.now();}catch(e){}/* destrava antes de checar (fim do tombstone preso) */
+    if(floorHasEt(et)){var _ac='';Object.values(FLOOR).forEach(function(g){if(etList(g).some(function(x){return x.et===_kc;}))_ac=g.pr;});renderFloor();toast('Etiqueta '+et+' já contada'+(_ac?(' em '+_ac):'')+' no chão',false);return;}
     const pr=b.pr||'—',pl=Number(b.pl)||0;
     let g=FLOOR[pr];
     if(!g){g={pr:pr,desc:b.desc||'',qtd:0,kg:0,ets:[],at:nowISO(),by:session?session.u:''};FLOOR[pr]=g;}
@@ -1873,7 +1876,7 @@ updateStageBadge();
   };
   function floorRemoveEt(pr,et){et=_eCh(et);const g=FLOOR[pr];if(!g)return;g.ets=etList(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveFloor();try{_delCh[et]=Date.now();delete _bipCh[et];}catch(e){}if(typeof syncDelChao==='function')syncDelChao(et);renderFloor();toast('Removido '+et);}
   function floorRemoveCode(pr){if(!FLOOR[pr])return;const ets=etList(FLOOR[pr]);delete FLOOR[pr];saveFloor();if(typeof syncDelChao==='function')ets.forEach(function(x){var _xe=_eCh(x.et);try{_delCh[_xe]=Date.now();delete _bipCh[_xe];}catch(e){}syncDelChao(x.et);});renderFloor();toast('Código '+pr+' zerado');}
-  function floorClear(){if(!Object.keys(FLOOR).length)return;if(!confirm('Limpar TODO o chão? Isso apaga a contagem atual.'))return;FLOOR={};saveFloor();if(typeof supa!=='undefined'&&supa){try{supa.from('chao').delete().neq('et','').then(function(){},function(){});}catch(e){}}renderFloor();toast('Chão limpo');}
+  function floorClear(){if(!Object.keys(FLOOR).length){toast('Chão já está vazio');return;}if(!confirm('Limpar TODO o chão? Isso apaga a contagem atual (local e na nuvem) para recontar do zero.'))return;try{Object.values(FLOOR).forEach(function(g){etList(g).forEach(function(x){var k=_eCh(x.et);_delCh[k]=Date.now();delete _bipCh[k];});});}catch(e){}FLOOR={};saveFloor();if(typeof supa!=='undefined'&&supa){try{supa.from('chao').delete().neq('et','').then(function(){},function(){});}catch(e){}}renderFloor();toast('Chão limpo · pode recontar');}
 
   window.renderFloor=function(){
     const v=$('#v-floor');if(!v)return;
@@ -1951,7 +1954,7 @@ updateStageBadge();
   function etL(g){return (g.ets||[]).map(x=>typeof x==='string'?{et:_e70(x),pl:(BOB[x]?Number(BOB[x].pl)||0:0)}:{et:_e70(x.et),pl:x.pl});}
   function f70HasEt(et){et=_e70(et);return Object.values(FLOOR70).some(g=>etL(g).some(x=>x.et===et));}
   function f70Totals(){let q=0,kg=0,codes=0;Object.values(FLOOR70).forEach(g=>{q+=g.qtd||0;kg+=g.kg||0;codes++;});return{q,kg,codes};}
-  function rebuild70(rows){var nf={};(rows||[]).forEach(function(r){var pr=r.pr||'—';if(!nf[pr])nf[pr]={pr:pr,desc:r.descricao||'',qtd:0,kg:0,ets:[],at:r.at||nowISO(),by:r.by_user||''};nf[pr].ets.push({et:_e70(r.et),pl:Number(r.pl)||0});if((r.at||'')>(nf[pr].at||''))nf[pr].at=r.at;});Object.keys(nf).forEach(function(pr){nf[pr].qtd=nf[pr].ets.length;nf[pr].kg=nf[pr].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);});return nf;}
+  function rebuild70(rows){var nf={},seen={};(rows||[]).forEach(function(r){var et=_e70(r.et);if(!et||seen[et])return;seen[et]=1;var pr=r.pr||'—';if(!nf[pr])nf[pr]={pr:pr,desc:r.descricao||'',qtd:0,kg:0,ets:[],at:r.at||nowISO(),by:r.by_user||''};nf[pr].ets.push({et:et,pl:Number(r.pl)||0});if((r.at||'')>(nf[pr].at||''))nf[pr].at=r.at;});Object.keys(nf).forEach(function(pr){nf[pr].qtd=nf[pr].ets.length;nf[pr].kg=nf[pr].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);});return nf;}
   /* ---- ponte com a nuvem: tabela 'chao70' ---- */
   function sync70(item){if(typeof supa==='undefined'||!supa||!item||!item.et)return;supa.from('chao70').upsert({et:item.et,pr:item.pr||'',descricao:item.desc||'',pl:Number(item.pl)||0,at:item.at||new Date().toISOString(),by_user:item.by||''}).then(()=>{},()=>{});}
   /* etiquetas que o operador acabou de zerar: o pull da nuvem NÃO pode trazer de volta
@@ -1976,6 +1979,9 @@ updateStageBadge();
   }
   window.floor70PullCloud=function(rows,readErr){
     try{
+      /* expira tombstones presos: se um delete pendente não confirmou em 20s (ex: tabela ausente,
+         erro), abandona — senão a etiqueta fica travada pra sempre (oscilando "existe/some"). */
+      try{var _tn=Date.now();Object.keys(_del70).forEach(function(k){if(_tn-(_del70[k]||0)>20000)delete _del70[k];});}catch(e){}
       /* remove das linhas da nuvem tudo que o operador acabou de zerar (exclusão pendente).
          Se ainda está na nuvem, reforça o delete — assim o item zerado não volta. */
       var _pend=_del70;
@@ -2028,14 +2034,19 @@ updateStageBadge();
     const et=norm(v);if(!et)return;
     var b=BOB[et];if(!b&&typeof window.etqLookup==='function')b=window.etqLookup(et);
     if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
-    if(f70HasEt(et)){
-      /* já está na contagem: reforça a exibição (caso a lista não tivesse atualizado) e avisa onde */
-      var _achou='';Object.values(FLOOR70).forEach(function(g){if(etL(g).some(function(x){return x.et===_e70(et);}))_achou=g.pr;});
+    var _k=_e70(et);
+    /* DESTRAVA primeiro: se a etiqueta ficou presa numa exclusão pendente (tombstone) de um
+       zeramento antigo que não confirmou na nuvem, ela oscilava entre "existe/some". Ao bipar,
+       cancelamos a exclusão ANTES de qualquer checagem. */
+    try{delete _del70[_k];_bip70[_k]=Date.now();_bump70(et);}catch(e){}
+    /* está de fato na contagem E visível? (visível = grupo existe com essa etiqueta) */
+    var jaTem=f70HasEt(et);
+    if(jaTem){
+      var _achou='';Object.values(FLOOR70).forEach(function(g){if(etL(g).some(function(x){return x.et===_k;}))_achou=g.pr;});
       updateF70();
       toast('Etiqueta '+et+' já contada'+(_achou?(' em '+_achou):'')+' no Chão 70',false);
       return;
     }
-    try{var _k=String(et).toUpperCase();delete _del70[_k];_bip70[_k]=Date.now();_bump70(et);}catch(e){}/* voltou a bipar: cancela exclusão pendente/retry e marca como recente */
     const pr=b.pr||'—',pl=Number(b.pl)||0;
     let g=FLOOR70[pr];
     if(!g){g={pr:pr,desc:b.desc||'',qtd:0,kg:0,ets:[],at:nowISO(),by:session?session.u:''};FLOOR70[pr]=g;}
@@ -2059,7 +2070,14 @@ updateStageBadge();
   }
   function f70RemoveEt(pr,et){et=_e70(et);const g=FLOOR70[pr];if(!g)return;g.ets=etL(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR70[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveF70();try{delete _bip70[et];_bump70(et);}catch(e){}syncDel70(et);updateF70();toast('Removido '+et);}
   function f70RemoveCode(pr){if(!FLOOR70[pr])return;const ets=etL(FLOOR70[pr]);delete FLOOR70[pr];saveF70();ets.forEach(function(x){try{delete _bip70[_e70(x.et)];_bump70(x.et);}catch(e){}syncDel70(x.et);});updateF70();toast('Código '+pr+' zerado');}
-  function f70Clear(){if(!Object.keys(FLOOR70).length)return;if(!confirm('Limpar TODO o Chão 70? Isso apaga a contagem atual.'))return;FLOOR70={};saveF70();if(typeof supa!=='undefined'&&supa){try{supa.from('chao70').delete().neq('et','').then(function(){},function(){});}catch(e){}}renderFloor70();toast('Chão 70 limpo');}
+  function f70Clear(){if(!Object.keys(FLOOR70).length){toast('Chão 70 já está vazio');return;}
+    if(!confirm('Limpar TODO o Chão 70? Isso apaga a contagem atual (local e na nuvem) para recontar do zero.'))return;
+    /* marca tombstone de cada etiqueta pra nenhum outro aparelho reenviar de volta */
+    try{Object.values(FLOOR70).forEach(function(g){etL(g).forEach(function(x){var k=_e70(x.et);_del70[k]=Date.now();_bump70(x.et);delete _bip70[k];});});}catch(e){}
+    FLOOR70={};saveF70();
+    if(typeof supa!=='undefined'&&supa){try{supa.from('chao70').delete().neq('et','').then(function(){},function(){});}catch(e){}}
+    renderFloor70();toast('Chão 70 limpo · pode recontar');
+  }
 
   window.renderFloor70=function(){
     const v=$('#v-floor70');if(!v)return;

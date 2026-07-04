@@ -813,7 +813,7 @@ $$('#modeSeg button').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
 function setMode(m){mode=m;const inM=m==='entrada';$$('#modeSeg button').forEach(b=>b.className=(b.dataset.mode===m)?(inM?'act-in':'act-out'):'');$('#movFormTitle').textContent=inM?'Registrar entrada':'Registrar saída';const btn=$('#confirmBtn');btn.className='btn '+(inM?'in':'out');btn.textContent=inM?'Confirmar entrada':'Confirmar saída';btn.style.width='100%';btn.style.height='50px';const pl=[...document.querySelectorAll('#v-mov .lab')].find(l=>l.textContent.indexOf('Peso')>-1);if(pl)pl.textContent=inM?'3 · Peso (KG)':'3 · Peso que saiu (KG) · editável p/ parcial';}
 function clearScan(){$('#mLoc').value='';$('#mBob').value='';$('#mQty').value='';$('#mLocPv').style.display='none';$('#mBobPv').style.display='none';}
 function chip(cls,k,v,q){return `<div style="display:flex;align-items:center;gap:10px;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:9px 12px" class="${cls}"><div><div style="font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:700">${k}</div><div class="mono" style="font-weight:700;margin-top:2px">${v}</div></div>${q!=null?`<div style="margin-left:auto;font-family:var(--disp);font-weight:700;font-size:1.2rem">${q}</div>`:''}</div>`;}
-function parseBobina(v){v=norm(v);const i=v.indexOf('$');if(i>0){const pr=v.slice(0,i),pe=parseFloat(v.slice(i+1).replace(',','.'));if(pr&&!isNaN(pe))return{pr,peso:pe};}return{pr:v,peso:null};}
+function parseBobina(v){if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);v=norm(v);const i=v.indexOf('$');if(i>0){const pr=v.slice(0,i),pe=parseFloat(v.slice(i+1).replace(',','.'));if(pr&&!isNaN(pe))return{pr,peso:pe};}return{pr:v,peso:null};}
 $('#mLoc').addEventListener('input',()=>{const sp=findSpace($('#mLoc').value),pv=$('#mLocPv');if(!$('#mLoc').value.trim()){pv.style.display='none';return;}pv.style.display='block';if(sp&&sp.o&&sp.pr)pv.innerHTML=chip('','conteúdo atual',sp.pr,fmt(sp.q)+' '+unitOf(sp));else if(sp)pv.innerHTML=chip('','posição','livre');else pv.innerHTML=`<div style="color:var(--out);font-size:.82rem;font-weight:600">⚠ endereço não existe</div>`;});
 $('#mLoc').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(!findSpace($('#mLoc').value)){toast('Endereço não existe',false);return;}$('#mBob').focus();}});
 $('#mBob').addEventListener('input',()=>{const v=$('#mBob').value,pv=$('#mBobPv');if(!v.trim()){pv.style.display='none';return;}const b=parseBobina(v);var un=unitOf(b.pr);var _lb=[...document.querySelectorAll('#v-mov .lab')].find(l=>l.textContent.indexOf('Peso')>-1);if(_lb)_lb.textContent=(mode==='entrada'?'3 · Peso ('+un+')':'3 · Peso que saiu ('+un+') · editável p/ parcial');pv.style.display='block';pv.innerHTML=chip('','produto',b.pr,b.peso!=null?fmt(b.peso)+' '+un.toLowerCase():null);if(b.peso!=null)$('#mQty').value=b.peso;});
@@ -1459,7 +1459,7 @@ function freeStored(et){
  return c;
 }
 function placeBobina(et,pr,pl,c){c=norm(c);const sp=findSpace(c);if(!sp){toast('Endereço '+c+' não existe',false);return false;}if(et&&typeof LOC!=='undefined'&&LOC[et]){const _old=freeStored(et);if(_old)toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');}if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}const before=Number(sp.q)||0;sp.pr=pr;sp.q=before+(Number(pl)||0);sp.o=true;sp.u='KG';sp.upd=nowISO();sp.by=session.u;if(et){LOC[et]=c;saveLOC();}MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:'KG',et:et||'',before,after:sp.q,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;persist();logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}return true;}
-function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}if(LOC[et]){const old=freeStored(et);toast('Bobina '+et+' retornou de '+old+' — liberada p/ recebimento');}if(STAGE.some(s=>s.et===et)){toast('Etiqueta já no intermediário',false);return;}STAGE.unshift({et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u});saveStage();MV.unshift({id:uid(),action:'recebimento',w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:b.pr||'',q:Number(b.pl)||0,u:(typeof unitOf==='function'?unitOf(b.pr):'KG'),et:et,before:0,after:Number(b.pl)||0,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}logAct('recebimento',et+' · '+b.pr);renderRecv();updateStageBadge();toast('Recebido: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});}
+function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}if(LOC[et]){const old=freeStored(et);toast('Bobina '+et+' retornou de '+old+' — liberada p/ recebimento');}if(STAGE.some(s=>s.et===et)){toast('Etiqueta já no intermediário',false);return;}STAGE.unshift({et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u});saveStage();MV.unshift({id:uid(),action:'recebimento',w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:b.pr||'',q:Number(b.pl)||0,u:(typeof unitOf==='function'?unitOf(b.pr):'KG'),et:et,before:0,after:Number(b.pl)||0,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}logAct('recebimento',et+' · '+b.pr);renderRecv();updateStageBadge();toast('Recebido: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});}
 function renderRecv(){const adm=isAdmin();
  $('#v-recv').innerHTML='<div class="ph-head"><div><p class="eb">Operação · recebimento</p><h1>Estoque intermediário</h1></div></div>'+
  '<div class="two">'+
@@ -1752,7 +1752,7 @@ function stageArmazenar(et){const it=STAGE.find(s=>s.et===et);if(!it)return;cons
  $('#azEt').addEventListener('input',chkEt);
  document.querySelectorAll('#drawerBody .sug[data-c]').forEach(b=>b.onclick=()=>{$('#azLoc').value=b.dataset.c;});
  $('#azDo').onclick=()=>{if(!chkEt()){toast('Bipe a bobina '+et+' para conferir',false);$('#azEt').click();return;}const c=norm($('#azLoc').value);if(!c){toast('Bipe o endereço',false);$('#azLoc').click();return;}if(placeBobina(et,it.pr,it.pl,c)){STAGE=STAGE.filter(s=>s.et!==et);saveStage();if(typeof syncDelStage==='function')syncDelStage(et);closeDrawer();renderRecv();updateStageBadge();toast('Armazenado: '+et+' em '+c);vpSpeak('Armazenado com sucesso em '+vpAddrSpeech(c)+'.');}};
- [['azEt',{enter:false,title:'Conferir bobina'}],['azLoc',{enter:false,title:'Escanear endereço'}]].forEach(function(p){var id=p[0],o=p[1];var el=$('#'+id);if(!el)return;if(window.addCam)addCam(id,o);scanLock(el);});
+ [['azEt',{enter:false,title:'Conferir bobina'}],['azLoc',{enter:false,title:'Escanear endereço',scanKind:'addr'}]].forEach(function(p){var id=p[0],o=p[1];var el=$('#'+id);if(!el)return;if(window.addCam)addCam(id,o);scanLock(el);});
  setTimeout(function(){$('#azEt').click();},120);
 }
 function commitProducao(et){const it=STAGE.find(s=>s.et===et);if(!it)return;var _u=(typeof unitOf==='function'?unitOf(it.pr):'KG');
@@ -1840,6 +1840,7 @@ updateStageBadge();
   };
 
   window.floorAdd=function(v){
+    if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);
     const et=norm(v);if(!et)return;
     var b=BOB[et];if(!b&&typeof window.etqLookup==='function')b=window.etqLookup(et);
     if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
@@ -1985,6 +1986,7 @@ updateStageBadge();
   };
 
   window.floor70Add=function(v){
+    if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);
     const et=norm(v);if(!et)return;
     var b=BOB[et];if(!b&&typeof window.etqLookup==='function')b=window.etqLookup(et);
     if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
@@ -3836,6 +3838,34 @@ updateStageBadge();
 (function(){const sel=$('#lblScope');if(sel&&!sel.querySelector('[value="todas"]')){const o=document.createElement('option');o.value='todas';o.textContent='Todos os endereços (todas as ruas)';sel.insertBefore(o,sel.firstChild);}})();
 $('#genEnd').onclick=function(){const st=$('#lblStreet').value,scope=$('#lblScope').value;let rows=S.filter(x=>x.w===cfg.warehouse);if(scope!=='todas')rows=rows.filter(x=>x.s===st);if(scope==='ocupados')rows=rows.filter(x=>x.o&&x.pr);rows.sort((a,b)=>a.s.localeCompare(b.s)||a.p-b.p||a.l.localeCompare(b.l));if(!rows.length){toast('Nada para gerar',false);return;}$('#labelsBox').innerHTML=rows.slice(0,600).map(x=>labelHTML(code(x),x.pr||'',cfg.warehouse)).join('');$('#printLabels').style.display='inline-flex';toast(rows.length+' etiquetas'+(rows.length>600?' · 600 mostradas (imprima por rua p/ todas)':''));};
 
+/* ===== EXTRAI SÓ O ID DA ETIQUETA DO QR =====
+   O QR da etiqueta de rastreio traz várias linhas (id, COD:, descrição, peso, VAGA:...).
+   Ao bipar, o scanner devolve o texto TODO — e o sistema tentava usar isso como nome da
+   etiqueta, por isso "não está no catálogo". Aqui reduzimos ao ID da etiqueta.
+   kind==='addr' extrai um endereço (X-000-0); qualquer outro caso extrai a etiqueta. */
+window.cleanScanCode=function(v,kind){
+  try{
+    v=String(v==null?'':v).trim();
+    if(!v)return v;
+    var multi=(v.indexOf('\n')>=0)||/COD:|Cod:|\bVAGA\b|Vaga:/.test(v);
+    if(kind==='addr'){
+      var La=v.split(/\r?\n/).map(function(s){return s.trim();}).filter(Boolean);
+      for(var i=0;i<La.length;i++){
+        var m=La[i].match(/vaga:?\s*([A-Za-z]-?\d+-?\d*)/i);if(m)return m[1].toUpperCase();
+        var m2=La[i].match(/\b([A-Za-z]-\d{2,3}-\d{1,2})\b/);if(m2)return m2[1].toUpperCase();
+      }
+      return La[0]||v;
+    }
+    if(!multi)return v; /* texto simples (código de barras normal): retorna como veio */
+    var lines=v.split(/\r?\n/).map(function(s){return s.trim();}).filter(Boolean);
+    /* o ID da etiqueta é a 1ª linha, antes de qualquer "COD:" */
+    var first=(lines[0]||v).split(/cod:?/i)[0].trim();
+    /* se a 1ª linha vier vazia por algum motivo, procura a primeira que pareça um ID */
+    if(!first){for(var j=0;j<lines.length;j++){var c=lines[j].split(/cod:?/i)[0].trim();if(c){first=c;break;}}}
+    return first||v;
+  }catch(e){return String(v||'').trim();}
+};
+
 /* ===== LEITOR POR CÂMERA (html5-qrcode) ===== */
 (function(){
  ICONS.cam='<svg class="i" viewBox="0 0 24 24"><path d="M3 9a2 2 0 0 1 2-2h1.5L8 5h8l1.5 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.3"/></svg>';
@@ -3869,14 +3899,14 @@ $('#genEnd').onclick=function(){const st=$('#lblStreet').value,scope=$('#lblScop
   }
   starting=false;}
  function fill(val){if(O.onResult){try{O.onResult(val);}catch(e){try{console.warn('scan onResult',e);}catch(_){}}return;}const el=document.getElementById(O.inputId);if(!el)return;el.value=val;el.dispatchEvent(new Event('input'));if(O.enter)el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));}
- function hit(val){val=(val||'').trim();if(!val||!active)return;const now=Date.now();if(O.continuous){if(val===lastV&&now-lastT<1600)return;lastV=val;lastT=now;beep();if(navigator.vibrate)navigator.vibrate(60);fill(val);hint('Lido: '+val);}else{beep();if(navigator.vibrate)navigator.vibrate(60);fill(val);close();}}
+ function hit(val){val=(val||'').trim();if(!val||!active)return;var clean=(typeof window.cleanScanCode==='function')?window.cleanScanCode(val,O&&O.scanKind):val;const now=Date.now();if(O.continuous){if(clean===lastV&&now-lastT<1600)return;lastV=clean;lastT=now;beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);hint('Lido: '+clean);}else{beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);close();}}
  function close(){active=false;modal.classList.remove('show');lastV='';if(h5){const x=h5;h5=null;try{x.stop().then(()=>{try{x.clear();}catch(e){}}).catch(()=>{try{x.clear();}catch(e){}});}catch(e){}}}
  document.getElementById('scanX').onclick=close;
  window.scanInto=function(inputId,opts){O=Object.assign({inputId},opts||{});document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};
  window.addCam=function(inputId,opts){const el=document.getElementById(inputId);if(!el||el.dataset.cam)return;el.dataset.cam='1';const w=document.createElement('div');w.style.position='relative';el.parentNode.insertBefore(w,el);w.appendChild(el);el.style.paddingRight='50px';const b=document.createElement('button');b.type='button';b.className='cambtn';b.innerHTML=ICONS.cam;b.title='Escanear com câmera';b.onclick=()=>scanInto(inputId,opts||{});w.appendChild(b);};
- addCam('mBob',{enter:true,title:'Escanear bobina'});addCam('mLoc',{enter:true,title:'Escanear endereço'});
+ addCam('mBob',{enter:true,title:'Escanear bobina'});addCam('mLoc',{enter:true,title:'Escanear endereço',scanKind:'addr'});
  const _rrv=renderRecv;renderRecv=function(){_rrv();addCam('recvScan',{continuous:true,onResult:recvAdd,title:'Escanear bobinas'});};
- const _saz=stageArmazenar;stageArmazenar=function(et){_saz(et);setTimeout(()=>addCam('azLoc',{enter:false,title:'Escanear endereço'}),60);};
+ const _saz=stageArmazenar;stageArmazenar=function(et){_saz(et);setTimeout(()=>addCam('azLoc',{enter:false,title:'Escanear endereço',scanKind:'addr'}),60);};
 })();
 
 /* ===== ETIQUETAS EM QR CODE ===== */

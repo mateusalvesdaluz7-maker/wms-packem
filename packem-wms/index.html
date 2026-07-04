@@ -1320,6 +1320,19 @@ try{BOB=JSON.parse(localStorage.getItem('wmsx_bob'))||{};}catch(e){BOB={};}
 try{LOC=JSON.parse(localStorage.getItem('wmsx_loc'))||{};}catch(e){LOC={};}
 var _bobVer=0;
 function saveBOB(){_bobVer++;localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}
+/* Registra uma etiqueta RASTREÁVEL (gerada na Nota Fiscal/Romaneio/Vaga) dentro do catálogo BOB,
+   pra ela funcionar em TUDO (receber, armazenar, mover, separar, chão) igual a bobina normal.
+   Não sobrescreve um cadastro melhor já existente. */
+function regBobFromEtq(id,e){try{
+  id=String(id||'').trim().toUpperCase();if(!id||!e)return;
+  var pr=String(e.cProd||e.bobina||e.nRomaneio||id).trim();
+  var desc=String(e.xProd||e.gramatura||(e.nNF?('NF '+e.nNF):'')||'').trim();
+  var pl=Number(e.kg)||0;
+  var cur=BOB[id];
+  if(cur&&cur.pr&&(cur.pl>0||!pl)) return; /* já tem cadastro bom: não piora */
+  BOB[id]={pr:pr,desc:desc,pl:pl};saveBOB();
+  try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function')chunkUp('bobinas',[{etiqueta:id,pr:pr,descricao:desc,pl:pl}]);}catch(_){}
+}catch(err){}}
 function saveLOC(){localStorage.setItem('wmsx_loc',JSON.stringify(LOC));}
 function brNum(v){if(typeof v==='number')return v;if(v==null)return 0;let s=String(v).trim().replace(/[^\d.,-]/g,'');if(!s)return 0;const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.');if(lc>-1&&ld>-1){if(lc>ld)s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'');}else if(lc>-1){s=s.replace(/,/g,'.');}return parseFloat(s)||0;}
 
@@ -1446,7 +1459,7 @@ function freeStored(et){
  return c;
 }
 function placeBobina(et,pr,pl,c){c=norm(c);const sp=findSpace(c);if(!sp){toast('Endereço '+c+' não existe',false);return false;}if(et&&typeof LOC!=='undefined'&&LOC[et]){const _old=freeStored(et);if(_old)toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');}if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}const before=Number(sp.q)||0;sp.pr=pr;sp.q=before+(Number(pl)||0);sp.o=true;sp.u='KG';sp.upd=nowISO();sp.by=session.u;if(et){LOC[et]=c;saveLOC();}MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:'KG',et:et||'',before,after:sp.q,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;persist();logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}return true;}
-function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}const et=norm(v);if(!et)return;const b=BOB[et];if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo',false);return;}if(LOC[et]){const old=freeStored(et);toast('Bobina '+et+' retornou de '+old+' — liberada p/ recebimento');}if(STAGE.some(s=>s.et===et)){toast('Etiqueta já no intermediário',false);return;}STAGE.unshift({et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u});saveStage();MV.unshift({id:uid(),action:'recebimento',w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:b.pr||'',q:Number(b.pl)||0,u:(typeof unitOf==='function'?unitOf(b.pr):'KG'),et:et,before:0,after:Number(b.pl)||0,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}logAct('recebimento',et+' · '+b.pr);renderRecv();updateStageBadge();toast('Recebido: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});}
+function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}if(LOC[et]){const old=freeStored(et);toast('Bobina '+et+' retornou de '+old+' — liberada p/ recebimento');}if(STAGE.some(s=>s.et===et)){toast('Etiqueta já no intermediário',false);return;}STAGE.unshift({et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u});saveStage();MV.unshift({id:uid(),action:'recebimento',w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:b.pr||'',q:Number(b.pl)||0,u:(typeof unitOf==='function'?unitOf(b.pr):'KG'),et:et,before:0,after:Number(b.pl)||0,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}logAct('recebimento',et+' · '+b.pr);renderRecv();updateStageBadge();toast('Recebido: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});}
 function renderRecv(){const adm=isAdmin();
  $('#v-recv').innerHTML='<div class="ph-head"><div><p class="eb">Operação · recebimento</p><h1>Estoque intermediário</h1></div></div>'+
  '<div class="two">'+
@@ -1765,6 +1778,10 @@ updateStageBadge();
   function etList(g){return (g.ets||[]).map(x=>typeof x==='string'?{et:x,pl:(BOB[x]?Number(BOB[x].pl)||0:0)}:x);}
   function floorHasEt(et){return Object.values(FLOOR).some(g=>etList(g).some(x=>x.et===et));}
   function floorTotals(){let q=0,kg=0,codes=0;Object.values(FLOOR).forEach(g=>{q+=g.qtd||0;kg+=g.kg||0;codes++;});return{q,kg,codes};}
+  /* etiquetas recém-zeradas (não podem voltar da nuvem) e horário do último bipe (distingue "novo" de "deletado por outro") */
+  var _delCh=Object.create(null), _bipCh=Object.create(null);
+  window._floorDelMark=function(et){try{_delCh[String(et).toUpperCase()]=Date.now();}catch(e){}};
+  window._floorDelClear=function(et){try{delete _delCh[String(et).toUpperCase()];}catch(e){}};
   /* ---- ponte com a nuvem (Supabase): tabela 'chao', 1 linha por bobina bipada ---- */
   function rebuildFloorFromRows(rows){
     var nf={};
@@ -1778,11 +1795,31 @@ updateStageBadge();
     return nf;
   }
   window.floorGetState=function(){return FLOOR;};
-  window.floorPullCloud=function(rows){
+  window.floorPullCloud=function(rows,readErr){
     try{
-      /* leitura vazia da nuvem não pode zerar uma contagem local existente (reenvia o local) */
-      if((!rows||!rows.length)){var _has=Object.keys(FLOOR).length;if(_has){try{Object.values(FLOOR).forEach(function(g){(g.ets||[]).forEach(function(x){var et=(typeof x==='string')?x:x.et;var pl=(typeof x==='string')?(BOB[x]?Number(BOB[x].pl)||0:0):x.pl;if(typeof syncChao==='function')syncChao({et:et,pr:g.pr,desc:g.desc||'',pl:pl,at:g.at,by:g.by});});});}catch(e){}return;}}
-      FLOOR=rebuildFloorFromRows(rows);saveFloor();var act=document.querySelector('.view.active');if(act&&act.id==='v-floor')renderFloor();
+      /* remove das linhas da nuvem tudo que acabei de zerar; se ainda está lá, reforça o delete */
+      rows=(rows||[]).filter(function(r){var k=r&&r.et?String(r.et).toUpperCase():'';if(k&&_delCh[k]){try{if(typeof syncDelChao==='function')syncDelChao(r.et);}catch(e){}return false;}return true;});
+      var cloudEts={};rows.forEach(function(r){if(r&&r.et)cloudEts[String(r.et).toUpperCase()]=1;});
+      var localEts=[];Object.values(FLOOR).forEach(function(g){etList(g).forEach(function(x){localEts.push({et:x.et,pl:x.pl,pr:g.pr,desc:g.desc,at:g.at,by:g.by});});});
+      localEts=localEts.filter(function(x){return !_delCh[String(x.et).toUpperCase()];});
+      /* leitura falhou/veio vazia com contagem local: mantém local e reenvia só o recém-bipado */
+      if(readErr || ((!rows||!rows.length) && localEts.length)){
+        var _ag0=Date.now();
+        localEts.forEach(function(x){if((_bipCh[String(x.et).toUpperCase()]||0)>(_ag0-25000)){try{if(typeof syncChao==='function')syncChao({et:x.et,pr:x.pr||'',desc:x.desc||'',pl:x.pl,at:x.at||nowISO(),by:x.by||''});}catch(e){}}});
+        return;
+      }
+      /* MERGE: base = nuvem. Local que sumiu da nuvem: reenvia só se bipado há <25s; senão foi deletado → some */
+      var merged=rebuildFloorFromRows(rows);
+      var onlyLocal=localEts.filter(function(x){return !cloudEts[String(x.et).toUpperCase()];});
+      var GRACE=25000, agora=Date.now();
+      onlyLocal.forEach(function(x){
+        if((_bipCh[String(x.et).toUpperCase()]||0) <= (agora-GRACE))return; /* antiga e sumiu = deletada */
+        var pr=x.pr||'—';if(!merged[pr])merged[pr]={pr:pr,desc:x.desc||'',qtd:0,kg:0,ets:[],at:x.at||nowISO(),by:x.by||''};
+        merged[pr].ets=(merged[pr].ets||[]);merged[pr].ets.unshift({et:x.et,pl:Number(x.pl)||0});
+        try{if(typeof syncChao==='function')syncChao({et:x.et,pr:pr,desc:x.desc||'',pl:x.pl,at:x.at||nowISO(),by:x.by||''});}catch(e){}
+      });
+      Object.keys(merged).forEach(function(pr){merged[pr].qtd=merged[pr].ets.length;merged[pr].kg=merged[pr].ets.reduce(function(s,y){return s+(Number(y.pl)||0);},0);});
+      FLOOR=merged;saveFloor();var act=document.querySelector('.view.active');if(act&&act.id==='v-floor')renderFloor();
     }catch(e){}
   };
   window.floorApplyRealtimeRow=function(ev,n,o){
@@ -1790,6 +1827,7 @@ updateStageBadge();
       if(ev==='DELETE'&&o){
         Object.keys(FLOOR).forEach(function(pr){var g=FLOOR[pr];g.ets=etList(g).filter(function(x){return x.et!==o.et;});if(!g.ets.length)delete FLOOR[pr];else{g.qtd=g.ets.length;g.kg=g.ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);}});
       }else if(n){
+        if(n.et&&_delCh[String(n.et).toUpperCase()]){try{if(typeof syncDelChao==='function')syncDelChao(n.et);}catch(e){}return;}
         Object.keys(FLOOR).forEach(function(pr){var g=FLOOR[pr];g.ets=etList(g).filter(function(x){return x.et!==n.et;});if(!g.ets.length)delete FLOOR[pr];});
         var pr2=n.pr||'—';
         if(!FLOOR[pr2])FLOOR[pr2]={pr:pr2,desc:n.descricao||'',qtd:0,kg:0,ets:[],at:n.at||nowISO(),by:n.by_user||''};
@@ -1803,9 +1841,10 @@ updateStageBadge();
 
   window.floorAdd=function(v){
     const et=norm(v);if(!et)return;
-    const b=BOB[et];
-    if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo',false);return;}
+    var b=BOB[et];if(!b&&typeof window.etqLookup==='function')b=window.etqLookup(et);
+    if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
     if(floorHasEt(et)){toast('Etiqueta '+et+' já contada no chão',false);return;}
+    try{delete _delCh[String(et).toUpperCase()];_bipCh[String(et).toUpperCase()]=Date.now();}catch(e){}
     const pr=b.pr||'—',pl=Number(b.pl)||0;
     let g=FLOOR[pr];
     if(!g){g={pr:pr,desc:b.desc||'',qtd:0,kg:0,ets:[],at:nowISO(),by:session?session.u:''};FLOOR[pr]=g;}
@@ -1816,8 +1855,8 @@ updateStageBadge();
     renderFloor();
     toast('+1 no chão · '+pr+' ('+g.qtd+' bob · '+fmt(g.kg)+' kg)');
   };
-  function floorRemoveEt(pr,et){const g=FLOOR[pr];if(!g)return;g.ets=etList(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveFloor();if(typeof syncDelChao==='function')syncDelChao(et);renderFloor();toast('Removido '+et);}
-  function floorRemoveCode(pr){if(!FLOOR[pr])return;const ets=etList(FLOOR[pr]);delete FLOOR[pr];saveFloor();if(typeof syncDelChao==='function')ets.forEach(function(x){syncDelChao(x.et);});renderFloor();toast('Código '+pr+' zerado');}
+  function floorRemoveEt(pr,et){const g=FLOOR[pr];if(!g)return;g.ets=etList(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveFloor();try{_delCh[String(et).toUpperCase()]=Date.now();delete _bipCh[String(et).toUpperCase()];}catch(e){}if(typeof syncDelChao==='function')syncDelChao(et);renderFloor();toast('Removido '+et);}
+  function floorRemoveCode(pr){if(!FLOOR[pr])return;const ets=etList(FLOOR[pr]);delete FLOOR[pr];saveFloor();if(typeof syncDelChao==='function')ets.forEach(function(x){try{_delCh[String(x.et).toUpperCase()]=Date.now();delete _bipCh[String(x.et).toUpperCase()];}catch(e){}syncDelChao(x.et);});renderFloor();toast('Código '+pr+' zerado');}
   function floorClear(){if(!Object.keys(FLOOR).length)return;if(!confirm('Limpar TODO o chão? Isso apaga a contagem atual.'))return;FLOOR={};saveFloor();if(typeof supa!=='undefined'&&supa){try{supa.from('chao').delete().neq('et','').then(function(){},function(){});}catch(e){}}renderFloor();toast('Chão limpo');}
 
   window.renderFloor=function(){
@@ -1947,8 +1986,8 @@ updateStageBadge();
 
   window.floor70Add=function(v){
     const et=norm(v);if(!et)return;
-    const b=BOB[et];
-    if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo',false);return;}
+    var b=BOB[et];if(!b&&typeof window.etqLookup==='function')b=window.etqLookup(et);
+    if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
     if(f70HasEt(et)){toast('Etiqueta '+et+' já contada no Chão 70',false);return;}
     try{delete _del70[String(et).toUpperCase()];_bip70[String(et).toUpperCase()]=Date.now();}catch(e){}/* voltou a bipar: cancela exclusão pendente e marca como recente */
     const pr=b.pr||'—',pl=Number(b.pl)||0;
@@ -2071,9 +2110,20 @@ updateStageBadge();
   }
   window.convLookup=convLookup;
   try{var _raw=JSON.parse(localStorage.getItem('wmsx_nf')||'{}');NFS=_raw.NFS||{};ETQ=_raw.ETQ||{};ROMS=_raw.ROMS||{};}catch(e){NFS={};ETQ={};ROMS={};}
+  /* migração: etiquetas rastreáveis geradas ANTES desta versão não estavam no catálogo BOB.
+     Registra todas agora, pra funcionarem em receber/armazenar/mover/chão como bobina normal. */
+  try{if(typeof regBobFromEtq==='function'&&ETQ){Object.keys(ETQ).forEach(function(id){try{if(!BOB[id])regBobFromEtq(id,ETQ[id]);}catch(e){}});}}catch(e){}
   function saveNF(){localStorage.setItem('wmsx_nf',JSON.stringify({NFS:NFS,ETQ:ETQ,ROMS:ROMS}));}
   /* ---- ponte com a nuvem (Supabase): substitui tudo local pelo estado da nuvem ---- */
   window.nfGetState=function(){return {ETQ:ETQ,NFS:NFS,ROMS:ROMS};};
+  /* ponte: procura uma etiqueta RASTREÁVEL (gerada na Nota Fiscal/Romaneio) e devolve no
+     formato do catálogo (pr/desc/pl), pra o recebimento aceitar essas etiquetas também. */
+  window.etqLookup=function(id){try{id=String(id||'').trim().toUpperCase();if(!id)return null;var e=ETQ[id];if(!e)return null;
+    var pr=e.cProd||e.bobina||e.nRomaneio||id;
+    var desc=e.xProd||e.gramatura||(e.nNF?('NF '+e.nNF):'')||'';
+    var pl=Number(e.kg)||0;
+    return {pr:String(pr),desc:String(desc),pl:pl,uCom:e.uCom||'KG',rast:true,etqId:id};
+  }catch(err){return null;}};
   window.nfPullCloud=function(rowsEtq,rowsNotas,rowsRom){
     try{
       var fromCloud={};
@@ -2820,6 +2870,7 @@ updateStageBadge();
         var id=(nfParsed.nNF||'NF')+'-'+(nfParsed.serie?nfParsed.serie+'-':'')+String(seq).padStart(3,'0')+'-'+_uniqNF;
         while(ETQ[id]){seq++;_uniqNF=Date.now().toString(36).toUpperCase().slice(-5)+Math.random().toString(36).toUpperCase().slice(2,5);id=(nfParsed.nNF||'NF')+'-'+(nfParsed.serie?nfParsed.serie+'-':'')+String(seq).padStart(3,'0')+'-'+_uniqNF;}
         ETQ[id]={id:id,nf:nfParsed.key,nNF:nfParsed.nNF,cProd:cProd,xProd:xProd,lote:lote,uCom:it.uCom,kg:kgPer,vol:(i+1),volTot:n,idx:seq,status:'gerada',hist:[{ev:'gerada',at:nowISO(),by:session.u}]};
+        try{if(typeof regBobFromEtq==='function')regBobFromEtq(id,ETQ[id]);}catch(e){}
         created.push(id);
       }
     });
@@ -2926,6 +2977,7 @@ updateStageBadge();
       /* garantia extra: se por acaso colidir (praticamente impossível), acrescenta contador */
       if(ETQ[id]){var s=2,base=id;while(ETQ[id]){id=base+'-'+s;s++;}}
       ETQ[id]={id:id,nf:romParsed.key,nRomaneio:hdr.nRomaneio,nNFe:hdr.nfe,cliente:hdr.cliente,bobina:bobina,op:op,lote:lote,gramatura:gram,xProd:_xProd,cProd:_cProd,uCom:'KG',kg:pesoLiquido,pesoBruto:pesoBruto,vol:(idx+1),volTot:romParsed.items.length,idx:(idx+1),status:'gerada',hist:[{ev:'gerada',at:nowISO(),by:session.u}]};
+      try{if(typeof regBobFromEtq==='function')regBobFromEtq(id,ETQ[id]);}catch(e){}
       created.push(id);
     });
     if(!created.length){toast('Nenhuma bobina válida para gerar',false);return;}
@@ -3741,6 +3793,7 @@ updateStageBadge();
     var seq=0,id,base='R'+Date.now().toString(36).toUpperCase().slice(-6)+Math.random().toString(36).toUpperCase().slice(2,5);
     do{seq++;id=(seq===1?base:base+'-'+String(seq).padStart(2,'0'));}while(ETQ[id]);
     ETQ[id]={id:id,nf:'__vaga__',nNF:'',cProd:data.cProd||'',xProd:data.xProd||'',lote:data.lote||'',uCom:(data.un||'KG'),kg:Number(data.kg)||0,addr:data.addr||'',vol:1,volTot:1,status:'gerada',hist:[{ev:'gerada',at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')}]};
+    try{if(typeof regBobFromEtq==='function')regBobFromEtq(id,ETQ[id]);}catch(e){}
     saveNF();
     if(typeof syncEtiqueta==='function')syncEtiqueta(ETQ[id]);
     if(typeof logAct==='function')logAct('rastreio-vaga',id+(data.addr?(' · '+data.addr):''));
@@ -3879,7 +3932,7 @@ function syncDelLoc(et){if(!supa||!et)return;supa.from('locais').delete().eq('et
 function syncStage(it){if(!supa||!it)return;supa.from('stage').upsert({etiqueta:it.et,pr:it.pr,descricao:it.desc||'',pl:Number(it.pl)||0,at:it.at,by_user:it.by||''}).then(()=>{},()=>{});}
 function syncDelStage(et){if(!supa||!et)return;supa.from('stage').delete().eq('etiqueta',et).then(()=>{},()=>{});}
 function syncChao(item){if(!supa||!item||!item.et)return;supa.from('chao').upsert({et:item.et,pr:item.pr||'',descricao:item.desc||'',pl:Number(item.pl)||0,at:item.at||new Date().toISOString(),by_user:item.by||''}).then(()=>{},()=>{});}
-function syncDelChao(et){if(!supa||!et)return;supa.from('chao').delete().eq('et',et).then(()=>{},()=>{});}
+function syncDelChao(et,_try){if(!supa||!et)return;var t=_try||0;supa.from('chao').delete().eq('et',et).then(function(r){if(r&&r.error&&t<4){setTimeout(function(){syncDelChao(et,t+1);},600*(t+1));}else if(typeof window._floorDelClear==='function'){/* mantém o tombstone alguns segundos mesmo após confirmar, pra cobrir sync em voo */setTimeout(function(){try{window._floorDelClear(et);}catch(e){}},8000);}},function(){if(t<4)setTimeout(function(){syncDelChao(et,t+1);},600*(t+1));});}
 window._syncErrs={etq:0,rom:0,lastErr:''};
 function syncEtiqueta(e,_try){if(!supa||!e||!e.id)return;var row={id:e.id,doc_key:e.nf||'',doc_type:e.nRomaneio?'romaneio':(e.addr?'vaga':'nf'),n_nf:e.nNF||'',n_romaneio:e.nRomaneio||'',cliente:e.cliente||'',bobina:e.bobina||'',op:e.op||'',lote:e.lote||'',addr:e.addr||'',gramatura:e.gramatura||e.xProd||'',c_prod:e.cProd||'',u_com:e.uCom||'',kg:Number(e.kg)||0,peso_bruto:Number(e.pesoBruto)||0,vol:Number(e.vol)||0,vol_tot:Number(e.volTot)||0,idx:Number(e.idx)||0,status:e.status||'',hist:e.hist||[],updated_at:new Date().toISOString()};
   supa.from('etiquetas').upsert(row).then(function(r){
@@ -3991,8 +4044,10 @@ async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
     if(typeof window.nfPullCloud==='function')window.nfPullCloud(etq,ntf,rom);
   }catch(e){}
   try{
+    try{window._cloudReadErr=null;}catch(e){}
     const ch=await pgAll('chao');
-    if(typeof window.floorPullCloud==='function')window.floorPullCloud(ch);
+    var _errCh=(window._cloudReadErr&&window._cloudReadErr.table==='chao')?window._cloudReadErr:null;
+    if(typeof window.floorPullCloud==='function')window.floorPullCloud(ch,_errCh);
   }catch(e){}
   try{
     try{window._cloudReadErr=null;}catch(e){}

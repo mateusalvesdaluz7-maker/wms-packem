@@ -573,7 +573,23 @@ function allowedViews(){const r=curRole();return (r&&ROLE_VIEWS[r])||null;}
 const code=sp=>sp.s+'-'+sp.p+'-'+sp.l;
 const whLabel=w=>w==='70'?'Dep 70':w==='novo'?'Novo':'Chão';
 function toast(m,ok=true){const t=$('#toast');$('#toastMsg').textContent=m;t.className='show '+(ok?'ok':'err');clearTimeout(t._t);t._t=setTimeout(()=>t.className='',2600);}
-function persist(){try{if(typeof markLocalWrite==='function')markLocalWrite();}catch(e){}DB.saveSpaces(S);DB.saveMovs(MV);DB.saveTransf(TR);DB.saveValues(VL);DB.saveUsers(US);DB.saveAct(AC);}
+function persist(){try{if(typeof markLocalWrite==='function')markLocalWrite();}catch(e){}DB.saveSpaces(S);DB.saveMovs(MV);DB.saveTransf(TR);DB.saveValues(VL);DB.saveUsers(US);DB.saveAct(AC);try{_persistSyncSpaces();}catch(e){}}
+/* ===== REDE DE SEGURANÇA: sincroniza pra nuvem TODA vaga cujo 'upd' mudou desde a última gravação.
+   Assim, não importa qual dos vários fluxos alterou a vaga (entrada, saída, editar, produção,
+   requisição, transferência...) — se ele chamou persist(), a vaga sobe. Corrige de vez o
+   "fica ocupada e volta verde sozinho" e o "marco e não fica verde". ===== */
+var _spSnap=Object.create(null);
+function _persistSyncSpaces(){
+  if(typeof supa==='undefined'||!supa||typeof syncSpace!=='function')return;
+  if(!Array.isArray(S))return;
+  var changed=[];
+  for(var i=0;i<S.length;i++){var x=S[i];if(!x||!x.id)continue;var sig=(x.upd||'')+'|'+(x.o?1:0)+'|'+(x.pr||'')+'|'+(Number(x.q)||0);if(_spSnap[x.id]!==sig){_spSnap[x.id]=sig;changed.push(x);}}
+  if(!changed.length)return;
+  if(changed.length>60){try{if(typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',changed.map(spRow));}catch(e){}}
+  else{changed.forEach(function(x){try{syncSpace(x);}catch(e){}});}
+}
+/* na 1ª carga, tira uma foto do estado atual pra não re-subir o armazém inteiro à toa */
+function _spSnapInit(){try{if(Array.isArray(S))S.forEach(function(x){if(x&&x.id)_spSnap[x.id]=(x.upd||'')+'|'+(x.o?1:0)+'|'+(x.pr||'')+'|'+(Number(x.q)||0);});}catch(e){}}
 function logAct(a,d){AC.unshift({u:session?session.u:'-',action:a,details:d,at:nowISO()});if(AC.length>800)AC.length=800;DB.saveAct(AC);}
 function rel(iso){if(!iso)return'—';const d=new Date(iso),s=(Date.now()-d)/1000;if(s<60)return'agora';if(s<3600)return Math.floor(s/60)+'min';if(s<86400)return Math.floor(s/3600)+'h';return d.toLocaleDateString('pt-BR');}
 function findSpace(c){c=norm(c);return S.find(x=>x.w===cfg.warehouse&&code(x)===c);}
@@ -3909,6 +3925,7 @@ async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
     const ch70=await pgAll('chao70');
     if(typeof window.floor70PullCloud==='function')window.floor70PullCloud(ch70);
   }catch(e){}
+  try{if(typeof _spSnapInit==='function')_spSnapInit();}catch(e){}
   if(!silent)setNet('on');if(session){var _ae=document.activeElement;var _digitando=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');if(!_digitando){const v=document.querySelector('.view.active');if(v)render(v.id);}}updateStageBadge();return true;
  }catch(e){if(!silent)setNet('on');return false;}}
 let _rt=null;function scheduleRerender(){clearTimeout(_rt);_rt=setTimeout(()=>{if(session){var _ae=document.activeElement;var _dig=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');var _drawer=document.querySelector('#drawer.show');if(!_dig&&!_drawer){const v=document.querySelector('.view.active');if(v)render(v.id);}}updateStageBadge();},350);}
@@ -3918,7 +3935,14 @@ function applyRealtime(p){const t=p.table,n=p.new,o=p.old,ev=p.eventType;
  try{
  if(t==='espacos'&&n){const i=S.findIndex(x=>x.id===n.id);const row={id:n.id,w:n.w,s:n.s,l:n.l,p:n.p,pr:n.pr||'',q:cleanQ(n.q),u:n.u||'KG',o:!!n.o,src:n.src||'',upd:n.upd||'',by:n.by_user||''};
   // anti-eco: se chega uma versão MAIS ANTIGA desta vaga do que a que já tenho, ignoro SEMPRE (é eco atrasado / aparelho desatualizado)
-  if(i>=0){var _cur=S[i];if(_cur&&_cur.upd&&row.upd&&String(row.upd)<String(_cur.upd)){/* ignora eco velho */}else{S[i]=row;persistDebounced('sp');}}
+  if(i>=0){var _cur=S[i];
+    var _curU=String(_cur&&_cur.upd||''),_rowU=String(row.upd||'');
+    // eco velho OU empate de carimbo (eco do próprio aparelho): ignora
+    if(_curU&&_rowU&&_rowU<=_curU){/* ignora eco velho/igual */}
+    // a nuvem quer ESVAZIAR/trocar uma vaga que aqui está ocupada, mas NÃO é comprovadamente mais nova: protege o dado local
+    else if(_cur&&_cur.o&&_cur.pr&&(!row.o||!row.pr)&&!(_rowU&&(!_curU||_rowU>_curU))){/* protege ocupação local */}
+    else{S[i]=row;persistDebounced('sp');}
+  }
   else{S.push(row);persistDebounced('sp');}}
  else if(t==='bobinas'){if(ev==='DELETE'&&o){delete BOB[o.etiqueta];}else if(n){BOB[n.etiqueta]={pr:n.pr,desc:n.descricao||'',pl:Number(n.pl)||0};}persistDebounced('bob');}
  else if(t==='locais'){if(ev==='DELETE'&&o){delete LOC[o.etiqueta];}else if(n){LOC[n.etiqueta]=n.code;}persistDebounced('loc');}
@@ -4002,6 +4026,7 @@ async function checkNet(){
 loadSupa().then(()=>{
   try{
     supa=window.supabase.createClient(SUPA_URL,SUPA_KEY);
+    try{if(typeof _spSnapInit==='function')_spSnapInit();}catch(e){}
     setNet('sync');startRealtime();startAutoSync();
     /* pull inicial com retry: um aparelho que demora a conectar não fica sem dados */
     var _pullTry=0;

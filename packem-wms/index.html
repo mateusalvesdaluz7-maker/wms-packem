@@ -1839,8 +1839,8 @@ updateStageBadge();
   };
   window.floorApplyRealtimeRow=function(ev,n,o){
     try{
-      if(ev==='DELETE'&&o){
-        Object.keys(FLOOR).forEach(function(pr){var g=FLOOR[pr];g.ets=etList(g).filter(function(x){return x.et!==o.et;});if(!g.ets.length)delete FLOOR[pr];else{g.qtd=g.ets.length;g.kg=g.ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);}});
+      if(ev==='DELETE'&&o){var _oet=_eCh(o.et);
+        Object.keys(FLOOR).forEach(function(pr){var g=FLOOR[pr];g.ets=etList(g).filter(function(x){return x.et!==_oet;});if(!g.ets.length)delete FLOOR[pr];else{g.qtd=g.ets.length;g.kg=g.ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);}});
       }else if(n){
         var _net=_eCh(n.et);if(_net&&_delCh[_net]){try{if(typeof syncDelChao==='function')syncDelChao(n.et);}catch(e){}return;}
         Object.keys(FLOOR).forEach(function(pr){var g=FLOOR[pr];g.ets=etList(g).filter(function(x){return x.et!==_net;});if(!g.ets.length)delete FLOOR[pr];});

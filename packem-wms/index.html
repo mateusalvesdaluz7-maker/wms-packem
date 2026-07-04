@@ -1887,6 +1887,8 @@ updateStageBadge();
   /* etiquetas que o operador acabou de zerar: o pull da nuvem NÃO pode trazer de volta
      enquanto o delete não confirmar (era isso que fazia o item "voltar salvo" ao zerar). */
   var _del70=Object.create(null);
+  /* horário do último bipe de cada etiqueta — usado pra distinguir "recém-bipada" de "deletada por outro" */
+  var _bip70=Object.create(null);
   function syncDel70(et,_try){if(!et)return;var key=String(et).toUpperCase();_del70[key]=Date.now();
     if(typeof supa==='undefined'||!supa)return;var t=_try||0;
     supa.from('chao70').delete().eq('et',et).then(function(r){
@@ -1908,13 +1910,21 @@ updateStageBadge();
          eu tenho contagem local, NÃO zero — mantenho o local e reenvio pra nuvem. (era isso que
          fazia o item "aparecer e zerar" a cada sync.) */
       if(readErr || ((!rows||!rows.length) && localEts.length)){
-        localEts.forEach(function(x){try{sync70({et:x.et,pr:x.pr||'',desc:x.desc||'',pl:x.pl,at:x.at||nowISO(),by:x.by||''});}catch(e){}});
+        var _ag=Date.now();
+        localEts.forEach(function(x){if((_bip70[String(x.et).toUpperCase()]||0) > (_ag-25000)){try{sync70({et:x.et,pr:x.pr||'',desc:x.desc||'',pl:x.pl,at:x.at||nowISO(),by:x.by||''});}catch(e){}}});
         return;
       }
-      /* MERGE: base = nuvem; junta etiquetas que só existem localmente (ainda não subiram) e reenvia */
+      /* MERGE: base = nuvem. Uma etiqueta que está local mas SUMIU da nuvem pode ser:
+         (a) recém-bipada que ainda não subiu  → reenvia;
+         (b) deletada por outro aparelho        → remove local (NÃO ressuscita).
+         Distingo pelos ~25s de "janela de graça" desde o bipe. Sem isso, um aparelho
+         reenviava o que o outro tinha zerado, e o item voltava pra sempre. */
       var merged=rebuild70(rows);
       var onlyLocal=localEts.filter(function(x){return !cloudEts[String(x.et).toUpperCase()];});
+      var GRACE=25000, agora=Date.now();
       onlyLocal.forEach(function(x){
+        var recente=(_bip70[String(x.et).toUpperCase()]||0) > (agora-GRACE);
+        if(!recente)return; /* antiga e sumiu da nuvem = foi deletada: deixa sumir */
         var pr=x.pr||'—';if(!merged[pr])merged[pr]={pr:pr,desc:x.desc||'',qtd:0,kg:0,ets:[],at:x.at||nowISO(),by:x.by||''};
         merged[pr].ets=(merged[pr].ets||[]);merged[pr].ets.unshift({et:x.et,pl:Number(x.pl)||0});
         try{sync70({et:x.et,pr:pr,desc:x.desc||'',pl:x.pl,at:x.at||nowISO(),by:x.by||''});}catch(e){}
@@ -1940,7 +1950,7 @@ updateStageBadge();
     const b=BOB[et];
     if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo',false);return;}
     if(f70HasEt(et)){toast('Etiqueta '+et+' já contada no Chão 70',false);return;}
-    try{delete _del70[String(et).toUpperCase()];}catch(e){}/* voltou a bipar: cancela exclusão pendente */
+    try{delete _del70[String(et).toUpperCase()];_bip70[String(et).toUpperCase()]=Date.now();}catch(e){}/* voltou a bipar: cancela exclusão pendente e marca como recente */
     const pr=b.pr||'—',pl=Number(b.pl)||0;
     let g=FLOOR70[pr];
     if(!g){g={pr:pr,desc:b.desc||'',qtd:0,kg:0,ets:[],at:nowISO(),by:session?session.u:''};FLOOR70[pr]=g;}
@@ -1962,8 +1972,8 @@ updateStageBadge();
     var cb=v.querySelector('#f70Clear');if(cb)cb.onclick=f70Clear;
     renderF70List();
   }
-  function f70RemoveEt(pr,et){const g=FLOOR70[pr];if(!g)return;g.ets=etL(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR70[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveF70();syncDel70(et);updateF70();toast('Removido '+et);}
-  function f70RemoveCode(pr){if(!FLOOR70[pr])return;const ets=etL(FLOOR70[pr]);delete FLOOR70[pr];saveF70();ets.forEach(function(x){syncDel70(x.et);});updateF70();toast('Código '+pr+' zerado');}
+  function f70RemoveEt(pr,et){const g=FLOOR70[pr];if(!g)return;g.ets=etL(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR70[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveF70();try{delete _bip70[String(et).toUpperCase()];}catch(e){}syncDel70(et);updateF70();toast('Removido '+et);}
+  function f70RemoveCode(pr){if(!FLOOR70[pr])return;const ets=etL(FLOOR70[pr]);delete FLOOR70[pr];saveF70();ets.forEach(function(x){try{delete _bip70[String(x.et).toUpperCase()];}catch(e){}syncDel70(x.et);});updateF70();toast('Código '+pr+' zerado');}
   function f70Clear(){if(!Object.keys(FLOOR70).length)return;if(!confirm('Limpar TODO o Chão 70? Isso apaga a contagem atual.'))return;FLOOR70={};saveF70();if(typeof supa!=='undefined'&&supa){try{supa.from('chao70').delete().neq('et','').then(function(){},function(){});}catch(e){}}renderFloor70();toast('Chão 70 limpo');}
 
   window.renderFloor70=function(){

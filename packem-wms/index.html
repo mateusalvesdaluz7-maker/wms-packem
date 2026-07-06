@@ -367,6 +367,7 @@
       <section class="view" id="v-stock">
         <div class="ph-head"><div><p class="eb">Operação</p><h1>Estoque</h1></div>
           <div class="actions"><button class="gbtn" id="stFixWeights" data-ic="alert" style="display:none">Corrigir pesos inválidos</button><button class="gbtn" id="stExportSum" data-ic="down"><span></span>Resumo por produto</button><button class="gbtn" id="stExport" data-ic="down"><span></span>Exportar CSV</button></div></div>
+        <div id="stChaoCard"></div>
         <div class="toolbar">
           <div class="search"><span class="si" data-ic="search"></span><input id="stSearch" placeholder="buscar produto ou endereço"></div>
           <select class="input" id="stStreet"><option value="">Todas as ruas</option></select>
@@ -422,6 +423,14 @@
             </div>
             <button class="btn brand" id="genRast" style="width:100%;height:48px">Gerar etiqueta rastreável</button>
             <div id="rastLast" style="margin-top:12px"></div>
+            <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line,rgba(255,255,255,.08))">
+              <p style="color:var(--muted);font-size:.82rem;line-height:1.5;margin:0 0 10px">Perdeu ou rasgou uma etiqueta? Cole o <b style="color:var(--text)">ID</b> dela aqui pra reimprimir <b style="color:var(--text)">a mesma</b> (não gera nova, não duplica saldo).</p>
+              <div class="two" style="grid-template-columns:2fr 1fr;align-items:end">
+                <label class="fld"><span class="lab">ID da etiqueta</span><input class="input code" id="rastReprintId" placeholder="ex: R6GNA2EXV8"></label>
+                <button class="btn brand" id="rastReprintBtn" style="height:48px">Reimprimir por ID</button>
+              </div>
+              <div id="rastReprintMsg" style="margin-top:8px;font-size:.84rem;min-height:18px"></div>
+            </div>
           </div>
         </div>
         <div id="printArea"><div class="labels" id="labelsBox"></div></div>
@@ -797,7 +806,23 @@ function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdm
     <button class="btn brand" id="spSave" style="width:100%;height:48px;margin-bottom:10px">Salvar</button>
     <button class="gbtn" id="spFree" style="width:100%;justify-content:center">${ICONS.out||''} Enviar para produção</button>`
     :`<div style="font-size:.85rem;color:var(--muted)">Produto</div><div class="mono" style="font-size:1.2rem;font-weight:700;margin:4px 0 14px">${x.pr||'(livre)'}</div><div style="font-size:.85rem;color:var(--muted)">Peso</div><div style="font-family:var(--disp);font-size:1.8rem;font-weight:700">${fmt(x.q||0)} <small style="font-size:.9rem;color:var(--muted)">${unitOf(x).toLowerCase()}</small></div>`}
-    <button class="gbtn" id="spLabel" style="width:100%;justify-content:center;margin-top:14px">${ICONS.tag} Ver etiqueta</button>`);
+    <button class="gbtn" id="spLabel" style="width:100%;justify-content:center;margin-top:14px">${ICONS.tag} Ver etiqueta</button>
+    ${(function(){
+      try{
+        var here=[];if(typeof LOC!=='undefined')Object.keys(LOC).forEach(function(et){if(norm(LOC[et])===norm(code(x)))here.push(et);});
+        if(!here.length)return '';
+        var un=unitOf(x).toLowerCase();
+        var rows=here.map(function(et){
+          var b=(typeof BOB!=='undefined'&&BOB[et])?BOB[et]:null;
+          var pl=b?(b.rem!=null?b.rem:b.pl):0;
+          var desc=b?(b.desc||''):'';
+          return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-2,rgba(255,255,255,.03));border:1px solid var(--line);border-radius:9px;margin-top:6px">'
+            +'<div style="flex:1;min-width:0"><div class="mono" style="font-weight:700">'+et+'</div>'+(desc?'<div style="font-size:.72rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+desc+'</div>':'')+'</div>'
+            +'<div style="font-family:var(--mono);font-size:.82rem;color:var(--muted);white-space:nowrap">'+fmt(pl)+' '+un+'</div></div>';
+        }).join('');
+        return '<div style="margin-top:16px"><div style="font-size:.66rem;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:2px">Bobinas nesta posição ('+here.length+')</div>'+rows+'</div>';
+      }catch(e){return '';}
+    })()}`);
   if(adm){if(window.addCam){var _pe=document.getElementById('spProd');if(_pe)window.addCam('spProd',{title:'Bipe a bobina',onResult:function(v){var p=parseBobina(v);if(p&&p.pr)_pe.value=p.pr;var _q=document.getElementById('spQty');if(_q&&p&&p.peso!=null&&!isNaN(p.peso))_q.value=p.peso;var _s=document.getElementById('spSrc');toast('Etiqueta '+(p&&(p.et||p.pr)||v)+' lida · confira e Salvar');}});}
   $('#spSave').onclick=()=>{x.pr=norm($('#spProd').value);x.q=Number($('#spQty').value)||0;x.src=norm($('#spSrc').value);x.o=!!(x.pr&&x.pr!=='0');x.upd=nowISO();x.by=session.u;persist();logAct('edit','posição '+code(x));closeDrawer();render($('.view.active').id);toast('Posição salva');};
   $('#spFree').onclick=()=>{const before=Number(x.q)||0;if(!x.o||before<=0){toast('Posição já está vazia',false);return;}
@@ -836,7 +861,110 @@ function confirmMov(){if(!isAdmin()){toast('Somente admin pode movimentar',false
 function renderMovRecent(){$('#movRecent').innerHTML=MV.slice(0,40).map(m=>`<div class="feed"><div class="fi ${m.action==='entrada'?'in':'out'}">${m.action==='entrada'?ICONS.in:ICONS.out}</div><div class="fm"><div class="p">${m.pr}</div><div class="s">${m.code} · ${new Date(m.at).toLocaleString('pt-BR')} · ${m.by}</div></div><div class="fq ${m.action==='entrada'?'in':'out'}">${m.action==='entrada'?'+':'−'}${fmt(m.q)}</div></div>`).join('')||'<p style="color:var(--muted)">Nenhum movimento ainda.</p>';}
 
 /* ESTOQUE */
-function renderStock(){try{if(typeof autoFixWeights==='function')autoFixWeights();}catch(e){}const st=$('#stStreet');if(st.options.length<=1)[...new Set(S.filter(x=>x.w===cfg.warehouse).map(x=>x.s))].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent='Rua '+s;st.appendChild(o);});renderStockTable();}
+function chaoTotals(){
+  /* peso por bobina acima disso é dado corrompido (ex: gramatura lida como peso) — ignora na soma */
+  var _MAXPL=100000; /* 100 mil kg/mt por bobina já é absurdo pra têxtil */
+  var _sane=function(v){var n=Number(v)||0;if(!isFinite(n)||n<0||n>_MAXPL)return 0;return n;};
+  window._chaoSanePl=_sane;
+  /* pega o peso confiável: se o guardado está corrompido, usa o do catálogo BOB */
+  var _plReal=function(et,plGuardado){var g=_sane(plGuardado);if(g>0)return g;try{if(typeof BOB!=='undefined'&&BOB[et]){var b=_sane(BOB[et].rem!=null?BOB[et].rem:BOB[et].pl);if(b>0)return b;}}catch(e){}return 0;};
+  var mk=function(){return {q:0,kg:0,mt:0,un:0,codes:0,groups:[]};};
+  var r={f:mk(),f70:mk()};
+  var acc=function(dst,state,origem){try{Object.values(state||{}).forEach(function(g){
+    var u=(typeof unitOf==='function')?unitOf(g.pr||''):'KG';
+    var ets=(g.ets||[]).map(function(x){var et=(typeof x==='string')?x:x.et;var pl=(typeof x==='string')?0:x.pl;return {et:et,pl:_plReal(et,pl)};});
+    var val=ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0); /* soma saneada, não confia no g.kg */
+    dst.q+=g.qtd||ets.length;dst.codes++;
+    if(u==='MT')dst.mt+=val;else if(u==='UN')dst.un+=val;else dst.kg+=val;
+    dst.groups.push({pr:g.pr,desc:(g.desc||(typeof descOf==='function'?descOf(g.pr):'')||''),qtd:g.qtd||ets.length,val:val,un:u,ets:ets,origem:origem});
+  });}catch(e){}};
+  try{acc(r.f,(typeof window.floorGetState==='function')?window.floorGetState():{},'Chão');}catch(e){}
+  try{acc(r.f70,(typeof window.floor70GetState==='function')?window.floor70GetState():{},'Chão 70');}catch(e){}
+  r.totQ=r.f.q+r.f70.q;r.totKg=r.f.kg+r.f70.kg;r.totMt=r.f.mt+r.f70.mt;r.totUn=r.f.un+r.f70.un;
+  return r;
+}
+/* linha de pesos por unidade, só mostra o que existe */
+function _chaoPesoLine(o){var p=[];if(o.kg>0)p.push(fmt(o.kg)+' kg');if(o.mt>0)p.push(fmt(o.mt)+' mt');if(o.un>0)p.push(fmt(o.un)+' un');return p.length?p.join(' · '):'0 kg';}
+function renderStock(){try{if(typeof autoFixWeights==='function')autoFixWeights();}catch(e){}const st=$('#stStreet');if(st.options.length<=1)[...new Set(S.filter(x=>x.w===cfg.warehouse).map(x=>x.s))].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent='Rua '+s;st.appendChild(o);});renderChaoCard();renderStockTable();}
+function renderChaoCard(){var el=document.getElementById('stChaoCard');if(!el)return;var t=chaoTotals();if(t.totQ<=0){el.innerHTML='';return;}
+  el.innerHTML='<div style="display:flex;gap:12px;flex-wrap:wrap;margin:0 0 14px">'
+    +'<div class="chaoCardBtn" data-chao="f" style="flex:1;min-width:150px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer" title="Ver bobinas do Chão">'
+      +'<div style="font-size:.66rem;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700">Chão ›</div>'
+      +'<div style="font-family:var(--disp);font-weight:800;font-size:1.5rem;line-height:1.1">'+t.f.q+' <span style="font-size:.8rem;color:var(--muted);font-weight:600">bob</span></div>'
+      +'<div style="font-family:var(--mono);font-size:.8rem;color:var(--muted)">'+_chaoPesoLine(t.f)+'</div></div>'
+    +'<div class="chaoCardBtn" data-chao="f70" style="flex:1;min-width:150px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer" title="Ver bobinas do Chão 70">'
+      +'<div style="font-size:.66rem;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700">Chão 70 ›</div>'
+      +'<div style="font-family:var(--disp);font-weight:800;font-size:1.5rem;line-height:1.1">'+t.f70.q+' <span style="font-size:.8rem;color:var(--muted);font-weight:600">bob</span></div>'
+      +'<div style="font-family:var(--mono);font-size:.8rem;color:var(--muted)">'+_chaoPesoLine(t.f70)+'</div></div>'
+    +'<div class="chaoCardBtn" data-chao="tot" style="flex:1;min-width:150px;background:linear-gradient(135deg,var(--brand,#EA5A0C),#c2410c);color:#fff;border-radius:14px;padding:14px 16px;cursor:pointer" title="Ver tudo no chão">'
+      +'<div style="font-size:.66rem;letter-spacing:.5px;text-transform:uppercase;opacity:.9;font-weight:700">Total no chão ›</div>'
+      +'<div style="font-family:var(--disp);font-weight:800;font-size:1.5rem;line-height:1.1">'+t.totQ+' <span style="font-size:.8rem;opacity:.85;font-weight:600">bob</span></div>'
+      +'<div style="font-family:var(--mono);font-size:.8rem;opacity:.9">'+_chaoPesoLine({kg:t.totKg,mt:t.totMt,un:t.totUn})+'</div></div>'
+  +'</div>';
+  el.querySelectorAll('.chaoCardBtn').forEach(function(c){c.onclick=function(){openChaoDetail(c.getAttribute('data-chao'));};});
+}
+/* detalhe do chão: tabela completa (como o estoque) + exportar CSV */
+window._chaoDetailData=null;
+function openChaoDetail(which){
+  var t=chaoTotals();
+  var groups=[];
+  if(which==='f')groups=t.f.groups.slice();
+  else if(which==='f70')groups=t.f70.groups.slice();
+  else groups=t.f.groups.concat(t.f70.groups);
+  if(which==='tot'){var m={};groups.forEach(function(g){var key=g.pr;if(!m[key])m[key]={pr:g.pr,desc:g.desc,qtd:0,val:0,un:g.un,ets:[],origem:'Chão+70'};m[key].qtd+=g.qtd;m[key].val+=g.val;m[key].ets=m[key].ets.concat(g.ets||[]);});groups=Object.values(m);}
+  groups.sort(function(a,b){return (b.qtd-a.qtd)||(b.val-a.val);});
+  var titulo=which==='f'?'Chão':(which==='f70'?'Chão 70':'Total no chão');
+  var tot=which==='f'?t.f:(which==='f70'?t.f70:{kg:t.totKg,mt:t.totMt,un:t.totUn,q:t.totQ});
+  var totQ=which==='tot'?t.totQ:tot.q;
+  window._chaoDetailData={which:which,titulo:titulo,groups:groups};
+  if(!groups.length){openDrawer(titulo,'<div style="color:var(--muted);padding:20px 0;text-align:center">Nada contado no '+titulo.toLowerCase()+'.</div>');return;}
+  var body='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'
+    +'<span class="pill in">'+totQ+' bobinas</span>'
+    +'<span class="pill muted">'+_chaoPesoLine(tot)+'</span>'
+    +'<span class="pill muted">'+groups.length+' códigos</span></div>'
+    +'<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">'
+      +'<button class="gbtn" id="chaoExpSum" style="flex:1;justify-content:center;min-width:130px">'+(ICONS.down||'')+' Exportar por código</button>'
+      +'<button class="gbtn" id="chaoExpDet" style="flex:1;justify-content:center;min-width:130px">'+(ICONS.down||'')+' Exportar etiquetas</button>'
+    +'</div>'
+    +'<input class="input" id="chaoDetFind" placeholder="🔎 filtrar código ou descrição" style="width:100%;margin-bottom:12px">'
+    +'<div style="max-height:60vh;overflow:auto"><table class="tbl" style="width:100%"><thead><tr>'
+      +'<th style="text-align:left">Código</th><th style="text-align:left">Descrição</th><th class="num">Bob</th><th class="num">Peso</th><th>Un</th></tr></thead>'
+      +'<tbody id="chaoDetBody">'+_chaoDetRows(groups)+'</tbody></table></div>';
+  openDrawer(titulo+' — detalhe',body);
+  var f=document.getElementById('chaoDetFind');
+  if(f)f.addEventListener('input',function(){var q=(f.value||'').toUpperCase();var fl=groups.filter(function(g){return String(g.pr).toUpperCase().indexOf(q)>=0||String(g.desc).toUpperCase().indexOf(q)>=0;});document.getElementById('chaoDetBody').innerHTML=_chaoDetRows(fl);});
+  var es=document.getElementById('chaoExpSum');if(es)es.onclick=function(){_chaoExport('sum');};
+  var ed=document.getElementById('chaoExpDet');if(ed)ed.onclick=function(){_chaoExport('det');};
+}
+function _chaoDetRows(groups){
+  if(!groups.length)return '<tr><td colspan="5" style="color:var(--muted);padding:16px 0;text-align:center">Nada encontrado.</td></tr>';
+  return groups.map(function(g){var un=(g.un||'KG');
+    return '<tr><td class="mono" style="font-weight:700">'+g.pr+'</td>'
+      +'<td class="desc" title="'+String(g.desc||'').replace(/"/g,'&quot;')+'">'+(g.desc||'—')+'</td>'
+      +'<td class="num">'+g.qtd+'</td>'
+      +'<td class="num">'+fmt(g.val)+'</td>'
+      +'<td>'+un+'</td></tr>';
+  }).join('');
+}
+function _chaoExport(tipo){
+  try{
+    var d=window._chaoDetailData;if(!d||!d.groups)return;
+    var nomeBase='chao'+(d.which==='f70'?'_70':(d.which==='tot'?'_total':''));
+    if(tipo==='sum'){
+      var h=['Codigo','Descricao','Bobinas','Peso','Unidade'];
+      var rows=d.groups.map(function(g){return [g.pr,g.desc,g.qtd,g.val,g.un];});
+      dl(nomeBase+'_por_codigo.csv',csv([h].concat(rows)));
+      toast('Exportado por código');
+    }else{
+      var h2=['Codigo','Descricao','Etiqueta','Peso','Unidade','Origem'];
+      var rows2=[];
+      d.groups.forEach(function(g){(g.ets||[]).forEach(function(x){rows2.push([g.pr,g.desc,x.et,x.pl,g.un,g.origem||'']);});});
+      if(!rows2.length){toast('Sem etiquetas para exportar',false);return;}
+      dl(nomeBase+'_etiquetas.csv',csv([h2].concat(rows2)));
+      toast(rows2.length+' etiquetas exportadas');
+    }
+  }catch(e){toast('Falha ao exportar',false);}
+}
 /* busca/filtros do estoque são ligados (com debounce) no bloco otimizado mais abaixo */
 $('#stExport').onclick=()=>{const h=['Endereco','Produto','Peso','Un','Origem','Atualizado','Operador'];const b=filterStock().map(x=>[code(x),x.pr,x.q,x.u,x.src,x.upd,x.by]);dl('estoque_packem.csv',csv([h,...b]));toast('Exportado');};
 function filterStock(){const q=norm($('#stSearch').value),sr=$('#stStreet').value,stt=$('#stStatus').value;let rows=S.filter(x=>x.w===cfg.warehouse);if(stt===''||!stt)rows=rows.filter(x=>x.o&&x.q>0);else if(stt==='zero')rows=rows.filter(x=>x.o&&x.q<=0);if(sr)rows=rows.filter(x=>x.s===sr);if(q)rows=rows.filter(x=>code(x).includes(q)||(x.pr||'').toUpperCase().includes(q));
@@ -893,11 +1021,38 @@ $('#genBobStock').onclick=()=>{const sel=$('#lblStreet').value;let rows=occSpace
     var ids=[];
     for(var i=0;i<cp;i++){var id=window.nfMakeLabel({cProd:pr,xProd:d,kg:qt,lote:lote,un:un,_dim:(fmtOpt&&fmtOpt.dim)||null,_orient:(fmtOpt&&fmtOpt.orient)||'retrato'});if(id)ids.push(id);}
     var box=document.getElementById('rastLast');
-    if(box&&ids.length){box.innerHTML='<div style="background:#f0fdf4;border:1px solid #dcfce7;border-radius:10px;padding:12px;font-size:.84rem;color:#15803d">'+ids.length+' etiqueta(s) gerada(s): <b>'+ids.join(', ')+'</b><div style="color:var(--muted);font-size:.76rem;margin-top:4px">Já pode rastrear na aba Rastreador.</div></div>';}
+    if(box&&ids.length){box.innerHTML='<div style="background:#f0fdf4;border:1px solid #dcfce7;border-radius:10px;padding:12px;font-size:.84rem;color:#15803d">'+ids.length+' etiqueta(s) gerada(s):<div style="font-family:monospace;font-weight:800;font-size:1rem;margin:6px 0;color:#166534;word-break:break-all">'+ids.join(' · ')+'</div><div style="color:var(--muted);font-size:.76rem">Anote o ID. Se a etiqueta rasgar, use a aba <b>Rastreador</b> → digite o ID → <b>Reimprimir esta etiqueta</b> (não gere de novo, pra não duplicar saldo).</div></div>';}
     toast(ids.length+' etiqueta(s) rastreável(is) criada(s)');
   };
   if(typeof askLabelFormat==='function')askLabelFormat('Etiqueta rastreável',_fazer);else _fazer(null);
-};})();
+};
+/* ---- Reimprimir uma etiqueta existente pelo ID (etiqueta perdida/rasgada) ---- */
+(function(){
+  var btn=document.getElementById('rastReprintBtn'),inp=document.getElementById('rastReprintId'),msg=document.getElementById('rastReprintMsg');
+  if(!btn||!inp)return;
+  var achaEtq=function(raw){
+    var v=String(raw==null?'':raw);
+    if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);
+    var id=norm(v);
+    if(typeof ETQ==='undefined')return null;
+    if(ETQ[id])return id;
+    /* tenta achar por tokens (caso tenham colado o QR inteiro) */
+    var toks=String(raw).split(/[\r\n;|,\t ]+/).map(function(s){return norm(s);}).filter(Boolean);
+    for(var i=0;i<toks.length;i++){if(ETQ[toks[i]])return toks[i];}
+    return null;
+  };
+  var doReprint=function(){
+    var id=achaEtq(inp.value);
+    if(!id){if(msg)msg.innerHTML='<span style="color:var(--out,#dc2626);font-weight:600">✗ ID não encontrado. Confira o código digitado.</span>';toast('Etiqueta não encontrada',false);return;}
+    var e=ETQ[id];
+    if(msg)msg.innerHTML='<span style="color:var(--in,#16a34a);font-weight:600">✓ '+id+' — '+esc(e.xProd||e.cProd||'')+(e.kg>0?(' · '+fmt(e.kg)+' kg'):'')+'</span>';
+    var _do=function(fmtOpt){try{if(typeof printZebraRast==='function')printZebraRast([e],(fmtOpt&&fmtOpt.dim)||(typeof ZSIZES!=='undefined'?ZSIZES.z100:null),(fmtOpt&&fmtOpt.orient)||'retrato');toast('Reimpressa: '+id);}catch(err){toast('Falha ao imprimir',false);}};
+    if(typeof askLabelFormat==='function')askLabelFormat('Reimprimir etiqueta '+id,_do);else _do(null);
+  };
+  btn.onclick=doReprint;
+  inp.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();doReprint();}});
+  if(typeof scanLock==='function')scanLock(inp);
+})();})();
 $('#printLabels').onclick=()=>{try{window.print();}catch(_pe){}};
 function showLabelSheet(c,desc,w){openDrawer(`${ICONS.tag} Etiqueta`,`<div id="printArea"><div class="labels" style="grid-template-columns:1fr">${labelHTML(c,desc,w)}</div></div><button class="gbtn" id="shPrint" style="width:100%;justify-content:center;margin-top:16px">${ICONS.print} Imprimir</button>`);$('#shPrint').onclick=()=>{try{window.print();}catch(_pe){}};}
 
@@ -1352,7 +1507,14 @@ confirmMov=function(){if(!isAdmin()){toast('Somente admin pode movimentar',false
  if(!prod){toast('Bipe a etiqueta',false);$('#mBob').focus();return;}
  if(!qty||qty<=0){toast('Peso inválido',false);$('#mQty').focus();return;}
  let before=Number(sp.q)||0;
- if(mode==='entrada'){if(et&&LOC[et]){const _old=freeStored(et);if(_old){toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');before=Number(sp.q)||0;}}if(sp.o&&sp.pr&&sp.pr!==prod&&before>0){toast('Posição ocupada por '+sp.pr,false);return;}if(before<=0){sp.pr=prod;sp.q=Number(qty)||0;}else{sp.pr=prod;sp.q=before+(Number(qty)||0);}sp.o=true;if(et){LOC[et]=c;saveLOC();if(BOB[et]){BOB[et].rem=qty;saveBOB();}}}
+ if(mode==='entrada'){
+   if(et&&LOC[et]){
+     if(LOC[et]===c){toast('Bobina '+et+' já está armazenada em '+c,false);return;}
+     var _noStg=(typeof STAGE!=='undefined')&&STAGE.some(function(s){return s.et===et;});
+     if(!_noStg){toast('Bobina '+et+' já está em '+LOC[et]+'. Faça a SAÍDA dela antes de armazenar em outro lugar.',false);return;}
+     const _old=freeStored(et);if(_old){toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');before=Number(sp.q)||0;}
+   }
+   if(sp.o&&sp.pr&&sp.pr!==prod&&before>0){toast('Posição ocupada por '+sp.pr,false);return;}if(before<=0){sp.pr=prod;sp.q=Number(qty)||0;}else{sp.pr=prod;sp.q=before+(Number(qty)||0);}sp.o=true;if(et){LOC[et]=c;saveLOC();if(BOB[et]){BOB[et].rem=qty;saveBOB();}}}
  else{if(sp.pr&&sp.pr!==prod){toast('Aqui tem '+sp.pr,false);return;}if(qty>before){toast('Saldo insuficiente na posição: '+fmt(before)+' kg',false);return;}sp.q=before-qty;
   if(et&&BOB[et]){const rb=(BOB[et].rem!=null?BOB[et].rem:BOB[et].pl);const ra=Math.max(0,rb-qty);BOB[et].rem=ra;saveBOB();if(ra<=0&&LOC[et]){delete LOC[et];saveLOC();}}
   else if(et&&LOC[et]&&sp.q<=0){delete LOC[et];saveLOC();}
@@ -1458,7 +1620,16 @@ function freeStored(et){
  if(typeof syncDelLoc==='function')syncDelLoc(et);persist();try{enqueue3dTask(c,'out');}catch(e){}
  return c;
 }
-function placeBobina(et,pr,pl,c){c=norm(c);const sp=findSpace(c);if(!sp){toast('Endereço '+c+' não existe',false);return false;}if(et&&typeof LOC!=='undefined'&&LOC[et]){const _old=freeStored(et);if(_old)toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');}if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}const before=Number(sp.q)||0;sp.pr=pr;sp.q=before+(Number(pl)||0);sp.o=true;sp.u='KG';sp.upd=nowISO();sp.by=session.u;if(et){LOC[et]=c;saveLOC();}MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:'KG',et:et||'',before,after:sp.q,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;persist();logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}return true;}
+function placeBobina(et,pr,pl,c){c=norm(c);const sp=findSpace(c);if(!sp){toast('Endereço '+c+' não existe',false);return false;}
+ if(et&&typeof LOC!=='undefined'&&LOC[et]){
+   /* JÁ está armazenada. Só pode rearmazenar se estiver voltando pelo intermediário (STAGE).
+      Senão, seria a MESMA bobina em dois lugares (saldo duplicado) — bloqueia e manda dar saída. */
+   var noStage=(typeof STAGE!=='undefined')&&STAGE.some(function(s){return s.et===et;});
+   if(LOC[et]===c){toast('Bobina '+et+' já está armazenada em '+c,false);return false;}
+   if(!noStage){toast('Bobina '+et+' já está em '+LOC[et]+'. Faça a SAÍDA dela antes de armazenar em outro lugar.',false);return false;}
+   const _old=freeStored(et);if(_old)toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');
+ }
+ if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}const before=Number(sp.q)||0;sp.pr=pr;sp.q=before+(Number(pl)||0);sp.o=true;sp.u='KG';sp.upd=nowISO();sp.by=session.u;if(et){LOC[et]=c;saveLOC();}MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:'KG',et:et||'',before,after:sp.q,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;persist();if(typeof syncSpace==='function')syncSpace(sp);logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}return true;}
 function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}if(LOC[et]){const old=freeStored(et);toast('Bobina '+et+' retornou de '+old+' — liberada p/ recebimento');}if(STAGE.some(s=>s.et===et)){toast('Etiqueta já no intermediário',false);return;}STAGE.unshift({et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u});saveStage();MV.unshift({id:uid(),action:'recebimento',w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:b.pr||'',q:Number(b.pl)||0,u:(typeof unitOf==='function'?unitOf(b.pr):'KG'),et:et,before:0,after:Number(b.pl)||0,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}logAct('recebimento',et+' · '+b.pr);renderRecv();updateStageBadge();toast('Recebido: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});}
 function renderRecv(){const adm=isAdmin();
  $('#v-recv').innerHTML='<div class="ph-head"><div><p class="eb">Operação · recebimento</p><h1>Estoque intermediário</h1></div></div>'+
@@ -1977,6 +2148,7 @@ updateStageBadge();
       else{delete _del70[key];}              /* confirmou o apagamento: pode liberar */
     },function(){if(g!==_gen70[key])return;if(t<4)setTimeout(function(){if(g===_gen70[key])syncDel70(et,t+1,g);},600*(t+1));});
   }
+  window.floor70GetState=function(){return FLOOR70;};
   window.floor70PullCloud=function(rows,readErr){
     try{
       /* expira tombstones presos: se um delete pendente não confirmou em 20s (ex: tabela ausente,
@@ -2066,7 +2238,7 @@ updateStageBadge();
     var sub=v.querySelector('#f70Sub');if(sub)sub.innerHTML=t.q?(fmt(t.kg)+' kg · '+t.codes+' '+(t.codes===1?'código':'códigos')):'';
     var act=v.querySelector('#f70Actions');if(act)act.innerHTML=t.q?('<button class="gbtn" id="f70Clear">'+ICONS.reload+' Limpar Chão 70</button>'):'';
     var cb=v.querySelector('#f70Clear');if(cb)cb.onclick=f70Clear;
-    renderF70List();
+    var _fq=v.querySelector('#f70Find');renderF70List(_fq?_fq.value:'');
   }
   function f70RemoveEt(pr,et){et=_e70(et);const g=FLOOR70[pr];if(!g)return;g.ets=etL(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR70[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveF70();try{delete _bip70[et];_bump70(et);}catch(e){}syncDel70(et);updateF70();toast('Removido '+et);}
   function f70RemoveCode(pr){if(!FLOOR70[pr])return;const ets=etL(FLOOR70[pr]);delete FLOOR70[pr];saveF70();ets.forEach(function(x){try{delete _bip70[_e70(x.et)];_bump70(x.et);}catch(e){}syncDel70(x.et);});updateF70();toast('Código '+pr+' zerado');}
@@ -2094,7 +2266,9 @@ updateStageBadge();
           +'<div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px">bobinas no Chão 70</div>'
           +'<div id="f70Sub" style="font-family:var(--mono);font-size:.85rem;color:var(--muted);margin-top:8px">'+(t.q?(fmt(t.kg)+' kg · '+t.codes+' '+(t.codes===1?'código':'códigos')):'')+'</div>'
         +'</div>'
-      +'</div><h3 class="sub">Totais por código</h3><div id="f70List"></div>';
+      +'</div><h3 class="sub">Totais por código</h3>'
+      +'<div style="margin-bottom:12px"><input class="input" id="f70Find" placeholder="🔎 procurar etiqueta ou código (ex: R6GNA2EXV8)" style="width:100%"><div id="f70FindMsg" style="font-size:.8rem;margin-top:6px;min-height:18px"></div></div>'
+      +'<div id="f70List"></div>';
     const sc=$('#f70Scan');
     if(sc){
       sc.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();floor70Add(sc.value);sc.value='';}});
@@ -2102,12 +2276,27 @@ updateStageBadge();
       if(window.addCam)addCam('f70Scan',{continuous:true,onResult:floor70Add,title:'Escanear bobinas (Chão 70)'});
     }
     const cb=$('#f70Clear');if(cb)cb.onclick=f70Clear;
+    var fnd=$('#f70Find');if(fnd){fnd.addEventListener('input',function(){renderF70List(fnd.value);});}
     renderF70List();
   };
-  function renderF70List(){
+  function renderF70List(q){
     const el=$('#f70List');if(!el)return;
-    const groups=Object.values(FLOOR70).sort((a,b)=>(b.qtd-a.qtd)||(b.kg-a.kg));
-    if(!groups.length){el.innerHTML='<div class="empty"><div class="ei">'+ICONS.layers+'</div><b>Chão 70 vazio</b><div class="es">Bipe uma etiqueta para começar a contar.</div></div>';return;}
+    q=_e70(q||'');
+    var allGroups=Object.values(FLOOR70).sort((a,b)=>(b.qtd-a.qtd)||(b.kg-a.kg));
+    // busca: acha em qual código a etiqueta (ou código) está
+    var msgEl=document.getElementById('f70FindMsg');
+    var groups=allGroups;
+    if(q){
+      groups=allGroups.filter(function(g){return _e70(g.pr).indexOf(q)>=0 || etL(g).some(function(x){return _e70(x.et).indexOf(q)>=0;});});
+      if(msgEl){
+        var achou=null,etExata=null;
+        allGroups.forEach(function(g){etL(g).forEach(function(x){if(_e70(x.et)===q){achou=g.pr;etExata=x;}});});
+        if(etExata)msgEl.innerHTML='<span style="color:var(--in,#16a34a);font-weight:600">✓ '+q+' está contada no código '+achou+'</span>';
+        else if(groups.length)msgEl.innerHTML='<span style="color:var(--muted)">'+groups.length+' resultado(s)</span>';
+        else msgEl.innerHTML='<span style="color:var(--out,#dc2626);font-weight:600">✗ não encontrada no Chão 70 — pode bipar</span>';
+      }
+    }else if(msgEl){msgEl.innerHTML='';}
+    if(!groups.length){el.innerHTML='<div class="empty"><div class="ei">'+ICONS.layers+'</div><b>'+(q?'Nada encontrado':'Chão 70 vazio')+'</b><div class="es">'+(q?'Nenhum código ou etiqueta com "'+q+'".':'Bipe uma etiqueta para começar a contar.')+'</div></div>';return;}
     el.innerHTML=groups.map(g=>{const ets=etL(g);return ''
       +'<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--sh-sm);margin-bottom:12px">'
       +'<div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap">'
@@ -3205,6 +3394,11 @@ updateStageBadge();
     sc.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();nfEvent(sc.value);sc.value='';}});
     el.querySelectorAll('[data-sai]').forEach(function(b){b.onclick=function(){nfEvent(b.getAttribute('data-sai'),'saida');};});
     if(typeof addCam==='function'){addCam('rastScan',{continuous:true,onResult:function(v){nfEvent(v);}});}
+    /* reimprimir a MESMA etiqueta pelo ID (caso a original tenha rasgado) — não gera nova, não duplica saldo */
+    el.addEventListener('click',function(ev){var b=ev.target.closest&&ev.target.closest('[data-reprint]');if(!b)return;var id=b.getAttribute('data-reprint');var e=ETQ[id];if(!e){toast('Etiqueta '+id+' não encontrada',false);return;}
+      var _do=function(fmtOpt){try{if(typeof printZebraRast==='function')printZebraRast([e],(fmtOpt&&fmtOpt.dim)||(typeof ZSIZES!=='undefined'?ZSIZES.z100:null),(fmtOpt&&fmtOpt.orient)||'retrato');toast('Reimpressa: '+id);}catch(err){toast('Falha ao imprimir',false);}};
+      if(typeof askLabelFormat==='function')askLabelFormat('Reimprimir etiqueta '+id,_do);else _do(null);
+    });
   }
   function nfEvent(v,forceMode){
     var raw=String(v==null?'':v);
@@ -3240,6 +3434,7 @@ updateStageBadge();
       +(e.kg>0?'<div style="font-family:var(--disp);font-weight:800;font-size:1.25rem;color:var(--brand)">'+fmt(e.kg)+' '+unit+'</div>':'')
       +'<div style="font-size:.68rem;color:var(--faint);margin-top:4px">etiqueta '+esc(e.id)+(e.volTot&&e.volTot>1?' · vol '+e.vol+'/'+e.volTot:'')+'</div>'
       +'<div style="margin-top:8px">'+hist+'</div>'
+      +'<button class="gbtn" data-reprint="'+esc(e.id)+'" style="width:100%;justify-content:center;margin-top:10px">'+ICONS.print+' Reimprimir esta etiqueta (mesmo ID)</button>'
       +'</div>';
   }
 
@@ -4382,10 +4577,30 @@ labelHTML=function(c,desc,w){var pp=String(c).split('-');var rua=pp[0]||'',pos=p
 
 /* ===== ESTOQUE COMPLETO: descrição (do Excel) + total por produto + resumo ===== */
 let _descCache={v:-1,m:{}};
-function descOf(pr){if(!pr)return'';if(_descCache.v!==_bobVer){const m={};for(const k in BOB){const b=BOB[k];if(b&&b.pr&&b.desc&&!m[b.pr])m[b.pr]=b.desc;}_descCache={v:_bobVer,m:m};}return _descCache.m[pr]||'';}
+function descOf(pr){if(!pr)return'';
+  if(_descCache.v!==_bobVer){const m={};for(const k in BOB){const b=BOB[k];if(b&&b.pr&&b.desc&&!m[b.pr])m[b.pr]=b.desc;}_descCache={v:_bobVer,m:m};}
+  var d=_descCache.m[pr];if(d)return d;
+  /* não achou no catálogo de bobinas → procura no cadastro de Produtos/Valores (VL) */
+  try{if(typeof VL!=='undefined'&&Array.isArray(VL)){
+    var alvo=String(pr).toUpperCase().replace(/\s+/g,'');
+    var v=VL.find(function(vv){return String(vv.codigo||'').toUpperCase().replace(/\s+/g,'')===alvo;});
+    if(v&&v.descricao)return v.descricao;
+  }}catch(e){}
+  return '';
+}
 var ST_QMAX=1e7; /* peso máximo plausível por posição. Acima disso = dado corrompido */
 function qSane(v){var n=Number(v)||0;return (n>10000000||n<0)?0:n;}
-function qBad(v){var n=Number(v)||0;return n>10000000;}
+function qBad(v,x){var n=Number(v)||0;
+  /* uma POSIÇÃO pode ter várias bobinas acumuladas (total alto é legítimo).
+     O que é impossível é uma posição valer mais que (nº de bobinas × teto por bobina).
+     Teto por bobina: 100 mil. Sem saber quantas bobinas, uso um teto MUITO alto por posição. */
+  try{
+    if(x&&typeof LOC!=='undefined'){var cod=(typeof code==='function')?norm(code(x)):'';var nb=0;Object.keys(LOC).forEach(function(et){if(norm(LOC[et])===cod)nb++;});
+      if(nb>0)return n>(nb*100000)*1.5; /* margem de 50% */
+    }
+  }catch(e){}
+  return n>50000000; /* posição sem bobinas rastreadas: só corta o claramente absurdo (>50 milhões) */
+}
 function isNoLabel(pr){var n=String(pr==null?'':pr).toUpperCase().replace(/[^A-Z]/g,'');return n.indexOf('SETIQUETA')===0||n.indexOf('SEMETIQUETA')===0;}
 function isAlcaCad(pr){var d=rastNoAcc(descOf(pr)||pr||'').replace(/^[^A-Z]+/,'');return /^ALCA|^CADARC/.test(d);}
 // unitOf agora usa SEMPRE a unidade cadastrada no produto (unitOfReal). Esta é a definição final e vale para todo o sistema.
@@ -4393,7 +4608,32 @@ function unitOf(x){return (typeof unitOfReal==='function')?unitOfReal(x):'KG';}
 window.unitOf=unitOf;
 /* limpa automaticamente pesos impossíveis (dado corrompido) zerando-os, salva e empurra a correção pra nuvem 1x por sessão */
 var _wPushed=false,_wToasted=false;
-function autoFixWeights(){try{if(typeof S==='undefined'||!Array.isArray(S))return 0;var bad=S.filter(function(x){return qBad(x.q);});if(!bad.length)return 0;bad.forEach(function(x){x.q=0;x.upd=(typeof nowISO==='function'?nowISO():new Date().toISOString());x.by=(session&&session.u)||'sistema';});try{if(typeof DB!=='undefined'&&DB.saveSpaces)DB.saveSpaces(S);}catch(e){}if(!_wPushed){_wPushed=true;try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',bad.map(spRow));}catch(e){}}if(!_wToasted){_wToasted=true;try{toast(bad.length+' peso(s) inválido(s) corrigido(s) automaticamente');}catch(e){}}return bad.length;}catch(e){return 0;}}
+function autoFixWeights(){try{if(typeof S==='undefined'||!Array.isArray(S))return 0;var bad=S.filter(function(x){return qBad(x.q,x);});if(!bad.length)return 0;
+  /* peso real de uma posição = soma dos pesos (do cadastro) das bobinas que estão nela */
+  var pesoRealDaPos=function(x){try{
+    if(typeof LOC==='undefined'||typeof BOB==='undefined')return null;
+    var cod=(typeof code==='function')?norm(code(x)):'';var soma=0,achou=false;
+    Object.keys(LOC).forEach(function(et){if(norm(LOC[et])===cod){var b=BOB[et];if(b){var p=Number(b.rem!=null?b.rem:b.pl)||0;if(p>0&&p<=1000000){soma+=p;achou=true;}}}});
+    return achou?soma:null;
+  }catch(e){return null;}};
+  /* AUDITORIA: guarda o valor bugado e o que virou */
+  var log=[];try{log=JSON.parse(localStorage.getItem('wmsx_fixlog')||'[]');}catch(e){log=[];}
+  var nCorrig=0,nZerado=0;
+  bad.forEach(function(x){
+    var real=pesoRealDaPos(x);
+    var antigo=x.q;
+    if(real!=null&&real>0){x.q=real;nCorrig++;}       /* achou peso real no cadastro → CORRIGE */
+    else{x.q=0;nZerado++;}                              /* sem como recuperar → zera (fica pra recontar) */
+    x.upd=(typeof nowISO==='function'?nowISO():new Date().toISOString());x.by=(session&&session.u)||'sistema';
+    log.push({code:(typeof code==='function'?code(x):x.id),pr:x.pr||'',qOriginal:antigo,qCorrigido:x.q,at:x.upd});
+  });
+  try{if(log.length>2000)log=log.slice(-2000);localStorage.setItem('wmsx_fixlog',JSON.stringify(log));}catch(e){}
+  try{if(typeof DB!=='undefined'&&DB.saveSpaces)DB.saveSpaces(S);}catch(e){}
+  if(!_wPushed){_wPushed=true;try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',bad.map(spRow));}catch(e){}}
+  if(!_wToasted){_wToasted=true;try{toast(nCorrig+' peso(s) corrigido(s) pelo cadastro'+(nZerado?(' · '+nZerado+' zerado(s) p/ recontagem'):''));}catch(e){}}
+  return bad.length;}catch(e){return 0;}}
+/* mostra no console/relatório o que foi corrigido/zerado — chame wmsFixReport() */
+window.wmsFixReport=function(){try{var log=JSON.parse(localStorage.getItem('wmsx_fixlog')||'[]');if(!log.length){toast('Nenhuma posição foi corrigida.');return [];}var h=['Endereco','Produto','ValorBugado','ValorCorrigido','Quando'];var rows=log.map(function(r){return [r.code,r.pr,r.qOriginal,(r.qCorrigido!=null?r.qCorrigido:0),r.at];});if(typeof dl==='function'&&typeof csv==='function'){dl('pesos_corrigidos_auditoria.csv',csv([h].concat(rows)));toast(log.length+' correção(ões) — baixando auditoria');}console.table(log);return log;}catch(e){return [];}};
 (function(){const s=document.createElement('style');s.textContent=
  '.st-sum{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 14px}'
  +'.st-sum .sc{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 18px;min-width:140px;box-shadow:0 1px 2px rgba(16,30,54,.04)}'
@@ -4425,11 +4665,11 @@ renderStockTable=_renderStockTableNova=function(){const rows=filterStock();
     +'<div class="sc" id="scSemEtq" title="Ver as vagas sem etiqueta" style="cursor:pointer"><span>Sem etiqueta'+($('#stStatus')&&$('#stStatus').value==='sem_etq'?' ✓':'')+'</span><b style="color:'+(semEtq?'#e5534b':'inherit')+'">'+semEtq+'</b></div>';
    const ce=document.getElementById('scSemEtq');if(ce)ce.onclick=()=>{const ss=$('#stStatus');if(ss){ss.value=(ss.value==='sem_etq'?'':'sem_etq');}renderStockTable();};}
   $('#stCount').textContent=rows.length+' itens';
-  try{const nbad=S.filter(x=>x.w===cfg.warehouse&&qBad(x.q)).length;const fb=document.getElementById('stFixWeights');if(fb){fb.style.display=nbad?'inline-flex':'none';fb.innerHTML='<span></span>Corrigir pesos inválidos ('+nbad+')';fb.style.borderColor=nbad?'#e5534b':'';fb.style.color=nbad?'#e5534b':'';}}catch(e){}
+  try{const nbad=S.filter(x=>x.w===cfg.warehouse&&qBad(x.q,x)).length;const fb=document.getElementById('stFixWeights');if(fb){fb.style.display=nbad?'inline-flex':'none';fb.innerHTML='<span></span>Corrigir pesos inválidos ('+nbad+')';fb.style.borderColor=nbad?'#e5534b':'';fb.style.color=nbad?'#e5534b':'';}}catch(e){}
   const tot={};S.filter(x=>x.w===cfg.warehouse&&x.o&&x.q>0).forEach(x=>{if(x.pr)tot[x.pr]=(tot[x.pr]||0)+qSane(x.q);});
   const cap=rows.slice(0,150);
   $('#stTable').innerHTML='<thead><tr><th data-k="code">Endereço'+sa('code')+'</th><th data-k="pr">Produto'+sa('pr')+'</th><th>Descrição</th><th data-k="q" class="num">Peso'+sa('q')+'</th><th class="num">Total produto</th><th>Un</th><th>Origem</th><th data-k="upd">Atualizado'+sa('upd')+'</th><th>Operador</th></tr></thead><tbody>'+
-    (cap.length?cap.map(function(x){var d=descOf(x.pr)||'';var bad=qBad(x.q);var pesoCell=bad?'<span style="color:#e5534b;font-weight:800" title="Peso inválido — corrija esta posição">⚠ '+fmt(x.q)+'</span>':fmt(x.q);return '<tr class="click" data-id="'+x.id+'"><td class="mono">'+code(x)+'</td><td class="mono">'+(x.pr||'—')+'</td><td class="desc" title="'+d.replace(/"/g,'&quot;')+'">'+(d||'—')+'</td><td class="num">'+pesoCell+'</td><td class="num tot">'+fmt(tot[x.pr]||0)+'</td><td>'+unitOf(x)+'</td><td class="mono mut">'+(x.src||'—')+'</td><td class="mut">'+rel(x.upd)+'</td><td class="mut">'+(x.by||'—')+'</td></tr>';}).join('')
+    (cap.length?cap.map(function(x){var d=descOf(x.pr)||'';var bad=qBad(x.q,x);var pesoCell=bad?'<span style="color:#e5534b;font-weight:800" title="Peso inválido — corrija esta posição">⚠ '+fmt(x.q)+'</span>':fmt(x.q);return '<tr class="click" data-id="'+x.id+'"><td class="mono">'+code(x)+'</td><td class="mono">'+(x.pr||'—')+'</td><td class="desc" title="'+d.replace(/"/g,'&quot;')+'">'+(d||'—')+'</td><td class="num">'+pesoCell+'</td><td class="num tot">'+fmt(tot[x.pr]||0)+'</td><td>'+unitOf(x)+'</td><td class="mono mut">'+(x.src||'—')+'</td><td class="mut">'+rel(x.upd)+'</td><td class="mut">'+(x.by||'—')+'</td></tr>';}).join('')
     :'<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--muted)">Nada encontrado</td></tr>')+'</tbody>';
   const tb=$('#stTable');
   $$('#stTable thead th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(stSort.k===k)stSort.d*=-1;else stSort={k,d:k==='q'?-1:1};renderStockTable();});
@@ -4442,7 +4682,7 @@ renderStockTable=_renderStockTableNova=function(){const rows=filterStock();
  ['stStreet','stStatus'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',()=>renderStockTable());});})();
 (function(){const SAFE=10000000;const sane=v=>{var n=Number(v)||0;return(n>SAFE||n<0)?0:n;};const exp=document.getElementById('stExport');if(exp)exp.onclick=()=>{const tot={};S.filter(x=>x.w===cfg.warehouse&&x.o).forEach(x=>{if(x.pr)tot[x.pr]=(tot[x.pr]||0)+sane(x.q);});const h=['Endereco','Produto','Descricao','Peso','TotalProduto','Un','Origem','Atualizado','Operador'];const b=filterStock().map(x=>[code(x),x.pr,descOf(x.pr),sane(x.q),tot[x.pr]||0,unitOf(x),x.src,x.upd,x.by]);dl('estoque_packem.csv',csv([h,...b]));toast('Exportado');};
  const exp2=document.getElementById('stExportSum');if(exp2)exp2.onclick=()=>{const agg={};S.filter(x=>x.w===cfg.warehouse&&x.o&&x.pr).forEach(x=>{const n=sane(x.q);if(!agg[x.pr])agg[x.pr]={kg:0,pos:0,desc:descOf(x.pr)||''};agg[x.pr].kg+=n;agg[x.pr].pos++;});const h=['Codigo','Descricao','TotalKG','Posicoes'];const rows=Object.keys(agg).sort().map(p=>{var kg=agg[p].kg;if(!(kg>=0)||kg>1e11)kg=0;return [p,agg[p].desc,kg,agg[p].pos];});dl('estoque_resumo_produto.csv',csv([h,...rows]));toast('Resumo por produto exportado');};
- const fxw=document.getElementById('stFixWeights');if(fxw)fxw.onclick=()=>{const bad=S.filter(x=>x.w===cfg.warehouse&&qBad(x.q));if(!bad.length){toast('Nenhum peso inválido encontrado');return;}if(!confirm('Encontrei '+bad.length+' posição(ões) com peso impossível (dado corrompido). Vou zerar o peso dessas posições (elas continuam ocupadas, com 0). Você poderá recontar depois. Confirmar?'))return;bad.forEach(x=>{x.q=0;x.upd=nowISO();x.by=session?session.u:'sistema';});try{persist();}catch(e){}try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',bad.map(spRow));}catch(e){}logAct&&logAct('fix','corrigiu '+bad.length+' pesos inválidos');renderStockTable();toast(bad.length+' posição(ões) corrigida(s)');};})();
+ const fxw=document.getElementById('stFixWeights');if(fxw)fxw.onclick=()=>{const bad=S.filter(x=>x.w===cfg.warehouse&&qBad(x.q,x));if(!bad.length){toast('Nenhum peso inválido encontrado');return;}if(!confirm('Encontrei '+bad.length+' posição(ões) com peso bugado. Vou corrigir pelo peso do cadastro das bobinas (quando houver) — as demais ficam zeradas p/ recontar. Confirmar?'))return;try{_wPushed=false;_wToasted=false;autoFixWeights();}catch(e){}try{persist();}catch(e){}logAct&&logAct('fix','corrigiu '+bad.length+' pesos bugados pelo cadastro');renderStockTable();};})();
 
 /* ===== RASTREADOR DE MOVIMENTAÇÕES (aba nova) ===== */
 const ALAB={entrada:['Entrada','in'],saida:['Saída','out'],producao:['Produção','muted'],transf:['Transferência','muted'],recebimento:['Recebimento','in'],armazenar:['Armazenado','in'],req_saida:['Saída p/ requisição','out'],interm_saida:['Saída intermediário','out']};
@@ -5405,6 +5645,7 @@ function zEtqCard(e,dim,H,u,kind){
    +loteLine
    +(e.kg>0?'<div class="zkgbig" style="font-size:'+f(0.155)+'">'+fmt(e.kg)+' '+unit+'</div>':'')
    +'<div class="zqr" style="width:'+f(0.3)+';margin-top:'+f(0.008)+'">'+qrSvg(qrPayload)+'</div>'
+   +(e.id?'<div class="zeid" style="font-size:'+f(0.05)+';font-family:monospace;letter-spacing:'+f(0.004)+';margin-top:'+f(0.006)+';font-weight:700">ID: '+rastEsc(e.id)+'</div>':'')
   +'</div></div></div>';
 }
 function zEtqCSS(dim){

@@ -297,6 +297,196 @@
    .sw button{padding:8px 12px;font-size:.82rem}
    .ph-head .actions{flex-wrap:wrap}
   }
+
+/* ============ POLISH PRO (upgrade visual — camada final) ============ */
+*{-webkit-tap-highlight-color:transparent}
+::selection{background:rgba(234,90,12,.18)}
+html{scroll-behavior:smooth}
+*::-webkit-scrollbar{width:9px;height:9px}
+*::-webkit-scrollbar-thumb{background:#C7CFDA;border-radius:99px;border:2px solid transparent;background-clip:padding-box}
+*::-webkit-scrollbar-thumb:hover{background:#AAB5C4}
+*::-webkit-scrollbar-track{background:transparent}
+h1{letter-spacing:-.02em}
+.ph-head h1{font-weight:800}
+.eb{letter-spacing:.14em;font-weight:700}
+.chaoCardBtn{transition:box-shadow .18s ease,transform .18s ease,border-color .18s ease}
+.chaoCardBtn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(15,27,46,.10),0 2px 6px rgba(15,27,46,.06)}
+.chaoCardBtn:active{transform:translateY(0)}
+button,.btn,.gbtn{transition:background .15s ease,border-color .15s ease,box-shadow .15s ease,transform .1s ease,color .15s ease}
+.btn:active,.gbtn:active{transform:scale(.985)}
+.btn.brand{box-shadow:0 2px 8px rgba(234,90,12,.25)}
+.btn.brand:hover{box-shadow:0 4px 14px rgba(234,90,12,.32)}
+.input{transition:border-color .15s ease,box-shadow .15s ease}
+.input:focus{outline:none;border-color:var(--brand)!important;box-shadow:0 0 0 3px rgba(234,90,12,.12)}
+.tbl thead th{position:sticky;top:0;background:var(--card);z-index:2;box-shadow:inset 0 -1px 0 var(--line-2);font-weight:700;letter-spacing:.04em}
+.tbl tbody tr{transition:background .12s ease}
+.tbl tbody tr:nth-child(even){background:rgba(238,241,246,.45)}
+.tbl tbody tr:hover{background:var(--brand-dim)}
+.tbl td,.tbl th{padding-top:10px;padding-bottom:10px}
+.pill{font-weight:700;letter-spacing:.02em;border-radius:99px}
+.nav{transition:background .15s ease,color .15s ease;border-radius:10px}
+.nav:hover{background:rgba(255,255,255,.06)}
+.toast{box-shadow:0 10px 30px rgba(15,27,46,.35);border-radius:12px;animation:toastIn .22s ease}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.view.active{animation:viewIn .18s ease}
+@keyframes viewIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.st-sum .sc{transition:box-shadow .15s ease}
+.st-sum .sc:hover{box-shadow:0 3px 10px rgba(15,27,46,.08)}
+.drawer{box-shadow:-18px 0 50px rgba(15,27,46,.22)}
+.empty{border:1.5px dashed var(--line-2);border-radius:16px;padding:38px 18px}
+@media print{.sidebar,.topbar,.toolbar,.actions{display:none!important}}
+
+/* ===== NOTA FISCAL — cards de importação profissionais ===== */
+.nfImportCard{border:1px solid var(--line);border-radius:16px}
+.nfDrop{display:flex;align-items:center;gap:16px;width:100%;padding:18px 20px;border:2px dashed var(--line-2);border-radius:14px;background:linear-gradient(180deg,var(--card-2,#F7F9FC),var(--card));cursor:pointer;transition:border-color .18s ease,background .18s ease,transform .12s ease,box-shadow .18s ease}
+.nfDrop:hover{border-color:var(--brand);background:var(--brand-dim);box-shadow:0 6px 18px rgba(234,90,12,.10)}
+.nfDrop:active{transform:scale(.99)}
+.nfDropIco{flex:none;width:52px;height:52px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:var(--brand);color:#fff;box-shadow:0 4px 12px rgba(234,90,12,.30)}
+.nfDropIco svg{width:26px;height:26px}
+.nfDropTxt{display:flex;flex-direction:column;gap:2px;text-align:left}
+.nfDropTxt b{font-size:1rem;color:var(--ink);font-weight:700}
+.nfDropTxt span{font-size:.8rem;color:var(--muted)}
+.nfDrop.drag{border-color:var(--brand);background:var(--brand-dim)}
+
+/* ===== NOTA FISCAL — layout reformulado ===== */
+.nfImportGrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:820px){.nfImportGrid{grid-template-columns:1fr}}
+.nfImportGrid .nfImportCard{margin:0}
+.nfSummary{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.nfSc{flex:1;min-width:120px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;transition:box-shadow .15s ease}
+.nfSc:hover{box-shadow:0 3px 12px rgba(15,27,46,.08)}
+.nfSc .nfScK{display:block;font-size:.64rem;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:4px}
+.nfSc b{font-family:var(--disp);font-weight:800;font-size:1.4rem;line-height:1}
+.nfSc b i{font-size:.72rem;color:var(--muted);font-weight:600;font-style:normal}
+.nfSc.warn b{color:var(--brand)}
+.nfScanPanel{border:1px solid var(--brand);box-shadow:0 4px 16px rgba(234,90,12,.10)}
+.nfScanField .input{font-size:1.05rem;height:52px;letter-spacing:.5px}
+/* linhas de nota mais elegantes */
+.nfDocRow{padding:13px 4px;border-top:1px solid var(--line);transition:background .12s ease;border-radius:8px}
+.nfDocRow:hover{background:var(--card-2,#F7F9FC)}
+
+/* ============================================================
+   NOTA FISCAL — REDESIGN PREMIUM (v2)
+   ============================================================ */
+#v-nf{--nfr:18px}
+/* HERO */
+.nfHero{position:relative;overflow:hidden;border-radius:22px;padding:26px 28px;margin-bottom:20px;
+  background:linear-gradient(135deg,#0F1B2E 0%,#16263d 55%,#1e3350 100%);color:#fff;
+  box-shadow:0 18px 44px rgba(15,27,46,.28)}
+.nfHero::before{content:"";position:absolute;right:-60px;top:-60px;width:260px;height:260px;border-radius:50%;
+  background:radial-gradient(circle,rgba(234,90,12,.55),transparent 62%);filter:blur(6px)}
+.nfHero::after{content:"";position:absolute;right:80px;bottom:-80px;width:200px;height:200px;border-radius:50%;
+  background:radial-gradient(circle,rgba(242,100,25,.30),transparent 60%)}
+.nfHeroTop{position:relative;z-index:2;display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.nfHeroTitle .k{font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.6);font-weight:700}
+.nfHeroTitle h1{margin:6px 0 0;font-size:2rem;font-weight:800;letter-spacing:-.02em;color:#fff}
+.nfHeroTitle p{margin:6px 0 0;color:rgba(255,255,255,.66);font-size:.9rem;max-width:520px}
+.nfHeroStats{position:relative;z-index:2;display:flex;gap:26px;flex-wrap:wrap}
+.nfHeroStat{display:flex;flex-direction:column;gap:2px}
+.nfHeroStat b{font-family:var(--disp);font-size:1.9rem;font-weight:800;line-height:1;color:#fff}
+.nfHeroStat b i{font-size:.7rem;font-weight:600;font-style:normal;color:rgba(255,255,255,.6)}
+.nfHeroStat span{font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55);font-weight:700}
+.nfHeroStat.hot b{color:#FFB37A}
+/* progresso geral no hero */
+.nfHeroBar{position:relative;z-index:2;margin-top:20px;height:8px;border-radius:99px;background:rgba(255,255,255,.14);overflow:hidden}
+.nfHeroBar>i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#EA5A0C,#F59E0B);transition:width .5s cubic-bezier(.4,0,.2,1)}
+.nfHeroBarLbl{position:relative;z-index:2;margin-top:7px;font-size:.72rem;color:rgba(255,255,255,.62);display:flex;justify-content:space-between}
+/* IMPORT GRID */
+.nfImportGrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+@media(max-width:820px){.nfImportGrid{grid-template-columns:1fr}}
+.nfImportGrid .nfImportCard{margin:0}
+.nfImportCard{position:relative;border:1px solid var(--line);border-radius:var(--nfr);overflow:hidden}
+.nfImportCard::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,var(--brand),transparent)}
+.nfDrop{display:flex;align-items:center;gap:16px;width:100%;padding:20px;border:2px dashed var(--line-2);border-radius:14px;
+  background:linear-gradient(180deg,var(--card-2,#F7F9FC),var(--card));cursor:pointer;
+  transition:border-color .2s ease,background .2s ease,transform .12s ease,box-shadow .2s ease}
+.nfDrop:hover{border-color:var(--brand);background:var(--brand-dim);box-shadow:0 8px 22px rgba(234,90,12,.12);transform:translateY(-1px)}
+.nfDrop:active{transform:translateY(0) scale(.99)}
+.nfDrop.drag{border-color:var(--brand);background:var(--brand-dim);box-shadow:0 0 0 4px rgba(234,90,12,.14)}
+.nfDropIco{flex:none;width:54px;height:54px;display:flex;align-items:center;justify-content:center;border-radius:14px;
+  background:linear-gradient(135deg,var(--brand),var(--brand-2,#F26419));color:#fff;box-shadow:0 6px 16px rgba(234,90,12,.34)}
+.nfDropIco svg{width:26px;height:26px}
+.nfDropTxt{display:flex;flex-direction:column;gap:3px;text-align:left}
+.nfDropTxt b{font-size:1.02rem;color:var(--ink);font-weight:700}
+.nfDropTxt span{font-size:.8rem;color:var(--muted)}
+/* SCAN console */
+.nfScanPanel{position:relative;border:1.5px solid var(--brand);border-radius:var(--nfr);
+  background:linear-gradient(180deg,#fff,rgba(234,90,12,.03));box-shadow:0 8px 26px rgba(234,90,12,.12)}
+.nfScanField{position:relative}
+.nfScanField .input{font-size:1.1rem;height:56px;letter-spacing:.6px;padding-left:46px;font-weight:600}
+.nfScanField::before{content:"";position:absolute;left:16px;top:50%;transform:translateY(-50%);width:9px;height:9px;border-radius:50%;
+  background:#16a34a;box-shadow:0 0 0 0 rgba(22,163,74,.5);animation:nfPulse 1.8s infinite}
+@keyframes nfPulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.5)}70%{box-shadow:0 0 0 8px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+/* DOC cards premium */
+.nfDocList{display:flex;flex-direction:column;gap:10px}
+.nfDoc{display:flex;align-items:center;gap:16px;padding:16px 18px;border-radius:16px;border:1px solid var(--line);
+  background:var(--card);cursor:pointer;transition:box-shadow .18s ease,transform .12s ease,border-color .18s ease}
+.nfDoc:hover{box-shadow:0 8px 22px rgba(15,27,46,.10);transform:translateY(-1px);border-color:var(--line-2)}
+.nfDoc.done{border-color:rgba(22,163,74,.35);background:linear-gradient(180deg,rgba(22,163,74,.05),var(--card))}
+.nfRing{flex:none;width:52px;height:52px;position:relative}
+.nfRing svg{transform:rotate(-90deg)}
+.nfRing .nfRingPct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;color:var(--ink)}
+.nfDocMain{flex:1;min-width:0}
+.nfDocMain .t{font-weight:800;font-size:1.02rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.nfDocMain .s{color:var(--muted);font-size:.78rem;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nfDocMain .m{color:var(--faint);font-size:.72rem;margin-top:5px}
+.nfDocMain .m b{color:var(--ink)}
+.nfBadge{font-size:.64rem;font-weight:800;border-radius:7px;padding:2px 7px;letter-spacing:.04em}
+.nfBadge.ok{color:#15803d;background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.4)}
+.nfBadge.open{color:var(--brand);background:var(--brand-dim);border:1px solid rgba(234,90,12,.4)}
+.nfDocActs{display:flex;gap:6px;flex:none}
+.nfDocActs .btn{width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:10px}
+
+/* seletor Entrada/Saída no painel de bipe */
+.modeSeg{display:inline-flex;gap:2px;background:var(--card-2,#F1F4F9);border:1px solid var(--line);border-radius:10px;padding:3px}
+.modeSeg button{border:none;background:transparent;color:var(--muted);font-weight:700;font-size:.78rem;padding:5px 14px;border-radius:8px;cursor:pointer;transition:all .15s ease}
+.modeSeg button.on{background:var(--brand);color:#fff;box-shadow:0 2px 6px rgba(234,90,12,.28)}
+.modeSeg button[data-mode="out"].on{background:#dc2626;box-shadow:0 2px 6px rgba(220,38,38,.28)}
+.modeSeg button:not(.on):hover{color:var(--ink)}
+
+/* ===== DASHBOARD — faixa de fluxo ===== */
+.dashFlow{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.dashFlowItem{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:3px;transition:box-shadow .15s ease,transform .12s ease}
+.dashFlowItem:hover{box-shadow:0 4px 14px rgba(15,27,46,.08);transform:translateY(-1px)}
+.dashFlowItem .dfn{font-family:var(--disp);font-size:1.7rem;font-weight:800;line-height:1}
+.dashFlowItem .dfl{font-size:.64rem;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);font-weight:700}
+.dashFlowItem.in .dfn{color:var(--in)}
+.dashFlowItem.out .dfn{color:var(--out)}
+.dashFlowItem.rec .dfn{color:var(--info,#2563EB)}
+.dashFlowItem.warn{border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.04)}
+.dashFlowItem.warn .dfn{color:#dc2626}
+.dashFlowItem.soft{border-color:rgba(217,119,6,.35)}
+.dashFlowItem.soft .dfn{color:#d97706}
+@media(max-width:900px){.dashFlow{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:560px){.dashFlow{grid-template-columns:repeat(2,1fr)}}
+/* ===== MOBILE / TABLET — otimizações extras ===== */
+@media(max-width:900px){
+  .nfHero{padding:20px 18px;border-radius:18px}
+  .nfHero h1{font-size:1.5rem}
+  .nfHeroStats{gap:16px}
+  .nfHeroStat b{font-size:1.4rem}
+  .nfImportGrid{grid-template-columns:1fr}
+  .modeSeg button{padding:6px 12px}
+  .chaoCardBtn{min-width:130px}
+  /* tabelas com rolagem horizontal suave no touch */
+  .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tbl{min-width:640px}
+  .nfDoc{padding:13px 14px;gap:12px}
+  .nfRing{width:44px;height:44px}
+  .nfRing svg{width:44px;height:44px}
+}
+@media(max-width:560px){
+  .ph-head{flex-direction:column;gap:10px}
+  .ph-head .actions{width:100%}
+  .ph-head .actions .btn,.ph-head .actions .gbtn{flex:1;justify-content:center}
+  .nfHeroTop{flex-direction:column;align-items:flex-start;gap:14px}
+  .nfHeroStats{width:100%;justify-content:space-between;gap:10px}
+  .nfHeroStat b{font-size:1.2rem}
+  .st-sum{grid-template-columns:repeat(2,1fr)!important}
+  .nfDocActs .btn{width:34px;height:34px}
+  /* cards do chão empilham no celular */
+  .chaoCardBtn{min-width:100%!important}
+}
 </style>
 <meta name="theme-color" content="#0f1830">
 <meta name="mobile-web-app-capable" content="yes">
@@ -334,7 +524,7 @@
       <div class="tb-search"><span class="si" data-ic="search"></span><input id="globalSearch" placeholder="Buscar endereço ou produto…" autocomplete="off"></div>
       <div class="tb-spacer"></div>
       <div class="tb-cmd" id="cmdkBtn"><span data-ic="search"><span></span></span> Buscar / comandos <span class="kbd">Ctrl K</span></div>
-      <div class="seg-wh" id="whSeg"><button data-wh="70" class="on">Dep 70</button><button data-wh="novo" class="adminOnly">Novo</button><button data-wh="chao" class="adminOnly">Chão</button></div>
+      <div class="seg-wh" id="whSeg"><button data-wh="70" class="on">Dep 70</button><button data-wh="novo" class="adminOnly" style="display:none">Novo</button><button data-wh="chao" class="adminOnly" style="display:none">Chão</button></div>
       <div class="uchip" id="userBtn"><span class="uav"></span><div style="line-height:1.2"><div id="uName">—</div><div class="ur" id="uRole"></div></div></div>
     </div>
 
@@ -368,6 +558,8 @@
         <div class="ph-head"><div><p class="eb">Operação</p><h1>Estoque</h1></div>
           <div class="actions"><button class="gbtn" id="stFixWeights" data-ic="alert" style="display:none">Corrigir pesos inválidos</button><button class="gbtn" id="stExportSum" data-ic="down"><span></span>Resumo por produto</button><button class="gbtn" id="stExport" data-ic="down"><span></span>Exportar CSV</button></div></div>
         <div id="stChaoCard"></div>
+        <div id="stChaoDetail"></div>
+        <div id="stMainView">
         <div class="toolbar">
           <div class="search"><span class="si" data-ic="search"></span><input id="stSearch" placeholder="buscar produto ou endereço"></div>
           <select class="input" id="stStreet"><option value="">Todas as ruas</option></select>
@@ -375,6 +567,7 @@
           <span class="count" id="stCount"></span>
         </div>
         <div class="tbl-wrap"><table class="tbl" id="stTable"></table></div>
+        </div>
       </section>
 
       <section class="view" id="v-transf">
@@ -529,8 +722,10 @@ const DB=(()=>{const K={sp:'wmsx_sp',mv:'wmsx_mv',tr:'wmsx_tr',vl:'wmsx_vl',us:'
   return {init,seedSp,spaces:()=>r(K.sp,[]),saveSpaces:a=>w(K.sp,a),movs:()=>r(K.mv,[]),saveMovs:a=>w(K.mv,a),transf:()=>r(K.tr,[]),saveTransf:a=>w(K.tr,a),values:()=>r(K.vl,[]),saveValues:a=>w(K.vl,a),users:()=>r(K.us,[]),saveUsers:a=>w(K.us,a),act:()=>r(K.ac,[]),saveAct:a=>w(K.ac,a),cfg:()=>r(K.cf,{warehouse:'70'}),saveCfg:c=>w(K.cf,c),reseed:()=>w(K.sp,seedSp())};})();
 DB.init();
 let S=DB.spaces(),MV=DB.movs(),TR=DB.transf(),VL=DB.values(),US=DB.users(),AC=DB.act(),cfg=DB.cfg();
+/* os depósitos "novo" e "chao" foram escondidos do seletor — se algum aparelho ficou salvo neles, volta pro 70 (senão o mapa fica preso num depósito invisível) */
+try{if(cfg&&(cfg.warehouse==='novo'||cfg.warehouse==='chao')){cfg.warehouse='70';DB.saveCfg(cfg);}}catch(e){}
 /* limpa pesos impossíveis (dado corrompido) logo na carga, pra NENHUMA tela mostrar valor gigante */
-function cleanQ(v){var n=Number(v)||0;return (n>10000000||n<0)?0:n;}
+function cleanQ(v){var n=Number(v)||0;if(n<0)return 0;return (n>1000000000)?0:n;}/* só zera corrupção real (>1 bilhão); posição com muitas bobinas acumuladas é legítima */
 try{S.forEach(function(x){x.q=cleanQ(x.q);});}catch(e){}
 let session=null,mode='entrada',abcMetric='peso',lblTab='end',boardLevel=null,boardStreet=null,boardWH=null;
 let stSort={k:'upd',d:-1};
@@ -626,7 +821,10 @@ function applyPerms(){const sup=isSuper();$$('.adminOnly').forEach(e=>e.style.di
 
 /* nav */
 const TITLES={'v-home':'Dashboard','v-board':'Mapa do armazém','v-mov':'Movimentação','v-stock':'Estoque','v-transf':'Transferências','v-labels':'Etiquetas','v-abc':'Curva ABC','v-values':'Produtos / Valores','v-users':'Usuários','v-act':'Atividade'};
-function go(id){if(id==='v-users'&&!isSuper())id='v-home';if(id==='v-mov'&&!isAdmin()){toast('Sem permissão para movimentar',false);return;}const allow=allowedViews();if(allow&&allow.indexOf(id)<0)id=allow[0]||'v-stock';$$('.view').forEach(v=>v.classList.toggle('active',v.id===id));$$('.nav').forEach(n=>n.classList.toggle('active',n.dataset.view===id));render(id);$('main').scrollTop=0;}
+function go(id){if(id==='v-users'&&!isSuper())id='v-home';if(id==='v-mov'&&!isAdmin()){toast('Sem permissão para movimentar',false);return;}const allow=allowedViews();if(allow&&allow.indexOf(id)<0)id=allow[0]||'v-stock';
+  /* ao entrar no Estoque, começa sempre limpo (fecha detalhe de card que ficou aberto) */
+  try{if(id==='v-stock'){var _d=document.getElementById('stChaoDetail');if(_d)_d.innerHTML='';if(typeof _stMainToggle==='function')_stMainToggle(false);}}catch(e){}
+  $$('.view').forEach(v=>v.classList.toggle('active',v.id===id));$$('.nav').forEach(n=>n.classList.toggle('active',n.dataset.view===id));render(id);$('main').scrollTop=0;}
 $$('.nav').forEach(n=>n.onclick=()=>go(n.dataset.view));
 $('#userBtn').onclick=()=>go('v-act');
 function render(id){({'v-home':renderHome,'v-board':renderBoard,'v-mov':renderMov,'v-stock':renderStock,'v-transf':renderTransf,'v-labels':renderLabels,'v-abc':renderABC,'v-values':renderValues,'v-users':renderUsers,'v-act':renderAct}[id]||(()=>{}))();}
@@ -641,29 +839,43 @@ function reelGauge(pct){const r=72,c=2*Math.PI*r,off=c*(1-pct/100);return `<svg 
 /* DASHBOARD */
 function renderHome(){
   const all=S.filter(x=>x.w===cfg.warehouse),occ=all.filter(x=>x.o),wp=occSpaces();
-  const peso=wp.reduce((a,b)=>a+(b.q||0),0),valor=wp.reduce((a,b)=>a+(b.q||0)*valOf(b.pr),0);
+  const _pr=x=>(typeof pesoReal==='function'?pesoReal(x):(Number(x.q)||0));
+  const peso=wp.reduce((a,b)=>a+_pr(b),0),valor=wp.reduce((a,b)=>a+_pr(b)*valOf(b.pr),0);
   const skus=new Set(wp.map(x=>x.pr)).size,pct=all.length?Math.round(occ.length/all.length*100):0;
   const today=new Date().toDateString(),mt=MV.filter(m=>new Date(m.at).toDateString()===today);
+  const entHoje=mt.filter(m=>m.action==='entrada').length, saiHoje=mt.filter(m=>m.action==='saida').length, recHoje=mt.filter(m=>m.action==='recebimento').length;
   const bs={};all.forEach(x=>{(bs[x.s]=bs[x.s]||{t:0,o:0});bs[x.s].t++;if(x.o)bs[x.s].o++;});const streets=Object.keys(bs).sort();
-  const bp={};wp.forEach(x=>bp[x.pr]=(bp[x.pr]||0)+x.q);const top=Object.entries(bp).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const bp={};wp.forEach(x=>bp[x.pr]=(bp[x.pr]||0)+_pr(x));const top=Object.entries(bp).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  /* chão + chão 70 */
+  var ct={f:{q:0},f70:{q:0},totQ:0};try{if(typeof chaoTotals==='function')ct=chaoTotals();}catch(e){}
+  /* alertas: posições paradas há muito tempo */
+  var nowTs=Date.now();var parado40=0,parado20=0;occ.forEach(function(x){if(!x.upd)return;var d=Math.floor((nowTs-Date.parse(x.upd))/86400000);if(d>40)parado40++;else if(d>20)parado20++;});
   $('#v-home').innerHTML=`
     <div class="ph-head"><div><p class="eb">Visão geral</p><h1>Dashboard</h1></div></div>
     <div class="kpis">
       <div class="kpi"><div class="kt"><span class="ki">${ICONS.grid}</span>Ocupação</div><div class="kn">${pct}<small>%</small></div><div class="ks">${fmt(occ.length)} de ${fmt(all.length)} posições</div></div>
       <div class="kpi"><div class="kt"><span class="ki">${ICONS.box}</span>Ocupadas</div><div class="kn">${fmt(occ.length)}</div><div class="ks">${fmt(all.length-occ.length)} livres</div></div>
       <div class="kpi"><div class="kt"><span class="ki">${ICONS.tag}</span>SKUs</div><div class="kn">${skus}</div><div class="ks">produtos distintos</div></div>
-      <div class="kpi"><div class="kt"><span class="ki">${ICONS.reel}</span>Estoque</div><div class="kn">${peso>=1000?fmt(Math.round(peso/1000)):fmt(Math.round(peso))}<small> ${peso>=1000?'t':'kg'}</small></div><div class="ks">peso total</div></div>
+      <div class="kpi"><div class="kt"><span class="ki">${ICONS.reel}</span>Estoque</div><div class="kn">${peso>=1000?fmt(Math.round(peso/1000)):fmt(Math.round(peso))}<small> ${peso>=1000?'t':'kg'}</small></div><div class="ks">peso nas prateleiras</div></div>
+      <div class="kpi"><div class="kt"><span class="ki">${ICONS.reel}</span>No chão</div><div class="kn">${fmt(ct.totQ||0)}</div><div class="ks">${fmt(ct.f.q||0)} exped · ${fmt(ct.f70.q||0)} ch70</div></div>
       <div class="kpi"><div class="kt"><span class="ki">${ICONS.money}</span>Valor</div><div class="kn" style="font-size:${valor>0?'1.4rem':'1.9rem'}">${valor>0?money(valor):'—'}</div><div class="ks">${valor>0?'em estoque':'preencha Valores'}</div></div>
+    </div>
+    <div class="dashFlow">
+      <div class="dashFlowItem in"><span class="dfn">${entHoje}</span><span class="dfl">Entradas hoje</span></div>
+      <div class="dashFlowItem out"><span class="dfn">${saiHoje}</span><span class="dfl">Saídas hoje</span></div>
+      <div class="dashFlowItem rec"><span class="dfn">${recHoje}</span><span class="dfl">Recebido hoje</span></div>
+      <div class="dashFlowItem ${parado40>0?'warn':''}"><span class="dfn">${parado40}</span><span class="dfl">Parado +40 dias</span></div>
+      <div class="dashFlowItem ${parado20>0?'soft':''}"><span class="dfn">${parado20}</span><span class="dfl">Parado +20 dias</span></div>
     </div>
     ${insightsHTML()}
     <div class="two" style="margin-bottom:16px">
       <div class="panel"><div class="ph"><span class="pdot"></span>Ocupação por rua</div>
-        ${streets.map(s=>{const o=bs[s],p=Math.round(o.o/o.t*100);return `<div class="row"><span class="k mono">${s}</span><span class="bw"><span class="bar"><i style="width:${p}%"></i></span></span><span class="v">${o.o}/${o.t}</span></div>`;}).join('')}</div>
+        ${streets.length?streets.map(s=>{const o=bs[s],p=Math.round(o.o/o.t*100);return `<div class="row"><span class="k mono">${s}</span><span class="bw"><span class="bar"><i style="width:${p}%"></i></span></span><span class="v">${o.o}/${o.t}</span></div>`;}).join(''):'<p style="color:var(--muted)">Sem dados.</p>'}</div>
       <div class="panel" style="display:flex;flex-direction:column;align-items:center;justify-content:center">
         <div class="gauge">${reelGauge(pct)}<div class="ov"><div class="gv">${pct}<small>%</small></div><div class="gl">Ocupação</div></div></div>
         <div style="display:flex;gap:26px;margin-top:14px">
-          <div style="text-align:center"><div style="font-family:var(--disp);font-size:1.3rem;font-weight:700;color:var(--in)">${mt.filter(m=>m.action==='entrada').length}</div><div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Entradas hoje</div></div>
-          <div style="text-align:center"><div style="font-family:var(--disp);font-size:1.3rem;font-weight:700;color:var(--out)">${mt.filter(m=>m.action==='saida').length}</div><div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Saídas hoje</div></div>
+          <div style="text-align:center"><div style="font-family:var(--disp);font-size:1.3rem;font-weight:700;color:var(--in)">${entHoje}</div><div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Entradas hoje</div></div>
+          <div style="text-align:center"><div style="font-family:var(--disp);font-size:1.3rem;font-weight:700;color:var(--out)">${saiHoje}</div><div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Saídas hoje</div></div>
         </div>
       </div>
     </div>
@@ -863,7 +1075,7 @@ function renderMovRecent(){$('#movRecent').innerHTML=MV.slice(0,40).map(m=>`<div
 /* ESTOQUE */
 function chaoTotals(){
   /* peso por bobina acima disso é dado corrompido (ex: gramatura lida como peso) — ignora na soma */
-  var _MAXPL=100000; /* 100 mil kg/mt por bobina já é absurdo pra têxtil */
+  var _MAXPL=10000000; /* só acima de 10 milhões é dado corrompido (ex: 1,69E+15). Valores grandes de metro são reais. */
   var _sane=function(v){var n=Number(v)||0;if(!isFinite(n)||n<0||n>_MAXPL)return 0;return n;};
   window._chaoSanePl=_sane;
   /* pega o peso confiável: se o guardado está corrompido, usa o do catálogo BOB */
@@ -885,27 +1097,76 @@ function chaoTotals(){
 }
 /* linha de pesos por unidade, só mostra o que existe */
 function _chaoPesoLine(o){var p=[];if(o.kg>0)p.push(fmt(o.kg)+' kg');if(o.mt>0)p.push(fmt(o.mt)+' mt');if(o.un>0)p.push(fmt(o.un)+' un');return p.length?p.join(' · '):'0 kg';}
-function renderStock(){try{if(typeof autoFixWeights==='function')autoFixWeights();}catch(e){}const st=$('#stStreet');if(st.options.length<=1)[...new Set(S.filter(x=>x.w===cfg.warehouse).map(x=>x.s))].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent='Rua '+s;st.appendChild(o);});renderChaoCard();renderStockTable();}
-function renderChaoCard(){var el=document.getElementById('stChaoCard');if(!el)return;var t=chaoTotals();if(t.totQ<=0){el.innerHTML='';return;}
+function renderStock(){try{if(typeof autoFixWeights==='function')autoFixWeights();}catch(e){}
+  /* se já há um detalhe de card aberto, NÃO mexe nele nem na tabela (senão o clique "volta sozinho") */
+  var _det=document.getElementById('stChaoDetail');var _aberto=_det&&_det.innerHTML.trim()!=='';
+  const st=$('#stStreet');if(st.options.length<=1)[...new Set(S.filter(x=>x.w===cfg.warehouse).map(x=>x.s))].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent='Rua '+s;st.appendChild(o);});
+  renderChaoCard();
+  if(!_aberto){renderStockTable();}
+}
+function renderChaoCard(){var el=document.getElementById('stChaoCard');if(!el)return;var t=chaoTotals();
+  /* totais das prateleiras (Dep 70) */
+  var dep={q:0,kg:0,mt:0,un:0};
+  try{S.filter(function(x){return x.w===cfg.warehouse&&x.o;}).forEach(function(x){var n=(typeof pesoReal==='function')?pesoReal(x):(Number(x.q)||0);if(n<=0)return;var u=(typeof unitOf==='function'?unitOf(x):'KG');if(u==='MT')dep.mt+=n;else if(u==='UN')dep.un+=n;else dep.kg+=n;dep.q++;});}catch(e){}
   el.innerHTML='<div style="display:flex;gap:12px;flex-wrap:wrap;margin:0 0 14px">'
-    +'<div class="chaoCardBtn" data-chao="f" style="flex:1;min-width:150px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer" title="Ver bobinas do Chão">'
-      +'<div style="font-size:.66rem;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700">Chão ›</div>'
+    +'<div class="chaoCardBtn" data-chao="dep70" style="flex:1;min-width:150px;background:linear-gradient(135deg,var(--brand,#EA5A0C),#c2410c);color:#fff;border-radius:14px;padding:14px 16px;cursor:pointer" title="Ver o que está nas prateleiras (Dep 70)">'
+      +'<div style="font-size:.66rem;letter-spacing:.5px;text-transform:uppercase;opacity:.9;font-weight:700">Dep 70 ›</div>'
+      +'<div style="font-family:var(--disp);font-weight:800;font-size:1.5rem;line-height:1.1">'+dep.q+' <span style="font-size:.8rem;opacity:.85;font-weight:600">pos</span></div>'
+      +'<div style="font-family:var(--mono);font-size:.8rem;opacity:.9">'+_chaoPesoLine(dep)+'</div></div>'
+    +'<div class="chaoCardBtn" data-chao="f" style="flex:1;min-width:150px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer" title="Ver bobinas do Chão expedição">'
+      +'<div style="font-size:.66rem;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700">Chão expedição ›</div>'
       +'<div style="font-family:var(--disp);font-weight:800;font-size:1.5rem;line-height:1.1">'+t.f.q+' <span style="font-size:.8rem;color:var(--muted);font-weight:600">bob</span></div>'
       +'<div style="font-family:var(--mono);font-size:.8rem;color:var(--muted)">'+_chaoPesoLine(t.f)+'</div></div>'
     +'<div class="chaoCardBtn" data-chao="f70" style="flex:1;min-width:150px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer" title="Ver bobinas do Chão 70">'
       +'<div style="font-size:.66rem;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700">Chão 70 ›</div>'
       +'<div style="font-family:var(--disp);font-weight:800;font-size:1.5rem;line-height:1.1">'+t.f70.q+' <span style="font-size:.8rem;color:var(--muted);font-weight:600">bob</span></div>'
       +'<div style="font-family:var(--mono);font-size:.8rem;color:var(--muted)">'+_chaoPesoLine(t.f70)+'</div></div>'
-    +'<div class="chaoCardBtn" data-chao="tot" style="flex:1;min-width:150px;background:linear-gradient(135deg,var(--brand,#EA5A0C),#c2410c);color:#fff;border-radius:14px;padding:14px 16px;cursor:pointer" title="Ver tudo no chão">'
-      +'<div style="font-size:.66rem;letter-spacing:.5px;text-transform:uppercase;opacity:.9;font-weight:700">Total no chão ›</div>'
-      +'<div style="font-family:var(--disp);font-weight:800;font-size:1.5rem;line-height:1.1">'+t.totQ+' <span style="font-size:.8rem;opacity:.85;font-weight:600">bob</span></div>'
-      +'<div style="font-family:var(--mono);font-size:.8rem;opacity:.9">'+_chaoPesoLine({kg:t.totKg,mt:t.totMt,un:t.totUn})+'</div></div>'
   +'</div>';
   el.querySelectorAll('.chaoCardBtn').forEach(function(c){c.onclick=function(){openChaoDetail(c.getAttribute('data-chao'));};});
 }
 /* detalhe do chão: tabela completa (como o estoque) + exportar CSV */
 window._chaoDetailData=null;
+function _stMainToggle(hide){try{var mv=document.getElementById('stMainView');if(mv)mv.style.display=hide?'none':'';}catch(e){}}
 function openChaoDetail(which){
+  var host=document.getElementById('stChaoDetail');
+  /* DEP 70 = prateleiras (mapa do armazém), agrupado por produto */
+  if(which==='dep70'){
+    /* Dep 70 É a própria tabela de estoque — clicar apenas fecha qualquer detalhe e mostra a tabela padrão */
+    try{if(host)host.innerHTML='';_stMainToggle(false);}catch(e){}
+    try{if(typeof renderStockTable==='function')renderStockTable();}catch(e){}
+    try{var mv=document.getElementById('stMainView');if(mv)mv.scrollIntoView({behavior:'smooth',block:'start'});}catch(e){}
+    return;
+  }
+  if(false){
+    var poss=[];var totKg=0,totMt=0,totUn=0;
+    try{S.filter(function(x){return x.w===cfg.warehouse&&x.o;}).forEach(function(x){
+      var n=(typeof pesoReal==='function')?pesoReal(x):(Number(x.q)||0);if(n<=0)return;
+      var u=(typeof unitOf==='function'?unitOf(x):'KG');
+      poss.push({code:(typeof code==='function'?code(x):x.id),pr:x.pr||'—',desc:(typeof descOf==='function'?descOf(x.pr):'')||'',val:n,un:u,by:x.by||'',upd:x.upd||''});
+      if(u==='MT')totMt+=n;else if(u==='UN')totUn+=n;else totKg+=n;
+    });}catch(e){}
+    poss.sort(function(a,b){return String(a.code).localeCompare(String(b.code),undefined,{numeric:true});});
+    window._chaoDetailData={which:'dep70',titulo:'Dep 70',rows:poss};
+    var _rowsHTML=function(list){
+      if(!list.length)return '<tr><td colspan="6" style="color:var(--muted);padding:16px 0;text-align:center">Nada encontrado.</td></tr>';
+      return list.map(function(p){return '<tr><td class="mono" style="font-weight:700">'+p.code+'</td>'
+        +'<td class="mono">'+(p.pr||'—')+'</td>'
+        +'<td class="desc" title="'+String(p.desc||'').replace(/"/g,'&quot;')+'">'+(p.desc||'—')+'</td>'
+        +'<td class="num">'+fmt(p.val)+'</td><td>'+p.un+'</td>'
+        +'<td class="mut">'+(p.by||'—')+'</td></tr>';}).join('');
+    };
+    if(!poss.length){if(host){_stMainToggle(true);host.innerHTML='<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:0 0 14px;color:var(--muted)">Nada nas prateleiras. <a href="#" id="chaoDetClose" style="color:var(--brand,#EA5A0C);float:right">fechar ✕</a></div>';var c1=document.getElementById('chaoDetClose');if(c1)c1.onclick=function(e){e.preventDefault();host.innerHTML='';_stMainToggle(false);};}return;}
+    var pl=[];if(totKg>0)pl.push(fmt(totKg)+' kg');if(totMt>0)pl.push(fmt(totMt)+' mt');if(totUn>0)pl.push(fmt(totUn)+' un');
+    var bodyD='<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:0 0 16px;box-shadow:var(--sh-sm)">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3 style="margin:0;font-size:1.1rem">Dep 70 (prateleiras) — detalhe</h3><a href="#" id="chaoDetClose" style="color:var(--muted);text-decoration:none;font-weight:700">fechar ✕</a></div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><span class="pill in">'+poss.length+' posições</span><span class="pill muted">'+(pl.join(' · ')||'0 kg')+'</span></div>'
+      +'<input class="input" id="chaoDetFind" placeholder="Filtrar endereço, código ou descrição" style="width:100%;margin-bottom:12px">'
+      +'<div style="max-height:55vh;overflow:auto"><table class="tbl" style="width:100%"><thead><tr><th style="text-align:left">Endereço</th><th style="text-align:left">Produto</th><th style="text-align:left">Descrição</th><th class="num">Peso</th><th>Un</th><th>Operador</th></tr></thead><tbody id="chaoDetBody">'+_rowsHTML(poss)+'</tbody></table></div></div>';
+    if(host){_stMainToggle(true);host.innerHTML=bodyD;try{host.scrollIntoView({behavior:'smooth',block:'start'});}catch(e){}var cd=document.getElementById('chaoDetClose');if(cd)cd.onclick=function(e){e.preventDefault();host.innerHTML='';_stMainToggle(false);};}
+    var fd=document.getElementById('chaoDetFind');
+    if(fd)fd.addEventListener('input',function(){var q=(fd.value||'').toUpperCase();var fl=poss.filter(function(p){return String(p.code).toUpperCase().indexOf(q)>=0||String(p.pr).toUpperCase().indexOf(q)>=0||String(p.desc).toUpperCase().indexOf(q)>=0;});document.getElementById('chaoDetBody').innerHTML=_rowsHTML(fl);});
+    return;
+  }
   var t=chaoTotals();
   var groups=[];
   if(which==='f')groups=t.f.groups.slice();
@@ -917,8 +1178,16 @@ function openChaoDetail(which){
   var tot=which==='f'?t.f:(which==='f70'?t.f70:{kg:t.totKg,mt:t.totMt,un:t.totUn,q:t.totQ});
   var totQ=which==='tot'?t.totQ:tot.q;
   window._chaoDetailData={which:which,titulo:titulo,groups:groups};
-  if(!groups.length){openDrawer(titulo,'<div style="color:var(--muted);padding:20px 0;text-align:center">Nada contado no '+titulo.toLowerCase()+'.</div>');return;}
-  var body='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'
+  if(!host){/* fallback: se não existe o container, usa o drawer */host=null;}
+  if(!groups.length){
+    if(host){host.innerHTML='<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:0 0 14px;color:var(--muted)">Nada contado no '+titulo.toLowerCase()+'. <a href="#" id="chaoDetClose" style="color:var(--brand,#EA5A0C);float:right">fechar ✕</a></div>';var c0=document.getElementById('chaoDetClose');if(c0)c0.onclick=function(e){e.preventDefault();host.innerHTML='';};}
+    return;
+  }
+  var body='<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:0 0 16px;box-shadow:var(--sh-sm)">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+      +'<h3 style="margin:0;font-size:1.1rem">'+titulo+' — detalhe</h3>'
+      +'<a href="#" id="chaoDetClose" style="color:var(--muted);text-decoration:none;font-weight:700">fechar ✕</a></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'
     +'<span class="pill in">'+totQ+' bobinas</span>'
     +'<span class="pill muted">'+_chaoPesoLine(tot)+'</span>'
     +'<span class="pill muted">'+groups.length+' códigos</span></div>'
@@ -926,11 +1195,18 @@ function openChaoDetail(which){
       +'<button class="gbtn" id="chaoExpSum" style="flex:1;justify-content:center;min-width:130px">'+(ICONS.down||'')+' Exportar por código</button>'
       +'<button class="gbtn" id="chaoExpDet" style="flex:1;justify-content:center;min-width:130px">'+(ICONS.down||'')+' Exportar etiquetas</button>'
     +'</div>'
-    +'<input class="input" id="chaoDetFind" placeholder="🔎 filtrar código ou descrição" style="width:100%;margin-bottom:12px">'
-    +'<div style="max-height:60vh;overflow:auto"><table class="tbl" style="width:100%"><thead><tr>'
+    +'<input class="input" id="chaoDetFind" placeholder="Filtrar código ou descrição" style="width:100%;margin-bottom:12px">'
+    +'<div style="max-height:55vh;overflow:auto"><table class="tbl" style="width:100%"><thead><tr>'
       +'<th style="text-align:left">Código</th><th style="text-align:left">Descrição</th><th class="num">Bob</th><th class="num">Peso</th><th>Un</th></tr></thead>'
-      +'<tbody id="chaoDetBody">'+_chaoDetRows(groups)+'</tbody></table></div>';
-  openDrawer(titulo+' — detalhe',body);
+      +'<tbody id="chaoDetBody">'+_chaoDetRows(groups)+'</tbody></table></div>'
+    +'</div>';
+  if(host){
+    _stMainToggle(true);host.innerHTML=body;
+    try{host.scrollIntoView({behavior:'smooth',block:'start'});}catch(e){}
+    var cc=document.getElementById('chaoDetClose');if(cc)cc.onclick=function(e){e.preventDefault();host.innerHTML='';_stMainToggle(false);};
+  }else{
+    openDrawer(titulo+' — detalhe',body);
+  }
   var f=document.getElementById('chaoDetFind');
   if(f)f.addEventListener('input',function(){var q=(f.value||'').toUpperCase();var fl=groups.filter(function(g){return String(g.pr).toUpperCase().indexOf(q)>=0||String(g.desc).toUpperCase().indexOf(q)>=0;});document.getElementById('chaoDetBody').innerHTML=_chaoDetRows(fl);});
   var es=document.getElementById('chaoExpSum');if(es)es.onclick=function(){_chaoExport('sum');};
@@ -945,6 +1221,57 @@ function _chaoDetRows(groups){
       +'<td class="num">'+fmt(g.val)+'</td>'
       +'<td>'+un+'</td></tr>';
   }).join('');
+}
+/* exporta um chão específico direto da aba (which: 'f'=Chão, 'f70'=Chão 70) */
+/* painel de SAÍDA por bipagem: bipa a etiqueta e ela sai do chão (baixa individual) */
+function abrirSaidaChao(which){
+  var titulo=(which==='f70')?'Chão 70':'Chão expedição';
+  var fn=(which==='f70')?window.f70Saida:window.floorSaida;
+  if(typeof fn!=='function'){toast('Função de saída indisponível',false);return;}
+  var body='<div style="padding:2px">'
+    +'<div style="color:var(--muted);font-size:.86rem;margin-bottom:12px;line-height:1.5">Bipe a etiqueta que está <b>saindo</b> do '+titulo+'. Cada bipe remove aquela bobina da contagem e registra a saída no histórico. Bipe uma atrás da outra.</div>'
+    +'<div class="nfScanField" style="position:relative"><input class="input code" id="saidaChaoScan" autocomplete="off" placeholder="Bipe a etiqueta da saída" style="width:100%;height:54px;font-size:1.05rem;padding-left:44px"></div>'
+    +'<div id="saidaChaoLog" style="margin-top:14px;max-height:40vh;overflow:auto;font-size:.85rem"></div>'
+    +'</div>';
+  openDrawer('Saída · '+titulo,body);
+  var inp=document.getElementById('saidaChaoScan');
+  var log=document.getElementById('saidaChaoLog');
+  var n=0;
+  function processa(){
+    var v=(inp.value||'').trim();if(!v)return;inp.value='';
+    var antes=n;
+    var ok=false;try{ok=fn(v);}catch(e){ok=false;}
+    if(ok){n++;var linha=document.createElement('div');linha.style.cssText='padding:8px 10px;border-radius:8px;background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.2);margin-bottom:6px;display:flex;justify-content:space-between';var _txt=String(v.toUpperCase()).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});linha.innerHTML='<span class="mono" style="font-weight:700">'+_txt+'</span><span style="color:#dc2626;font-weight:700">saiu ✓</span>';if(log)log.insertBefore(linha,log.firstChild);}
+    setTimeout(function(){try{inp.focus();}catch(e){}},10);
+  }
+  if(inp){
+    inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();processa();}});
+    setTimeout(function(){try{inp.focus();}catch(e){}},200);
+  }
+}
+window.abrirSaidaChao=abrirSaidaChao;
+function exportChao(which){
+  try{
+    var t=chaoTotals();
+    var groups=(which==='f70')?t.f70.groups.slice():t.f.groups.slice();
+    if(!groups.length){toast('Nada para exportar',false);return;}
+    groups.sort(function(a,b){return (b.qtd-a.qtd)||(b.val-a.val);});
+    var nome=(which==='f70')?'chao_70':'chao';
+    /* etiquetas detalhadas (cada bobina com peso saneado) */
+    var h=['Codigo','Descricao','Etiqueta','Peso','Unidade'];
+    var rows=[];
+    groups.forEach(function(g){(g.ets||[]).forEach(function(x){rows.push([g.pr,g.desc,x.et,x.pl,g.un]);});});
+    /* resumo por código no fim */
+    if(rows.length){
+      dl(nome+'_etiquetas.csv',csv([h].concat(rows)));
+      toast(rows.length+' etiquetas exportadas');
+    }else{
+      var h2=['Codigo','Descricao','Bobinas','Peso','Unidade'];
+      var r2=groups.map(function(g){return [g.pr,g.desc,g.qtd,g.val,g.un];});
+      dl(nome+'_por_codigo.csv',csv([h2].concat(r2)));
+      toast('Exportado por código');
+    }
+  }catch(e){toast('Falha ao exportar',false);}
 }
 function _chaoExport(tipo){
   try{
@@ -1730,8 +2057,8 @@ function vpBuildContext(){
     SS.forEach(function(x){
       if(!x.o||!x.pr)return;
       if(!byPr[x.pr])byPr[x.pr]={produto:x.pr,descricao:(typeof boardDescOf==='function'?boardDescOf(x.pr):'')||'',peso_total_kg:0,enderecos:[]};
-      byPr[x.pr].peso_total_kg+=Number(x.q)||0;
-      if(byPr[x.pr].enderecos.length<15)byPr[x.pr].enderecos.push(code(x)+' ('+Math.round(Number(x.q)||0)+'kg)');
+      byPr[x.pr].peso_total_kg+=(typeof pesoReal==='function'?pesoReal(x):(Number(x.q)||0));
+      if(byPr[x.pr].enderecos.length<15)byPr[x.pr].enderecos.push(code(x)+' ('+Math.round((typeof pesoReal==='function'?pesoReal(x):(Number(x.q)||0)))+'kg)');
     });
     var produtos=Object.values(byPr).map(function(p){p.peso_total_kg=Math.round(p.peso_total_kg);return p;});
     var livres=SS.filter(function(x){return !x.o;});
@@ -1961,9 +2288,9 @@ updateStageBadge();
   }catch(e){}})();
   function saveFloor(){try{localStorage.setItem('wmsx_floor',JSON.stringify(FLOOR));}catch(e){}}
   function _eCh(s){return String(s==null?'':s).trim().toUpperCase();}
-  function etList(g){return (g.ets||[]).map(x=>typeof x==='string'?{et:_eCh(x),pl:(BOB[x]?Number(BOB[x].pl)||0:0)}:{et:_eCh(x.et),pl:x.pl});}
+  function etList(g){return (g.ets||[]).map(function(x){var et=(typeof x==='string')?_eCh(x):_eCh(x.et);var plg=(typeof x==='string')?(BOB[x]?Number(BOB[x].pl)||0:0):x.pl;return {et:et,pl:(typeof chaoPlReal==='function'?chaoPlReal(et,plg):plg)};});}
   function floorHasEt(et){et=_eCh(et);return Object.values(FLOOR).some(g=>etList(g).some(x=>x.et===et));}
-  function floorTotals(){let q=0,kg=0,codes=0;Object.values(FLOOR).forEach(g=>{q+=g.qtd||0;kg+=g.kg||0;codes++;});return{q,kg,codes};}
+  function floorTotals(){let q=0,kg=0,codes=0;Object.values(FLOOR).forEach(g=>{q+=g.qtd||0;kg+=etList(g).reduce((s,x)=>s+(Number(x.pl)||0),0);codes++;});return{q,kg,codes};}
   /* etiquetas recém-zeradas (não podem voltar da nuvem) e horário do último bipe (distingue "novo" de "deletado por outro") */
   var _delCh=Object.create(null), _bipCh=Object.create(null);
   window._floorDelMark=function(et){try{_delCh[String(et).toUpperCase()]=Date.now();}catch(e){}};
@@ -2043,22 +2370,38 @@ updateStageBadge();
     if(typeof logAct==='function')logAct('chao',et+' · '+pr);
     if(typeof syncChao==='function')syncChao({et:_eCh(et),pr:pr,desc:b.desc||'',pl:pl,at:g.at,by:session?session.u:''});
     renderFloor();
-    toast('+1 no chão · '+pr+' ('+g.qtd+' bob · '+fmt(g.kg)+' kg)');
+    var _kgT=etList(g).reduce((s,x)=>s+(Number(x.pl)||0),0);
+    toast('+1 no chão · '+pr+' ('+g.qtd+' bob · '+fmt(_kgT)+' kg)');
   };
-  function floorRemoveEt(pr,et){et=_eCh(et);const g=FLOOR[pr];if(!g)return;g.ets=etList(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveFloor();try{_delCh[et]=Date.now();delete _bipCh[et];}catch(e){}if(typeof syncDelChao==='function')syncDelChao(et);renderFloor();toast('Removido '+et);}
-  function floorRemoveCode(pr){if(!FLOOR[pr])return;const ets=etList(FLOOR[pr]);delete FLOOR[pr];saveFloor();if(typeof syncDelChao==='function')ets.forEach(function(x){var _xe=_eCh(x.et);try{_delCh[_xe]=Date.now();delete _bipCh[_xe];}catch(e){}syncDelChao(x.et);});renderFloor();toast('Código '+pr+' zerado');}
-  function floorClear(){if(!Object.keys(FLOOR).length){toast('Chão já está vazio');return;}if(!confirm('Limpar TODO o chão? Isso apaga a contagem atual (local e na nuvem) para recontar do zero.'))return;try{Object.values(FLOOR).forEach(function(g){etList(g).forEach(function(x){var k=_eCh(x.et);_delCh[k]=Date.now();delete _bipCh[k];});});}catch(e){}FLOOR={};saveFloor();if(typeof supa!=='undefined'&&supa){try{supa.from('chao').delete().neq('et','').then(function(){},function(){});}catch(e){}}renderFloor();toast('Chão limpo · pode recontar');}
+  window.floorSaida=function(v){
+    if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);
+    const et=norm(v);if(!et)return false;
+    var _kc=_eCh(et);
+    /* acha em qual código a etiqueta está */
+    var achouPr=null,achouPl=0;
+    Object.keys(FLOOR).forEach(function(pr){if(!achouPr){etList(FLOOR[pr]).forEach(function(x){if(x.et===_kc){achouPr=pr;achouPl=Number(x.pl)||0;}});}});
+    if(!achouPr){toast('Etiqueta '+et+' não está no chão',false);return false;}
+    floorRemoveEt(achouPr,et);
+    if(typeof logAct==='function')logAct('saida_chao',et+' · '+achouPr);
+    try{if(typeof MV!=='undefined'){MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:'CHÃO',pr:achouPr,q:achouPl,u:(typeof unitOf==='function'?unitOf(achouPr):'KG'),et:_kc,before:achouPl,after:0,at:nowISO(),by:session?session.u:''});if(MV.length>20000)MV.length=20000;if(typeof syncMov==='function')syncMov(MV[0]);}}catch(e){}
+    toast('Saída · '+et+' ('+achouPr+') removido do chão');
+    return true;
+  };
+  function floorRemoveEt(pr,et){et=_eCh(et);const g=FLOOR[pr];if(!g)return;g.ets=etList(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveFloor();try{_delCh[et]=Date.now();delete _bipCh[et];}catch(e){}if(typeof syncDelChao==='function')syncDelChao(et);renderFloor();}
+  function floorRemoveCode(pr){if(typeof isSuper==='function'&&!isSuper()){toast('Somente admin pode zerar',false);return;}if(!FLOOR[pr])return;const ets=etList(FLOOR[pr]);delete FLOOR[pr];saveFloor();if(typeof syncDelChao==='function')ets.forEach(function(x){var _xe=_eCh(x.et);try{_delCh[_xe]=Date.now();delete _bipCh[_xe];}catch(e){}syncDelChao(x.et);});renderFloor();toast('Código '+pr+' zerado');}
+  function floorClear(){if(typeof isSuper==='function'&&!isSuper()){toast('Somente admin pode limpar',false);return;}if(!Object.keys(FLOOR).length){toast('Chão já está vazio');return;}if(!confirm('Limpar TODO o chão? Isso apaga a contagem atual (local e na nuvem) para recontar do zero.'))return;try{Object.values(FLOOR).forEach(function(g){etList(g).forEach(function(x){var k=_eCh(x.et);_delCh[k]=Date.now();delete _bipCh[k];});});}catch(e){}FLOOR={};saveFloor();if(typeof supa!=='undefined'&&supa){try{supa.from('chao').delete().neq('et','').then(function(){},function(){});}catch(e){}}renderFloor();toast('Chão limpo · pode recontar');}
 
   window.renderFloor=function(){
     const v=$('#v-floor');if(!v)return;
     const t=floorTotals();
-    v.innerHTML='<div class="ph-head"><div><p class="eb">Operação · contagem</p><h1>Chão</h1></div>'
-      +(t.q?'<div class="actions"><button class="gbtn" id="floorClear">'+ICONS.reload+' Limpar chão</button></div>':'')
+    v.innerHTML='<div class="ph-head"><div><p class="eb">Operação · contagem</p><h1>Chão expedição</h1></div>'
+      +(t.q?'<div class="actions"><button class="gbtn" id="floorExport">'+(ICONS.down||'')+' Exportar</button>'+((typeof isSuper==='function'&&isSuper())?'<button class="gbtn" id="floorClear">'+ICONS.reload+' Limpar chão</button>':'')+'</div>':'')
       +'</div>'
       +'<div class="two">'
-        +'<div class="panel"><div class="ph"><span class="pdot"></span>Bipar etiqueta para somar no chão</div>'
-          +'<label class="fld"><span class="lab">Etiqueta (T…)</span><input class="input code" id="floorScan" placeholder="ex: T40364663"></label>'
-          +'<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">Cada bipe soma <b>+1 bobina</b> e o <b>peso</b> no código. Bipou outra etiqueta do <b>mesmo código</b>? Acumula tudo junto. A mesma etiqueta não conta duas vezes.</p></div>'
+        +'<div class="panel"><div class="ph" style="display:flex;align-items:center;justify-content:space-between"><span><span class="pdot"></span>Bipar etiqueta</span>'
+          +'<span class="modeSeg" id="floorModeSeg"><button type="button" class="on" data-mode="add">Entrada</button><button type="button" data-mode="out">Saída</button></span></div>'
+          +'<label class="fld"><span class="lab" id="floorScanLab">Etiqueta (T…)</span><input class="input code" id="floorScan" placeholder="ex: T40364663"></label>'
+          +'<p id="floorScanHint" style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">Cada bipe soma <b>+1 bobina</b> e o <b>peso</b> no código. Bipou outra etiqueta do <b>mesmo código</b>? Acumula tudo junto. A mesma etiqueta não conta duas vezes.</p></div>'
         +'<div class="panel" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">'
           +'<div style="font-family:var(--disp);font-size:3rem;font-weight:800;line-height:1">'+t.q+'</div>'
           +'<div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px">bobinas no chão</div>'
@@ -2067,18 +2410,30 @@ updateStageBadge();
       +'</div><h3 class="sub">Totais por código</h3><div id="floorList"></div>';
     const sc=$('#floorScan');
     if(sc){
-      sc.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();floorAdd(sc.value);sc.value='';}});
+      var _floorMode=function(){return (window._floorScanMode==='out')?window.floorSaida:window.floorAdd;};
+      sc.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();_floorMode()(sc.value);sc.value='';}});
       sc.placeholder=isSuper()?'bipe ou digite':'toque para bipar';scanLock(sc);
-      if(window.addCam)addCam('floorScan',{continuous:true,onResult:floorAdd,title:'Escanear bobinas'});
+      if(window.addCam)addCam('floorScan',{continuous:true,onResult:function(v){_floorMode()(v);},title:'Escanear bobinas'});
     }
+    /* seletor Entrada/Saída */
+    (function(){var seg=document.getElementById('floorModeSeg');if(!seg)return;window._floorScanMode=window._floorScanMode||'add';
+      seg.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b.dataset.mode===window._floorScanMode);b.onclick=function(){window._floorScanMode=b.dataset.mode;seg.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);});
+        var hint=document.getElementById('floorScanHint');var lab=document.getElementById('floorScanLab');var inp=document.getElementById('floorScan');
+        if(window._floorScanMode==='out'){if(hint)hint.innerHTML='Modo <b style="color:#dc2626">SAÍDA</b>: cada bipe <b>remove</b> aquela bobina do chão e registra a saída no histórico.';if(lab)lab.textContent='Etiqueta que está saindo';if(inp)inp.placeholder='bipe a etiqueta da saída';}
+        else{if(hint)hint.innerHTML='Cada bipe soma <b>+1 bobina</b> e o <b>peso</b> no código. A mesma etiqueta não conta duas vezes.';if(lab)lab.textContent='Etiqueta (T…)';if(inp)inp.placeholder=(typeof isSuper==='function'&&isSuper())?'bipe ou digite':'toque para bipar';}
+        if(inp)try{inp.focus();}catch(e){}
+      };});
+    })();
     const cb=$('#floorClear');if(cb)cb.onclick=floorClear;
+    var feb=$('#floorExport');if(feb)feb.onclick=function(){if(typeof exportChao==='function')exportChao('f');};
+    var fsb=$('#floorSaidaBtn');if(fsb)fsb.onclick=function(){if(typeof abrirSaidaChao==='function')abrirSaidaChao('f');};
     renderFloorList();
   };
   function renderFloorList(){
     const el=$('#floorList');if(!el)return;
     const groups=Object.values(FLOOR).sort((a,b)=>(b.qtd-a.qtd)||(b.kg-a.kg));
     if(!groups.length){el.innerHTML='<div class="empty"><div class="ei">'+ICONS.layers+'</div><b>Chão vazio</b><div class="es">Bipe uma etiqueta para começar a contar.</div></div>';return;}
-    el.innerHTML=groups.map(g=>{const ets=etList(g);return ''
+    el.innerHTML=groups.map(g=>{const ets=etList(g);const _kgR=ets.reduce((s,x)=>s+(Number(x.pl)||0),0);return ''
       +'<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--sh-sm);margin-bottom:12px">'
       +'<div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap">'
         +'<div style="flex:1;min-width:200px">'
@@ -2086,19 +2441,19 @@ updateStageBadge();
           +'<div style="color:var(--ink);font-size:.9rem;margin-top:6px;font-weight:500">'+(g.desc||'—')+'</div>'
           +'<div style="color:var(--faint);font-size:.72rem;margin-top:5px">último bipe '+rel(g.at)+'</div>'
         +'</div>'
-        +'<div style="text-align:right;white-space:nowrap"><div style="font-family:var(--disp);font-weight:800;font-size:1.6rem;line-height:1">'+fmt(g.kg)+' <span style="font-size:.8rem;color:var(--muted);font-weight:600">kg</span></div></div>'
+        +'<div style="text-align:right;white-space:nowrap"><div style="font-family:var(--disp);font-weight:800;font-size:1.6rem;line-height:1">'+fmt(_kgR)+' <span style="font-size:.8rem;color:var(--muted);font-weight:600">kg</span></div></div>'
       +'</div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'+ets.map(x=>'<span class="pill muted" style="cursor:pointer" data-pr="'+g.pr+'" data-et="'+x.et+'" title="Tocar para remover esta etiqueta">'+x.et+' ✕</span>').join('')+'</div>'
-      +'<div style="display:flex;gap:10px;margin-top:12px"><button class="gbtn" data-rmcode="'+g.pr+'" style="margin-left:auto;color:var(--out)">Zerar código</button></div>'
+      +((typeof isSuper==='function'&&isSuper())?'<div style="display:flex;gap:10px;margin-top:12px"><button class="gbtn" data-rmcode="'+g.pr+'" style="margin-left:auto;color:var(--out)">Zerar código</button></div>':'')
       +'</div>';}).join('');
-    el.querySelectorAll('[data-et]').forEach(b=>b.onclick=()=>floorRemoveEt(b.dataset.pr,b.dataset.et));
+    el.querySelectorAll('[data-et]').forEach(b=>b.onclick=()=>{floorRemoveEt(b.dataset.pr,b.dataset.et);toast('Removido '+b.dataset.et);});
     el.querySelectorAll('[data-rmcode]').forEach(b=>b.onclick=()=>floorRemoveCode(b.dataset.rmcode));
   }
 
   const navRecv=[...document.querySelectorAll('.nav')].find(n=>n.dataset.view==='v-recv');
-  if(navRecv){const nv=document.createElement('div');nv.className='nav';nv.dataset.view='v-floor';nv.dataset.ic='layers';nv.innerHTML='<span class="ni"></span>Chão';navRecv.parentNode.insertBefore(nv,navRecv.nextSibling);nv.onclick=()=>go('v-floor');}
+  if(navRecv){const nv=document.createElement('div');nv.className='nav';nv.dataset.view='v-floor';nv.dataset.ic='layers';nv.innerHTML='<span class="ni"></span>Chão expedição';navRecv.parentNode.insertBefore(nv,navRecv.nextSibling);nv.onclick=()=>go('v-floor');}
   const sec=document.createElement('section');sec.className='view';sec.id='v-floor';document.querySelector('main').appendChild(sec);
-  TITLES['v-floor']='Chão';
+  TITLES['v-floor']='Chão expedição';
   const _rv=render;render=function(id){if(id==='v-floor')return renderFloor();return _rv(id);};
   if(typeof setIcons==='function')setIcons();
 })();
@@ -2122,9 +2477,9 @@ updateStageBadge();
   }catch(e){}})();
   function saveF70(){try{localStorage.setItem('wmsx_floor70',JSON.stringify(FLOOR70));}catch(e){}}
   function _e70(s){return String(s==null?'':s).trim().toUpperCase();}
-  function etL(g){return (g.ets||[]).map(x=>typeof x==='string'?{et:_e70(x),pl:(BOB[x]?Number(BOB[x].pl)||0:0)}:{et:_e70(x.et),pl:x.pl});}
+  function etL(g){return (g.ets||[]).map(function(x){var et=(typeof x==='string')?_e70(x):_e70(x.et);var plg=(typeof x==='string')?(BOB[x]?Number(BOB[x].pl)||0:0):x.pl;return {et:et,pl:(typeof chaoPlReal==='function'?chaoPlReal(et,plg):plg)};});}
   function f70HasEt(et){et=_e70(et);return Object.values(FLOOR70).some(g=>etL(g).some(x=>x.et===et));}
-  function f70Totals(){let q=0,kg=0,codes=0;Object.values(FLOOR70).forEach(g=>{q+=g.qtd||0;kg+=g.kg||0;codes++;});return{q,kg,codes};}
+  function f70Totals(){let q=0,kg=0,codes=0;Object.values(FLOOR70).forEach(g=>{q+=g.qtd||0;kg+=etL(g).reduce((s,x)=>s+(Number(x.pl)||0),0);codes++;});return{q,kg,codes};}
   function rebuild70(rows){var nf={},seen={};(rows||[]).forEach(function(r){var et=_e70(r.et);if(!et||seen[et])return;seen[et]=1;var pr=r.pr||'—';if(!nf[pr])nf[pr]={pr:pr,desc:r.descricao||'',qtd:0,kg:0,ets:[],at:r.at||nowISO(),by:r.by_user||''};nf[pr].ets.push({et:et,pl:Number(r.pl)||0});if((r.at||'')>(nf[pr].at||''))nf[pr].at=r.at;});Object.keys(nf).forEach(function(pr){nf[pr].qtd=nf[pr].ets.length;nf[pr].kg=nf[pr].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);});return nf;}
   /* ---- ponte com a nuvem: tabela 'chao70' ---- */
   function sync70(item){if(typeof supa==='undefined'||!supa||!item||!item.et)return;supa.from('chao70').upsert({et:item.et,pr:item.pr||'',descricao:item.desc||'',pl:Number(item.pl)||0,at:item.at||new Date().toISOString(),by_user:item.by||''}).then(()=>{},()=>{});}
@@ -2227,7 +2582,8 @@ updateStageBadge();
     if(typeof logAct==='function')logAct('chao70',et+' · '+pr);
     try{sync70({et:_e70(et),pr:pr,desc:b.desc||'',pl:pl,at:g.at,by:session?session.u:''});}catch(e){}
     updateF70();/* atualização LEVE: não recria o input nem a câmera (senão a câmera contínua fechava e a tela não atualizava) */
-    toast('+1 no Chão 70 · '+pr+' ('+g.qtd+' bob · '+fmt(g.kg)+' kg)');
+    var _kgT=etL(g).reduce((s,x)=>s+(Number(x.pl)||0),0);
+    toast('+1 no Chão 70 · '+pr+' ('+g.qtd+' bob · '+fmt(_kgT)+' kg)');
   };
   /* atualiza só os números e a lista, sem reconstruir a tela toda */
   function updateF70(){
@@ -2236,13 +2592,28 @@ updateStageBadge();
     var t=f70Totals();
     var big=v.querySelector('#f70Big');if(big)big.textContent=t.q;
     var sub=v.querySelector('#f70Sub');if(sub)sub.innerHTML=t.q?(fmt(t.kg)+' kg · '+t.codes+' '+(t.codes===1?'código':'códigos')):'';
-    var act=v.querySelector('#f70Actions');if(act)act.innerHTML=t.q?('<button class="gbtn" id="f70Clear">'+ICONS.reload+' Limpar Chão 70</button>'):'';
+    var act=v.querySelector('#f70Actions');if(act)act.innerHTML=t.q?('<button class="gbtn" id="f70Export">'+(ICONS.down||'')+' Exportar</button>'+((typeof isSuper==='function'&&isSuper())?'<button class="gbtn" id="f70Clear">'+ICONS.reload+' Limpar Chão 70</button>':'')):'';
     var cb=v.querySelector('#f70Clear');if(cb)cb.onclick=f70Clear;
+    var eb=v.querySelector('#f70Export');if(eb)eb.onclick=function(){if(typeof exportChao==='function')exportChao('f70');};
+    var fsb70=v.querySelector('#f70SaidaBtn');if(fsb70)fsb70.onclick=function(){if(typeof abrirSaidaChao==='function')abrirSaidaChao('f70');};
     var _fq=v.querySelector('#f70Find');renderF70List(_fq?_fq.value:'');
   }
-  function f70RemoveEt(pr,et){et=_e70(et);const g=FLOOR70[pr];if(!g)return;g.ets=etL(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR70[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveF70();try{delete _bip70[et];_bump70(et);}catch(e){}syncDel70(et);updateF70();toast('Removido '+et);}
-  function f70RemoveCode(pr){if(!FLOOR70[pr])return;const ets=etL(FLOOR70[pr]);delete FLOOR70[pr];saveF70();ets.forEach(function(x){try{delete _bip70[_e70(x.et)];_bump70(x.et);}catch(e){}syncDel70(x.et);});updateF70();toast('Código '+pr+' zerado');}
-  function f70Clear(){if(!Object.keys(FLOOR70).length){toast('Chão 70 já está vazio');return;}
+  window.f70Saida=function(v){
+    if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);
+    const et=norm(v);if(!et)return false;
+    var _kc=_e70(et);
+    var achouPr=null,achouPl=0;
+    Object.keys(FLOOR70).forEach(function(pr){if(!achouPr){etL(FLOOR70[pr]).forEach(function(x){if(x.et===_kc){achouPr=pr;achouPl=Number(x.pl)||0;}});}});
+    if(!achouPr){toast('Etiqueta '+et+' não está no Chão 70',false);return false;}
+    f70RemoveEt(achouPr,et);
+    if(typeof logAct==='function')logAct('saida_chao70',et+' · '+achouPr);
+    try{if(typeof MV!=='undefined'){MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:'CHÃO 70',pr:achouPr,q:achouPl,u:(typeof unitOf==='function'?unitOf(achouPr):'KG'),et:_kc,before:achouPl,after:0,at:nowISO(),by:session?session.u:''});if(MV.length>20000)MV.length=20000;if(typeof syncMov==='function')syncMov(MV[0]);}}catch(e){}
+    toast('Saída · '+et+' ('+achouPr+') removido do Chão 70');
+    return true;
+  };
+  function f70RemoveEt(pr,et){et=_e70(et);const g=FLOOR70[pr];if(!g)return;g.ets=etL(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR70[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveF70();try{delete _bip70[et];_bump70(et);}catch(e){}syncDel70(et);updateF70();}
+  function f70RemoveCode(pr){if(typeof isSuper==='function'&&!isSuper()){toast('Somente admin pode zerar',false);return;}if(!FLOOR70[pr])return;const ets=etL(FLOOR70[pr]);delete FLOOR70[pr];saveF70();ets.forEach(function(x){try{delete _bip70[_e70(x.et)];_bump70(x.et);}catch(e){}syncDel70(x.et);});updateF70();toast('Código '+pr+' zerado');}
+  function f70Clear(){if(typeof isSuper==='function'&&!isSuper()){toast('Somente admin pode limpar',false);return;}if(!Object.keys(FLOOR70).length){toast('Chão 70 já está vazio');return;}
     if(!confirm('Limpar TODO o Chão 70? Isso apaga a contagem atual (local e na nuvem) para recontar do zero.'))return;
     /* marca tombstone de cada etiqueta pra nenhum outro aparelho reenviar de volta */
     try{Object.values(FLOOR70).forEach(function(g){etL(g).forEach(function(x){var k=_e70(x.et);_del70[k]=Date.now();_bump70(x.et);delete _bip70[k];});});}catch(e){}
@@ -2255,27 +2626,39 @@ updateStageBadge();
     const v=$('#v-floor70');if(!v)return;
     const t=f70Totals();
     v.innerHTML='<div class="ph-head"><div><p class="eb">Operação · contagem</p><h1>Chão 70</h1></div>'
-      +'<div class="actions" id="f70Actions">'+(t.q?'<button class="gbtn" id="f70Clear">'+ICONS.reload+' Limpar Chão 70</button>':'')+'</div>'
+      +'<div class="actions" id="f70Actions">'+(t.q?'<button class="gbtn" id="f70Export">'+(ICONS.down||'')+' Exportar</button>'+((typeof isSuper==='function'&&isSuper())?'<button class="gbtn" id="f70Clear">'+ICONS.reload+' Limpar Chão 70</button>':''):'')+'</div>'
       +'</div>'
       +'<div class="two">'
-        +'<div class="panel"><div class="ph"><span class="pdot"></span>Bipar etiqueta para somar no Chão 70</div>'
-          +'<label class="fld"><span class="lab">Etiqueta (T…)</span><input class="input code" id="f70Scan" placeholder="ex: T40364663"></label>'
-          +'<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">Contagem <b>separada</b> do Chão. Cada bipe soma <b>+1 bobina</b> e o <b>peso</b> no código. A mesma etiqueta não conta duas vezes.</p></div>'
+        +'<div class="panel"><div class="ph" style="display:flex;align-items:center;justify-content:space-between"><span><span class="pdot"></span>Bipar etiqueta</span>'
+          +'<span class="modeSeg" id="f70ModeSeg"><button type="button" class="on" data-mode="add">Entrada</button><button type="button" data-mode="out">Saída</button></span></div>'
+          +'<label class="fld"><span class="lab" id="f70ScanLab">Etiqueta (T…)</span><input class="input code" id="f70Scan" placeholder="ex: T40364663"></label>'
+          +'<p id="f70ScanHint" style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">Contagem <b>separada</b> do Chão. Cada bipe soma <b>+1 bobina</b> e o <b>peso</b> no código. A mesma etiqueta não conta duas vezes.</p></div>'
         +'<div class="panel" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">'
           +'<div id="f70Big" style="font-family:var(--disp);font-size:3rem;font-weight:800;line-height:1">'+t.q+'</div>'
           +'<div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px">bobinas no Chão 70</div>'
           +'<div id="f70Sub" style="font-family:var(--mono);font-size:.85rem;color:var(--muted);margin-top:8px">'+(t.q?(fmt(t.kg)+' kg · '+t.codes+' '+(t.codes===1?'código':'códigos')):'')+'</div>'
         +'</div>'
       +'</div><h3 class="sub">Totais por código</h3>'
-      +'<div style="margin-bottom:12px"><input class="input" id="f70Find" placeholder="🔎 procurar etiqueta ou código (ex: R6GNA2EXV8)" style="width:100%"><div id="f70FindMsg" style="font-size:.8rem;margin-top:6px;min-height:18px"></div></div>'
+      +'<div style="margin-bottom:12px"><input class="input" id="f70Find" placeholder="Procurar etiqueta ou código (ex: R6GNA2EXV8)" style="width:100%"><div id="f70FindMsg" style="font-size:.8rem;margin-top:6px;min-height:18px"></div></div>'
       +'<div id="f70List"></div>';
     const sc=$('#f70Scan');
     if(sc){
-      sc.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();floor70Add(sc.value);sc.value='';}});
+      var _f70Mode=function(){return (window._f70ScanMode==='out')?window.f70Saida:floor70Add;};
+      sc.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();_f70Mode()(sc.value);sc.value='';}});
       sc.placeholder=isSuper()?'bipe ou digite':'toque para bipar';scanLock(sc);
-      if(window.addCam)addCam('f70Scan',{continuous:true,onResult:floor70Add,title:'Escanear bobinas (Chão 70)'});
+      if(window.addCam)addCam('f70Scan',{continuous:true,onResult:function(v){_f70Mode()(v);},title:'Escanear bobinas (Chão 70)'});
     }
+    (function(){var seg=document.getElementById('f70ModeSeg');if(!seg)return;window._f70ScanMode=window._f70ScanMode||'add';
+      seg.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b.dataset.mode===window._f70ScanMode);b.onclick=function(){window._f70ScanMode=b.dataset.mode;seg.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);});
+        var hint=document.getElementById('f70ScanHint');var lab=document.getElementById('f70ScanLab');var inp=document.getElementById('f70Scan');
+        if(window._f70ScanMode==='out'){if(hint)hint.innerHTML='Modo <b style="color:#dc2626">SAÍDA</b>: cada bipe <b>remove</b> aquela bobina do Chão 70 e registra a saída no histórico.';if(lab)lab.textContent='Etiqueta que está saindo';if(inp)inp.placeholder='bipe a etiqueta da saída';}
+        else{if(hint)hint.innerHTML='Contagem <b>separada</b> do Chão. Cada bipe soma <b>+1 bobina</b> e o <b>peso</b> no código. A mesma etiqueta não conta duas vezes.';if(lab)lab.textContent='Etiqueta (T…)';if(inp)inp.placeholder=(typeof isSuper==='function'&&isSuper())?'bipe ou digite':'toque para bipar';}
+        if(inp)try{inp.focus();}catch(e){}
+      };});
+    })();
     const cb=$('#f70Clear');if(cb)cb.onclick=f70Clear;
+    var eb0=$('#f70Export');if(eb0)eb0.onclick=function(){if(typeof exportChao==='function')exportChao('f70');};
+    var fsb70i=$('#f70SaidaBtn');if(fsb70i)fsb70i.onclick=function(){if(typeof abrirSaidaChao==='function')abrirSaidaChao('f70');};
     var fnd=$('#f70Find');if(fnd){fnd.addEventListener('input',function(){renderF70List(fnd.value);});}
     renderF70List();
   };
@@ -2297,7 +2680,7 @@ updateStageBadge();
       }
     }else if(msgEl){msgEl.innerHTML='';}
     if(!groups.length){el.innerHTML='<div class="empty"><div class="ei">'+ICONS.layers+'</div><b>'+(q?'Nada encontrado':'Chão 70 vazio')+'</b><div class="es">'+(q?'Nenhum código ou etiqueta com "'+q+'".':'Bipe uma etiqueta para começar a contar.')+'</div></div>';return;}
-    el.innerHTML=groups.map(g=>{const ets=etL(g);return ''
+    el.innerHTML=groups.map(g=>{const ets=etL(g);const _kgR=ets.reduce((s,x)=>s+(Number(x.pl)||0),0);return ''
       +'<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--sh-sm);margin-bottom:12px">'
       +'<div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap">'
         +'<div style="flex:1;min-width:200px">'
@@ -2305,12 +2688,12 @@ updateStageBadge();
           +'<div style="color:var(--ink);font-size:.9rem;margin-top:6px;font-weight:500">'+(g.desc||'—')+'</div>'
           +'<div style="color:var(--faint);font-size:.72rem;margin-top:5px">último bipe '+rel(g.at)+'</div>'
         +'</div>'
-        +'<div style="text-align:right;white-space:nowrap"><div style="font-family:var(--disp);font-weight:800;font-size:1.6rem;line-height:1">'+fmt(g.kg)+' <span style="font-size:.8rem;color:var(--muted);font-weight:600">kg</span></div></div>'
+        +'<div style="text-align:right;white-space:nowrap"><div style="font-family:var(--disp);font-weight:800;font-size:1.6rem;line-height:1">'+fmt(_kgR)+' <span style="font-size:.8rem;color:var(--muted);font-weight:600">kg</span></div></div>'
       +'</div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'+ets.map(x=>'<span class="pill muted" style="cursor:pointer" data-pr="'+g.pr+'" data-et="'+x.et+'" title="Tocar para remover esta etiqueta">'+x.et+' ✕</span>').join('')+'</div>'
-      +'<div style="display:flex;gap:10px;margin-top:12px"><button class="gbtn" data-rmcode="'+g.pr+'" style="margin-left:auto;color:var(--out)">Zerar código</button></div>'
+      +((typeof isSuper==='function'&&isSuper())?'<div style="display:flex;gap:10px;margin-top:12px"><button class="gbtn" data-rmcode="'+g.pr+'" style="margin-left:auto;color:var(--out)">Zerar código</button></div>':'')
       +'</div>';}).join('');
-    el.querySelectorAll('[data-et]').forEach(b=>b.onclick=()=>f70RemoveEt(b.dataset.pr,b.dataset.et));
+    el.querySelectorAll('[data-et]').forEach(b=>b.onclick=()=>{f70RemoveEt(b.dataset.pr,b.dataset.et);toast('Removido '+b.dataset.et);});
     el.querySelectorAll('[data-rmcode]').forEach(b=>b.onclick=()=>f70RemoveCode(b.dataset.rmcode));
   }
 
@@ -2657,6 +3040,9 @@ updateStageBadge();
     var el=document.getElementById('v-nf'); if(!el)return;
     var notas=Object.keys(NFS).map(function(k){return NFS[k];}).sort(function(a,b){return (b.at||'').localeCompare(a.at||'');});
     var romaneios=Object.keys(ROMS).map(function(k){return ROMS[k];}).sort(function(a,b){return (b.at||'').localeCompare(a.at||'');});
+    /* resumo p/ faixa do topo: totais de docs, etiquetas, abertos/fechados */
+    var _rz={docs:0,etq:0,abertos:0,kgFalta:0};
+    try{[].concat(notas,romaneios).forEach(function(n){var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});if(!ids.length)return;_rz.docs++;_rz.etq+=ids.length;var ent=ids.filter(function(id){return ETQ[id].status==='entrada';}).length;var kgTot=ids.reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);var kgEnt=ids.filter(function(id){return ETQ[id].status==='entrada';}).reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);if(ent<ids.length){_rz.abertos++;_rz.kgFalta+=Math.max(0,kgTot-kgEnt);}});}catch(e){}
     var preview='';
     if(nfParsed){
       var rows=nfParsed.items.map(function(it,idx){
@@ -2758,13 +3144,13 @@ updateStageBadge();
     var list='', romList='';
     var scanPanel='';
     if(notas.length||romaneios.length){
-      scanPanel='<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Bipar recebimento — alimente até fechar</div>'
-        +'<div style="color:var(--muted);font-size:.82rem;margin-bottom:8px">Bipe cada etiqueta (NF ou romaneio) conforme chega. A barra enche e o item <b>cai no estoque intermediário</b>. Use leitor/teclado (Enter) ou o botão da câmera.</div>'
-        +'<div class="fld"><input class="input code" id="nfRecvScan" autocomplete="off" placeholder="Bipe ou digite o código da etiqueta"></div>'
+      scanPanel='<div class="panel nfScanPanel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Bipar recebimento</div>'
+        +'<div style="color:var(--muted);font-size:.82rem;margin-bottom:12px">Bipe cada etiqueta conforme chega — a barra da nota enche e o item <b>cai no estoque intermediário</b>. Leitor/teclado (Enter) ou câmera.</div>'
+        +'<div class="fld nfScanField"><input class="input code" id="nfRecvScan" autocomplete="off" placeholder="Bipe ou digite o código da etiqueta"></div>'
         +'</div>';
     }
     if(notas.length){
-      list='<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Notas importadas</div>'
+      list='<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Notas importadas</div><div class="nfDocList">'
         +notas.map(function(n){
           var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});
           var entIds=ids.filter(function(id){return ETQ[id].status==='entrada';});
@@ -2774,25 +3160,26 @@ updateStageBadge();
           var kgEnt=entIds.reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);
           var pct=kgTot>0?Math.min(100,Math.round(kgEnt/kgTot*100)):0;
           var fechada=ids.length>0&&ent>=ids.length;
-          var barCol=fechada?'#16a34a':'var(--brand)';
-          return '<div style="padding:11px 0;border-top:1px solid var(--line,rgba(255,255,255,.06));cursor:pointer" data-nfbip="'+esc(n.key)+'">'
-            +'<div style="display:flex;align-items:center;gap:8px">'
-            +'<div style="flex:1;min-width:0"><div style="font-weight:700">NF '+esc(n.nNF||'?')+' · '+ids.length+' etiquetas'+(fechada?' <span style="color:#16a34a;font-size:.7rem;font-weight:800;border:1px solid #16a34a;border-radius:6px;padding:1px 6px;margin-left:4px">✓ FECHADA</span>':'')+'</div>'
-            +(n.emit?'<div style="color:var(--muted);font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(n.emit)+'</div>':'')+'</div>'
-            +'<button class="btn" data-nfprint="'+esc(n.key)+'" title="Reimprimir">'+ICONS.print+'</button>'
-            +'<button class="btn" data-nfedit="'+esc(n.key)+'" title="Editar">'+ICO_ED+'</button>'
-            +'<button class="btn" data-nfdel="'+esc(n.key)+'" title="Excluir">'+ICO_DEL+'</button>'
+          var col=fechada?'#16a34a':'#EA5A0C';
+          var circ=2*Math.PI*22, off=circ*(1-pct/100);
+          var ring='<div class="nfRing"><svg width="52" height="52"><circle cx="26" cy="26" r="22" fill="none" stroke="var(--line)" stroke-width="5"/><circle cx="26" cy="26" r="22" fill="none" stroke="'+col+'" stroke-width="5" stroke-linecap="round" stroke-dasharray="'+circ.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'" style="transition:stroke-dashoffset .5s ease"/></svg><div class="nfRingPct">'+pct+'%</div></div>';
+          return '<div class="nfDoc'+(fechada?' done':'')+'" data-nfbip="'+esc(n.key)+'">'
+            +ring
+            +'<div class="nfDocMain">'
+              +'<div class="t">NF '+esc(n.nNF||'?')+(fechada?'<span class="nfBadge ok">FECHADA</span>':'<span class="nfBadge open">'+(ids.length-ent)+' a bipar</span>')+'</div>'
+              +(n.emit?'<div class="s">'+esc(n.emit)+'</div>':'')
+              +'<div class="m">Bipado <b>'+fmt(kgEnt)+'</b> de '+fmt(kgTot)+' kg · '+ent+'/'+ids.length+' etiq'+(sai?' · saída '+sai:'')+' · '+rel(n.at)+'</div>'
             +'</div>'
-            +'<div style="margin-top:8px"><div style="height:7px;border-radius:4px;background:var(--line,rgba(255,255,255,.1));overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+barCol+';border-radius:4px;transition:width .3s"></div></div>'
-            +'<div style="display:flex;justify-content:space-between;gap:8px;color:var(--faint);font-size:.72rem;margin-top:4px">'
-            +'<span>📥 bipado <b>'+fmt(kgEnt)+'</b> de '+fmt(kgTot)+' kg ('+pct+'%)</span>'
-            +'<span>'+ent+'/'+ids.length+' etiq'+(sai?' · saída '+sai:'')+' · '+rel(n.at)+'</span>'
-            +'</div></div>'
+            +'<div class="nfDocActs">'
+              +'<button class="btn" data-nfprint="'+esc(n.key)+'" title="Reimprimir">'+ICONS.print+'</button>'
+              +'<button class="btn" data-nfedit="'+esc(n.key)+'" title="Editar">'+ICO_ED+'</button>'
+              +'<button class="btn" data-nfdel="'+esc(n.key)+'" title="Excluir">'+ICO_DEL+'</button>'
+            +'</div>'
             +'</div>';
-        }).join('')+'</div>';
+        }).join('')+'</div></div>';
     }
     if(romaneios.length){
-      romList='<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Romaneios importados</div>'
+      romList='<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Romaneios importados</div><div class="nfDocList">'
         +romaneios.map(function(n){
           var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});
           var entIds=ids.filter(function(id){return ETQ[id].status==='entrada';});
@@ -2802,21 +3189,22 @@ updateStageBadge();
           var kgEnt=entIds.reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);
           var pct=kgTot>0?Math.min(100,Math.round(kgEnt/kgTot*100)):0;
           var fechada=ids.length>0&&ent>=ids.length;
-          var barCol=fechada?'#16a34a':'var(--brand)';
-          return '<div style="padding:11px 0;border-top:1px solid var(--line,rgba(255,255,255,.06));cursor:pointer" data-rombip="'+esc(n.key)+'">'
-            +'<div style="display:flex;align-items:center;gap:8px">'
-            +'<div style="flex:1;min-width:0"><div style="font-weight:700">Romaneio '+esc(n.nRomaneio||'?')+' · '+ids.length+' etiquetas'+(fechada?' <span style="color:#16a34a;font-size:.7rem;font-weight:800;border:1px solid #16a34a;border-radius:6px;padding:1px 6px;margin-left:4px">✓ FECHADA</span>':'')+'</div>'
-            +(n.cliente?'<div style="color:var(--muted);font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(n.cliente)+'</div>':'')+'</div>'
-            +'<button class="btn" data-romprint="'+esc(n.key)+'" title="Reimprimir">'+ICONS.print+'</button>'
-            +'<button class="btn" data-romdel="'+esc(n.key)+'" title="Excluir">'+ICO_DEL+'</button>'
+          var col=fechada?'#16a34a':'#EA5A0C';
+          var circ=2*Math.PI*22, off=circ*(1-pct/100);
+          var ring='<div class="nfRing"><svg width="52" height="52"><circle cx="26" cy="26" r="22" fill="none" stroke="var(--line)" stroke-width="5"/><circle cx="26" cy="26" r="22" fill="none" stroke="'+col+'" stroke-width="5" stroke-linecap="round" stroke-dasharray="'+circ.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'" style="transition:stroke-dashoffset .5s ease"/></svg><div class="nfRingPct">'+pct+'%</div></div>';
+          return '<div class="nfDoc'+(fechada?' done':'')+'" data-rombip="'+esc(n.key)+'">'
+            +ring
+            +'<div class="nfDocMain">'
+              +'<div class="t">Romaneio '+esc(n.nRomaneio||'?')+(fechada?'<span class="nfBadge ok">FECHADA</span>':'<span class="nfBadge open">'+(ids.length-ent)+' a bipar</span>')+'</div>'
+              +(n.cliente?'<div class="s">'+esc(n.cliente)+'</div>':'')
+              +'<div class="m">Bipado <b>'+fmt(kgEnt)+'</b> de '+fmt(kgTot)+' kg · '+ent+'/'+ids.length+' etiq'+(sai?' · saída '+sai:'')+' · '+rel(n.at)+'</div>'
             +'</div>'
-            +'<div style="margin-top:8px"><div style="height:7px;border-radius:4px;background:var(--line,rgba(255,255,255,.1));overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+barCol+';border-radius:4px;transition:width .3s"></div></div>'
-            +'<div style="display:flex;justify-content:space-between;gap:8px;color:var(--faint);font-size:.72rem;margin-top:4px">'
-            +'<span>📥 bipado <b>'+fmt(kgEnt)+'</b> de '+fmt(kgTot)+' kg ('+pct+'%)</span>'
-            +'<span>'+ent+'/'+ids.length+' etiq'+(sai?' · saída '+sai:'')+' · '+rel(n.at)+'</span>'
-            +'</div></div>'
+            +'<div class="nfDocActs">'
+              +'<button class="btn" data-romprint="'+esc(n.key)+'" title="Reimprimir">'+ICONS.print+'</button>'
+              +'<button class="btn" data-romdel="'+esc(n.key)+'" title="Excluir">'+ICO_DEL+'</button>'
+            +'</div>'
             +'</div>';
-        }).join('')+'</div>';
+        }).join('')+'</div></div>';
     }
     var _se=window._syncErrs||{etq:0,rom:0,lastErr:''};
     var _re=window._cloudReadErr||null;
@@ -2838,16 +3226,36 @@ updateStageBadge();
       +'<b style="color:#dc2626">⚠️ Este aparelho está SEM conexão com a nuvem</b>'
       +'<div style="color:var(--muted);margin-top:3px">O que você importar aqui <b>não vai aparecer</b> nos outros aparelhos até reconectar. Verifique a internet e recarregue a página (Ctrl+Shift+R). Se persistir, a rede deste PC pode estar bloqueando o servidor.</div>'
       +'</div>';
-    el.innerHTML=_offWarn+syncWarn+'<div class="panel"><div class="ph"><span class="pdot"></span>Importar nota fiscal (XML ou PDF)</div>'
-      +'<div style="color:var(--muted);font-size:.85rem;margin-bottom:10px">Selecione o <b>XML da NF-e</b> (mais preciso) ou o <b>PDF da DANFE</b>. Item, quantidade, <b>peso (kg)</b> e lote são lidos automaticamente — pelo PDF, confira os valores na prévia. O lote pode ser digitado se a nota não trouxer.</div>'
+    /* progresso geral de bipagem (kg bipado / kg total dos docs abertos+fechados) */
+    var _kgTotAll=0,_kgEntAll=0;
+    try{[].concat(notas,romaneios).forEach(function(n){var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});ids.forEach(function(id){var kg=Number(ETQ[id].kg)||0;_kgTotAll+=kg;if(ETQ[id].status==='entrada')_kgEntAll+=kg;});});}catch(e){}
+    var _pctAll=_kgTotAll>0?Math.min(100,Math.round(_kgEntAll/_kgTotAll*100)):0;
+    var _hero='<div class="nfHero">'
+      +'<div class="nfHeroTop">'
+        +'<div class="nfHeroTitle"><div class="k">Operação · Recebimento</div><h1>Nota Fiscal</h1><p>Importe notas e romaneios, bipe cada etiqueta na chegada e acompanhe o fechamento em tempo real.</p></div>'
+        +'<div class="nfHeroStats">'
+          +'<div class="nfHeroStat"><b>'+_rz.docs+'</b><span>Documentos</span></div>'
+          +'<div class="nfHeroStat"><b>'+_rz.etq+'</b><span>Etiquetas</span></div>'
+          +'<div class="nfHeroStat'+(_rz.abertos>0?' hot':'')+'"><b>'+_rz.abertos+'</b><span>Abertos</span></div>'
+          +'<div class="nfHeroStat'+(_rz.kgFalta>0?' hot':'')+'"><b>'+fmt(_rz.kgFalta)+' <i>kg</i></b><span>Falta bipar</span></div>'
+        +'</div>'
+      +'</div>'
+      +(_rz.docs>0?('<div class="nfHeroBar"><i style="width:'+_pctAll+'%"></i></div>'
+        +'<div class="nfHeroBarLbl"><span>Progresso geral de recebimento</span><span>'+fmt(_kgEntAll)+' de '+fmt(_kgTotAll)+' kg · '+_pctAll+'%</span></div>'):'')
+      +'</div>';
+    el.innerHTML=_offWarn+syncWarn+_hero
+      +'<div class="nfImportGrid">'
+      +'<div class="panel nfImportCard"><div class="ph"><span class="pdot"></span>Nota fiscal (XML ou PDF)</div>'
+      +'<div style="color:var(--muted);font-size:.82rem;margin-bottom:14px">XML da NF-e (mais preciso) ou PDF da DANFE. Item, quantidade, peso e lote lidos automaticamente.</div>'
       +'<input type="file" id="nfFile" accept=".xml,.pdf,text/xml,application/xml,application/pdf" style="display:none">'
-      +'<button class="gbtn" id="nfPick" style="width:100%;justify-content:center">'+ICONS.nf+' Escolher XML ou PDF da nota</button>'
-      +'</div>'+preview
-      +'<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Importar romaneio (planilha .xlsx)</div>'
-      +'<div style="color:var(--muted);font-size:.85rem;margin-bottom:10px">Selecione a <b>planilha do romaneio</b> de entrada/saída (Seq, Nº da bobina, OP, Lote, Gramatura, Peso bruto, Peso líquido). Uma etiqueta é gerada para <b>cada bobina</b> do romaneio.</div>'
+      +'<div class="nfDrop" id="nfPick"><div class="nfDropIco">'+ICONS.nf+'</div><div class="nfDropTxt"><b>Escolher XML ou PDF</b><span>clique ou arraste o arquivo aqui</span></div></div>'
+      +'</div>'
+      +'<div class="panel nfImportCard"><div class="ph"><span class="pdot"></span>Romaneio (planilha .xlsx)</div>'
+      +'<div style="color:var(--muted);font-size:.82rem;margin-bottom:14px">Planilha de entrada/saída. Uma etiqueta é gerada para cada bobina do romaneio.</div>'
       +'<input type="file" id="romFile" accept=".xlsx,.xls" style="display:none">'
-      +'<button class="gbtn" id="romPick" style="width:100%;justify-content:center">'+ICONS.nf+' Escolher planilha do romaneio</button>'
-      +'</div>'+romPreview+scanPanel+list+romList;
+      +'<div class="nfDrop" id="romPick"><div class="nfDropIco">'+ICONS.nf+'</div><div class="nfDropTxt"><b>Escolher planilha</b><span>clique ou arraste o .xlsx aqui</span></div></div>'
+      +'</div>'
+      +'</div>'+preview+romPreview+scanPanel+list+romList;
 
     var fileInp=document.getElementById('nfFile');
     document.getElementById('nfPick').onclick=function(){fileInp.click();};
@@ -2872,6 +3280,16 @@ updateStageBadge();
     };
     var romFileInp=document.getElementById('romFile');
     document.getElementById('romPick').onclick=function(){romFileInp.click();};
+    /* arrastar-e-soltar profissional: solta o arquivo em cima do card e ele importa */
+    (function(){
+      function wire(dropId,inp){var d=document.getElementById(dropId);if(!d||!inp)return;
+        ['dragenter','dragover'].forEach(function(ev){d.addEventListener(ev,function(e){e.preventDefault();e.stopPropagation();d.classList.add('drag');});});
+        ['dragleave','dragend'].forEach(function(ev){d.addEventListener(ev,function(e){e.preventDefault();e.stopPropagation();d.classList.remove('drag');});});
+        d.addEventListener('drop',function(e){e.preventDefault();e.stopPropagation();d.classList.remove('drag');var fs=e.dataTransfer&&e.dataTransfer.files;if(fs&&fs.length){try{inp.files=fs;}catch(_){}if(inp.onchange)inp.onchange();}});
+      }
+      wire('nfPick',document.getElementById('nfFile'));
+      wire('romPick',romFileInp);
+    })();
     var _retryBtn=document.getElementById('nfRetrySync');if(_retryBtn)_retryBtn.onclick=function(){if(typeof window.resyncTudoNF==='function')window.resyncTudoNF();setTimeout(function(){if(typeof renderNF==='function')renderNF();},4500);};
     romFileInp.onchange=function(){var f=romFileInp.files&&romFileInp.files[0];if(!f)return;
       toast('Lendo planilha do romaneio…');
@@ -3395,10 +3813,10 @@ updateStageBadge();
     el.querySelectorAll('[data-sai]').forEach(function(b){b.onclick=function(){nfEvent(b.getAttribute('data-sai'),'saida');};});
     if(typeof addCam==='function'){addCam('rastScan',{continuous:true,onResult:function(v){nfEvent(v);}});}
     /* reimprimir a MESMA etiqueta pelo ID (caso a original tenha rasgado) — não gera nova, não duplica saldo */
-    el.addEventListener('click',function(ev){var b=ev.target.closest&&ev.target.closest('[data-reprint]');if(!b)return;var id=b.getAttribute('data-reprint');var e=ETQ[id];if(!e){toast('Etiqueta '+id+' não encontrada',false);return;}
+    if(el&&!el._reprintBound){el._reprintBound=true;el.addEventListener('click',function(ev){var b=ev.target.closest&&ev.target.closest('[data-reprint]');if(!b)return;var id=b.getAttribute('data-reprint');var e=ETQ[id];if(!e){toast('Etiqueta '+id+' não encontrada',false);return;}
       var _do=function(fmtOpt){try{if(typeof printZebraRast==='function')printZebraRast([e],(fmtOpt&&fmtOpt.dim)||(typeof ZSIZES!=='undefined'?ZSIZES.z100:null),(fmtOpt&&fmtOpt.orient)||'retrato');toast('Reimpressa: '+id);}catch(err){toast('Falha ao imprimir',false);}};
       if(typeof askLabelFormat==='function')askLabelFormat('Reimprimir etiqueta '+id,_do);else _do(null);
-    });
+    });}
   }
   function nfEvent(v,forceMode){
     var raw=String(v==null?'':v);
@@ -3945,7 +4363,7 @@ updateStageBadge();
     for(var m=0;m<SS.length;m++){
       var x=SS[m];
       if(x&&x.o){
-        ocupCount++;ocupKg+=Number(x.q)||0;
+        ocupCount++;ocupKg+=(typeof pesoReal==='function'?pesoReal(x):(Number(x.q)||0));
         var dd=x.upd?Math.floor((nowTs-Date.parse(x.upd))/86400000):0;
         if(dd>40)parkedCrit++;else if(dd>20)parkedWarn++;
       }
@@ -4289,7 +4707,7 @@ function _sameSpace(a,b){if(!a||!b)return false;return (!!a.o===!!b.o)&&((a.pr||
 async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
  var guard=_writeGuardActive(); // se você acabou de gravar, não sobrescreve seus dados com a nuvem antiga
  try{
-  const sp=await pgAll('espacos');if(sp.length){const corruptIds=sp.filter(r=>{var n=Number(r.q)||0;return n>10000000||n<0;}).map(r=>r.id);
+  const sp=await pgAll('espacos');if(sp.length){const corruptIds=sp.filter(r=>{var n=Number(r.q)||0;return n>1000000000||n<0;}).map(r=>r.id);
    /* MERGE POR VAGA (anti "sai e volta"): compara o carimbo `upd` linha a linha.
       Se a versão local é mais nova que a da nuvem (upsert falhou/atrasou), a local VENCE
       e é reenviada para a nuvem — em vez de a nuvem antiga reocupar a vaga. */
@@ -4592,15 +5010,42 @@ var ST_QMAX=1e7; /* peso máximo plausível por posição. Acima disso = dado co
 function qSane(v){var n=Number(v)||0;return (n>10000000||n<0)?0:n;}
 function qBad(v,x){var n=Number(v)||0;
   /* uma POSIÇÃO pode ter várias bobinas acumuladas (total alto é legítimo).
-     O que é impossível é uma posição valer mais que (nº de bobinas × teto por bobina).
-     Teto por bobina: 100 mil. Sem saber quantas bobinas, uso um teto MUITO alto por posição. */
+     Só é bug o valor CORROMPIDO (bilhões/trilhões, ex: 1,69E+15). Teto por bobina: 10 milhões. */
   try{
     if(x&&typeof LOC!=='undefined'){var cod=(typeof code==='function')?norm(code(x)):'';var nb=0;Object.keys(LOC).forEach(function(et){if(norm(LOC[et])===cod)nb++;});
-      if(nb>0)return n>(nb*100000)*1.5; /* margem de 50% */
+      if(nb>0)return n>(nb*10000000); /* 10 milhões por bobina */
     }
   }catch(e){}
-  return n>50000000; /* posição sem bobinas rastreadas: só corta o claramente absurdo (>50 milhões) */
+  return n>50000000; /* posição sem bobinas rastreadas: só corta o claramente absurdo */
 }
+/* PESO REAL de uma posição — fonte ÚNICA usada por card, tabela e exportação (evita números divergentes).
+   Se o peso guardado é válido, usa ele. Se está bugado, tenta recuperar pelo cadastro das bobinas da posição. */
+function pesoReal(x){
+  try{
+    var q=Number(x&&x.q)||0;
+    if(!qBad(q,x))return (q>0?q:0);   /* peso ok */
+    /* bugado: soma o peso do cadastro das bobinas que estão nesta posição */
+    if(typeof LOC!=='undefined'&&typeof BOB!=='undefined'){
+      var cod=(typeof code==='function')?norm(code(x)):'';var soma=0,achou=false;
+      Object.keys(LOC).forEach(function(et){if(norm(LOC[et])===cod){var b=BOB[et];if(b){var p=Number(b.rem!=null?b.rem:b.pl)||0;if(p>0&&p<=1000000){soma+=p;achou=true;}}}});
+      if(achou)return soma;
+    }
+    return 0; /* sem como recuperar */
+  }catch(e){return 0;}
+}
+window.pesoReal=pesoReal;
+/* peso REAL de uma etiqueta do chão: se o guardado está bugado, recupera do cadastro (BOB) */
+function chaoPlReal(et,plGuardado){
+  try{
+    var LIM=10000000; /* só é "bug" acima de 10 milhões (aqueles 1,69E+15). Valores grandes de metro passam. */
+    var n=Number(plGuardado)||0;
+    if(n>0&&n<=LIM)return n;              /* valor plausível (mesmo grande, ex: 130 mil mt) */
+    /* só chega aqui se for absurdo/corrompido: tenta recuperar do cadastro */
+    if(typeof BOB!=='undefined'&&et&&BOB[et]){var b=Number(BOB[et].rem!=null?BOB[et].rem:BOB[et].pl)||0;if(b>0&&b<=LIM)return b;}
+    return 0;
+  }catch(e){return 0;}
+}
+window.chaoPlReal=chaoPlReal;
 function isNoLabel(pr){var n=String(pr==null?'':pr).toUpperCase().replace(/[^A-Z]/g,'');return n.indexOf('SETIQUETA')===0||n.indexOf('SEMETIQUETA')===0;}
 function isAlcaCad(pr){var d=rastNoAcc(descOf(pr)||pr||'').replace(/^[^A-Z]+/,'');return /^ALCA|^CADARC/.test(d);}
 // unitOf agora usa SEMPRE a unidade cadastrada no produto (unitOfReal). Esta é a definição final e vale para todo o sistema.
@@ -4652,21 +5097,26 @@ filterStock=function(){const q=($('#stSearch').value||'').trim().toUpperCase(),s
   const k=stSort.k,d=stSort.d;rows.sort((a,b)=>{let va,vb;if(k==='code'){va=code(a);vb=code(b);}else if(k==='pr'){va=a.pr;vb=b.pr;}else if(k==='q'){va=a.q;vb=b.q;}else{va=a.upd;vb=b.upd;}if(va<vb)return -d;if(va>vb)return d;return 0;});return rows;};
 
 renderStockTable=_renderStockTableNova=function(){const rows=filterStock();
-  // DIAGNÓSTICO (temporário): quantos produtos estão cadastrados como MT no VL?
-  var pesoKg=0,pesoMt=0,pesoUn=0;rows.forEach(function(x){var n=Number(x.q)||0;if(n>10000000||n<0)return;var u=(typeof unitOf==='function'?unitOf(x):'KG');if(u==='MT')pesoMt+=n;else if(u==='UN')pesoUn+=n;else pesoKg+=n;});
+  // total GERAL do armazém (todas as posições ocupadas) — não depende do filtro da tela, pra bater com a exportação
+  var _todas=S.filter(function(x){return x.w===cfg.warehouse&&x.o;});
+  var pesoKg=0,pesoMt=0,pesoUn=0;_todas.forEach(function(x){var n=(typeof pesoReal==='function')?pesoReal(x):(Number(x.q)||0);if(n<=0)return;var u=(typeof unitOf==='function'?unitOf(x):'KG');if(u==='MT')pesoMt+=n;else if(u==='UN')pesoUn+=n;else pesoKg+=n;});
+  /* soma o CHÃO + CHÃO 70 nos totais (o estoque geral = prateleiras + chão), sem misturar nas linhas */
+  var _prat={kg:pesoKg,mt:pesoMt,un:pesoUn};
+  var _chBob=0;try{if(typeof chaoTotals==='function'){var _ct=chaoTotals();pesoKg+=_ct.totKg||0;pesoMt+=_ct.totMt||0;pesoUn+=_ct.totUn||0;_chBob=_ct.totQ||0;}}catch(e){}
   const prods=new Set(rows.map(x=>x.pr).filter(Boolean));
   const semEtq=S.filter(x=>x.w===cfg.warehouse&&x.o&&isNoLabel(x.pr)).length;
   let sm=document.getElementById('stSummary');if(!sm){const wrap=$('#stTable').closest('.tbl-wrap');if(wrap){sm=document.createElement('div');sm.id='stSummary';sm.className='st-sum';wrap.parentNode.insertBefore(sm,wrap);}}
   if(sm){sm.innerHTML='<div class="sc"><span>Itens (posições)</span><b>'+rows.length+'</b></div>'
-    +'<div class="sc"><span>Total em KG</span><b>'+fmt(pesoKg)+' <i>kg</i></b></div>'
-    +'<div class="sc"><span>Total em METRO</span><b>'+fmt(pesoMt)+' <i>mt</i></b></div>'
+    +'<div class="sc" title="Prateleiras: '+fmt(_prat.kg)+' kg + Chão: '+fmt(pesoKg-_prat.kg)+' kg"><span>Total KG'+((pesoKg-_prat.kg)>0?' · prat+chão':'')+'</span><b>'+fmt(pesoKg)+' <i>kg</i></b></div>'
+    +'<div class="sc" title="Prateleiras: '+fmt(_prat.mt)+' mt + Chão: '+fmt(pesoMt-_prat.mt)+' mt"><span>Total METRO'+((pesoMt-_prat.mt)>0?' · prat+chão':'')+'</span><b>'+fmt(pesoMt)+' <i>mt</i></b></div>'
     +(pesoUn>0?'<div class="sc"><span>Total em UN</span><b>'+fmt(pesoUn)+' <i>un</i></b></div>':'')
+    +(_chBob>0?'<div class="sc" title="Bobinas contadas no Chão + Chão 70"><span>No chão</span><b>'+_chBob+' <i>bob</i></b></div>':'')
     +'<div class="sc"><span>Produtos distintos</span><b>'+prods.size+'</b></div>'
     +'<div class="sc" id="scSemEtq" title="Ver as vagas sem etiqueta" style="cursor:pointer"><span>Sem etiqueta'+($('#stStatus')&&$('#stStatus').value==='sem_etq'?' ✓':'')+'</span><b style="color:'+(semEtq?'#e5534b':'inherit')+'">'+semEtq+'</b></div>';
    const ce=document.getElementById('scSemEtq');if(ce)ce.onclick=()=>{const ss=$('#stStatus');if(ss){ss.value=(ss.value==='sem_etq'?'':'sem_etq');}renderStockTable();};}
   $('#stCount').textContent=rows.length+' itens';
   try{const nbad=S.filter(x=>x.w===cfg.warehouse&&qBad(x.q,x)).length;const fb=document.getElementById('stFixWeights');if(fb){fb.style.display=nbad?'inline-flex':'none';fb.innerHTML='<span></span>Corrigir pesos inválidos ('+nbad+')';fb.style.borderColor=nbad?'#e5534b':'';fb.style.color=nbad?'#e5534b':'';}}catch(e){}
-  const tot={};S.filter(x=>x.w===cfg.warehouse&&x.o&&x.q>0).forEach(x=>{if(x.pr)tot[x.pr]=(tot[x.pr]||0)+qSane(x.q);});
+  const tot={};S.filter(x=>x.w===cfg.warehouse&&x.o).forEach(x=>{var _pn=(typeof pesoReal==='function')?pesoReal(x):qSane(x.q);if(x.pr&&_pn>0)tot[x.pr]=(tot[x.pr]||0)+_pn;});
   const cap=rows.slice(0,150);
   $('#stTable').innerHTML='<thead><tr><th data-k="code">Endereço'+sa('code')+'</th><th data-k="pr">Produto'+sa('pr')+'</th><th>Descrição</th><th data-k="q" class="num">Peso'+sa('q')+'</th><th class="num">Total produto</th><th>Un</th><th>Origem</th><th data-k="upd">Atualizado'+sa('upd')+'</th><th>Operador</th></tr></thead><tbody>'+
     (cap.length?cap.map(function(x){var d=descOf(x.pr)||'';var bad=qBad(x.q,x);var pesoCell=bad?'<span style="color:#e5534b;font-weight:800" title="Peso inválido — corrija esta posição">⚠ '+fmt(x.q)+'</span>':fmt(x.q);return '<tr class="click" data-id="'+x.id+'"><td class="mono">'+code(x)+'</td><td class="mono">'+(x.pr||'—')+'</td><td class="desc" title="'+d.replace(/"/g,'&quot;')+'">'+(d||'—')+'</td><td class="num">'+pesoCell+'</td><td class="num tot">'+fmt(tot[x.pr]||0)+'</td><td>'+unitOf(x)+'</td><td class="mono mut">'+(x.src||'—')+'</td><td class="mut">'+rel(x.upd)+'</td><td class="mut">'+(x.by||'—')+'</td></tr>';}).join('')
@@ -4680,8 +5130,8 @@ renderStockTable=_renderStockTableNova=function(){const rows=filterStock();
  let _stT=null;const deb=()=>{clearTimeout(_stT);_stT=setTimeout(()=>renderStockTable(),320);};
  const se=document.getElementById('stSearch');if(se)se.addEventListener('input',deb);
  ['stStreet','stStatus'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',()=>renderStockTable());});})();
-(function(){const SAFE=10000000;const sane=v=>{var n=Number(v)||0;return(n>SAFE||n<0)?0:n;};const exp=document.getElementById('stExport');if(exp)exp.onclick=()=>{const tot={};S.filter(x=>x.w===cfg.warehouse&&x.o).forEach(x=>{if(x.pr)tot[x.pr]=(tot[x.pr]||0)+sane(x.q);});const h=['Endereco','Produto','Descricao','Peso','TotalProduto','Un','Origem','Atualizado','Operador'];const b=filterStock().map(x=>[code(x),x.pr,descOf(x.pr),sane(x.q),tot[x.pr]||0,unitOf(x),x.src,x.upd,x.by]);dl('estoque_packem.csv',csv([h,...b]));toast('Exportado');};
- const exp2=document.getElementById('stExportSum');if(exp2)exp2.onclick=()=>{const agg={};S.filter(x=>x.w===cfg.warehouse&&x.o&&x.pr).forEach(x=>{const n=sane(x.q);if(!agg[x.pr])agg[x.pr]={kg:0,pos:0,desc:descOf(x.pr)||''};agg[x.pr].kg+=n;agg[x.pr].pos++;});const h=['Codigo','Descricao','TotalKG','Posicoes'];const rows=Object.keys(agg).sort().map(p=>{var kg=agg[p].kg;if(!(kg>=0)||kg>1e11)kg=0;return [p,agg[p].desc,kg,agg[p].pos];});dl('estoque_resumo_produto.csv',csv([h,...rows]));toast('Resumo por produto exportado');};
+(function(){const sane=v=>{return (typeof pesoReal==='function')?0:v;};const _p=x=>(typeof pesoReal==='function'?pesoReal(x):(Number(x.q)||0));const exp=document.getElementById('stExport');if(exp)exp.onclick=()=>{const tot={};S.filter(x=>x.w===cfg.warehouse&&x.o).forEach(x=>{if(x.pr)tot[x.pr]=(tot[x.pr]||0)+_p(x);});const h=['Endereco','Produto','Descricao','Peso','TotalProduto','Un','Origem','Atualizado','Operador'];const b=filterStock().map(x=>[code(x),x.pr,descOf(x.pr),_p(x),tot[x.pr]||0,unitOf(x),x.src,x.upd,x.by]);dl('estoque_packem.csv',csv([h,...b]));toast('Exportado');};
+ const exp2=document.getElementById('stExportSum');if(exp2)exp2.onclick=()=>{const agg={};S.filter(x=>x.w===cfg.warehouse&&x.o&&x.pr).forEach(x=>{const n=_p(x);if(!agg[x.pr])agg[x.pr]={kg:0,pos:0,desc:descOf(x.pr)||''};agg[x.pr].kg+=n;agg[x.pr].pos++;});const h=['Codigo','Descricao','TotalKG','Posicoes'];const rows=Object.keys(agg).sort().map(p=>{var kg=agg[p].kg;if(!(kg>=0)||kg>1e11)kg=0;return [p,agg[p].desc,kg,agg[p].pos];});dl('estoque_resumo_produto.csv',csv([h,...rows]));toast('Resumo por produto exportado');};
  const fxw=document.getElementById('stFixWeights');if(fxw)fxw.onclick=()=>{const bad=S.filter(x=>x.w===cfg.warehouse&&qBad(x.q,x));if(!bad.length){toast('Nenhum peso inválido encontrado');return;}if(!confirm('Encontrei '+bad.length+' posição(ões) com peso bugado. Vou corrigir pelo peso do cadastro das bobinas (quando houver) — as demais ficam zeradas p/ recontar. Confirmar?'))return;try{_wPushed=false;_wToasted=false;autoFixWeights();}catch(e){}try{persist();}catch(e){}logAct&&logAct('fix','corrigiu '+bad.length+' pesos bugados pelo cadastro');renderStockTable();};})();
 
 /* ===== RASTREADOR DE MOVIMENTAÇÕES (aba nova) ===== */
@@ -5753,6 +6203,7 @@ function etqCard2(top,code,desc,serial,kgText){
     +(desc?'<div class="zdesc2">'+desc+'</div>':'')
     +(kgText?'<div class="zkg2">'+kgText.toUpperCase()+'</div>':'')
     +(qr?'<div class="zqrwrap">'+qr+'</div>':'')
+    +(serial?'<div class="zeid2" style="font-family:\'JetBrains Mono\',monospace;font-size:3.4mm;font-weight:800;letter-spacing:.4mm;margin-top:1.2mm;text-align:center">ID: '+serial+'</div>':'')
   +'</div></div></div>';
 }
 function printEtq2(top,code,desc,serial,kgText){
@@ -5905,6 +6356,18 @@ function autoHealGrid(){
 autoHealGrid();
 
 setIcons();refreshUser();showLogin();pwaInit();try{autoFixWeights();}catch(e){}
+
+/* ===== ATALHO DE PRODUTIVIDADE: "/" foca a busca da aba ativa ===== */
+document.addEventListener('keydown',function(ev){
+  try{
+    if(ev.key!=='/'||ev.ctrlKey||ev.metaKey||ev.altKey)return;
+    var tag=(document.activeElement&&document.activeElement.tagName||'').toLowerCase();
+    if(tag==='input'||tag==='textarea'||document.activeElement.isContentEditable)return; /* já digitando */
+    var act=document.querySelector('.view.active');if(!act)return;
+    var inp=act.querySelector('.search input, input[id$="Search"], input[id$="Find"], input.input[placeholder*="uscar"], input.input[placeholder*="rocurar"], input.input[placeholder*="iltrar"]');
+    if(inp){ev.preventDefault();inp.focus();try{inp.select();}catch(e){}}
+  }catch(e){}
+});
 </script>
 </body>
 </html>

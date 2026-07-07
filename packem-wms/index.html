@@ -6618,7 +6618,13 @@ function wire3d(){const cv=document.getElementById('cv3d');let drag=false,lx=0,l
    else{var act=document.querySelector('.view.active');if(act&&act.id==='v-3d'&&_3d&&_3d.ready&&!_3d.raf){animate3d();}}
  });})();
 
-function pwaInit(){try{const mf={name:'Packem WMS · Dep 70',short_name:'Packem WMS',start_url:'.',scope:'.',display:'standalone',orientation:'any',background_color:'#0f1830',theme_color:'#0f1830',icons:[{src:PACKEM_IMG,sizes:'192x192',type:'image/png',purpose:'any'},{src:PACKEM_IMG,sizes:'512x512',type:'image/png',purpose:'any maskable'}]};const blob=new Blob([JSON.stringify(mf)],{type:'application/manifest+json'});const url=URL.createObjectURL(blob);const l=document.getElementById('mf');if(l)l.href=url;}catch(e){console.warn('pwa',e);}}
+function pwaInit(){try{const mf={name:'Packem WMS · Dep 70',short_name:'Packem WMS',start_url:'.',scope:'.',display:'standalone',orientation:'any',background_color:'#0f1830',theme_color:'#0f1830',icons:[{src:PACKEM_IMG,sizes:'192x192',type:'image/png',purpose:'any'},{src:PACKEM_IMG,sizes:'512x512',type:'image/png',purpose:'any maskable'}]};const blob=new Blob([JSON.stringify(mf)],{type:'application/manifest+json'});const url=URL.createObjectURL(blob);const l=document.getElementById('mf');if(l)l.href=url;}catch(e){console.warn('pwa',e);}
+ /* remove qualquer service worker/cache antigo que tenha sido instalado (voltando ao comportamento sem cache) */
+ try{
+  if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});}).catch(function(){});}
+  if(window.caches&&caches.keys){caches.keys().then(function(ks){ks.forEach(function(k){if(k.indexOf('packem-wms-')===0)caches.delete(k);});}).catch(function(){});}
+ }catch(e){}
+}
 
 /* ===== IMPRESSÃO ROBUSTA VIA IFRAME + QR COM FALLBACK OFFLINE ===== */
 qrSvg=function(text){text=String(text);if(!window.qrcode)return bc39(text);try{var qr=window.qrcode(0,'M');qr.addData(text);qr.make();var n=qr.getModuleCount(),cell=4,margin=2,size=(n+margin*2)*cell,r='';for(var y=0;y<n;y++)for(var x=0;x<n;x++){if(qr.isDark(y,x))r+='<rect x="'+((x+margin)*cell)+'" y="'+((y+margin)*cell)+'" width="'+cell+'" height="'+cell+'"/>';}return '<svg class="qr" viewBox="0 0 '+size+' '+size+'" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><rect width="'+size+'" height="'+size+'" fill="#fff"/><g fill="#000">'+r+'</g></svg>';}catch(e){return bc39(text);}};

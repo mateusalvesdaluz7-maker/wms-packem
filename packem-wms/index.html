@@ -3396,6 +3396,42 @@ updateStageBadge();
       return n;
     }catch(e){return 0;}
   };
+  /* AUTO-CORREÇÃO: remove etiquetas DUPLICADAS no mesmo volume da NF/romaneio.
+     Cada volume (ex: 50093-1-001) só pode ter UMA etiqueta. Se houver mais de uma (por excluir+regerar),
+     mantém a melhor (já bipada/recebida) e remove as fantasmas — o peso total volta a bater com a NF. */
+  window.fixDupEtq=function(){
+    try{
+      if(typeof ETQ==='undefined'||!ETQ)return 0;
+      var grupos={};
+      Object.keys(ETQ).forEach(function(id){
+        var e=ETQ[id]; if(!e)return;
+        /* chave do volume = tudo do id menos o sufixo aleatório (o -XXXXX final) */
+        var volKey=(e.nf||e.nNF||'')+'|'+String(id).replace(/-[0-9A-Z]+$/i,'');
+        (grupos[volKey]=grupos[volKey]||[]).push(id);
+      });
+      var removidas=0, _e=[];
+      Object.keys(grupos).forEach(function(k){
+        var ids=grupos[k]; if(ids.length<2)return;
+        /* mantém a MELHOR: 1º a que já foi bipada/recebida (tem status), 2º a com mais histórico, senão a 1ª */
+        ids.sort(function(a,b){
+          var ea=ETQ[a]||{}, eb=ETQ[b]||{};
+          var sa=(ea.status&&ea.status!=='')?1:0, sb=(eb.status&&eb.status!=='')?1:0;
+          if(sa!==sb)return sb-sa;
+          var ha=(ea.hist&&ea.hist.length)||0, hb=(eb.hist&&eb.hist.length)||0;
+          if(ha!==hb)return hb-ha;
+          return String(a)<String(b)?-1:1;
+        });
+        ids.slice(1).forEach(function(id){
+          delete ETQ[id];
+          try{if(typeof window._etqDelMark==='function')window._etqDelMark(id);}catch(e){}
+          try{if(typeof syncDelEtiqueta==='function')syncDelEtiqueta(id);}catch(e){}
+          removidas++; _e.push(id);
+        });
+      });
+      if(removidas){try{saveNF();}catch(e){}try{if(typeof logAct==='function')logAct('nf-dedup','removeu '+removidas+' etiqueta(s) duplicada(s)');}catch(e){}}
+      return removidas;
+    }catch(e){return 0;}
+  };
   window.nfPullCloud=function(rowsEtq,rowsNotas,rowsRom){
     try{
       try{if(typeof window._etqDelClean==='function')window._etqDelClean();}catch(e){}
@@ -3412,6 +3448,7 @@ updateStageBadge();
       }
       if(rowsNotas&&rowsNotas.length){var newNFS={};(rowsNotas||[]).forEach(function(r){if(r.data)newNFS[r.key]=r.data;});Object.keys(NFS).forEach(function(k){if(!newNFS[k])newNFS[k]=NFS[k];});NFS=newNFS;}
       if(rowsRom&&rowsRom.length){var newROMS={};(rowsRom||[]).forEach(function(r){if(r.data)newROMS[r.key]=r.data;});Object.keys(ROMS).forEach(function(k){if(!newROMS[k])newROMS[k]=ROMS[k];});ROMS=newROMS;}
+      try{if(typeof window.fixDupEtq==='function')window.fixDupEtq();}catch(e){}
       saveNF();
       /* NÃO redesenha a tela se o usuário está no meio de importar/editar uma NF ou romaneio,
          ou com o foco num campo de texto — senão perde o que está digitando */
@@ -3676,6 +3713,7 @@ updateStageBadge();
   /* ---- view: Nota Fiscal ---- */
   function renderNF(){
     var el=document.getElementById('v-nf'); if(!el)return;
+    try{if(typeof window.fixDupEtq==='function')window.fixDupEtq();}catch(e){}
     var notas=Object.keys(NFS).map(function(k){return NFS[k];}).sort(function(a,b){return (b.at||'').localeCompare(a.at||'');});
     var romaneios=Object.keys(ROMS).map(function(k){return ROMS[k];}).sort(function(a,b){return (b.at||'').localeCompare(a.at||'');});
     /* resumo p/ faixa do topo: totais de docs, etiquetas, abertos/fechados */
@@ -7101,6 +7139,7 @@ function autoHealGrid(){
 
 setIcons();refreshUser();showLogin();pwaInit();
 try{if(typeof window.pbaixaScan==='function')window.pbaixaScan();if(typeof window.updateProtheusBadge==='function')window.updateProtheusBadge();}catch(e){}
+try{if(typeof window.fixDupEtq==='function')window.fixDupEtq();}catch(e){}
 /* a correção de pesos é pesada — roda DEPOIS que a tela de login já apareceu (não trava a digitação) */
 (function(){var _run=function(){try{autoFixWeights();}catch(e){}try{if(typeof window.fixVagaProdIds==='function')window.fixVagaProdIds();}catch(e){}};if(window.requestIdleCallback){requestIdleCallback(_run,{timeout:3000});}else{setTimeout(_run,1200);}})();
 

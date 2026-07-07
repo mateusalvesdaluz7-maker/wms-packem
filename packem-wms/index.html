@@ -2405,12 +2405,14 @@ function renderRecv(){const adm=isAdmin();
  '<div class="two">'+
   '<div class="panel"><div class="ph"><span class="pdot"></span>Bipar etiqueta para receber</div>'+
    '<label class="fld"><span class="lab">Etiqueta (T…)</span><input class="input code" id="recvScan" placeholder="ex: T40364663" '+(adm?'':'disabled')+'></label>'+
-   '<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">A bobina cai aqui como <b>pendente</b>. Depois você decide: <b>armazenar</b> num endereço ou <b>mandar para produção</b>.</p><label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvAutoLbl"'+(autoLabelOn()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Imprimir etiqueta na Zebra ao bipar (receber)</label><label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvStation"'+(isPrintStation()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Esta máquina imprime na Zebra (estação do PC)</label></div>'+
+   '<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">A bobina cai aqui como <b>pendente</b>. Depois você decide: <b>armazenar</b> num endereço ou <b>mandar para produção</b>.</p><label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvAutoLbl"'+(autoLabelOn()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Imprimir etiqueta na Zebra ao bipar (receber)</label><label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvStation"'+(isPrintStation()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Esta máquina imprime na Zebra (estação do PC)</label><div style="margin-top:12px"><button class="gbtn" id="recvSetFmt" style="width:100%;justify-content:center">'+(ICONS.tag||'')+' Escolher modelo da etiqueta</button><div style="font-size:.72rem;color:var(--muted);margin-top:6px" id="recvFmtLbl"></div></div></div>'+
   '<div class="panel" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><div style="font-family:var(--disp);font-size:3rem;font-weight:800;line-height:1">'+STAGE.length+'</div><div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px">bobinas aguardando</div>'+(STAGE.length?'<div style="font-family:var(--mono);font-size:.85rem;color:var(--muted);margin-top:8px">'+fmt(STAGE.reduce((a,b)=>a+(b.pl||0),0))+' kg pendentes</div>':'')+'</div>'+
  '</div><h3 class="sub">Pendentes</h3><div id="stageList"></div>';
  const sc=$('#recvScan');if(sc){sc.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();recvAdd(sc.value);sc.value='';}});if(!sc.disabled){sc.placeholder=isSuper()?'bipe ou digite a etiqueta':'toque para bipar';scanLock(sc);}}
  const al=document.getElementById('recvAutoLbl');if(al)al.onchange=function(){try{localStorage.setItem('wmsx_autoLabel',al.checked?'1':'0');}catch(e){}};
  const ps=document.getElementById('recvStation');if(ps)ps.onchange=function(){try{localStorage.setItem('wmsx_printStation',ps.checked?'1':'0');}catch(e){}toast(ps.checked?'Esta máquina vai imprimir as etiquetas na Zebra':'Estação de impressão desligada nesta máquina');};
+ var _fmtLbl=document.getElementById('recvFmtLbl');function _showFmt(){if(!_fmtLbl)return;var f=(typeof expLabelFmt==='function')?expLabelFmt():null;if(f&&f.dim)_fmtLbl.textContent='Modelo atual: '+f.dim.w+'×'+f.dim.h+'mm · '+(f.orient==='paisagem'?'deitada':'em pé');}_showFmt();
+ var sf=document.getElementById('recvSetFmt');if(sf)sf.onclick=function(){if(typeof askLabelFormat==='function')askLabelFormat('Modelo da etiqueta de recebimento',function(opt){if(typeof setExpLabelFmt==='function')setExpLabelFmt(opt);_showFmt();toast('Modelo salvo · '+opt.dim.w+'×'+opt.dim.h+'mm');});};
  renderStageList();}
 function renderStageList(){const el=$('#stageList');if(!el)return;const adm=isAdmin();
  if(!STAGE.length){el.innerHTML='<div class="empty"><div class="ei">'+ICONS.inbox+'</div><b>Nada pendente</b><div class="es">Bipe uma etiqueta para receber.</div></div>';return;}
@@ -6733,6 +6735,8 @@ function printIntakeFallback(it){if(!it)return;var sd=shortDesc(it.desc||it.pr||
 function isPrintStation(){try{return localStorage.getItem('wmsx_printStation')==='1';}catch(e){return false;}}
 function wasPrinted(et){try{return (JSON.parse(localStorage.getItem('wmsx_printedEts')||'[]')).indexOf(et)>=0;}catch(e){return false;}}
 function markPrinted(et){try{var a=JSON.parse(localStorage.getItem('wmsx_printedEts')||'[]');if(a.indexOf(et)<0){a.push(et);if(a.length>800)a=a.slice(-800);localStorage.setItem('wmsx_printedEts',JSON.stringify(a));}}catch(e){}}
+function expLabelFmt(){try{var s=localStorage.getItem('wmsx_expLabelFmt');if(s)return JSON.parse(s);}catch(e){}return {dim:{w:100,h:100},orient:'retrato'};}
+function setExpLabelFmt(opt){try{localStorage.setItem('wmsx_expLabelFmt',JSON.stringify(opt));}catch(e){}}
 function stationPrint(it){if(!it||!it.et)return;if(!isPrintStation()||!autoLabelOn())return;if(wasPrinted(it.et))return;markPrinted(it.et);setTimeout(function(){try{printIntakeLabel(it);}catch(e){console.warn('etiqueta',e);}},200);}
 
 
@@ -6765,15 +6769,21 @@ function zplIntakeLabel(it,opt){
    if(et)z+='^FO250,40^A0R,26,24^FD'+et+'^FS';
    if(wt)z+='^FO300,40^A0R,80,50^FD'+wt+'^FS';
  }else{
-   // ===== RETRATO (em pé): layout padrão =====
-   var half=Math.round(PW*0.38);
-   z+='^FO'+half+',20^GB0,'+(LL-40)+',3^FS'; // linha vertical
-   if(etbc)z+='^FO60,80^BQN,2,'+(dim.w>=90?7:5)+'^FDMA,'+etbc+'^FS';
-   z+='^FO'+(half+20)+',22^A0N,26,26^FDPACKEM · '+wh+'^FS';
-   if(pr)z+='^FO'+(half+20)+',58^A0N,'+(dim.w>=90?80:54)+','+(dim.w>=90?64:44)+'^FD'+pr+'^FS';
-   if(sd)z+='^FO'+(half+20)+','+(dim.w>=90?150:120)+'^FB'+(PW-half-40)+',3,4,L^A0N,'+(dim.w>=90?38:28)+','+(dim.w>=90?34:24)+'^FD'+sd+'^FS';
-   if(et)z+='^FO'+(half+20)+','+(dim.w>=90?300:220)+'^A0N,28,26^FD'+et+'^FS';
-   if(wt)z+='^FO'+(half+20)+','+(dim.w>=90?340:255)+'^A0N,'+(dim.w>=90?100:60)+','+(dim.w>=90?60:40)+'^FD'+wt+'^FS';
+   // ===== RETRATO (em pé): layout que ocupa a etiqueta TODA (proporcional à altura) =====
+   var half=Math.round(PW*0.40);
+   var big=(dim.w>=90);
+   z+='^FO'+half+',20^GB0,'+(LL-40)+',3^FS'; // linha vertical divisória
+   // ---- COLUNA ESQUERDA: QR grande + ID embaixo ----
+   var qrMag=big?9:6;
+   z+='^FO50,'+Math.round(LL*0.10)+'^BQN,2,'+qrMag+'^FDMA,'+etbc+'^FS';
+   if(et)z+='^FO50,'+Math.round(LL*0.62)+'^A0N,30,28^FDID: '+et+'^FS';
+   // ---- COLUNA DIREITA: cabeçalho, código, descrição e PESO grande centralizado ----
+   var rx=half+24, rw=PW-half-40;
+   z+='^FO'+rx+','+Math.round(LL*0.06)+'^A0N,28,28^FDPACKEM · '+wh+'^FS';
+   if(pr)z+='^FO'+rx+','+Math.round(LL*0.13)+'^A0N,'+(big?90:60)+','+(big?72:48)+'^FD'+pr+'^FS';
+   if(sd)z+='^FO'+rx+','+Math.round(LL*0.30)+'^FB'+rw+',3,4,L^A0N,'+(big?40:30)+','+(big?36:26)+'^FD'+sd+'^FS';
+   // peso GRANDE, centralizado verticalmente na metade de baixo (aproveita o espaço vazio)
+   if(wt)z+='^FO'+rx+','+Math.round(LL*0.60)+'^FB'+rw+',1,0,C^A0N,'+(big?150:110)+','+(big?120:88)+'^FD'+wt+'^FS';
  }
  z+='^XZ';
  return z;
@@ -6815,12 +6825,14 @@ function askLabelFormat(titulo,onOk){
 /* imprime a etiqueta de recebimento perguntando tamanho/orientação */
 function printIntakeLabelChoose(it){
  askLabelFormat('Etiqueta de recebimento',function(opt){
+   try{if(typeof setExpLabelFmt==='function')setExpLabelFmt(opt);}catch(e){}
    try{sendToZebra(zplIntakeLabel(it,opt)).then(function(ok){if(!ok)printIntakeFallback(it);toast(ok?'Enviado para a Zebra':'Sem Zebra — abriu impressão normal');}).catch(function(){printIntakeFallback(it);});}
    catch(e){printIntakeFallback(it);}
  });
 }
 function printIntakeLabel(it){if(!it)return;
- try{sendToZebra(zplIntakeLabel(it,{dim:{w:100,h:100},orient:'retrato'})).then(function(ok){if(!ok)printIntakeFallback(it);}).catch(function(){printIntakeFallback(it);});}
+ var _fmt=(typeof expLabelFmt==='function')?expLabelFmt():{dim:{w:100,h:100},orient:'retrato'};
+ try{sendToZebra(zplIntakeLabel(it,_fmt)).then(function(ok){if(!ok)printIntakeFallback(it);}).catch(function(){printIntakeFallback(it);});}
  catch(e){printIntakeFallback(it);}}
 
 

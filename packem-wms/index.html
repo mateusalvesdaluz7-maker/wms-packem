@@ -1593,7 +1593,7 @@ function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdm
       }catch(e){return '';}
     })()}`);
   if(adm){if(window.addCam){var _pe=document.getElementById('spProd');if(_pe)window.addCam('spProd',{title:'Bipe a bobina',onResult:function(v){var p=parseBobina(v);if(p&&p.pr)_pe.value=p.pr;var _q=document.getElementById('spQty');if(_q&&p&&p.peso!=null&&!isNaN(p.peso))_q.value=p.peso;var _s=document.getElementById('spSrc');toast('Etiqueta '+(p&&(p.et||p.pr)||v)+' lida · confira e Salvar');}});}
-  $('#spSave').onclick=()=>{x.pr=norm($('#spProd').value);x.q=Number($('#spQty').value)||0;x.src=norm($('#spSrc').value);x.o=!!(x.pr&&x.pr!=='0');x.upd=nowISO();x.by=session.u;persist();logAct('edit','posição '+code(x));closeDrawer();render($('.view.active').id);toast('Posição salva');};
+  $('#spSave').onclick=()=>{x.pr=(typeof cleanProd==='function')?cleanProd($('#spProd').value):norm($('#spProd').value);x.q=Number($('#spQty').value)||0;x.src=norm($('#spSrc').value);x.o=!!(x.pr&&x.pr!=='0');x.upd=nowISO();x.by=session.u;persist();logAct('edit','posição '+code(x));closeDrawer();render($('.view.active').id);toast('Posição salva');};
   $('#spFree').onclick=()=>{const before=Number(x.q)||0;if(!x.o||before<=0){toast('Posição já está vazia',false);return;}
    const doSend=(et)=>{x.upd=nowISO();x.by=session.u;const m={id:uid(),action:'producao',w:cfg.warehouse,code:code(x),pr:x.pr||'',q:before,u:unitOf(x),et:et||'',before:before,after:0,at:nowISO(),by:session.u};MV.unshift(m);if(MV.length>20000)MV.length=20000;x.pr='';x.q=0;x.o=false;x.src='';persist();try{syncMov(m);}catch(e){}try{syncSpace(x);}catch(e){}logAct('producao','enviou p/ produção '+fmt(before)+' @ '+code(x));try{enqueue3dTask(code(x),'out');}catch(e){}closeDrawer();render($('.view.active').id);try{renderMovRecent();}catch(e){}toast('Enviado para produção · '+fmt(before)+' '+unitOf(x));};
    const head='<div style="margin-bottom:14px"><div class="mono" style="font-size:1.1rem;font-weight:700">'+code(x)+'</div><div style="color:var(--muted);font-size:.9rem">'+(x.pr||'(sem produto)')+' · '+fmt(before)+' '+unitOf(x)+'</div></div>';
@@ -1614,7 +1614,7 @@ $('#mBob').addEventListener('input',()=>{const v=$('#mBob').value,pv=$('#mBobPv'
 $('#mBob').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const b=parseBobina($('#mBob').value);if(b.peso!=null)confirmMov();else{$('#mQty').focus();$('#mQty').select();}}});
 $('#mQty').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();confirmMov();}});
 $('#confirmBtn').onclick=confirmMov;
-function confirmMov(){if(!isAdmin()){toast('Somente admin pode movimentar',false);return;}const c=norm($('#mLoc').value),b=parseBobina($('#mBob').value),prod=b.pr,qty=Number($('#mQty').value);
+function confirmMov(){if(!isAdmin()){toast('Somente admin pode movimentar',false);return;}const c=norm($('#mLoc').value),b=parseBobina($('#mBob').value),prod=(typeof cleanProd==='function')?cleanProd(b.pr):b.pr,qty=Number($('#mQty').value);
   if(!c){toast('Bipe o endereço',false);$('#mLoc').focus();return;}const sp=findSpace(c);if(!sp){toast('Endereço não existe',false);return;}
   if(!prod){toast('Bipe a bobina',false);$('#mBob').focus();return;}if(!qty||qty<=0){toast('Informe o peso',false);$('#mQty').focus();return;}
   const before=Number(sp.q)||0;
@@ -2379,7 +2379,24 @@ function regBobFromEtq(id,e){try{
 function saveLOC(){localStorage.setItem('wmsx_loc',JSON.stringify(LOC));}
 function brNum(v){if(typeof v==='number')return v;if(v==null)return 0;let s=String(v).trim().replace(/[^\d.,-]/g,'');if(!s)return 0;const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.');if(lc>-1&&ld>-1){if(lc>ld)s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'');}else if(lc>-1){s=s.replace(/,/g,'.');}return parseFloat(s)||0;}
 
-parseBobina=function(v){v=norm(v);if(BOB[v]){const rem=(BOB[v].rem!=null?BOB[v].rem:BOB[v].pl);return{et:v,pr:BOB[v].pr,desc:BOB[v].desc||'',peso:rem,pl:BOB[v].pl,rem:rem};}const i=v.indexOf('$');if(i>0){const pr=v.slice(0,i),pe=parseFloat(v.slice(i+1).replace(',','.'));if(pr&&!isNaN(pe))return{et:'',pr,desc:'',peso:pe,pl:pe,rem:pe};}return{et:'',pr:v,desc:'',peso:null,pl:null,rem:null};};
+parseBobina=function(v){v=norm(v);if(BOB[v]){const rem=(BOB[v].rem!=null?BOB[v].rem:BOB[v].pl);return{et:v,pr:BOB[v].pr,desc:BOB[v].desc||'',peso:rem,pl:BOB[v].pl,rem:rem};}
+  /* etiqueta rastreável (QR guarda o ID): resolve pelo cadastro da NF/romaneio → puxa o PRODUTO real, nunca o id */
+  if(typeof window.etqLookup==='function'){var _le=window.etqLookup(v);if(_le){return{et:v,pr:_le.pr||'',desc:_le.desc||'',peso:_le.pl,pl:_le.pl,rem:_le.pl};}}
+  const i=v.indexOf('$');if(i>0){const pr=v.slice(0,i),pe=parseFloat(v.slice(i+1).replace(',','.'));if(pr&&!isNaN(pe))return{et:'',pr,desc:'',peso:pe,pl:pe,rem:pe};}
+  /* se tem CARA de id de etiqueta mas não achamos cadastro: NÃO usa o id como produto (deixa vazio) */
+  var _ehId=/^\d+-\d+(-\d+)?-[0-9A-Z]{5,}$/.test(v)||/^R[0-9A-Z]{8,}$/.test(v);
+  return{et:_ehId?v:'',pr:_ehId?'':v,desc:'',peso:null,pl:null,rem:null};};
+/* TRAVA CENTRAL: garante que o "produto" de uma vaga nunca seja um ID de etiqueta.
+   Se o valor tem cara de id, tenta resolver pro produto real (cadastro da etiqueta); se não achar, devolve vazio. */
+function _ehEtqId(v){v=String(v||'');return /^\d+-\d+(-\d+)?-[0-9A-Z]{5,}$/.test(v)||/^R[0-9A-Z]{8,}$/.test(v);}
+function cleanProd(v){try{
+  v=(typeof norm==='function')?norm(v||''):String(v||'').trim().toUpperCase();
+  if(!v)return '';
+  var pareceId=_ehEtqId(v)||(typeof window.etqLookup==='function'&&!!window.etqLookup(v));
+  if(!pareceId)return v; /* produto normal → mantém */
+  if(typeof window.etqLookup==='function'){var e=window.etqLookup(v);if(e&&e.pr&&!_ehEtqId(e.pr))return (typeof norm==='function')?norm(e.pr):String(e.pr);}
+  return ''; /* é id e não deu pra resolver → NÃO grava o id */
+}catch(err){return String(v||'');}}
 
 $('#mBob').addEventListener('input',function(){const v=$('#mBob').value;if(!v.trim())return;const b=parseBobina(v);
  if(b.et&&b.peso!=null)$('#mQty').value=b.peso;
@@ -2388,7 +2405,7 @@ $('#mBob').addEventListener('input',function(){const v=$('#mBob').value;if(!v.tr
 });
 
 confirmMov=function(){if(!isAdmin()){toast('Somente admin pode movimentar',false);return;}
- const b=parseBobina($('#mBob').value),prod=b.pr,et=b.et;let qty=Number($('#mQty').value);let c=norm($('#mLoc').value);
+ const b=parseBobina($('#mBob').value),prod=(typeof cleanProd==='function')?cleanProd(b.pr):b.pr,et=b.et;let qty=Number($('#mQty').value);let c=norm($('#mLoc').value);
  if(mode==='saida'){if(!c){toast('Bipe o endereço para confirmar',false);$('#mLoc').click();return;}if(et&&LOC[et]&&c!==LOC[et]){toast('Endereço errado — a bobina '+et+' está em '+LOC[et],false);return;}}
  if(!c){toast('Bipe o endereço',false);$('#mLoc').focus();return;}
  const sp=findSpace(c);if(!sp){toast('Endereço não existe',false);return;}
@@ -2508,7 +2525,7 @@ function freeStored(et){
  if(typeof syncDelLoc==='function')syncDelLoc(et);persist();try{enqueue3dTask(c,'out');}catch(e){}
  return c;
 }
-function placeBobina(et,pr,pl,c){c=norm(c);const sp=findSpace(c);if(!sp){toast('Endereço '+c+' não existe',false);return false;}
+function placeBobina(et,pr,pl,c){c=norm(c);if(typeof cleanProd==='function')pr=cleanProd(pr);const sp=findSpace(c);if(!sp){toast('Endereço '+c+' não existe',false);return false;}
  if(et&&typeof LOC!=='undefined'&&LOC[et]){
    /* JÁ está armazenada. Só pode rearmazenar se estiver voltando pelo intermediário (STAGE).
       Senão, seria a MESMA bobina em dois lugares (saldo duplicado) — bloqueia e manda dar saída. */

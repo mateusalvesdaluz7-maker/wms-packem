@@ -2395,7 +2395,11 @@ function placeBobina(et,pr,pl,c){c=norm(c);const sp=findSpace(c);if(!sp){toast('
    const _old=freeStored(et);if(_old)toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');
  }
  if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}const before=Number(sp.q)||0;sp.pr=pr;sp.q=before+(Number(pl)||0);sp.o=true;sp.u='KG';sp.upd=nowISO();sp.by=session.u;if(et){LOC[et]=c;saveLOC();}MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:'KG',et:et||'',before,after:sp.q,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;persist();if(typeof syncSpace==='function')syncSpace(sp);logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}return true;}
-function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}if(LOC[et]){const old=freeStored(et);toast('Bobina '+et+' retornou de '+old+' — liberada p/ recebimento');}if(STAGE.some(s=>s.et===et)){toast('Etiqueta já no intermediário',false);return;}STAGE.unshift({et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u});saveStage();MV.unshift({id:uid(),action:'recebimento',w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:b.pr||'',q:Number(b.pl)||0,u:(typeof unitOf==='function'?unitOf(b.pr):'KG'),et:et,before:0,after:Number(b.pl)||0,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}logAct('recebimento',et+' · '+b.pr);renderRecv();updateStageBadge();toast('Recebido: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});}
+function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}if(LOC[et]){const old=freeStored(et);toast('Bobina '+et+' retornou de '+old+' — liberada p/ recebimento');}
+  /* se já está contada em algum chão, TIRA de lá (não pode ficar em dois lugares) */
+  try{if(typeof window.f70HasEt==='function'&&window.f70HasEt(et)&&typeof window.f70Saida==='function'){window.f70Saida(et);toast('Saiu do Chão 70 · '+et);}}catch(e){}
+  try{if(typeof window.floorHasEt==='function'&&window.floorHasEt(et)&&typeof window.floorSaida==='function'){window.floorSaida(et);toast('Saiu do Chão expedição · '+et);}}catch(e){}
+  if(STAGE.some(s=>s.et===et)){toast('Etiqueta já no intermediário',false);return;}STAGE.unshift({et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u});saveStage();MV.unshift({id:uid(),action:'recebimento',w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:b.pr||'',q:Number(b.pl)||0,u:(typeof unitOf==='function'?unitOf(b.pr):'KG'),et:et,before:0,after:Number(b.pl)||0,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}logAct('recebimento',et+' · '+b.pr);renderRecv();updateStageBadge();toast('Recebido: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});}
 function renderRecv(){const adm=isAdmin();
  $('#v-recv').innerHTML='<div class="ph-head"><div><p class="eb">Operação · recebimento</p><h1>Estoque intermediário</h1></div></div>'+
  '<div class="two">'+
@@ -2728,6 +2732,7 @@ updateStageBadge();
   function _eCh(s){return String(s==null?'':s).trim().toUpperCase();}
   function etList(g){return (g.ets||[]).map(function(x){var et=(typeof x==='string')?_eCh(x):_eCh(x.et);var plg=(typeof x==='string')?(BOB[x]?Number(BOB[x].pl)||0:0):x.pl;return {et:et,pl:(typeof chaoPlReal==='function'?chaoPlReal(et,plg):plg)};});}
   function floorHasEt(et){et=_eCh(et);return Object.values(FLOOR).some(g=>etList(g).some(x=>x.et===et));}
+  window.floorHasEt=floorHasEt;
   function floorTotals(){let q=0,kg=0,codes=0;Object.values(FLOOR).forEach(g=>{q+=g.qtd||0;kg+=etList(g).reduce((s,x)=>s+(Number(x.pl)||0),0);codes++;});return{q,kg,codes};}
   /* etiquetas recém-zeradas (não podem voltar da nuvem) e horário do último bipe (distingue "novo" de "deletado por outro") */
   var _delCh=Object.create(null), _bipCh=Object.create(null);
@@ -2922,6 +2927,7 @@ updateStageBadge();
   function _e70(s){return String(s==null?'':s).trim().toUpperCase();}
   function etL(g){return (g.ets||[]).map(function(x){var et=(typeof x==='string')?_e70(x):_e70(x.et);var plg=(typeof x==='string')?(BOB[x]?Number(BOB[x].pl)||0:0):x.pl;return {et:et,pl:(typeof chaoPlReal==='function'?chaoPlReal(et,plg):plg)};});}
   function f70HasEt(et){et=_e70(et);return Object.values(FLOOR70).some(g=>etL(g).some(x=>x.et===et));}
+  window.f70HasEt=f70HasEt;
   function f70Totals(){let q=0,kg=0,codes=0;Object.values(FLOOR70).forEach(g=>{q+=g.qtd||0;kg+=etL(g).reduce((s,x)=>s+(Number(x.pl)||0),0);codes++;});return{q,kg,codes};}
   function rebuild70(rows){var nf={},seen={};(rows||[]).forEach(function(r){var et=_e70(r.et);if(!et||seen[et])return;seen[et]=1;var pr=r.pr||'—';if(!nf[pr])nf[pr]={pr:pr,desc:r.descricao||'',qtd:0,kg:0,ets:[],at:r.at||nowISO(),by:r.by_user||''};nf[pr].ets.push({et:et,pl:Number(r.pl)||0});if((r.at||'')>(nf[pr].at||''))nf[pr].at=r.at;});Object.keys(nf).forEach(function(pr){nf[pr].qtd=nf[pr].ets.length;nf[pr].kg=nf[pr].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);});return nf;}
   /* ---- ponte com a nuvem: tabela 'chao70' ---- */
@@ -3860,6 +3866,9 @@ updateStageBadge();
     }
     /* empurra pro estoque intermediário (STAGE) se ainda não estiver lá */
     var desc=e.xProd||(typeof nfDescByCode==='function'?nfDescByCode(e.cProd):'')||'';
+    /* se a etiqueta já está em algum chão, TIRA de lá (não pode ficar em dois lugares) */
+    try{if(typeof window.f70HasEt==='function'&&window.f70HasEt(id)&&typeof window.f70Saida==='function'){window.f70Saida(id);toast('Saiu do Chão 70 · '+id);}}catch(e2){}
+    try{if(typeof window.floorHasEt==='function'&&window.floorHasEt(id)&&typeof window.floorSaida==='function'){window.floorSaida(id);toast('Saiu do Chão expedição · '+id);}}catch(e2){}
     var caiu=false;
     if(typeof STAGE!=='undefined'&&STAGE){
       if(!STAGE.some(function(s){return s.et===id;})){

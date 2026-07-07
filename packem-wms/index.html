@@ -877,6 +877,7 @@ body.cam-open{overflow:hidden}#v-exped .cam-ov{position:fixed;inset:0;z-index:10
       <div class="sb-grp">Operação</div>
       <div class="nav" data-view="v-mov" data-ic="scan" data-writer="1"><span class="ni"></span>Movimentação</div>
       <div class="nav" data-view="v-stock" data-ic="box"><span class="ni"></span>Estoque</div>
+      <div class="nav adminOnly" data-view="v-protheus" data-ic="transfer"><span class="ni"></span>Baixa Protheus</div>
       <div class="nav" data-view="v-transf" data-ic="transfer"><span class="ni"></span>Transferências</div>
       <div class="nav" data-view="v-labels" data-ic="tag"><span class="ni"></span>Etiquetas</div>
       <div class="sb-grp">Análise</div>
@@ -1215,6 +1216,7 @@ body.cam-open{overflow:hidden}#v-exped .cam-ov{position:fixed;inset:0;z-index:10
           <div class="actions"><button class="gbtn" id="mBackup" data-ic="save"><span></span>Backup / Restaurar</button><button class="gbtn adminOnly" id="mReseed" data-ic="reload"><span></span>Recarregar endereços</button></div></div>
         <div class="tbl-wrap"><table class="tbl" id="actTable"></table></div>
       </section>
+      <section class="view" id="v-protheus"></section>
     </main>
   </div>
 </div>
@@ -1384,7 +1386,7 @@ function go(id){if(id==='v-users'&&!isSuper())id='v-home';if(id==='v-mov'&&!isAd
 }
 $$('.nav').forEach(n=>n.onclick=()=>go(n.dataset.view));
 $('#userBtn').onclick=()=>go('v-act');
-function render(id){({'v-home':renderHome,'v-board':renderBoard,'v-mov':renderMov,'v-stock':renderStock,'v-transf':renderTransf,'v-labels':renderLabels,'v-abc':renderABC,'v-values':renderValues,'v-users':renderUsers,'v-act':renderAct}[id]||(()=>{}))();}
+function render(id){({'v-home':renderHome,'v-board':renderBoard,'v-mov':renderMov,'v-stock':renderStock,'v-transf':renderTransf,'v-labels':renderLabels,'v-abc':renderABC,'v-values':renderValues,'v-users':renderUsers,'v-act':renderAct,'v-protheus':(typeof renderProtheus==='function'?renderProtheus:function(){})}[id]||(()=>{}))();}
 
 /* warehouse */
 $$('#whSeg button').forEach(b=>b.onclick=()=>{cfg.warehouse=b.dataset.wh;DB.saveCfg(cfg);$$('#whSeg button').forEach(x=>x.classList.toggle('on',x.dataset.wh===cfg.warehouse));boardLevel=null;render($('.view.active').id);});
@@ -3396,14 +3398,16 @@ updateStageBadge();
   };
   window.nfPullCloud=function(rowsEtq,rowsNotas,rowsRom){
     try{
+      try{if(typeof window._etqDelClean==='function')window._etqDelClean();}catch(e){}
       var fromCloud={};
       (rowsEtq||[]).forEach(function(r){
+        if(typeof window._etqDelActive==='function'&&window._etqDelActive(r.id))return; /* recém-excluída: NÃO rebaixa da nuvem */
         fromCloud[r.id]={id:r.id,nf:r.doc_key||'',nNF:r.n_nf||'',nRomaneio:r.n_romaneio||'',nNFe:r.n_nf||'',cliente:r.cliente||'',bobina:r.bobina||'',op:r.op||'',lote:r.lote||'',addr:r.addr||'',gramatura:r.gramatura||'',xProd:r.gramatura||'',cProd:r.c_prod||'',uCom:r.u_com||'',kg:Number(r.kg)||0,pesoBruto:Number(r.peso_bruto)||0,vol:Number(r.vol)||0,volTot:Number(r.vol_tot)||0,idx:Number(r.idx)||0,status:r.status||'',hist:r.hist||[]};
       });
       /* MERGE: a nuvem tem prioridade, mas mantém etiquetas locais que ainda não subiram
          (evita 'sumir' quando um aparelho gerou e ainda não sincronizou) */
       if(rowsEtq&&rowsEtq.length){
-        Object.keys(ETQ).forEach(function(id){if(!fromCloud[id])fromCloud[id]=ETQ[id];});
+        Object.keys(ETQ).forEach(function(id){if(!fromCloud[id]&&!(typeof window._etqDelActive==='function'&&window._etqDelActive(id)))fromCloud[id]=ETQ[id];});
         ETQ=fromCloud;
       }
       if(rowsNotas&&rowsNotas.length){var newNFS={};(rowsNotas||[]).forEach(function(r){if(r.data)newNFS[r.key]=r.data;});Object.keys(NFS).forEach(function(k){if(!newNFS[k])newNFS[k]=NFS[k];});NFS=newNFS;}
@@ -5331,7 +5335,13 @@ function syncEtiqueta(e,_try){if(!supa||!e||!e.id)return;var row={id:e.id,doc_ke
       if((_try||0)<2){setTimeout(function(){syncEtiqueta(e,(_try||0)+1);},1200*((_try||0)+1));}
     }
   },function(err){window._syncErrs.etq++;window._syncErrs.lastErr='etiquetas: rede';if((_try||0)<2){setTimeout(function(){syncEtiqueta(e,(_try||0)+1);},1200*((_try||0)+1));}});}
-function syncDelEtiqueta(id,_t){if(!supa||!id)return;supa.from('etiquetas').delete().eq('id',id).then(function(r){if(r&&r.error&&(_t||0)<3){setTimeout(function(){syncDelEtiqueta(id,(_t||0)+1);},1000*((_t||0)+1));}},function(){if((_t||0)<3){setTimeout(function(){syncDelEtiqueta(id,(_t||0)+1);},1000*((_t||0)+1));}});}
+/* TOMBSTONE de etiquetas excluídas: marca ids apagados por um tempo, pra o pull da nuvem
+   NÃO rebaixar elas de volta (corrige 'excluí etiqueta e ela voltou ao reimportar a NF'). */
+window._etqDelMap=(function(){try{return JSON.parse(localStorage.getItem('wmsx_etqDel')||'{}');}catch(e){return {};}})();
+window._etqDelMark=function(id){try{id=String(id||'').trim().toUpperCase();if(!id)return;window._etqDelMap[id]=Date.now();localStorage.setItem('wmsx_etqDel',JSON.stringify(window._etqDelMap));}catch(e){}};
+window._etqDelActive=function(id){try{id=String(id||'').trim().toUpperCase();var t=window._etqDelMap[id];return !!(t&&(Date.now()-t)<600000);}catch(e){return false;}}; /* trava por 10 min */
+window._etqDelClean=function(){try{var now=Date.now(),ch=false;Object.keys(window._etqDelMap).forEach(function(k){if(now-window._etqDelMap[k]>600000){delete window._etqDelMap[k];ch=true;}});if(ch)localStorage.setItem('wmsx_etqDel',JSON.stringify(window._etqDelMap));}catch(e){}};
+function syncDelEtiqueta(id,_t){if(!supa||!id)return;if(!_t){try{window._etqDelMark(id);}catch(e){}}supa.from('etiquetas').delete().eq('id',id).then(function(r){if(r&&r.error&&(_t||0)<3){setTimeout(function(){syncDelEtiqueta(id,(_t||0)+1);},1000*((_t||0)+1));}},function(){if((_t||0)<3){setTimeout(function(){syncDelEtiqueta(id,(_t||0)+1);},1000*((_t||0)+1));}});}
 function syncNota(n,_try){if(!supa||!n||!n.key)return;supa.from('notas_fiscais').upsert({key:n.key,data:n,updated_at:new Date().toISOString()}).then(function(res){
     if(res&&res.error){window._syncErrs.rom++;window._syncErrs.lastErr='notas: '+(res.error.message||res.error.code||'erro');
       if((_try||0)<2){setTimeout(function(){syncNota(n,(_try||0)+1);},1200*((_try||0)+1));}
@@ -5999,7 +6009,7 @@ const LITE_ALLOWED=['v-recv','v-mov','v-stock'];
  // re-sincroniza quando o usuário muda (login/logout)
  const _ru=refreshUser;refreshUser=function(){if(_ru)_ru();ensureX();ensureAdmin();ensureOperators();ensureRecepcao();window.syncVersion();if(typeof applyPerms==='function')applyPerms();};
  // re-garante o usuário x após puxar da nuvem
- if(typeof pullAll==='function'){const _pa=pullAll;pullAll=async function(){const r=await _pa.apply(this,arguments);ensureX();ensureAdmin();ensureOperators();ensureRecepcao();try{autoFixWeights();}catch(e){}try{if(typeof window.fixVagaProdIds==='function')window.fixVagaProdIds();}catch(e){}window.syncVersion();if(typeof applyPerms==='function')applyPerms();return r;};}
+ if(typeof pullAll==='function'){const _pa=pullAll;pullAll=async function(){const r=await _pa.apply(this,arguments);ensureX();ensureAdmin();ensureOperators();ensureRecepcao();try{autoFixWeights();}catch(e){}try{if(typeof window.fixVagaProdIds==='function')window.fixVagaProdIds();}catch(e){}try{if(typeof window.pbaixaScan==='function')window.pbaixaScan();if(typeof window.updateProtheusBadge==='function')window.updateProtheusBadge();}catch(e){}window.syncVersion();if(typeof applyPerms==='function')applyPerms();return r;};}
  window.syncVersion();
 })();
 
@@ -7090,6 +7100,7 @@ function autoHealGrid(){
 (function(){var _h=function(){try{autoHealGrid();}catch(e){}};if(window.requestIdleCallback){requestIdleCallback(_h,{timeout:4000});}else{setTimeout(_h,1600);}})();
 
 setIcons();refreshUser();showLogin();pwaInit();
+try{if(typeof window.pbaixaScan==='function')window.pbaixaScan();if(typeof window.updateProtheusBadge==='function')window.updateProtheusBadge();}catch(e){}
 /* a correção de pesos é pesada — roda DEPOIS que a tela de login já apareceu (não trava a digitação) */
 (function(){var _run=function(){try{autoFixWeights();}catch(e){}try{if(typeof window.fixVagaProdIds==='function')window.fixVagaProdIds();}catch(e){}};if(window.requestIdleCallback){requestIdleCallback(_run,{timeout:3000});}else{setTimeout(_run,1200);}})();
 
@@ -8297,6 +8308,108 @@ try{window.EXP.removeQtyTag=removeQtyTag;}catch(e){}
 try{window.EXP.setLoteTab=setLoteTab;}catch(e){}
 try{window.EXP.setSaldo=setSaldo;}catch(e){}
 try{window.EXP.toggleManual=toggleManual;}catch(e){}
+
+/* ===================== BAIXA PROTHEUS · fila de saídas para dar baixa no ERP ===================== */
+(function(){
+  var PKEY='wmsx_pbaixa';
+  function loadPB(){try{return JSON.parse(localStorage.getItem(PKEY))||{};}catch(e){return {};}}
+  function savePB(o){try{localStorage.setItem(PKEY,JSON.stringify(o));}catch(e){}}
+  function _origem(m){var c=String(m.code||'').toUpperCase();if(c==='CHÃO'||c==='CHAO')return 'Chão expedição';if(c==='CHÃO 70'||c==='CHAO 70')return 'Chão 70';if(c==='INTERMEDIÁRIO'||c==='INTERMEDIARIO')return 'Intermediário';if(c==='PRODUÇÃO'||c==='PRODUCAO')return 'Produção';if(c==='SEM VAGA')return 'Sem vaga';return m.code||'';}
+  /* lê os movimentos de SAÍDA/PRODUÇÃO que o WMS já registra e enfileira os que ainda não estão na fila */
+  window.pbaixaScan=function(){
+    try{
+      if(typeof MV==='undefined'||!Array.isArray(MV))return 0;
+      var pb=loadPB(); var n=0;
+      MV.forEach(function(m){
+        if(!m||!m.id)return;
+        if(m.action!=='saida'&&m.action!=='producao')return;
+        if(pb[m.id])return;
+        pb[m.id]={id:m.id,et:m.et||'',pr:m.pr||'',desc:(typeof descOf==='function'?(descOf(m.pr)||''):''),q:Number(m.q)||0,u:m.u||'KG',code:m.code||'',origem:_origem(m),acao:m.action,at:m.at||'',by:m.by||'',dest:m.dest||'',req:m.req||'',note:m.note||'',status:'pendente',baixadoAt:'',baixadoBy:''};
+        n++;
+      });
+      if(n)savePB(pb);
+      return n;
+    }catch(e){return 0;}
+  };
+  window.pbaixaList=function(){var pb=loadPB();return Object.keys(pb).map(function(k){return pb[k];}).sort(function(a,b){return (a.at||'')<(b.at||'')?1:-1;});};
+  window.pbaixaSet=function(id,status){var pb=loadPB();if(pb[id]){pb[id].status=status;if(status==='baixado'){pb[id].baixadoAt=(typeof nowISO==='function'?nowISO():new Date().toISOString());pb[id].baixadoBy=(typeof session!=='undefined'&&session?session.u:'');}else{pb[id].baixadoAt='';pb[id].baixadoBy='';}savePB(pb);}try{if(typeof updateProtheusBadge==='function')updateProtheusBadge();}catch(e){}};
+  window.pbaixaClearBaixados=function(){var pb=loadPB();Object.keys(pb).forEach(function(k){if(pb[k].status==='baixado')delete pb[k];});savePB(pb);};
+
+  function _fdate(iso){try{return iso?new Date(iso).toLocaleString('pt-BR'):'—';}catch(e){return '—';}}
+  function _fmtq(v){return (typeof fmt==='function')?fmt(v):String(v);}
+  function _esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+  window.updateProtheusBadge=function(){try{
+    var nav=document.querySelector('.nav[data-view="v-protheus"]');if(!nav)return;
+    var pend=window.pbaixaList().filter(function(x){return x.status!=='baixado';}).length;
+    var b=nav.querySelector('.pbBadge');
+    if(pend>0){if(!b){b=document.createElement('span');b.className='pbBadge';b.style.cssText='margin-left:auto;background:#EA5A0C;color:#fff;font-size:.66rem;font-weight:800;border-radius:10px;padding:1px 7px;min-width:18px;text-align:center';nav.appendChild(b);}b.textContent=pend;}else if(b){b.remove();}
+  }catch(e){}};
+
+  window.renderProtheus=function(){
+    var el=document.getElementById('v-protheus'); if(!el)return;
+    try{window.pbaixaScan();}catch(e){}
+    var list=window.pbaixaList();
+    var pend=list.filter(function(x){return x.status!=='baixado';});
+    var baix=list.filter(function(x){return x.status==='baixado';});
+    var totKg=pend.reduce(function(s,x){return s+(Number(x.q)||0);},0);
+    var rowHtml=function(x,done){
+      return '<tr'+(done?' style="opacity:.55"':'')+'>'
+        +'<td style="white-space:nowrap;font-size:.8rem;color:var(--muted)">'+_fdate(x.at)+'</td>'
+        +'<td class="mono" style="font-weight:700">'+_esc(x.pr||'—')+'</td>'
+        +'<td style="max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.82rem">'+_esc(x.desc||'')+'</td>'
+        +'<td class="mono" style="font-size:.8rem">'+_esc(x.et||'—')+'</td>'
+        +'<td style="text-align:right;font-weight:700;white-space:nowrap">'+_fmtq(x.q)+' <span style="color:var(--muted);font-weight:500;font-size:.75rem">'+_esc((x.u||'KG').toLowerCase())+'</span></td>'
+        +'<td style="font-size:.8rem">'+_esc(x.origem||'')+'</td>'
+        +'<td style="font-size:.78rem;color:var(--muted)">'+_esc([x.req?('req '+x.req):'',x.dest||'',x.note||''].filter(Boolean).join(' · '))+'</td>'
+        +'<td style="font-size:.78rem;color:var(--muted)">'+_esc(x.by||'')+'</td>'
+        +'<td style="text-align:right;white-space:nowrap">'+(done
+            ? '<button class="gbtn" data-undo="'+_esc(x.id)+'" style="padding:5px 10px;font-size:.74rem">Reabrir</button>'
+            : '<button class="btn in" data-done="'+_esc(x.id)+'" style="padding:6px 12px;font-size:.76rem">Baixado ✓</button>')+'</td>'
+        +'</tr>';
+    };
+    var head='<tr><th>Data</th><th>Produto</th><th>Descrição</th><th>Etiqueta</th><th style="text-align:right">Qtd</th><th>Origem</th><th>Obs</th><th>Operador</th><th></th></tr>';
+    var html=''
+      +'<div class="ph-head"><div><p class="eb">Integração · ERP</p><h1>Baixa Protheus</h1></div>'
+        +'<div class="actions">'
+          +'<button class="gbtn" id="pbExport" data-ic="save"><span></span>Exportar pendentes (CSV)</button>'
+          +'<button class="gbtn" id="pbAllDone"><span></span>Marcar todos baixados</button>'
+        +'</div></div>'
+      +'<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:16px;color:var(--muted);font-size:.84rem;line-height:1.55">'
+        +'Cada <b>saída de bobina</b> do WMS entra aqui como <b>pendente de baixa</b> no Protheus. '
+        +'Por enquanto a baixa é <b>manual</b>: exporte o CSV para a TI/Protheus ou marque como baixado após lançar. '
+        +'Quando a API/webservice do Protheus estiver liberada, ligamos a baixa automática — os dados já ficam prontos aqui.'
+      +'</div>'
+      +'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">'
+        +'<div style="flex:1;min-width:150px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px"><div style="font-size:.62rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700">Pendentes</div><div style="font-family:var(--disp);font-size:2rem;font-weight:800;line-height:1;margin-top:4px">'+pend.length+'</div></div>'
+        +'<div style="flex:1;min-width:150px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px"><div style="font-size:.62rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700">Total pendente</div><div style="font-family:var(--disp);font-size:2rem;font-weight:800;line-height:1;margin-top:4px">'+_fmtq(totKg)+' <span style="font-size:.9rem;color:var(--muted)">kg</span></div></div>'
+        +'<div style="flex:1;min-width:150px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px"><div style="font-size:.62rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700">Já baixados</div><div style="font-family:var(--disp);font-size:2rem;font-weight:800;line-height:1;margin-top:4px">'+baix.length+'</div></div>'
+      +'</div>'
+      +'<h3 class="sub">Pendentes de baixa</h3>'
+      +(pend.length?('<div class="tbl-wrap"><table class="tbl"><thead>'+head+'</thead><tbody>'+pend.map(function(x){return rowHtml(x,false);}).join('')+'</tbody></table></div>')
+                   :'<div class="empty"><div class="ei">'+((typeof ICONS!=='undefined'&&ICONS.box)||'')+'</div><b>Nada pendente</b><div class="es">As saídas de bobina aparecem aqui para baixa no Protheus.</div></div>')
+      +(baix.length?('<details style="margin-top:22px"><summary style="cursor:pointer;font-weight:700;color:var(--muted);padding:6px 0">Já baixados ('+baix.length+') · <span id="pbClear" style="color:var(--out,#c0392b);cursor:pointer">limpar histórico</span></summary><div class="tbl-wrap" style="margin-top:10px"><table class="tbl"><thead>'+head+'</thead><tbody>'+baix.map(function(x){return rowHtml(x,true);}).join('')+'</tbody></table></div></details>'):'');
+    el.innerHTML=html;
+    try{if(typeof setIcons==='function')setIcons();}catch(e){}
+
+    el.querySelectorAll('[data-done]').forEach(function(b){b.onclick=function(){window.pbaixaSet(b.getAttribute('data-done'),'baixado');if(typeof toast==='function')toast('Marcado como baixado');window.renderProtheus();};});
+    el.querySelectorAll('[data-undo]').forEach(function(b){b.onclick=function(){window.pbaixaSet(b.getAttribute('data-undo'),'pendente');window.renderProtheus();};});
+    var ac=el.querySelector('#pbClear');if(ac)ac.onclick=function(ev){ev.preventDefault();if(confirm('Limpar o histórico de baixados? (não afeta o estoque, só limpa esta lista)')){window.pbaixaClearBaixados();window.renderProtheus();}};
+    var ex=el.querySelector('#pbExport');if(ex)ex.onclick=function(){
+      if(!pend.length){if(typeof toast==='function')toast('Nada pendente para exportar',false);return;}
+      var h=['Data','Produto','Descricao','Etiqueta','Quantidade','Unidade','Origem','Requisicao','Destino','Obs','Operador'];
+      var rows=pend.map(function(x){return [_fdate(x.at),x.pr,x.desc,x.et,x.q,x.u,x.origem,x.req,x.dest,x.note,x.by];});
+      if(typeof dl==='function'&&typeof csv==='function'){dl('baixas_protheus_pendentes.csv',csv([h].concat(rows)));if(typeof toast==='function')toast(pend.length+' baixa(s) exportada(s)');}
+    };
+    var ad=el.querySelector('#pbAllDone');if(ad)ad.onclick=function(){
+      if(!pend.length){if(typeof toast==='function')toast('Nada pendente',false);return;}
+      if(!confirm('Marcar as '+pend.length+' baixas pendentes como baixadas no Protheus?'))return;
+      pend.forEach(function(x){window.pbaixaSet(x.id,'baixado');});
+      if(typeof toast==='function')toast(pend.length+' marcada(s) como baixada(s)');window.renderProtheus();
+    };
+    try{if(typeof updateProtheusBadge==='function')updateProtheusBadge();}catch(e){}
+  };
+})();
 
 })();
 </script>

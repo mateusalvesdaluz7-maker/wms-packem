@@ -6826,14 +6826,31 @@ function askLabelFormat(titulo,onOk){
 function printIntakeLabelChoose(it){
  askLabelFormat('Etiqueta de recebimento',function(opt){
    try{if(typeof setExpLabelFmt==='function')setExpLabelFmt(opt);}catch(e){}
-   try{sendToZebra(zplIntakeLabel(it,opt)).then(function(ok){if(!ok)printIntakeFallback(it);toast(ok?'Enviado para a Zebra':'Sem Zebra — abriu impressão normal');}).catch(function(){printIntakeFallback(it);});}
-   catch(e){printIntakeFallback(it);}
+   try{
+     var e=_intakeToRast(it);
+     if(typeof printZebraRast==='function'){printZebraRast([e],opt.dim,opt.orient==='paisagem'?'paisagem':'retrato');toast('Etiqueta gerada');}
+     else{printIntakeFallback(it);}
+   }catch(err){printIntakeFallback(it);}
  });
 }
+function _intakeToRast(it){
+  /* converte o item do recebimento para o formato da etiqueta rastreável (zEtqCard) */
+  return {
+    id: it.et||'',
+    cProd: it.pr||'',
+    xProd: it.desc||'',
+    kg: Number(it.pl)||0,
+    bobina: it.et||'',
+    nf: '__vaga__'
+  };
+}
 function printIntakeLabel(it){if(!it)return;
- var _fmt=(typeof expLabelFmt==='function')?expLabelFmt():{dim:{w:100,h:100},orient:'retrato'};
- try{sendToZebra(zplIntakeLabel(it,_fmt)).then(function(ok){if(!ok)printIntakeFallback(it);}).catch(function(){printIntakeFallback(it);});}
- catch(e){printIntakeFallback(it);}}
+ try{
+   var _fmt=(typeof expLabelFmt==='function')?expLabelFmt():{dim:{w:100,h:100},orient:'retrato'};
+   var e=_intakeToRast(it);
+   if(typeof printZebraRast==='function'){printZebraRast([e],_fmt.dim,_fmt.orient==='paisagem'?'paisagem':'retrato');}
+   else{printIntakeFallback(it);}
+ }catch(e){printIntakeFallback(it);}}
 
 
 /* ===== ZERAR ESTOQUE (admin) ===== */

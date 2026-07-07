@@ -2816,7 +2816,7 @@ function stageArmazenar(et){const it=STAGE.find(s=>s.et===et);if(!it)return;cons
  function chkEt(){const v=norm(($('#azEt').value||''));const c=$('#azEtChk');if(!v){c.textContent='';c.style.color='';return false;}const ok=(norm(parseBobina(v).et)===expectEt)||(v===expectEt);c.textContent=ok?'✓ bobina conferida':'✗ bobina diferente — bipe a etiqueta '+et;c.style.color=ok?'#1a7f37':'var(--out)';return ok;}
  $('#azEt').addEventListener('input',chkEt);
  document.querySelectorAll('#drawerBody .sug[data-c]').forEach(b=>b.onclick=()=>{$('#azLoc').value=b.dataset.c;});
- $('#azDo').onclick=()=>{if(!chkEt()){toast('Bipe a bobina '+et+' para conferir',false);$('#azEt').click();return;}const c=norm($('#azLoc').value);if(!c){toast('Bipe o endereço',false);$('#azLoc').click();return;}if(placeBobina(et,it.pr,it.pl,c)){STAGE=STAGE.filter(s=>s.et!==et);saveStage();if(typeof syncDelStage==='function')syncDelStage(et);closeDrawer();renderRecv();updateStageBadge();toast('Armazenado: '+et+' em '+c);vpSpeak('Armazenado com sucesso em '+vpAddrSpeech(c)+'.');}};
+ $('#azDo').onclick=()=>{if(!chkEt()){toast('Bipe a bobina '+et+' para conferir',false);$('#azEt').click();return;}const c=norm($('#azLoc').value);if(!c){toast('Bipe o endereço',false);$('#azLoc').click();return;}if(placeBobina(et,it.pr,it.pl,c)){STAGE=STAGE.filter(s=>s.et!==et);saveStage();if(typeof syncDelStage==='function')syncDelStage(et);closeDrawer();renderRecv();/* re-renderiza o MAPA na hora, senão a vaga fica verde até salvar manual */try{if(typeof renderBoard==='function')renderBoard();}catch(e){}try{var _av=document.querySelector('.view.active');if(_av&&_av.id!=='v-recv'&&typeof render==='function')render(_av.id);}catch(e){}updateStageBadge();toast('Armazenado: '+et+' em '+c);vpSpeak('Armazenado com sucesso em '+vpAddrSpeech(c)+'.');}};
  [['azEt',{enter:false,title:'Conferir bobina'}],['azLoc',{enter:false,title:'Escanear endereço',scanKind:'addr'}]].forEach(function(p){var id=p[0],o=p[1];var el=$('#'+id);if(!el)return;if(window.addCam)addCam(id,o);scanLock(el);});
  setTimeout(function(){$('#azEt').click();},120);
 }
@@ -4067,6 +4067,8 @@ updateStageBadge();
       if(typeof attachCodeAC==='function')attachCodeAC(ci,di,fill);
     });
     var sv=document.getElementById('egSave'); if(sv)sv.onclick=function(){
+      try{if(typeof markLocalWrite==='function')markLocalWrite();}catch(e){} // trava: impede o auto-sync de sobrescrever antes de subir
+      var _edited=[];
       order.forEach(function(k,gi){
         var gids=groups[k];
         var nc=(document.getElementById('eg_c_'+gi).value||'').trim()||k;
@@ -4074,11 +4076,15 @@ updateStageBadge();
         var nl=(document.getElementById('eg_l_'+gi).value||'').trim();
         var nk=nfNum(document.getElementById('eg_k_'+gi).value);
         var kgPer=gids.length&&nk>0?Math.round((nk/gids.length)*1000)/1000:null;
-        gids.forEach(function(id){var e=ETQ[id];e.cProd=nc;e.xProd=nd;e.lote=nl;if(kgPer!=null)e.kg=kgPer;});
+        gids.forEach(function(id){var e=ETQ[id];e.cProd=nc;e.xProd=nd;e.lote=nl;if(kgPer!=null)e.kg=kgPer;_edited.push(id);});
         if(nc&&nd&&typeof window.nfSaveDesc==='function')window.nfSaveDesc(nc,nd);
       });
       saveNF(); if(typeof logAct==='function')logAct('nf-editar',n.nNF||key);
-      toast('NF atualizada'); closeDrawer(); renderNF();
+      /* SOBE PRA NUVEM: sem isso o auto-sync baixava os dados antigos e revertia a edição */
+      try{if(typeof syncEtiqueta==='function')_edited.forEach(function(id){if(ETQ[id])syncEtiqueta(ETQ[id]);});}catch(e){}
+      try{if(typeof syncNota==='function'&&NFS[key])syncNota(NFS[key]);}catch(e){}
+      try{if(typeof markLocalWrite==='function')markLocalWrite();}catch(e){}
+      toast('NF atualizada · sincronizada'); closeDrawer(); renderNF();
     };
   }
 
@@ -5582,7 +5588,7 @@ const PACKEM_SYM='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAEICAYAAABx
  const s=document.createElement('style');s.textContent=
  '#login{background:#0d1626 !important}'
  +'#login .mk{display:none!important}'
- +'#login::before{content:"";position:absolute;inset:-8%;background-image:url('+"'"+'+PACKEM_IMG+'+"'"+');background-size:cover;background-position:center;filter:blur(9px) saturate(1.3);opacity:.95;animation:lkbg 1.1s ease both,lkdrift 26s ease-in-out 1.1s infinite}'
+ +'#login::before{content:"";position:absolute;inset:-8%;background-image:url('+"'"+PACKEM_IMG+"'"+');background-size:cover;background-position:center;filter:blur(9px) saturate(1.3);opacity:.95;animation:lkbg 1.1s ease both,lkdrift 26s ease-in-out 1.1s infinite}'
  +'@keyframes lkdrift{0%{transform:scale(1.12) translate(0,0)}25%{transform:scale(1.2) translate(-2.5%,-1.5%)}50%{transform:scale(1.16) translate(2%,1.5%) rotate(.5deg)}75%{transform:scale(1.22) translate(-1.5%,2%)}100%{transform:scale(1.12) translate(0,0)}}'
  +'#login::after{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 30%,rgba(8,12,20,.08),rgba(8,12,20,.58))}'
  +'#login .box{position:relative;z-index:2}'

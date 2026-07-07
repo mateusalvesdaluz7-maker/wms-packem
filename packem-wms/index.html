@@ -2517,7 +2517,13 @@ function placeBobina(et,pr,pl,c){c=norm(c);const sp=findSpace(c);if(!sp){toast('
    if(!noStage){toast('Bobina '+et+' já está em '+LOC[et]+'. Faça a SAÍDA dela antes de armazenar em outro lugar.',false);return false;}
    const _old=freeStored(et);if(_old)toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');
  }
- if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}const before=Number(sp.q)||0;sp.pr=pr;sp.q=before+(Number(pl)||0);sp.o=true;sp.u='KG';sp.upd=nowISO();sp.by=session.u;if(et){LOC[et]=c;saveLOC();}MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:'KG',et:et||'',before,after:sp.q,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;persist();if(typeof syncSpace==='function')syncSpace(sp);logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}return true;}
+ if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}const before=Number(sp.q)||0;sp.pr=pr;sp.q=before+(Number(pl)||0);sp.o=true;sp.u='KG';sp.upd=nowISO();sp.by=session.u;if(et){LOC[et]=c;saveLOC();}MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:'KG',et:et||'',before,after:sp.q,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;persist();if(typeof syncSpace==='function')syncSpace(sp);logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}
+ /* armazenou na prateleira → tira do chão (não pode ficar em dois lugares; a prateleira é a entrada mais recente) */
+ if(et){
+   try{if(typeof window.f70HasEt==='function'&&window.f70HasEt(et)&&typeof window.f70Saida==='function'){window.f70Saida(et);toast('Saiu do Chão 70 · '+et);}}catch(e){}
+   try{if(typeof window.floorHasEt==='function'&&window.floorHasEt(et)&&typeof window.floorSaida==='function'){window.floorSaida(et);toast('Saiu do Chão expedição · '+et);}}catch(e){}
+ }
+ return true;}
 function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}if(LOC[et]){const old=freeStored(et);toast('Bobina '+et+' retornou de '+old+' — liberada p/ recebimento');}
   /* se já está contada em algum chão, TIRA de lá (não pode ficar em dois lugares) */
   try{if(typeof window.f70HasEt==='function'&&window.f70HasEt(et)&&typeof window.f70Saida==='function'){window.f70Saida(et);toast('Saiu do Chão 70 · '+et);}}catch(e){}
@@ -3333,11 +3339,44 @@ updateStageBadge();
   /* ponte: procura uma etiqueta RASTREÁVEL (gerada na Nota Fiscal/Romaneio) e devolve no
      formato do catálogo (pr/desc/pl), pra o recebimento aceitar essas etiquetas também. */
   window.etqLookup=function(id){try{id=String(id||'').trim().toUpperCase();if(!id)return null;var e=ETQ[id];if(!e)return null;
-    var pr=e.cProd||e.bobina||e.nRomaneio||id;
+    /* produto = SÓ código real (cProd/bobina/romaneio). NUNCA o ID da etiqueta — senão a vaga fica com o id no lugar do produto. */
+    var pr=e.cProd||e.bobina||e.nRomaneio||'';
     var desc=e.xProd||e.gramatura||(e.nNF?('NF '+e.nNF):'')||'';
     var pl=Number(e.kg)||0;
     return {pr:String(pr),desc:String(desc),pl:pl,uCom:e.uCom||'KG',rast:true,etqId:id};
   }catch(err){return null;}};
+  /* CONSERTA vagas cujo PRODUTO virou um ID de etiqueta (ex: "40308-1-004-8NDPFGDK" ou "R7YUA28M1I").
+     Detecta o id (existe em ETQ, ou tem cara de id gerado) e troca pelo produto real da etiqueta
+     ou da bobina que está fisicamente na posição. Roda no boot e depois de cada sync. */
+  window.fixVagaProdIds=function(){
+    try{
+      if(typeof S==='undefined'||!Array.isArray(S))return 0;
+      var ehId=function(pr){return (ETQ&&ETQ[pr]) || /^\d+-\d+(-\d+)?-[0-9A-Z]{5,}$/.test(pr) || /^R[0-9A-Z]{8,}$/.test(pr);};
+      var n=0;
+      S.forEach(function(x){
+        if(!x||!x.o||!x.pr)return;
+        var pr=String(x.pr);
+        if(!ehId(pr))return;
+        var real='';
+        if(ETQ&&ETQ[pr]){var e=ETQ[pr];real=e.cProd||e.bobina||'';}
+        if(!real){
+          var cod=(typeof code==='function')?norm(code(x)):'';
+          if(typeof LOC!=='undefined')Object.keys(LOC).forEach(function(et){
+            if(real)return;
+            if(norm(LOC[et])===cod){
+              var b=(typeof BOB!=='undefined'&&BOB[et])?BOB[et]:null;
+              if(b&&b.pr){real=b.pr;return;}
+              var ee=(ETQ&&ETQ[et])?ETQ[et]:null;
+              if(ee&&ee.cProd){real=ee.cProd;return;}
+            }
+          });
+        }
+        if(real&&String(real)!==pr&&!ehId(String(real))){x.pr=String(real);x.upd=(typeof nowISO==='function'?nowISO():new Date().toISOString());n++;try{if(typeof syncSpace==='function')syncSpace(x);}catch(e){}}
+      });
+      if(n){try{if(typeof DB!=='undefined'&&DB.saveSpaces)DB.saveSpaces(S);}catch(e){}}
+      return n;
+    }catch(e){return 0;}
+  };
   window.nfPullCloud=function(rowsEtq,rowsNotas,rowsRom){
     try{
       var fromCloud={};
@@ -5943,7 +5982,7 @@ const LITE_ALLOWED=['v-recv','v-mov','v-stock'];
  // re-sincroniza quando o usuário muda (login/logout)
  const _ru=refreshUser;refreshUser=function(){if(_ru)_ru();ensureX();ensureAdmin();ensureOperators();ensureRecepcao();window.syncVersion();if(typeof applyPerms==='function')applyPerms();};
  // re-garante o usuário x após puxar da nuvem
- if(typeof pullAll==='function'){const _pa=pullAll;pullAll=async function(){const r=await _pa.apply(this,arguments);ensureX();ensureAdmin();ensureOperators();ensureRecepcao();try{autoFixWeights();}catch(e){}window.syncVersion();if(typeof applyPerms==='function')applyPerms();return r;};}
+ if(typeof pullAll==='function'){const _pa=pullAll;pullAll=async function(){const r=await _pa.apply(this,arguments);ensureX();ensureAdmin();ensureOperators();ensureRecepcao();try{autoFixWeights();}catch(e){}try{if(typeof window.fixVagaProdIds==='function')window.fixVagaProdIds();}catch(e){}window.syncVersion();if(typeof applyPerms==='function')applyPerms();return r;};}
  window.syncVersion();
 })();
 
@@ -7035,7 +7074,7 @@ function autoHealGrid(){
 
 setIcons();refreshUser();showLogin();pwaInit();
 /* a correção de pesos é pesada — roda DEPOIS que a tela de login já apareceu (não trava a digitação) */
-(function(){var _run=function(){try{autoFixWeights();}catch(e){}};if(window.requestIdleCallback){requestIdleCallback(_run,{timeout:3000});}else{setTimeout(_run,1200);}})();
+(function(){var _run=function(){try{autoFixWeights();}catch(e){}try{if(typeof window.fixVagaProdIds==='function')window.fixVagaProdIds();}catch(e){}};if(window.requestIdleCallback){requestIdleCallback(_run,{timeout:3000});}else{setTimeout(_run,1200);}})();
 
 /* ===== ATALHO DE PRODUTIVIDADE: "/" foca a busca da aba ativa ===== */
 document.addEventListener('keydown',function(ev){

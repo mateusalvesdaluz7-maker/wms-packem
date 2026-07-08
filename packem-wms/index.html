@@ -1331,7 +1331,17 @@ const ROLE_VIEWS={operador:['v-board','v-recv','v-floor','v-floor70','v-mov','v-
 function allowedViews(){const r=curRole();return (r&&ROLE_VIEWS[r])||null;}
 const code=sp=>sp.s+'-'+sp.p+'-'+sp.l;
 const whLabel=w=>w==='70'?'Dep 70':w==='novo'?'Novo':'Chão';
-function toast(m,ok=true){const t=$('#toast');$('#toastMsg').textContent=m;t.className='show '+(ok?'ok':'err');clearTimeout(t._t);t._t=setTimeout(()=>t.className='',2600);}
+function toast(m,ok=true){const t=$('#toast');$('#toastMsg').textContent=m;t.className='show '+(ok?'ok':'err');clearTimeout(t._t);t._t=setTimeout(()=>t.className='',2600);try{if(typeof scanFeedback==='function')scanFeedback(m,ok);}catch(e){}}
+/* mostra o aviso GRANDE na tela da câmera quando ela está aberta (senão o toast fica atrás do vídeo e você não vê bipando) */
+function scanFeedback(m,ok){try{
+  var modal=document.getElementById('scan');if(!modal||!modal.classList.contains('show'))return;
+  var fb=document.getElementById('scanFb');if(!fb)return;
+  var bloqueio=(ok===false);
+  fb.className='scanFb show '+(bloqueio?'err':'ok');
+  fb.innerHTML='<div class="fbcard"><span class="fbico">'+(bloqueio?'⛔':'✓')+'</span><span>'+String(m).replace(/</g,'&lt;')+'</span></div>';
+  try{if(navigator.vibrate)navigator.vibrate(bloqueio?[90,60,90]:35);}catch(e){}
+  clearTimeout(fb._t);fb._t=setTimeout(function(){fb.className='scanFb';},bloqueio?2600:1300);
+}catch(e){}}
 function persist(){try{if(typeof markLocalWrite==='function')markLocalWrite();}catch(e){}DB.saveSpaces(S);DB.saveMovs(MV);DB.saveTransf(TR);DB.saveValues(VL);DB.saveUsers(US);DB.saveAct(AC);try{_persistSyncSpaces();}catch(e){}}
 /* ===== REDE DE SEGURANÇA: sincroniza pra nuvem TODA vaga cujo 'upd' mudou desde a última gravação.
    Assim, não importa qual dos vários fluxos alterou a vaga (entrada, saída, editar, produção,
@@ -1595,7 +1605,7 @@ function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdm
       }catch(e){return '';}
     })()}`);
   if(adm){if(window.addCam){var _pe=document.getElementById('spProd');if(_pe)window.addCam('spProd',{title:'Bipe a bobina',onResult:function(v){var p=parseBobina(v);if(p&&p.pr)_pe.value=p.pr;var _q=document.getElementById('spQty');if(_q&&p&&p.peso!=null&&!isNaN(p.peso))_q.value=p.peso;var _s=document.getElementById('spSrc');toast('Etiqueta '+(p&&(p.et||p.pr)||v)+' lida · confira e Salvar');}});}
-  $('#spSave').onclick=()=>{x.pr=(typeof cleanProd==='function')?cleanProd($('#spProd').value):norm($('#spProd').value);x.q=Number($('#spQty').value)||0;x.src=norm($('#spSrc').value);x.o=!!(x.pr&&x.pr!=='0');x.upd=nowISO();x.by=session.u;persist();logAct('edit','posição '+code(x));closeDrawer();render($('.view.active').id);toast('Posição salva');};
+  $('#spSave').onclick=()=>{x.pr=(typeof cleanProd==='function')?cleanProd($('#spProd').value):norm($('#spProd').value);x.q=Number($('#spQty').value)||0;x.src=norm($('#spSrc').value);x.o=!!(x.pr&&x.pr!=='0');x.upd=nowISO();x.by=session.u;persist();/* empurra a vaga pra nuvem NA HORA — sem isso o sync trazia o estado antigo e a vaga voltava a verde */try{if(typeof syncSpace==='function')syncSpace(x);}catch(e){}logAct('edit','posição '+code(x));closeDrawer();render($('.view.active').id);toast('Posição salva');};
   $('#spFree').onclick=()=>{const before=Number(x.q)||0;if(!x.o||before<=0){toast('Posição já está vazia',false);return;}
    const doSend=(et)=>{x.upd=nowISO();x.by=session.u;const m={id:uid(),action:'producao',w:cfg.warehouse,code:code(x),pr:x.pr||'',q:before,u:unitOf(x),et:et||'',before:before,after:0,at:nowISO(),by:session.u};MV.unshift(m);if(MV.length>20000)MV.length=20000;x.pr='';x.q=0;x.o=false;x.src='';persist();try{syncMov(m);}catch(e){}try{syncSpace(x);}catch(e){}logAct('producao','enviou p/ produção '+fmt(before)+' @ '+code(x));try{enqueue3dTask(code(x),'out');}catch(e){}closeDrawer();render($('.view.active').id);try{renderMovRecent();}catch(e){}toast('Enviado para produção · '+fmt(before)+' '+unitOf(x));};
    const head='<div style="margin-bottom:14px"><div class="mono" style="font-size:1.1rem;font-weight:700">'+code(x)+'</div><div style="color:var(--muted);font-size:.9rem">'+(x.pr||'(sem produto)')+' · '+fmt(before)+' '+unitOf(x)+'</div></div>';
@@ -2182,12 +2192,17 @@ function genPick(){const prod=norm($('#pkProd').value),need=Number($('#pkQty').v
   const boxO=over>0?'<div style="flex:1;min-width:88px;background:var(--brand-dim);border-radius:10px;padding:10px 12px"><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.6px;color:var(--brand);font-weight:700">Excedente</div><div style="font-family:var(--disp);font-weight:800;font-size:1.3rem">+'+fmt(over)+' kg</div></div>':'';
   const boxS=short>0?'<div style="flex:1;min-width:88px;background:var(--out-dim);border-radius:10px;padding:10px 12px"><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.6px;color:var(--out);font-weight:700">Falta</div><div style="font-family:var(--disp);font-weight:800;font-size:1.3rem">'+fmt(short)+' kg</div></div>':'';
   el.innerHTML='<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">'+boxN+boxT+boxO+boxS+'</div>'+
-    alloc.map((a,i)=>'<div class="feed"><div class="fi out">'+(i+1)+'</div><div class="fm"><div class="p">'+a.code+'</div><div class="s">tem '+fmt(a.saldo)+' kg · '+(a.after>0?'resta '+fmt(a.after)+' kg':'leva tudo')+'</div></div><div class="fq out">−'+fmt(a.take)+'</div></div>').join('')+
+    alloc.map((a,i)=>{var _dias='';try{if(a.upd){var _d=Math.floor((Date.now()-new Date(a.upd).getTime())/86400000);_dias=' · na vaga há '+(_d<=0?'hoje':_d+' dia'+(_d>1?'s':''));}}catch(e){}return '<div class="feed"><div class="fi out">'+(i+1)+'</div><div class="fm"><div class="p">'+a.code+'</div><div class="s">tem '+fmt(a.saldo)+' kg · '+(a.after>0?'resta '+fmt(a.after)+' kg':'leva tudo')+_dias+'</div></div><div class="fq out">−'+fmt(a.take)+'</div></div>';}).join('')+
+    '<div style="font-size:.72rem;color:var(--muted);margin-top:8px;text-align:center">Ordem FIFO — o sistema pega primeiro o material mais antigo na vaga</div>'+
     '<button class="btn out" id="pkExec" style="width:100%;height:48px;margin-top:14px"'+(isAdmin()?'':' disabled')+'>Executar separação ('+alloc.length+' retiradas)</button>'+(isAdmin()?'':'<p style="color:var(--muted);font-size:.75rem;text-align:center;margin-top:8px">Somente admin executa</p>');
   const ex=$('#pkExec');if(ex)ex.onclick=execPick;
 }
-function execPick(){if(!pickPlan||!isAdmin())return;const {prod,alloc}=pickPlan;alloc.forEach(a=>{const sp=S.find(x=>x.id===a.id);if(!sp)return;const before=sp.q;sp.q=Math.max(0,before-a.take);if(sp.q<=0){sp.q=0;sp.o=false;sp.pr='';if(typeof LOC!=='undefined'){Object.keys(LOC).forEach(et=>{if(LOC[et]===a.code){delete LOC[et];if(BOB[et])BOB[et].rem=0;}});saveLOC();saveBOB();}}sp.upd=nowISO();sp.by=session.u;MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:a.code,pr:prod,q:a.take,u:'KG',before,after:sp.o?sp.q:0,at:nowISO(),by:session.u});try{enqueue3dTask(a.code,'out');}catch(e){}});
-  persist();logAct('separacao',prod+' · '+alloc.length+' retiradas');toast('Separação executada: '+alloc.length+' retiradas');pickPlan=null;$('#pkProd').value='';$('#pkQty').value='';renderPick();}
+function execPick(){if(!pickPlan||!isAdmin())return;const {prod,alloc}=pickPlan;var _sps=[],_mvs=[];alloc.forEach(a=>{const sp=S.find(x=>x.id===a.id);if(!sp)return;const before=sp.q;sp.q=Math.max(0,before-a.take);if(sp.q<=0){sp.q=0;sp.o=false;sp.pr='';if(typeof LOC!=='undefined'){Object.keys(LOC).forEach(et=>{if(LOC[et]===a.code){delete LOC[et];if(BOB[et])BOB[et].rem=0;}});saveLOC();saveBOB();}}sp.upd=nowISO();sp.by=session.u;var _m={id:uid(),action:'saida',w:cfg.warehouse,code:a.code,pr:prod,q:a.take,u:'KG',before,after:sp.o?sp.q:0,at:nowISO(),by:session.u};MV.unshift(_m);_sps.push(sp);_mvs.push(_m);try{enqueue3dTask(a.code,'out');}catch(e){}});
+  persist();
+  /* empurra as vagas esvaziadas pra nuvem NA HORA — sem isso o próximo sync trazia a vaga ocupada de volta (bug "dá saída e a vaga volta") */
+  try{if(typeof syncSpace==='function')_sps.forEach(function(s){syncSpace(s);});}catch(e){}
+  try{if(typeof syncMov==='function')_mvs.forEach(function(m){syncMov(m);});}catch(e){}
+  logAct('separacao',prod+' · '+alloc.length+' retiradas');toast('Separação executada: '+alloc.length+' retiradas');pickPlan=null;$('#pkProd').value='';$('#pkQty').value='';renderPick();}
 
 /* ===== injeta nav + view Separação e estende roteamento ===== */
 (function(){
@@ -2421,13 +2436,18 @@ confirmMov=function(){if(!isAdmin()){toast('Somente admin pode movimentar',false
      if(!_noStg){toast('Bobina '+et+' já está em '+LOC[et]+'. Faça a SAÍDA dela antes de armazenar em outro lugar.',false);return;}
      const _old=freeStored(et);if(_old){toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');before=Number(sp.q)||0;}
    }
+   /* orientação de fluxo: etiqueta rastreável entrando direto pela movimentação, sem passar pelo Recebimento */
+   try{if(et&&!LOC[et]&&(typeof STAGE==='undefined'||!STAGE.some(function(s){return s.et===et;}))&&typeof window.etqLookup==='function'&&window.etqLookup(et)){toast('Dica: essa etiqueta não passou pelo Recebimento. O fluxo ideal é bipar lá primeiro (NF → Recebimento → Armazenar).');}}catch(e){}
+   /* UMA ETIQUETA, UM LUGAR: entrando na prateleira, sai dos chãos */
+   try{if(et&&typeof window.f70HasEt==='function'&&window.f70HasEt(et)&&typeof window.f70Saida==='function'){window.f70Saida(et);toast('Saiu do Chão 70 · '+et);}}catch(e){}
+   try{if(et&&typeof window.floorHasEt==='function'&&window.floorHasEt(et)&&typeof window.floorSaida==='function'){window.floorSaida(et);toast('Saiu do Chão expedição · '+et);}}catch(e){}
    if(sp.o&&sp.pr&&sp.pr!==prod&&before>0){toast('Posição ocupada por '+sp.pr,false);return;}if(before<=0){sp.pr=prod;sp.q=Number(qty)||0;}else{sp.pr=prod;sp.q=before+(Number(qty)||0);}sp.o=true;if(et){LOC[et]=c;saveLOC();if(BOB[et]){BOB[et].rem=qty;saveBOB();}}}
  else{if(sp.pr&&sp.pr!==prod){toast('Aqui tem '+sp.pr,false);return;}if(qty>before){toast('Saldo insuficiente na posição: '+fmt(before)+' kg',false);return;}sp.q=before-qty;
   if(et&&BOB[et]){const rb=(BOB[et].rem!=null?BOB[et].rem:BOB[et].pl);const ra=Math.max(0,rb-qty);BOB[et].rem=ra;saveBOB();if(ra<=0&&LOC[et]){delete LOC[et];saveLOC();}}
   else if(et&&LOC[et]&&sp.q<=0){delete LOC[et];saveLOC();}
   if(sp.q<=0){sp.q=0;sp.o=false;sp.pr='';}}
  var _un=unitOf(prod);sp.u=_un;sp.upd=nowISO();sp.by=session.u;MV.unshift({id:uid(),action:mode,w:cfg.warehouse,code:c,pr:prod,q:qty,u:_un,et:et||'',before,after:sp.o?sp.q:0,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;
- persist();logAct(mode,(et?et+' · ':'')+prod+' '+(mode==='entrada'?'+':'−')+qty+' @ '+c);try{enqueue3dTask(c,mode==='entrada'?'in':'out');}catch(e){}const bobMsg=(mode==='saida'&&et&&BOB[et])?(' · bobina '+fmt(BOB[et].rem)+' '+_un.toLowerCase()):'';toast((mode==='entrada'?'Entrada':'Saída')+(et?' · '+et:'')+' · '+c+' · pos '+fmt(sp.q)+bobMsg);clearScan();renderMovRecent();$('#mLoc').focus();};
+ persist();/* empurra a vaga e o movimento pra nuvem NA HORA — esta é a versão ATIVA do confirmMov; sem isso o sync revertia a entrada/saída */try{if(typeof syncSpace==='function')syncSpace(sp);}catch(e){}try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}logAct(mode,(et?et+' · ':'')+prod+' '+(mode==='entrada'?'+':'−')+qty+' @ '+c);try{enqueue3dTask(c,mode==='entrada'?'in':'out');}catch(e){}const bobMsg=(mode==='saida'&&et&&BOB[et])?(' · bobina '+fmt(BOB[et].rem)+' '+_un.toLowerCase()):'';toast((mode==='entrada'?'Entrada':'Saída')+(et?' · '+et:'')+' · '+c+' · pos '+fmt(sp.q)+bobMsg);clearScan();renderMovRecent();$('#mLoc').focus();};
 $('#confirmBtn').onclick=function(){confirmMov();};
 
 (function(){const lab=[...document.querySelectorAll('#v-mov .lab')].find(l=>l.textContent.indexOf('Etiqueta da bobina')>-1);if(lab)lab.textContent='2 · Bipe a etiqueta da bobina (T…)';const mb=$('#mBob');if(mb)mb.placeholder='ex: T40364663';})();
@@ -2847,7 +2867,7 @@ function stageArmazenar(et){const it=STAGE.find(s=>s.et===et);if(!it)return;cons
 }
 function commitProducao(et){const it=STAGE.find(s=>s.et===et);if(!it)return;var _u=(typeof unitOf==='function'?unitOf(it.pr):'KG');
  MV.unshift({id:uid(),action:'producao',w:cfg.warehouse,code:'PRODUÇÃO',pr:it.pr,q:it.pl,u:_u,et,before:0,after:0,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;
- STAGE=STAGE.filter(s=>s.et!==et);saveStage();persist();logAct('producao',et+' · '+it.pr+' · '+fmt(it.pl)+' '+_u.toLowerCase());renderRecv();updateStageBadge();toast('Enviado p/ produção: '+et);}
+ STAGE=STAGE.filter(s=>s.et!==et);saveStage();/* sem isso o item voltava pro intermediário pelo sync, e a produção não chegava nos outros aparelhos */try{if(typeof syncDelStage==='function')syncDelStage(et);}catch(e){}try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}persist();logAct('producao',et+' · '+it.pr+' · '+fmt(it.pl)+' '+_u.toLowerCase());renderRecv();updateStageBadge();toast('Enviado p/ produção: '+et);}
 function stageProducao(et){const it=STAGE.find(s=>s.et===et);if(!it)return;if(!isAdmin()){toast('Somente admin',false);return;}
  openDrawer(ICONS.transfer+' Enviar p/ produção '+et,'<div style="margin-bottom:16px"><div class="mono" style="font-weight:700;font-size:1.05rem">'+it.pr+'</div><div style="font-size:.8rem;color:var(--muted);margin-top:3px">'+(it.desc||'')+' · '+fmt(it.pl)+' kg</div></div>'+'<label class="fld"><span class="lab">Bipe a bobina ('+et+') para confirmar</span><input class="input code" id="prEt" placeholder="toque para bipar"></label><div id="prEtChk" style="font-size:.8rem;font-weight:700;margin:-8px 0 12px 2px"></div><button class="btn in" id="prDo" style="width:100%;height:48px">Confirmar produção</button>');
  const expectEt=norm(et);
@@ -2955,6 +2975,10 @@ updateStageBadge();
     var _kc=_eCh(et);
     try{delete _delCh[_kc];_bipCh[_kc]=Date.now();}catch(e){}/* destrava antes de checar (fim do tombstone preso) */
     if(floorHasEt(et)){var _ac='';Object.values(FLOOR).forEach(function(g){if(etList(g).some(function(x){return x.et===_kc;}))_ac=g.pr;});renderFloor();toast('Etiqueta '+et+' já contada'+(_ac?(' em '+_ac):'')+' no chão',false);return;}
+    /* UMA ETIQUETA, UM LUGAR: a entrada mais recente vence — remove dos outros locais antes de contar aqui */
+    try{if(typeof window.f70HasEt==='function'&&window.f70HasEt(et)&&typeof window.f70Saida==='function'){window.f70Saida(et);toast('Saiu do Chão 70 · '+et);}}catch(e){}
+    try{if(typeof LOC!=='undefined'&&LOC[et]&&typeof freeStored==='function'){var _vg=freeStored(et);if(_vg)toast('Saiu da prateleira '+_vg+' · '+et);}}catch(e){}
+    try{if(typeof STAGE!=='undefined'&&STAGE.some(function(s){return s.et===et;})){STAGE=STAGE.filter(function(s){return s.et!==et;});saveStage();if(typeof syncDelStage==='function')syncDelStage(et);if(typeof updateStageBadge==='function')updateStageBadge();toast('Saiu do intermediário · '+et);}}catch(e){}
     const pr=b.pr||'—',pl=Number(b.pl)||0;
     let g=FLOOR[pr];
     if(!g){g={pr:pr,desc:b.desc||'',qtd:0,kg:0,ets:[],at:nowISO(),by:session?session.u:''};FLOOR[pr]=g;}
@@ -3173,6 +3197,10 @@ updateStageBadge();
       toast('Etiqueta '+et+' já contada'+(_achou?(' em '+_achou):'')+' no Chão 70',false);
       return;
     }
+    /* UMA ETIQUETA, UM LUGAR: a entrada mais recente vence — remove dos outros locais antes de contar aqui */
+    try{if(typeof window.floorHasEt==='function'&&window.floorHasEt(et)&&typeof window.floorSaida==='function'){window.floorSaida(et);toast('Saiu do Chão expedição · '+et);}}catch(e){}
+    try{if(typeof LOC!=='undefined'&&LOC[et]&&typeof freeStored==='function'){var _vg=freeStored(et);if(_vg)toast('Saiu da prateleira '+_vg+' · '+et);}}catch(e){}
+    try{if(typeof STAGE!=='undefined'&&STAGE.some(function(s){return s.et===et;})){STAGE=STAGE.filter(function(s){return s.et!==et;});saveStage();if(typeof syncDelStage==='function')syncDelStage(et);if(typeof updateStageBadge==='function')updateStageBadge();toast('Saiu do intermediário · '+et);}}catch(e){}
     const pr=b.pr||'—',pl=Number(b.pl)||0;
     let g=FLOOR70[pr];
     if(!g){g={pr:pr,desc:b.desc||'',qtd:0,kg:0,ets:[],at:nowISO(),by:session?session.u:''};FLOOR70[pr]=g;}
@@ -4285,7 +4313,7 @@ updateStageBadge();
       +'</div>'
       +'<div style="background:var(--card,rgba(0,0,0,.02));border-radius:12px;padding:12px;max-height:46vh;overflow-y:auto"><div style="display:flex;flex-wrap:wrap;gap:10px">'+previa+'</div>'+maisMsg+'</div>'
       +'<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">'
-      +'<button class="btn brand" id="nfLblPrint" style="flex:1;justify-content:center;min-width:160px;height:48px">'+(ICONS.print||'')+' Imprimir '+arr.length+' etiqueta'+(arr.length>1?'s':'')+'</button>'
+      +'<button class="btn brand" id="nfLblPrint" style="flex:1;justify-content:center;min-width:160px;height:48px">'+(ICONS.print||'')+' Imprimir '+arr.length+' etiqueta'+(arr.length>1?'s':'')+' · frente e verso ('+(arr.length*2)+' vias)</button>'
       +'<button class="btn" id="nfLblClose" style="height:48px">Fechar</button>'
       +'</div>';
     openDrawer((ICONS.tag||'')+' Etiquetas da NF '+esc((NFS[key]||{}).nNF||''),body);
@@ -4294,7 +4322,9 @@ updateStageBadge();
       var k=(document.getElementById('nfLblSize')||{}).value||'z100';
       var ori=(document.getElementById('nfLblOri')||{}).value||'retrato';
       var dim=sizes[k]||sizes.z100;
-      try{if(typeof printZebraRast==='function')printZebraRast(arr,dim,ori);}catch(e){toast('A impressão falhou — tente de novo.',false);}
+      /* SEMPRE 2 vias por etiqueta (frente e verso) — MESMO ID, só duplica a impressão, nunca o dado */
+      var arr2=[];arr.forEach(function(e){arr2.push(e);arr2.push(e);});
+      try{if(typeof printZebraRast==='function')printZebraRast(arr2,dim,ori);}catch(e){toast('A impressão falhou — tente de novo.',false);}
     };
     var cb=document.getElementById('nfLblClose');if(cb)cb.onclick=function(){closeDrawer();};
   }
@@ -5272,19 +5302,31 @@ window.cleanScanCode=function(v,kind){
 /* ===== LEITOR POR CÂMERA (html5-qrcode) ===== */
 (function(){
  ICONS.cam='<svg class="i" viewBox="0 0 24 24"><path d="M3 9a2 2 0 0 1 2-2h1.5L8 5h8l1.5 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.3"/></svg>';
- const css='.scan{position:fixed;inset:0;z-index:300;background:#000;display:none;flex-direction:column}.scan.show{display:flex}.scanhead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;color:#fff;font-family:var(--disp);font-weight:700;font-size:1.05rem}.scanhead button{background:rgba(255,255,255,.16);color:#fff;border:none;width:40px;height:40px;border-radius:11px;font-size:1.2rem}#scanReader{flex:1;width:100%;background:#000;overflow:hidden}#scanReader video{width:100%!important;height:100%!important;object-fit:cover}#scanReader img{display:none}.scanhint{color:#fff;text-align:center;padding:14px 16px;font-size:.92rem;opacity:.92;min-height:20px}.cambtn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:9px;background:var(--brand);color:#fff;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(234,90,12,.3);z-index:3}.cambtn .i{width:20px;height:20px}';
+ const css='.scan{position:fixed;inset:0;z-index:300;background:#000;display:none;flex-direction:column}.scan.show{display:flex}.scanhead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;color:#fff;font-family:var(--disp);font-weight:700;font-size:1.05rem}.scanhead button{background:rgba(255,255,255,.16);color:#fff;border:none;width:40px;height:40px;border-radius:11px;font-size:1.2rem}#scanReader{flex:1;width:100%;background:#000;overflow:hidden}#scanReader video{width:100%!important;height:100%!important;object-fit:cover}#scanReader img{display:none}.scanhint{color:#fff;text-align:center;padding:14px 16px;font-size:.92rem;opacity:.92;min-height:20px}.scanFb{position:absolute;left:12px;right:12px;top:70px;z-index:5;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;transform:translateY(-8px);transition:opacity .12s,transform .12s}.scanFb.show{opacity:1;transform:translateY(0)}.scanFb .fbcard{width:100%;max-width:520px;border-radius:16px;padding:16px 18px;text-align:center;font-family:var(--disp);font-weight:800;font-size:1.15rem;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;gap:10px}.scanFb.ok .fbcard{background:linear-gradient(135deg,#16a34a,#15803d)}.scanFb.err .fbcard{background:linear-gradient(135deg,#dc2626,#b91c1c);animation:fbshake .35s}.scanFb .fbico{font-size:1.5rem;line-height:1}@keyframes fbshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}.cambtn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:9px;background:var(--brand);color:#fff;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(234,90,12,.3);z-index:3}.cambtn .i{width:20px;height:20px}';
  const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
- const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX">Fechar ✕</button></div><div id="scanReader"></div><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
+ const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX">Fechar ✕</button></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
  let h5=null,O=null,lastV='',lastT=0,active=false,starting=false;
  function hint(t){const h=document.getElementById('scanHint');if(h)h.textContent=t;}
- function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=880;g.gain.value=.08;o.start();setTimeout(()=>{o.stop();a.close();},110);}catch(e){}}
+ /* ajusta a câmera depois de aberta: foco contínuo pra ler QR nítido de perto e de longe */
+ function _tuneCam(inst){try{
+   var v=document.querySelector('#scanReader video');if(!v||!v.srcObject)return;
+   var track=v.srcObject.getVideoTracks&&v.srcObject.getVideoTracks()[0];if(!track||!track.getCapabilities)return;
+   var cap=track.getCapabilities();var adv=[];
+   if(cap.focusMode&&cap.focusMode.indexOf('continuous')>=0)adv.push({focusMode:'continuous'});
+   if(cap.width&&cap.width.max>=1280)adv.push({width:Math.min(1280,cap.width.max)});
+   if(adv.length)track.applyConstraints({advanced:adv}).catch(function(){});
+ }catch(e){}}
+ function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.type='square';o.frequency.setValueAtTime(920,a.currentTime);o.frequency.setValueAtTime(1180,a.currentTime+0.06);g.gain.setValueAtTime(0.0001,a.currentTime);g.gain.exponentialRampToValueAtTime(0.35,a.currentTime+0.012);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+0.17);o.start();setTimeout(()=>{try{o.stop();a.close();}catch(e){}},190);}catch(e){}}
  function loadH5(){return window.Html5Qrcode?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';s.onload=res;s.onerror=()=>rej(new Error('cdn'));document.head.appendChild(s);});}
  async function open(){if(starting)return;starting=true;modal.classList.add('show');active=true;hint('Carregando câmera…');
   try{await loadH5();
    document.getElementById('scanReader').innerHTML='';
    h5=new Html5Qrcode('scanReader',{verbose:false});
-   const config={fps:12,qrbox:(w,hh)=>{const m=Math.min(w,hh),s=Math.max(160,Math.floor(m*0.72));return {width:s,height:s};},aspectRatio:1.3333,rememberLastUsedCamera:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true}};
-   await h5.start({facingMode:'environment'},config,txt=>hit(txt),()=>{});
+   const config={fps:20,qrbox:(w,hh)=>{const m=Math.min(w,hh),s=Math.max(180,Math.floor(m*0.8));return {width:s,height:s};},aspectRatio:1.3333,rememberLastUsedCamera:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true}};
+   /* pede resolução maior + foco contínuo → lê QR menor e de mais longe, com mais nitidez */
+   var _camCon={facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720},advanced:[{focusMode:'continuous'},{focusMode:'auto'}]};
+   try{await h5.start(_camCon,config,txt=>hit(txt),()=>{});}catch(_ce){await h5.start({facingMode:'environment'},config,txt=>hit(txt),()=>{});}
+   try{_tuneCam(h5);}catch(e){}
    hint('Aponte para o QR do endereço (ou código da bobina)');
   }catch(e){
    var nm=(e&&e.name)||'';var msg=(e&&e.message)||String(e||'');
@@ -5811,6 +5853,24 @@ function autoFixWeights(){try{if(typeof S==='undefined'||!Array.isArray(S))retur
   if(!_wPushed){_wPushed=true;try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',bad.map(spRow));}catch(e){}}
   if(!_wToasted){_wToasted=true;try{toast(nCorrig+' peso(s) corrigido(s) pelo cadastro'+(nZerado?(' · '+nZerado+' zerado(s) p/ recontagem'):''));}catch(e){}}
   return bad.length;}catch(e){return 0;}}
+/* CONSISTÊNCIA DE OCUPAÇÃO: vaga com produto e peso > 0 mas marcada como LIVRE é dado inconsistente —
+   os dados mandam, conserta pra OCUPADA e sincroniza (caso da M-100-1: produto+peso+bobina mas "LIVRE").
+   A direção inversa (ocupada com peso 0) NÃO é tocada: pode ter bobina real na posição aguardando acerto de peso. */
+function fixVagaOcupacao(){try{
+  if(typeof S==='undefined'||!Array.isArray(S))return 0;
+  var n=0;
+  S.forEach(function(x){
+    if(!x)return;
+    var temDado=!!(x.pr&&x.pr!=='0'&&Number(x.q)>0);
+    if(!temDado||x.o)return; /* só corrige: tem dado E está marcada livre */
+    x.o=true; /* dados vencem a marca */
+    x.upd=(typeof nowISO==='function'?nowISO():new Date().toISOString());x.by=(typeof session!=='undefined'&&session&&session.u)||'sistema';
+    n++;
+    try{if(typeof syncSpace==='function')syncSpace(x);}catch(e){}
+  });
+  if(n){try{if(typeof DB!=='undefined'&&DB.saveSpaces)DB.saveSpaces(S);}catch(e){}try{if(typeof logAct==='function')logAct('fix','ocupação corrigida em '+n+' vaga(s)');}catch(e){}}
+  return n;
+}catch(e){return 0;}}
 /* mostra no console/relatório o que foi corrigido/zerado — chame wmsFixReport() */
 window.wmsFixReport=function(){try{var log=JSON.parse(localStorage.getItem('wmsx_fixlog')||'[]');if(!log.length){toast('Nenhuma posição foi corrigida.');return [];}var h=['Endereco','Produto','ValorBugado','ValorCorrigido','Quando'];var rows=log.map(function(r){return [r.code,r.pr,r.qOriginal,(r.qCorrigido!=null?r.qCorrigido:0),r.at];});if(typeof dl==='function'&&typeof csv==='function'){dl('pesos_corrigidos_auditoria.csv',csv([h].concat(rows)));toast(log.length+' correção(ões) — baixando auditoria');}console.table(log);return log;}catch(e){return [];}};
 (function(){const s=document.createElement('style');s.textContent=
@@ -6047,7 +6107,7 @@ const LITE_ALLOWED=['v-recv','v-mov','v-stock'];
  // re-sincroniza quando o usuário muda (login/logout)
  const _ru=refreshUser;refreshUser=function(){if(_ru)_ru();ensureX();ensureAdmin();ensureOperators();ensureRecepcao();window.syncVersion();if(typeof applyPerms==='function')applyPerms();};
  // re-garante o usuário x após puxar da nuvem
- if(typeof pullAll==='function'){const _pa=pullAll;pullAll=async function(){const r=await _pa.apply(this,arguments);ensureX();ensureAdmin();ensureOperators();ensureRecepcao();try{autoFixWeights();}catch(e){}try{if(typeof window.fixVagaProdIds==='function')window.fixVagaProdIds();}catch(e){}try{if(typeof window.pbaixaScan==='function')window.pbaixaScan();if(typeof window.updateProtheusBadge==='function')window.updateProtheusBadge();}catch(e){}window.syncVersion();if(typeof applyPerms==='function')applyPerms();return r;};}
+ if(typeof pullAll==='function'){const _pa=pullAll;pullAll=async function(){const r=await _pa.apply(this,arguments);ensureX();ensureAdmin();ensureOperators();ensureRecepcao();try{autoFixWeights();}catch(e){}try{fixVagaOcupacao();}catch(e){}try{if(typeof window.fixVagaProdIds==='function')window.fixVagaProdIds();}catch(e){}try{if(typeof window.pbaixaScan==='function')window.pbaixaScan();if(typeof window.updateProtheusBadge==='function')window.updateProtheusBadge();}catch(e){}window.syncVersion();if(typeof applyPerms==='function')applyPerms();return r;};}
  window.syncVersion();
 })();
 
@@ -7141,7 +7201,7 @@ setIcons();refreshUser();showLogin();pwaInit();
 try{if(typeof window.pbaixaScan==='function')window.pbaixaScan();if(typeof window.updateProtheusBadge==='function')window.updateProtheusBadge();}catch(e){}
 try{if(typeof window.fixDupEtq==='function')window.fixDupEtq();}catch(e){}
 /* a correção de pesos é pesada — roda DEPOIS que a tela de login já apareceu (não trava a digitação) */
-(function(){var _run=function(){try{autoFixWeights();}catch(e){}try{if(typeof window.fixVagaProdIds==='function')window.fixVagaProdIds();}catch(e){}};if(window.requestIdleCallback){requestIdleCallback(_run,{timeout:3000});}else{setTimeout(_run,1200);}})();
+(function(){var _run=function(){try{autoFixWeights();}catch(e){}try{fixVagaOcupacao();}catch(e){}try{if(typeof window.fixVagaProdIds==='function')window.fixVagaProdIds();}catch(e){}};if(window.requestIdleCallback){requestIdleCallback(_run,{timeout:3000});}else{setTimeout(_run,1200);}})();
 
 /* ===== ATALHO DE PRODUTIVIDADE: "/" foca a busca da aba ativa ===== */
 document.addEventListener('keydown',function(ev){
@@ -8448,6 +8508,103 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     };
     try{if(typeof updateProtheusBadge==='function')updateProtheusBadge();}catch(e){}
   };
+})();
+
+/* ===================== MODO INVENTÁRIO · contagem cíclica guiada com curva ABC ===================== */
+(function(){
+  var IKEY='wmsx_inv';
+  function loadInv(){try{return JSON.parse(localStorage.getItem(IKEY))||null;}catch(e){return null;}}
+  function saveInv(o){try{if(o)localStorage.setItem(IKEY,JSON.stringify(o));else localStorage.removeItem(IKEY);}catch(e){}}
+  function _clsDe(pr){try{var d=abcData();var r=(d.arr||[]).find(function(x){return x.pr===pr;});return r?r.cls:'C';}catch(e){return 'C';}}
+  function _alvos(sel){ /* vagas ocupadas do filtro escolhido, em ordem de percurso (rua → posição → nível) */
+    var occ=S.filter(function(x){return x.w===cfg.warehouse&&x.o&&x.pr&&x.q>0;});
+    if(sel&&sel.rua)occ=occ.filter(function(x){return x.s===sel.rua;});
+    if(sel&&sel.cls)occ=occ.filter(function(x){return _clsDe(x.pr)===sel.cls;});
+    return occ.sort(function(a,b){return a.s!==b.s?(a.s<b.s?-1:1):(Number(a.p)-Number(b.p)||Number(a.l)-Number(b.l));});
+  }
+  window.invStart=function(sel){saveInv({sel:sel||{},at:(typeof nowISO==='function'?nowISO():new Date().toISOString()),by:(typeof session!=='undefined'&&session?session.u:''),done:{}});window.renderInv();};
+  window.invStop=function(){saveInv(null);window.renderInv();};
+  window.invMark=function(spId,found){
+    var inv=loadInv();if(!inv)return;
+    var sp=S.find(function(x){return x.id===spId;});if(!sp)return;
+    var exp=Number(sp.q)||0;var f=(found==null?exp:Number(found)||0);
+    inv.done[spId]={found:f,expected:exp,pr:sp.pr,code:(typeof code==='function'?code(sp):spId),ok:Math.abs(f-exp)<0.001,at:(typeof nowISO==='function'?nowISO():new Date().toISOString())};
+    saveInv(inv);window.renderInv();
+  };
+  function _fmtq(v){return (typeof fmt==='function')?fmt(v):String(v);}
+  function _esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+  window.renderInv=function(){
+    var el=document.getElementById('v-inv');if(!el)return;
+    var inv=loadInv();
+    if(!inv){ /* tela de início: escolher o recorte da contagem */
+      var ruas=[];S.forEach(function(x){if(x.w===cfg.warehouse&&ruas.indexOf(x.s)<0)ruas.push(x.s);});ruas.sort();
+      el.innerHTML='<div class="ph-head"><div><p class="eb">Operação · contagem cíclica</p><h1>Inventário</h1></div></div>'
+        +'<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:16px;color:var(--muted);font-size:.84rem;line-height:1.55">Escolha o recorte e o sistema te guia <b>vaga por vaga</b>, na ordem do corredor. Confira o que está em cada uma e aponte divergências. Dica ABC: conte as vagas de <b>classe A</b> com mais frequência — são as que mais giram e mais erram.</div>'
+        +'<div style="display:flex;gap:12px;flex-wrap:wrap">'
+        +'<div style="flex:1;min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px"><h3 style="margin:0 0 10px">Por rua</h3><select class="input" id="invRua"><option value="">Escolha a rua…</option>'+ruas.map(function(r){return '<option>'+_esc(r)+'</option>';}).join('')+'</select><button class="gbtn" id="invGoRua" style="width:100%;justify-content:center;margin-top:10px">Iniciar contagem da rua</button></div>'
+        +'<div style="flex:1;min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px"><h3 style="margin:0 0 10px">Por classe ABC</h3><div style="display:flex;gap:8px">'+['A','B','C'].map(function(c){return '<button class="gbtn" data-invcls="'+c+'" style="flex:1;justify-content:center">Classe '+c+'</button>';}).join('')+'</div><div style="color:var(--faint);font-size:.72rem;margin-top:8px">Classe A = maior giro/valor (contar com mais frequência)</div></div>'
+        +'</div>';
+      var gr=el.querySelector('#invGoRua');if(gr)gr.onclick=function(){var r=el.querySelector('#invRua').value;if(!r){toast('Escolha a rua',false);return;}window.invStart({rua:r});};
+      el.querySelectorAll('[data-invcls]').forEach(function(b){b.onclick=function(){window.invStart({cls:b.getAttribute('data-invcls')});};});
+      return;
+    }
+    /* sessão em andamento */
+    var alvos=_alvos(inv.sel);
+    var tot=alvos.length,feitas=0,div=0;
+    alvos.forEach(function(sp){var d=inv.done[sp.id];if(d){feitas++;if(!d.ok)div++;}});
+    var tit=inv.sel.rua?('Rua '+inv.sel.rua):('Classe '+inv.sel.cls);
+    var pend=alvos.filter(function(sp){return !inv.done[sp.id];});
+    var prox=pend[0]||null;
+    el.innerHTML='<div class="ph-head"><div><p class="eb">Inventário em andamento · '+_esc(tit)+'</p><h1>'+feitas+' / '+tot+' vagas</h1></div>'
+      +'<div class="actions"><button class="gbtn" id="invCsv" data-ic="save"><span></span>Exportar divergências</button><button class="gbtn adminOnly" id="invApply"><span></span>Aplicar ajustes ('+div+')</button><button class="gbtn" id="invEnd"><span></span>Encerrar</button></div></div>'
+      +'<div style="height:8px;background:var(--card-2);border-radius:99px;overflow:hidden;margin-bottom:14px"><div style="height:100%;width:'+(tot?Math.round(feitas/tot*100):0)+'%;background:var(--brand);transition:width .3s"></div></div>'
+      +'<div style="display:flex;gap:10px;margin-bottom:14px"><input class="input" id="invBipe" placeholder="Bipe o endereço da vaga (ex: D-160-1)" style="flex:1"></div>'
+      +(prox?('<div style="background:var(--brand-dim);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:.85rem"><b>Próxima no percurso:</b> '+_esc(typeof code==='function'?code(prox):prox.id)+' · esperado '+_esc(prox.pr)+' ('+_fmtq(prox.q)+' kg)</div>'):'<div style="background:var(--in-dim);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:.9rem;font-weight:700">Contagem concluída! '+(div?div+' divergência(s) — exporte ou aplique os ajustes.':'Tudo bateu ✓')+'</div>')
+      +alvos.map(function(sp){var c=(typeof code==='function')?code(sp):sp.id;var d=inv.done[sp.id];
+        return '<div class="feed" id="inv_'+_esc(sp.id)+'"'+(d?(' style="opacity:'+(d.ok?'.55':'1')+'"'):'')+'>'
+          +'<div class="fi '+(d?(d.ok?'in':'out'):'muted')+'">'+(d?(d.ok?'✓':'≠'):'·')+'</div>'
+          +'<div class="fm"><div class="p">'+_esc(c)+'</div><div class="s">'+_esc(sp.pr)+' · esperado '+_fmtq(sp.q)+' kg'+(d&&!d.ok?(' · <b style="color:var(--out,#c0392b)">contado '+_fmtq(d.found)+' kg</b>'):'')+'</div></div>'
+          +(d?('<button class="gbtn" data-invre="'+_esc(sp.id)+'" style="padding:5px 10px;font-size:.72rem">Recontar</button>')
+              :('<div style="display:flex;gap:6px"><button class="btn in" data-invok="'+_esc(sp.id)+'" style="padding:6px 12px;font-size:.76rem">Confere ✓</button><button class="gbtn" data-invdiv="'+_esc(sp.id)+'" style="padding:6px 10px;font-size:.76rem">Divergente</button></div>'))
+          +'</div>';}).join('');
+    el.querySelectorAll('[data-invok]').forEach(function(b){b.onclick=function(){window.invMark(b.getAttribute('data-invok'),null);};});
+    el.querySelectorAll('[data-invdiv]').forEach(function(b){b.onclick=function(){var sp=S.find(function(x){return x.id===b.getAttribute('data-invdiv');});var v=prompt('Quantidade REAL contada em '+(typeof code==='function'?code(sp):'')+' (kg):',sp?sp.q:'');if(v==null)return;window.invMark(b.getAttribute('data-invdiv'),parseFloat(String(v).replace(',','.'))||0);};});
+    el.querySelectorAll('[data-invre]').forEach(function(b){b.onclick=function(){var inv2=loadInv();delete inv2.done[b.getAttribute('data-invre')];saveInv(inv2);window.renderInv();};});
+    var bip=el.querySelector('#invBipe');if(bip){bip.onkeydown=function(ev){if(ev.key!=='Enter')return;var c=(typeof norm==='function')?norm(bip.value):bip.value.toUpperCase();bip.value='';var sp=alvos.find(function(x){return (typeof code==='function'?norm(code(x)):x.id)===c;});if(!sp){toast('Vaga '+c+' não está nesta contagem',false);return;}var row=el.querySelector('#inv_'+CSS.escape(sp.id));if(row){row.scrollIntoView({behavior:'smooth',block:'center'});row.style.outline='2px solid var(--brand)';setTimeout(function(){row.style.outline='';},1600);}};setTimeout(function(){try{bip.focus();}catch(e){}},250);}
+    var ec=el.querySelector('#invCsv');if(ec)ec.onclick=function(){var inv2=loadInv();var dv=Object.keys(inv2.done).map(function(k){return inv2.done[k];}).filter(function(d){return !d.ok;});if(!dv.length){toast('Sem divergências',false);return;}var h=['Vaga','Produto','Esperado_kg','Contado_kg','Diferenca_kg','Hora'];var rows=dv.map(function(d){return [d.code,d.pr,d.expected,d.found,(d.found-d.expected).toFixed(3),d.at];});if(typeof dl==='function'&&typeof csv==='function'){dl('inventario_divergencias.csv',csv([h].concat(rows)));toast(dv.length+' divergência(s) exportada(s)');}};
+    var ap=el.querySelector('#invApply');if(ap)ap.onclick=function(){
+      if(typeof isAdmin==='function'&&!isAdmin()){toast('Somente admin pode aplicar ajustes',false);return;}
+      var inv2=loadInv();var dv=Object.keys(inv2.done).filter(function(k){return !inv2.done[k].ok;});
+      if(!dv.length){toast('Sem divergências para aplicar',false);return;}
+      if(!confirm('Aplicar '+dv.length+' ajuste(s) de inventário no estoque? Isso altera as quantidades das vagas.'))return;
+      try{if(typeof markLocalWrite==='function')markLocalWrite();}catch(e){}
+      var n=0;
+      dv.forEach(function(spId){var d=inv2.done[spId];var sp=S.find(function(x){return x.id===spId;});if(!sp)return;
+        var before=Number(sp.q)||0;sp.q=Number(d.found)||0;if(sp.q<=0){sp.q=0;sp.o=false;sp.pr='';}
+        sp.upd=(typeof nowISO==='function'?nowISO():new Date().toISOString());sp.by=(typeof session!=='undefined'&&session?session.u:'');
+        var m={id:(typeof uid==='function'?uid():String(Math.random())),action:(sp.q>=before?'entrada':'saida'),w:cfg.warehouse,code:d.code,pr:d.pr,q:Math.abs(sp.q-before),u:'KG',before:before,after:sp.q,at:sp.upd,by:sp.by,note:'ajuste inventário'};
+        MV.unshift(m);
+        try{if(typeof syncSpace==='function')syncSpace(sp);}catch(e){}
+        try{if(typeof syncMov==='function')syncMov(m);}catch(e){}
+        inv2.done[spId].ok=true;inv2.done[spId].expected=sp.q;n++;
+      });
+      try{persist();}catch(e){}
+      saveInv(inv2);
+      try{if(typeof logAct==='function')logAct('inventario','aplicou '+n+' ajuste(s)');}catch(e){}
+      toast(n+' ajuste(s) aplicado(s) e sincronizado(s)');window.renderInv();
+    };
+    var en=el.querySelector('#invEnd');if(en)en.onclick=function(){if(!confirm('Encerrar a contagem? O progresso desta sessão será descartado.'))return;window.invStop();};
+    try{if(typeof setIcons==='function')setIcons();}catch(e){}
+  };
+  /* injeta menu + tela + rota */
+  try{
+    var navStock=[].slice.call(document.querySelectorAll('.nav')).filter(function(n){return n.dataset.view==='v-stock';})[0];
+    if(navStock){var nv=document.createElement('div');nv.className='nav';nv.dataset.view='v-inv';nv.dataset.ic='box';nv.innerHTML='<span class="ni"></span>Inventário';navStock.after(nv);nv.onclick=function(){go('v-inv');};}
+    var sec=document.createElement('section');sec.className='view';sec.id='v-inv';document.querySelector('main').appendChild(sec);
+    if(typeof TITLES!=='undefined')TITLES['v-inv']='Inventário';
+    var _rv2=render;render=function(id){if(id==='v-inv')return window.renderInv();return _rv2(id);};
+  }catch(e){}
 })();
 
 })();

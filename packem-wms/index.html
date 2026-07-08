@@ -5627,7 +5627,7 @@ function startAutoSync(){clearInterval(_autoSyncTimer);_autoSyncTimer=setInterva
   }}}};
  const _pb=placeBobina;placeBobina=function(et,pr,pl,c){const n0=MV.length;const ok=_pb(et,pr,pl,c);if(ok&&MV.length>n0){const m=MV[0];syncMov(m);const sp=findSpace(m.code);if(sp)syncSpace(sp);if(et)syncLoc(et,m.code);}return ok;};
  const _ep=execPick;execPick=function(){const n0=MV.length;_ep();const add=MV.length-n0;for(let i=0;i<add;i++){const m=MV[i];syncMov(m);const sp=findSpace(m.code);if(sp)syncSpace(sp);}};
- const _ra=recvAdd;recvAdd=function(v){const n0=STAGE.length;_ra(v);if(STAGE.length>n0)syncStage(STAGE[0]);};
+ const _ra=recvAdd;recvAdd=async function(v){const n0=STAGE.length;await _ra(v);if(STAGE.length>n0)syncStage(STAGE[0]);};
  const _sp=commitProducao;commitProducao=function(et){const n0=MV.length;_sp(et);syncDelStage(et);if(MV.length>n0)syncMov(MV[0]);};
  const _os=openSpace;openSpace=function(id){_os(id);const sv=document.getElementById('spSave');if(sv){const _o=sv.onclick;sv.onclick=()=>{_o&&_o();const x=S.find(s=>s.id===id);if(x)syncSpace(x);};}const sf=document.getElementById('spFree');if(sf){const _f=sf.onclick;sf.onclick=()=>{_f&&_f();const x=S.find(s=>s.id===id);if(x)syncSpace(x);}}
   const x=S.find(s=>s.id===id);const lb=document.getElementById('spLabel');

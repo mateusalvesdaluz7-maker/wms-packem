@@ -2380,6 +2380,10 @@ try{BOB=JSON.parse(localStorage.getItem('wmsx_bob'))||{};}catch(e){BOB={};}
 try{LOC=JSON.parse(localStorage.getItem('wmsx_loc'))||{};}catch(e){LOC={};}
 var _bobVer=0;
 function saveBOB(){_bobVer++;try{localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}catch(e){try{if(typeof MV!=='undefined'&&Array.isArray(MV)&&MV.length>2500){MV.length=2500;try{localStorage.setItem('wmsx_mv',JSON.stringify(MV));}catch(_){}}}catch(_){}try{localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}catch(e2){if(!window._quotaWarned){window._quotaWarned=true;try{if(typeof toast==='function')toast('Memória do navegador cheia — as etiquetas estão sendo enviadas direto para a nuvem. Confira em outro aparelho para garantir.',false);}catch(_){}}try{if(typeof syncBobAll==='function')syncBobAll();}catch(_){}}}}
+/* BUSCA SOB DEMANDA: procura UMA etiqueta na nuvem quando ela não está na memória deste aparelho.
+   É isso que permite o celular funcionar sem precisar baixar o catálogo inteiro (74 mil+). */
+async function bobFetch(et){try{et=(typeof norm==='function')?norm(et):String(et||'').trim().toUpperCase();if(!et)return null;if(BOB[et])return BOB[et];if(typeof supa==='undefined'||!supa)return null;var r=await supa.from('bobinas').select('*').eq('etiqueta',et).limit(1);if(r&&r.data&&r.data[0]){var row=r.data[0];BOB[et]={pr:row.pr,desc:row.descricao||'',pl:Number(row.pl)||0};return BOB[et];}}catch(e){}return null;}
+window.bobFetch=bobFetch;
 /* Registra uma etiqueta RASTREÁVEL (gerada na Nota Fiscal/Romaneio/Vaga) dentro do catálogo BOB,
    pra ela funcionar em TUDO (receber, armazenar, mover, separar, chão) igual a bobina normal.
    Não sobrescreve um cadastro melhor já existente. */
@@ -2563,7 +2567,7 @@ function placeBobina(et,pr,pl,c){c=norm(c);if(typeof cleanProd==='function')pr=c
    try{if(typeof window.floorHasEt==='function'&&window.floorHasEt(et)&&typeof window.floorSaida==='function'){window.floorSaida(et);toast('Saiu do Chão expedição · '+et);}}catch(e){}
  }
  return true;}
-function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}if(LOC[et]){const old=freeStored(et);toast('Bobina '+et+' retornou de '+old+' — liberada p/ recebimento');}
+async function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){b=await bobFetch(et);}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}if(LOC[et]){const old=freeStored(et);toast('Bobina '+et+' retornou de '+old+' — liberada p/ recebimento');}
   /* se já está contada em algum chão, TIRA de lá (não pode ficar em dois lugares) */
   try{if(typeof window.f70HasEt==='function'&&window.f70HasEt(et)&&typeof window.f70Saida==='function'){window.f70Saida(et);toast('Saiu do Chão 70 · '+et);}}catch(e){}
   try{if(typeof window.floorHasEt==='function'&&window.floorHasEt(et)&&typeof window.floorSaida==='function'){window.floorSaida(et);toast('Saiu do Chão expedição · '+et);}}catch(e){}
@@ -2967,10 +2971,11 @@ updateStageBadge();
     }catch(e){}
   };
 
-  window.floorAdd=function(v){
+  window.floorAdd=async function(v){
     if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);
     const et=norm(v);if(!et)return;
     var b=BOB[et];if(!b&&typeof window.etqLookup==='function')b=window.etqLookup(et);
+    if(!b){b=await bobFetch(et);}
     if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
     var _kc=_eCh(et);
     try{delete _delCh[_kc];_bipCh[_kc]=Date.now();}catch(e){}/* destrava antes de checar (fim do tombstone preso) */
@@ -3179,10 +3184,11 @@ updateStageBadge();
     }catch(e){}
   };
 
-  window.floor70Add=function(v){
+  window.floor70Add=async function(v){
     if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);
     const et=norm(v);if(!et)return;
     var b=BOB[et];if(!b&&typeof window.etqLookup==='function')b=window.etqLookup(et);
+    if(!b){b=await bobFetch(et);}
     if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
     var _k=_e70(et);
     /* DESTRAVA primeiro: se a etiqueta ficou presa numa exclusão pendente (tombstone) de um
@@ -5477,13 +5483,15 @@ async function pushAll(btn){if(!supa){toast('Sem conexão com a nuvem',false);re
   toast('Tudo enviado para a nuvem ✓');setNet('on');
  }catch(e){toast('Erro ao enviar',false);setNet('on');}
  if(btn){btn.disabled=false;btn.textContent='↥ Enviar p/ nuvem';}}
-async function pgAll(table,order){let out=[],from=0,page=1000;for(;;){let q=supa.from(table).select('*').range(from,from+page-1);if(order)q=q.order(order,{ascending:false});const r=await q;
-  if(r.error){
+async function pgAll(table,order){var out=[],from=0,page=1000;for(;;){
+  var r=null,tries=0;
+  while(tries<4){var q=supa.from(table).select('*').range(from,from+page-1);if(order)q=q.order(order,{ascending:false});r=await q;if(!r||!r.error)break;tries++;await new Promise(function(res){setTimeout(res,500*tries);});}
+  if(r&&r.error){
     /* guarda o erro de leitura (ex: RLS/permissão) para avisar na tela */
     try{window._cloudReadErr={table:table,msg:(r.error.message||r.error.code||'erro'),code:r.error.code||''};}catch(e){}
     break;
   }
-  if(!r.data||!r.data.length)break;out=out.concat(r.data);if(r.data.length<page)break;from+=page;if(from>300000)break;}return out;}
+  if(!r||!r.data||!r.data.length)break;out=out.concat(r.data);if(r.data.length<page)break;from+=page;if(from>300000)break;}return out;}
 /* trava anti-corrida: quando você grava algo local, o pullAll não pode sobrescrever
    os espaços/movimentos com a versão antiga da nuvem enquanto seu dado ainda está subindo. */
 window._lastLocalWrite=0;
@@ -5515,7 +5523,7 @@ async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
    S=_merged;DB.saveSpaces(S);
    if(_repush.length){try{_repush.slice(0,80).forEach(function(x){syncSpace(x);});}catch(e){}}
    if(corruptIds.length){try{if(typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',S.filter(x=>corruptIds.indexOf(x.id)>=0).map(spRow));}catch(e){}}}
-  const bo=await pgAll('bobinas');if(bo.length&&!guard&&bo.length>=Object.keys(BOB).length){BOB={};bo.forEach(r=>BOB[r.etiqueta]={pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0});saveBOB();}
+  if(!silent){const bo=await pgAll('bobinas');if(bo.length&&!guard&&bo.length>=Object.keys(BOB).length){BOB={};bo.forEach(r=>BOB[r.etiqueta]={pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0});saveBOB();}}
   const lo=await pgAll('locais');if(lo.length&&!guard){LOC={};lo.forEach(r=>LOC[r.etiqueta]=r.code);saveLOC();}
   const sg=await pgAll('stage');if(!guard){STAGE=sg.map(r=>({et:r.etiqueta,pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0,at:r.at,by:r.by_user||''}));saveStage();}
   const vl=await pgAll('valores');if(vl.length&&!guard){var _vlmap={};VL.forEach(function(v){_vlmap[String(v.codigo).toUpperCase()]=v;});vl.forEach(function(r){_vlmap[String(r.codigo).toUpperCase()]={codigo:r.codigo,valor:Number(r.valor)||0,descricao:r.descricao||'',un:(r.un||'')};});VL=Object.keys(_vlmap).map(function(k){return _vlmap[k];});DB.saveValues(VL);}

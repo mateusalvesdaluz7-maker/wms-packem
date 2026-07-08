@@ -875,10 +875,8 @@ body.cam-open{overflow:hidden}#v-exped .cam-ov{position:fixed;inset:0;z-index:10
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
       <div class="nav" data-view="v-board" data-ic="grid"><span class="ni"></span>Mapa do armazém</div>
       <div class="sb-grp">Operação</div>
-      <div class="nav" data-view="v-mov" data-ic="scan" data-writer="1"><span class="ni"></span>Movimentação</div>
       <div class="nav" data-view="v-stock" data-ic="box"><span class="ni"></span>Estoque</div>
       <div class="nav adminOnly" data-view="v-protheus" data-ic="transfer"><span class="ni"></span>Baixa Protheus</div>
-      <div class="nav" data-view="v-transf" data-ic="transfer"><span class="ni"></span>Transferências</div>
       <div class="nav" data-view="v-labels" data-ic="tag"><span class="ni"></span>Etiquetas</div>
       <div class="sb-grp">Análise</div>
       <div class="nav" data-view="v-abc" data-ic="chart"><span class="ni"></span>Curva ABC</div>
@@ -1124,11 +1122,7 @@ body.cam-open{overflow:hidden}#v-exped .cam-ov{position:fixed;inset:0;z-index:10
         </div>
       </section>
 
-      <section class="view" id="v-transf">
-        <div class="ph-head"><div><p class="eb">Logística</p><h1>Transferências</h1></div>
-          <div class="actions"><button class="btn brand" id="newTransfBtn" data-ic="transfer"><span></span>Nova transferência</button></div></div>
-        <div class="tbl-wrap"><table class="tbl" id="trTable"></table></div>
-      </section>
+      <!-- Transferências removida a pedido -->
 
       <section class="view" id="v-labels">
         <div class="ph-head"><div><p class="eb">Impressão</p><h1>Etiquetas</h1></div>
@@ -1271,7 +1265,7 @@ const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 function setIcons(){document.querySelectorAll('[data-ic]').forEach(e=>{const t=e.querySelector('.ni,.si,.ki,span:empty')||e;(e.querySelector('.ni')||e.querySelector('.si')||e.querySelector('span')||e).innerHTML=ICONS[e.dataset.ic]||'';});$('#mk1').innerHTML=ICONS.reel;$('#mk2').innerHTML=ICONS.reel;}
 
 const DB=(()=>{const K={sp:'wmsx_sp',mv:'wmsx_mv',tr:'wmsx_tr',vl:'wmsx_vl',us:'wmsx_us',ac:'wmsx_ac',cf:'wmsx_cf'};
-  const r=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d;}catch{return d;}};const w=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+  const r=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d;}catch{return d;}};const w=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){/* memória do navegador cheia: apara o histórico de movimentos (que já fica salvo na nuvem) e tenta de novo */try{if(typeof MV!=='undefined'&&Array.isArray(MV)&&MV.length>2500){MV.length=2500;try{localStorage.setItem(K.mv,JSON.stringify(MV));}catch(_){}}}catch(_){}try{localStorage.setItem(k,JSON.stringify(v));}catch(e2){if(!window._quotaWarned){window._quotaWarned=true;try{if(typeof toast==='function')toast('Memória do navegador cheia. Reduzi o histórico antigo (ele fica salvo na nuvem). Se continuar, toque em "Enviar p/ nuvem".',false);}catch(_){}}}}};
   const seedSp=()=>SEED_SPACES.map(x=>({id:'70-'+x.s+'-'+x.p+'-'+x.l,w:'70',s:x.s,l:x.l,p:x.p,pr:(x.pr&&x.pr!=='0')?x.pr:'',q:x.q||0,u:'KG',o:!!x.o,src:x.src||'',upd:'',by:''}));
   function init(){if(!localStorage.getItem(K.sp))w(K.sp,seedSp());if(!localStorage.getItem(K.vl))w(K.vl,SEED_VALUES.map(c=>({codigo:c,valor:0,descricao:''})));if(!localStorage.getItem(K.us))w(K.us,[{u:'admin',p:'020502',role:'admin',active:true}]);['mv','tr','ac'].forEach(k=>{if(!localStorage.getItem(K[k]))w(K[k],[]);});if(!localStorage.getItem(K.cf))w(K.cf,{warehouse:'70'});}
   return {init,seedSp,spaces:()=>r(K.sp,[]),saveSpaces:a=>w(K.sp,a),movs:()=>r(K.mv,[]),saveMovs:a=>w(K.mv,a),transf:()=>r(K.tr,[]),saveTransf:a=>w(K.tr,a),values:()=>r(K.vl,[]),saveValues:a=>w(K.vl,a),users:()=>r(K.us,[]),saveUsers:a=>w(K.us,a),act:()=>r(K.ac,[]),saveAct:a=>w(K.ac,a),cfg:()=>r(K.cf,{warehouse:'70'}),saveCfg:c=>w(K.cf,c),reseed:()=>w(K.sp,seedSp())};})();
@@ -1396,7 +1390,7 @@ function go(id){if(id==='v-users'&&!isSuper())id='v-home';if(id==='v-mov'&&!isAd
 }
 $$('.nav').forEach(n=>n.onclick=()=>go(n.dataset.view));
 $('#userBtn').onclick=()=>go('v-act');
-function render(id){({'v-home':renderHome,'v-board':renderBoard,'v-mov':renderMov,'v-stock':renderStock,'v-transf':renderTransf,'v-labels':renderLabels,'v-abc':renderABC,'v-values':renderValues,'v-users':renderUsers,'v-act':renderAct,'v-protheus':(typeof renderProtheus==='function'?renderProtheus:function(){})}[id]||(()=>{}))();}
+function render(id){({'v-home':renderHome,'v-board':renderBoard,'v-mov':renderMov,'v-stock':renderStock,'v-labels':renderLabels,'v-abc':renderABC,'v-values':renderValues,'v-users':renderUsers,'v-act':renderAct,'v-protheus':(typeof renderProtheus==='function'?renderProtheus:function(){})}[id]||(()=>{}))();}
 
 /* warehouse */
 $$('#whSeg button').forEach(b=>b.onclick=()=>{cfg.warehouse=b.dataset.wh;DB.saveCfg(cfg);$$('#whSeg button').forEach(x=>x.classList.toggle('on',x.dataset.wh===cfg.warehouse));boardLevel=null;render($('.view.active').id);});
@@ -2205,14 +2199,9 @@ function execPick(){if(!pickPlan||!isAdmin())return;const {prod,alloc}=pickPlan;
   logAct('separacao',prod+' · '+alloc.length+' retiradas');toast('Separação executada: '+alloc.length+' retiradas');pickPlan=null;$('#pkProd').value='';$('#pkQty').value='';renderPick();}
 
 /* ===== injeta nav + view Separação e estende roteamento ===== */
-(function(){
-  const navMov=[...document.querySelectorAll('.nav')].find(n=>n.dataset.view==='v-mov');
-  const navPick=document.createElement('div');navPick.className='nav';navPick.dataset.view='v-pick';navPick.dataset.ic='pick';navPick.innerHTML='<span class="ni"></span>Separação';
-  navMov.after(navPick);navPick.onclick=()=>go('v-pick');
-  const sec=document.createElement('section');sec.className='view';sec.id='v-pick';document.querySelector('main').appendChild(sec);
-  TITLES['v-pick']='Separação automática';
-  const _render=render;render=function(id){if(id==='v-pick')return renderPick();return _render(id);};
-})();
+/* Separação REMOVIDA a pedido — as saídas por requisição agora são feitas em "Requisições ao vivo".
+   O menu, a tela e o roteamento da Separação não são mais criados. */
+(function(){ return; })();
 
 /* ===== REQUISIÇÕES: pedidos em aberto + atendimento por bipagem (endereço + etiqueta) ===== */
 let REQS=[];try{REQS=JSON.parse(localStorage.getItem('wmsx_reqs'))||[];}catch(e){REQS=[];}
@@ -2379,7 +2368,7 @@ let BOB={},LOC={};
 try{BOB=JSON.parse(localStorage.getItem('wmsx_bob'))||{};}catch(e){BOB={};}
 try{LOC=JSON.parse(localStorage.getItem('wmsx_loc'))||{};}catch(e){LOC={};}
 var _bobVer=0;
-function saveBOB(){_bobVer++;localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}
+function saveBOB(){_bobVer++;try{localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}catch(e){try{if(typeof MV!=='undefined'&&Array.isArray(MV)&&MV.length>2500){MV.length=2500;try{localStorage.setItem('wmsx_mv',JSON.stringify(MV));}catch(_){}}}catch(_){}try{localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}catch(e2){if(!window._quotaWarned){window._quotaWarned=true;try{if(typeof toast==='function')toast('Memória do navegador cheia — as etiquetas estão sendo enviadas direto para a nuvem. Confira em outro aparelho para garantir.',false);}catch(_){}}try{if(typeof syncBobAll==='function')syncBobAll();}catch(_){}}}}
 /* Registra uma etiqueta RASTREÁVEL (gerada na Nota Fiscal/Romaneio/Vaga) dentro do catálogo BOB,
    pra ela funcionar em TUDO (receber, armazenar, mover, separar, chão) igual a bobina normal.
    Não sobrescreve um cadastro melhor já existente. */
@@ -2495,7 +2484,7 @@ function renderMapping(){const rows=impRows;if(!rows||!rows.length)return;
   '<button class="btn brand" id="mapDo" style="width:100%;height:48px">Importar com estas colunas</button></div>';
  $('#impHrow').onchange=renderMapping;['mapEt','mapPr','mapDe','mapPl'].forEach(id=>$('#'+id).onchange=mapPreview);$('#mapDo').onclick=doImport;mapPreview();}
 function mapPreview(){const rows=impRows,hi=Math.max(0,parseInt($('#impHrow').value,10)-1),ie=+$('#mapEt').value,ip=+$('#mapPr').value,idd=+$('#mapDe').value,iq=+$('#mapPl').value;let html='',c=0;for(let i=hi+1;i<rows.length&&c<4;i++){const r=rows[i]||[];if(!String(r[ie]||'').trim())continue;html+='<div>'+String(r[ie]||'')+' · '+String(r[ip]||'')+' · '+String(r[idd]||'').slice(0,22)+' · <b style="color:var(--in)">'+fmt(brNum(r[iq]))+' kg</b></div>';c++;}$('#mapPrev').innerHTML=html||'<div>sem linhas de exemplo</div>';}
-function doImport(){const rows=impRows,hi=Math.max(0,parseInt($('#impHrow').value,10)-1),ie=+$('#mapEt').value,ip=+$('#mapPr').value,idd=+$('#mapDe').value,iq=+$('#mapPl').value;let n=0,comPeso=0;for(let i=hi+1;i<rows.length;i++){const r=rows[i]||[];const et=String(r[ie]||'').trim().toUpperCase();const pr=String(r[ip]||'').trim();if(!et||!pr)continue;const pl=brNum(r[iq]);if(pl>0)comPeso++;BOB[et]={pr,desc:String(r[idd]||'').trim(),pl};n++;}saveBOB();if(typeof syncBobAll==='function')syncBobAll();$('#impMap').innerHTML='';finishImport(n);if(n>0&&comPeso===0)toast('Importado, mas o peso veio zerado — confira a coluna Quantidade Produzida',false);}
+function doImport(){try{const rows=impRows,hi=Math.max(0,parseInt($('#impHrow').value,10)-1),ie=+$('#mapEt').value,ip=+$('#mapPr').value,idd=+$('#mapDe').value,iq=+$('#mapPl').value;let n=0,comPeso=0;for(let i=hi+1;i<rows.length;i++){const r=rows[i]||[];const et=String(r[ie]||'').trim().toUpperCase();const pr=String(r[ip]||'').trim();if(!et||!pr)continue;const pl=brNum(r[iq]);if(pl>0)comPeso++;BOB[et]={pr,desc:String(r[idd]||'').trim(),pl};n++;}saveBOB();if(typeof syncBobAll==='function')syncBobAll();$('#impMap').innerHTML='';finishImport(n);if(n>0&&comPeso===0)toast('Importado, mas o peso veio zerado — confira a coluna Quantidade Produzida',false);}catch(err){try{if(typeof syncBobAll==='function')syncBobAll();}catch(_){}try{toast('Deu erro ao importar ('+((err&&err.message)||err)+'). O que já entrou foi enviado p/ nuvem — toque em "Enviar p/ nuvem" e confira em outro aparelho.',false);}catch(_){}}}
 function finishImport(n){if(n>0){toast(n+' etiquetas importadas');logAct('import',n+' etiquetas');$('#impStatus').innerHTML='<p style="color:var(--in);font-size:.82rem;margin:10px 0 0;font-weight:600">✓ '+n+' etiquetas no catálogo</p>';}renderBobCatalog();}
 function bobImportUI(){return '<div class="panel" style="max-width:680px;text-align:center;border-style:dashed"><div style="color:var(--brand);font-size:2rem;display:flex;justify-content:center;margin-bottom:10px">'+ICONS.down+'</div><div style="font-weight:700;font-family:var(--disp)">Importar arquivo de etiquetas</div><p style="color:var(--muted);font-size:.82rem;margin:6px auto 16px;max-width:460px">Jogue a planilha de apontamentos (.xlsx) ou CSV. O sistema lê <b>Etiqueta</b>, <b>Produto</b> (0303…), <b>Descrição</b> e <b>Quantidade Produzida</b> (a coluna verde).</p><button class="btn brand" id="impBtn">Selecionar arquivo</button><input type="file" id="impFile" accept=".xlsx,.xls,.csv" hidden></div><div id="impStatus"></div><div id="impMap"></div><div class="toolbar" style="margin-top:18px"><div class="search"><span class="si">'+ICONS.search+'</span><input id="bobSearch" placeholder="buscar etiqueta ou produto"></div><span class="count" id="bobCount"></span></div><div class="tbl-wrap"><table class="tbl" id="bobTable"></table></div>';}
 function printBobLabel(et){const o=BOB[et];if(!o){toast('Etiqueta não encontrada',false);return;}
@@ -3105,7 +3094,7 @@ updateStageBadge();
   function f70Totals(){let q=0,kg=0,codes=0;Object.values(FLOOR70).forEach(g=>{q+=g.qtd||0;kg+=etL(g).reduce((s,x)=>s+(Number(x.pl)||0),0);codes++;});return{q,kg,codes};}
   function rebuild70(rows){var nf={},seen={};(rows||[]).forEach(function(r){var et=_e70(r.et);if(!et||seen[et])return;seen[et]=1;var pr=r.pr||'—';if(!nf[pr])nf[pr]={pr:pr,desc:r.descricao||'',qtd:0,kg:0,ets:[],at:r.at||nowISO(),by:r.by_user||''};nf[pr].ets.push({et:et,pl:Number(r.pl)||0});if((r.at||'')>(nf[pr].at||''))nf[pr].at=r.at;});Object.keys(nf).forEach(function(pr){nf[pr].qtd=nf[pr].ets.length;nf[pr].kg=nf[pr].ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);});return nf;}
   /* ---- ponte com a nuvem: tabela 'chao70' ---- */
-  function sync70(item){if(typeof supa==='undefined'||!supa||!item||!item.et)return;supa.from('chao70').upsert({et:item.et,pr:item.pr||'',descricao:item.desc||'',pl:Number(item.pl)||0,at:item.at||new Date().toISOString(),by_user:item.by||''}).then(()=>{},()=>{});}
+  function sync70(item,_t){if(typeof supa==='undefined'||!supa||!item||!item.et)return;var t=_t||0;supa.from('chao70').upsert({et:item.et,pr:item.pr||'',descricao:item.desc||'',pl:Number(item.pl)||0,at:item.at||new Date().toISOString(),by_user:item.by||''}).then(function(r){if(r&&r.error&&t<4)setTimeout(function(){sync70(item,t+1);},700*(t+1));},function(){if(t<4)setTimeout(function(){sync70(item,t+1);},700*(t+1));});}
   /* etiquetas que o operador acabou de zerar: o pull da nuvem NÃO pode trazer de volta
      enquanto o delete não confirmar (era isso que fazia o item "voltar salvo" ao zerar). */
   var _del70=Object.create(null);
@@ -5417,7 +5406,7 @@ function syncLoc(et,c){if(!supa||!et)return;supa.from('locais').upsert({etiqueta
 function syncDelLoc(et){if(!supa||!et)return;supa.from('locais').delete().eq('etiqueta',et).then(()=>{},()=>{});}
 function syncStage(it){if(!supa||!it)return;supa.from('stage').upsert({etiqueta:it.et,pr:it.pr,descricao:it.desc||'',pl:Number(it.pl)||0,at:it.at,by_user:it.by||''}).then(()=>{},()=>{});}
 function syncDelStage(et){if(!supa||!et)return;supa.from('stage').delete().eq('etiqueta',et).then(()=>{},()=>{});}
-function syncChao(item){if(!supa||!item||!item.et)return;supa.from('chao').upsert({et:item.et,pr:item.pr||'',descricao:item.desc||'',pl:Number(item.pl)||0,at:item.at||new Date().toISOString(),by_user:item.by||''}).then(()=>{},()=>{});}
+function syncChao(item,_t){if(!supa||!item||!item.et)return;var t=_t||0;supa.from('chao').upsert({et:item.et,pr:item.pr||'',descricao:item.desc||'',pl:Number(item.pl)||0,at:item.at||new Date().toISOString(),by_user:item.by||''}).then(function(r){if(r&&r.error&&t<4){setTimeout(function(){syncChao(item,t+1);},700*(t+1));}},function(){if(t<4)setTimeout(function(){syncChao(item,t+1);},700*(t+1));});}
 function syncDelChao(et,_try){if(!supa||!et)return;var t=_try||0;supa.from('chao').delete().eq('et',et).then(function(r){if(r&&r.error&&t<4){setTimeout(function(){syncDelChao(et,t+1);},600*(t+1));}else if(typeof window._floorDelClear==='function'){/* mantém o tombstone alguns segundos mesmo após confirmar, pra cobrir sync em voo */setTimeout(function(){try{window._floorDelClear(et);}catch(e){}},8000);}},function(){if(t<4)setTimeout(function(){syncDelChao(et,t+1);},600*(t+1));});}
 window._syncErrs={etq:0,rom:0,lastErr:''};
 function syncEtiqueta(e,_try){if(!supa||!e||!e.id)return;var row={id:e.id,doc_key:e.nf||'',doc_type:e.nRomaneio?'romaneio':(e.addr?'vaga':'nf'),n_nf:e.nNF||'',n_romaneio:e.nRomaneio||'',cliente:e.cliente||'',bobina:e.bobina||'',op:e.op||'',lote:e.lote||'',addr:e.addr||'',gramatura:e.gramatura||e.xProd||'',c_prod:e.cProd||'',u_com:e.uCom||'',kg:Number(e.kg)||0,peso_bruto:Number(e.pesoBruto)||0,vol:Number(e.vol)||0,vol_tot:Number(e.volTot)||0,idx:Number(e.idx)||0,status:e.status||'',hist:e.hist||[],updated_at:new Date().toISOString()};
@@ -5627,7 +5616,7 @@ function startAutoSync(){clearInterval(_autoSyncTimer);_autoSyncTimer=setInterva
   if(lb&&x&&!document.getElementById('spZebra')){const b=document.createElement('button');b.id='spZebra';b.className='gbtn';b.style.cssText='width:100%;justify-content:center;margin-top:10px';b.innerHTML=ICONS.print+' Imprimir na Zebra (100×150)';b.onclick=()=>printZebra([code(x)],x.w,ZSIZES.z150);(document.getElementById('spRast')||lb).after(b);}};
 })();
 /* injeta indicador + botão migrar no topo */
-(function(){const tb=document.querySelector('.topbar');if(!tb)return;const u=document.getElementById('userBtn');const chip=document.createElement('div');chip.id='netChip';chip.style.cssText='font-size:.78rem;font-weight:700;color:var(--faint);white-space:nowrap';chip.textContent='● offline';const btn=document.createElement('button');btn.className='gbtn';btn.id='cloudPush';btn.style.cssText='padding:8px 12px';btn.textContent='↥ Enviar p/ nuvem';btn.onclick=()=>pushAll(btn);tb.insertBefore(chip,u);tb.insertBefore(btn,u);})();
+(function(){const tb=document.querySelector('.topbar');if(!tb)return;const u=document.getElementById('userBtn');const chip=document.createElement('div');chip.id='netChip';chip.style.cssText='font-size:.78rem;font-weight:700;color:var(--faint);white-space:nowrap';chip.textContent='● offline';const btn=document.createElement('button');btn.className='gbtn';btn.id='cloudPush';btn.style.cssText='padding:8px 12px';btn.textContent='↥ Enviar p/ nuvem';btn.onclick=()=>{try{if(typeof reenviarPendentes==='function')reenviarPendentes();}catch(e){}pushAll(btn);};tb.insertBefore(chip,u);tb.insertBefore(btn,u);})();
 /* ===== bloqueio de tela quando cai a internet ===== */
 function netBlockShow(){var b=document.getElementById('netBlock');if(b)b.style.display='flex';}
 function netBlockHide(){var b=document.getElementById('netBlock');if(b)b.style.display='none';}
@@ -5641,7 +5630,9 @@ async function checkNet(){
   var ctrl=new AbortController();var to=setTimeout(function(){ctrl.abort();},6000);
   await fetch(SUPA_URL+'/rest/v1/',{method:'HEAD',headers:{apikey:SUPA_KEY},signal:ctrl.signal});
   clearTimeout(to);
+  var _voltou=(window._netState==='off'); /* estava offline e agora respondeu = conexão voltou */
   netBlockHide();
+  if(_voltou){try{setNet('sync');}catch(e){}try{if(typeof pullAll==='function')pullAll();}catch(e){}try{if(typeof reenviarPendentes==='function')reenviarPendentes();}catch(e){}}
  }catch(e){
   netBlockShow();
  }
@@ -5672,7 +5663,19 @@ loadSupa().then(()=>{
 /* ao voltar pra aba (celular/tablet que estava em segundo plano): puxa na hora e religa o realtime se precisar */
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&supa){checkNet();try{pullAll();}catch(e){}if(!_rtOk){try{startRealtime();}catch(e){}}}});
 /* ao reconectar a internet: destrava, puxa e religa o realtime */
-window.addEventListener('online',function(){setNet('sync');checkNet();if(supa){try{pullAll();}catch(e){}try{startRealtime();}catch(e){}}});
+window.addEventListener('online',function(){setNet('sync');checkNet();if(supa){try{pullAll();}catch(e){}try{startRealtime();}catch(e){}try{if(typeof reenviarPendentes==='function')reenviarPendentes();}catch(e){}}});
+/* REENVIO ao reconectar: empurra de novo o chão, o chão 70 e as etiquetas locais — cobre o caso do
+   Wi-Fi cair na hora do bipe (o dado fica salvo no aparelho e sobe sozinho quando a conexão volta). */
+function reenviarPendentes(){try{
+  if(typeof supa==='undefined'||!supa)return;
+  var n=0;
+  try{if(typeof FLOOR!=='undefined'&&FLOOR)Object.keys(FLOOR).forEach(function(pr){var g=FLOOR[pr];var ets=(typeof etList==='function')?etList(g):(g.ets||[]);ets.forEach(function(x){if(typeof syncChao==='function'){syncChao({et:x.et,pr:pr,desc:g.desc||'',pl:x.pl,at:g.at,by:g.by||''});n++;}});});}catch(e){}
+  try{if(typeof FLOOR70!=='undefined'&&FLOOR70)Object.keys(FLOOR70).forEach(function(pr){var g=FLOOR70[pr];var ets=(typeof etL==='function')?etL(g):(g.ets||[]);ets.forEach(function(x){if(typeof sync70==='function'){sync70({et:x.et,pr:pr,desc:g.desc||'',pl:x.pl,at:g.at,by:g.by||''});n++;}});});}catch(e){}
+  try{var st=window.nfGetState&&window.nfGetState();if(st&&st.ETQ&&typeof syncEtiqueta==='function'){Object.keys(st.ETQ).forEach(function(id){syncEtiqueta(st.ETQ[id]);n++;});}}catch(e){}
+  try{if(n&&typeof toast==='function')toast('Reenviando '+n+' registro(s) para a nuvem…');}catch(e){}
+  return n;
+}catch(e){return 0;}}
+window.reenviarPendentes=reenviarPendentes;
 /* ao cair a internet: congela a tela na hora */
 window.addEventListener('offline',function(){setNet('off');netBlockShow();});
 /* verifica a cada 10s se a net voltou (pra destravar sozinho) ou caiu */

@@ -5323,9 +5323,20 @@ window.cleanScanCode=function(v,kind){
    document.getElementById('scanReader').innerHTML='';
    h5=new Html5Qrcode('scanReader',{verbose:false});
    const config={fps:20,qrbox:(w,hh)=>{const m=Math.min(w,hh),s=Math.max(180,Math.floor(m*0.8));return {width:s,height:s};},aspectRatio:1.3333,rememberLastUsedCamera:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true}};
-   /* pede resolução maior + foco contínuo → lê QR menor e de mais longe, com mais nitidez */
-   var _camCon={facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720},advanced:[{focusMode:'continuous'},{focusMode:'auto'}]};
-   try{await h5.start(_camCon,config,txt=>hit(txt),()=>{});}catch(_ce){await h5.start({facingMode:'environment'},config,txt=>hit(txt),()=>{});}
+   /* tenta abrir a câmera de forma SEGURA: uma config por vez, recriando a instância limpa entre
+      as tentativas + pausa curta — evita o erro "already under transition" (colisão de start duplo). */
+   var _tries=[{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},{facingMode:'environment'},{facingMode:'user'}];
+   var _ok=false,_err=null;
+   for(var _ti=0;_ti<_tries.length&&!_ok;_ti++){
+     try{
+       if(h5){try{await h5.stop();}catch(e){}try{await h5.clear();}catch(e){}}
+       document.getElementById('scanReader').innerHTML='';
+       h5=new Html5Qrcode('scanReader',{verbose:false});
+       await h5.start(_tries[_ti],config,function(txt){hit(txt);},function(){});
+       _ok=true;
+     }catch(_e){_err=_e;await new Promise(function(r){setTimeout(r,350);});}
+   }
+   if(!_ok)throw (_err||new Error('não abriu'));
    try{_tuneCam(h5);}catch(e){}
    hint('Aponte para o QR do endereço (ou código da bobina)');
   }catch(e){

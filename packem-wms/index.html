@@ -5653,7 +5653,7 @@ function autoSyncTick(){
   _syncing=true;_syncStart=Date.now();_tickN++;
   var full=(_tickN%12===0); // pull completo (pesado) a cada ~30s; o resto é leve e rápido
   var p=full?pullAll(true):pullLight();
-  p.then(function(ok){setNet(ok?'on':'off');},function(){setNet('off');}).then(function(){_syncing=false;},function(){_syncing=false;});
+  p.then(function(ok){if(ok){window._lastPullOkAt=Date.now();}setNet(ok?'on':'off');},function(){setNet('off');}).then(function(){_syncing=false;},function(){_syncing=false;});
  }catch(e){_syncing=false;}
 }
 let _autoSyncTimer=null;
@@ -5675,7 +5675,7 @@ function startAutoSync(){clearInterval(_autoSyncTimer);_autoSyncTimer=setInterva
   if(lb&&x&&!document.getElementById('spZebra')){const b=document.createElement('button');b.id='spZebra';b.className='gbtn';b.style.cssText='width:100%;justify-content:center;margin-top:10px';b.innerHTML=ICONS.print+' Imprimir na Zebra (100×150)';b.onclick=()=>printZebra([code(x)],x.w,ZSIZES.z150);(document.getElementById('spRast')||lb).after(b);}};
 })();
 /* injeta indicador + botão migrar no topo */
-(function(){const tb=document.querySelector('.topbar');if(!tb)return;const u=document.getElementById('userBtn');const chip=document.createElement('div');chip.id='netChip';chip.style.cssText='font-size:.78rem;font-weight:700;color:var(--faint);white-space:nowrap';chip.textContent='● offline';const btn=document.createElement('button');btn.className='gbtn';btn.id='cloudPush';btn.style.cssText='padding:8px 12px';btn.textContent='↥ Enviar p/ nuvem';btn.onclick=()=>pushAll(btn);tb.insertBefore(chip,u);tb.insertBefore(btn,u);})();
+(function(){const tb=document.querySelector('.topbar');if(!tb)return;const u=document.getElementById('userBtn');const chip=document.createElement('div');chip.id='netChip';chip.style.cssText='font-size:.78rem;font-weight:700;color:var(--faint);white-space:nowrap;cursor:pointer';chip.title='Toque para diagnóstico do ao vivo';chip.textContent='● offline';chip.onclick=function(){try{var rt=(typeof _rtOk!=='undefined'&&_rtOk);var lastMs=window._lastPullOkAt||0;var last=lastMs?(Math.round((Date.now()-lastMs)/1000)+'s atrás'):'ainda não';var on=(navigator.onLine!==false)?'sim':'não';var ticks=(typeof _tickN!=='undefined'?_tickN:0);var msg='DIAGNÓSTICO DO AO VIVO\n\n'+'• Internet neste aparelho: '+on+'\n'+'• Realtime (empurra na hora): '+(rt?'CONECTADO ✓':'NÃO conectado')+'\n'+'• Última leitura da nuvem: '+last+'\n'+'• Sincronizações feitas: '+ticks+'\n\n'+(rt?'O ao vivo instantâneo está funcionando. Se ainda sentir atraso, é sinal de Wi-Fi.':'ATENÇÃO: o Realtime NÃO está conectado. As mudanças ainda aparecem a cada poucos segundos (pela atualização automática), mas não no exato instante. Pra ficar 100% instantâneo, precisa habilitar Realtime/Replication nas tabelas no painel do Supabase (Database → Replication).');alert(msg);}catch(e){alert('Diagnóstico indisponível: '+e);}};const btn=document.createElement('button');btn.className='gbtn';btn.id='cloudPush';btn.style.cssText='padding:8px 12px';btn.textContent='↥ Enviar p/ nuvem';btn.onclick=()=>pushAll(btn);tb.insertBefore(chip,u);tb.insertBefore(btn,u);})();
 /* ===== bloqueio de tela quando cai a internet ===== */
 function netBlockShow(){var b=document.getElementById('netBlock');if(b)b.style.display='flex';}
 function netBlockHide(){var b=document.getElementById('netBlock');if(b)b.style.display='none';}

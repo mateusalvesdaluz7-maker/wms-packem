@@ -5485,7 +5485,7 @@ async function pushAll(btn){if(!supa){toast('Sem conexão com a nuvem',false);re
  if(btn){btn.disabled=false;btn.textContent='↥ Enviar p/ nuvem';}}
 async function pgAll(table,order){var out=[],from=0,page=1000;for(;;){
   var r=null,tries=0;
-  var _maxTry=(navigator.onLine===false)?1:3;while(tries<_maxTry){var q=supa.from(table).select('*').range(from,from+page-1);if(order)q=q.order(order,{ascending:false});r=await q;if(!r||!r.error)break;tries++;if(tries<_maxTry)await new Promise(function(res){setTimeout(res,500*tries);});}
+  var _maxTry=(navigator.onLine===false)?1:3;while(tries<_maxTry){var q=supa.from(table).select('*').range(from,from+page-1);if(order)q=q.order(order,{ascending:false});r=await Promise.race([q,new Promise(function(res){setTimeout(function(){res({data:null,error:{message:'timeout',code:'TIMEOUT'}});},9000);})]);if(!r||!r.error)break;tries++;if(tries<_maxTry)await new Promise(function(res){setTimeout(res,500*tries);});}
   if(r&&r.error){
     /* guarda o erro de leitura (ex: RLS/permissão) para avisar na tela */
     try{window._cloudReadErr={table:table,msg:(r.error.message||r.error.code||'erro'),code:r.error.code||''};}catch(e){}
@@ -5627,7 +5627,7 @@ async function pullLight(){
   // movimentos recentes (LEVE): só os últimos 40, pras telas ao vivo (VSM/Rastreador) — sem baixar milhares
   var _mvNew=0;
   try{
-   var _mvr=await supa.from('movimentos').select('*').order('at',{ascending:false}).limit(40);
+   var _mvr=await Promise.race([supa.from('movimentos').select('*').order('at',{ascending:false}).limit(40),new Promise(function(res){setTimeout(function(){res({data:null,error:{message:'timeout'}});},9000);})]);
    if(_mvr&&_mvr.data&&_mvr.data.length){
     var _seen={};MV.forEach(function(m){if(m&&m.id)_seen[m.id]=1;});
     var _add=[];
@@ -5641,7 +5641,7 @@ async function pullLight(){
   updateStageBadge();return true;
  }catch(e){return false;}
 }
-var _syncing=false,_tickN=0;
+var _syncing=false,_tickN=0,_syncStart=0;
 function autoSyncTick(){
  try{
   if(!supa)return;
@@ -5649,11 +5649,11 @@ function autoSyncTick(){
   if(navigator.onLine===false){setNet('off');return;} // offline: não tenta (evita travar)
   var drawerAberto=document.querySelector('#drawer.show');
   if(drawerAberto)return; // não recarrega enquanto edita algo num painel
-  if(_syncing)return; // não empilha: só um pull por vez
-  _syncing=true;_tickN++;
+  if(_syncing){ if(Date.now()-_syncStart>15000){_syncing=false;} else return; } // cão de guarda: se um pull pendurou >15s, destrava e segue
+  _syncing=true;_syncStart=Date.now();_tickN++;
   var full=(_tickN%12===0); // pull completo (pesado) a cada ~30s; o resto é leve e rápido
   var p=full?pullAll(true):pullLight();
-  p.then(function(ok){setNet(ok?'on':'off');},function(){}).then(function(){_syncing=false;},function(){_syncing=false;});
+  p.then(function(ok){setNet(ok?'on':'off');},function(){setNet('off');}).then(function(){_syncing=false;},function(){_syncing=false;});
  }catch(e){_syncing=false;}
 }
 let _autoSyncTimer=null;

@@ -5635,9 +5635,26 @@ async function pullLight(){
     if(_add.length){_mvNew=_add.length;MV=_add.concat(MV);MV.sort(function(a,b){return (b.at||'')<(a.at||'')?-1:((b.at||'')>(a.at||'')?1:0);});if(MV.length>20000)MV.length=20000;DB.saveMovs(MV);}
    }
   }catch(e){}
+  // espaços recentes (LEVE): só as vagas mudadas há pouco (armazenagem/movimento), pra refletir no mapa/estoque em ~2s sem baixar milhares
+  var _spNew=0;
+  try{
+   var _spr=await Promise.race([supa.from('espacos').select('*').order('upd',{ascending:false}).limit(200),new Promise(function(res){setTimeout(function(){res({data:null});},9000);})]);
+   if(_spr&&_spr.data&&_spr.data.length){
+    var _byId={};S.forEach(function(x){_byId[x.id]=x;});
+    _spr.data.forEach(function(r){
+     if(!r.upd)return; // vaga nunca mexida: ignora
+     var cloud={id:r.id,w:r.w,s:r.s,l:r.l,p:r.p,pr:r.pr||'',q:cleanQ(r.q),u:r.u||'KG',o:!!r.o,src:r.src||'',upd:r.upd||'',by:r.by_user||''};
+     var loc=_byId[r.id];
+     if(!loc){S.push(cloud);_spNew++;return;}
+     var _lu=String(loc.upd||''),_cu=String(cloud.upd||'');
+     if(!guard && _cu && (!_lu || _cu>_lu)){var i=S.indexOf(loc);if(i>=0){S[i]=cloud;_spNew++;}} // aplica só se a nuvem é comprovadamente mais nova e não estou gravando agora
+    });
+    if(_spNew){DB.saveSpaces(S);}
+   }
+  }catch(e){}
   /* re-render ao vivo com os IDs CERTOS: recebimento (v-recv), chão (v-floor), chão70 (v-floor70) toda vez;
-     VSM (v-vsm) e Rastreador-tabela (v-track) só quando chegou movimento novo (pra não resetar à toa) */
-  if(session){var _ae=document.activeElement;var _dig=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');var _drw=document.querySelector('#drawer.show');if(!_dig&&!_drw){var v=document.querySelector('.view.active');if(v){var _live=(v.id==='v-recv'||v.id==='v-floor'||v.id==='v-floor70');var _mov=(v.id==='v-vsm'||v.id==='v-track');if(_live||(_mov&&_mvNew))render(v.id);}}}
+     VSM/track só quando chegou movimento novo; mapa/estoque/dashboard só quando vaga mudou (pra não resetar à toa) */
+  if(session){var _ae=document.activeElement;var _dig=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');var _drw=document.querySelector('#drawer.show');if(!_dig&&!_drw){var v=document.querySelector('.view.active');if(v){var _live=(v.id==='v-recv'||v.id==='v-floor'||v.id==='v-floor70');var _mov=(v.id==='v-vsm'||v.id==='v-track');var _sp=(v.id==='v-home'||v.id==='v-board'||v.id==='v-stock'||v.id==='v-abc');if(_live||(_mov&&_mvNew)||(_sp&&_spNew))render(v.id);}}}
   updateStageBadge();return true;
  }catch(e){return false;}
 }

@@ -2538,7 +2538,7 @@ const _rlbl=render;render=function(id){const x=_rlbl(id);if(id==='v-labels')setT
 /* ===== RECEBIMENTO / ESTOQUE INTERMEDIÁRIO ===== */
 ICONS.inbox='<svg class="i" viewBox="0 0 24 24"><path d="M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 13h5l1 3h6l1-3h5"/></svg>';
 let STAGE=[];try{STAGE=JSON.parse(localStorage.getItem('wmsx_stage'))||[];}catch(e){STAGE=[];}
-function saveStage(){localStorage.setItem('wmsx_stage',JSON.stringify(STAGE));}
+function saveStage(){localStorage.setItem('wmsx_stage',JSON.stringify(STAGE));try{if(typeof markLocalWrite==='function')markLocalWrite();}catch(e){}}
 function updateStageBadge(){const n=document.querySelector('.nav[data-view="v-recv"]');if(!n)return;let b=n.querySelector('.badge');if(!STAGE.length){if(b)b.remove();return;}if(!b){b=document.createElement('span');b.className='badge';b.style.cssText='margin-left:auto;background:var(--brand);color:#fff;font-size:.66rem;font-weight:700;padding:1px 8px;border-radius:999px;font-family:var(--mono)';n.appendChild(b);}b.textContent=STAGE.length;}
 function freeStored(et){
  if(!et||typeof LOC==='undefined'||!LOC[et])return null;
@@ -5485,7 +5485,7 @@ async function pushAll(btn){if(!supa){toast('Sem conexão com a nuvem',false);re
  if(btn){btn.disabled=false;btn.textContent='↥ Enviar p/ nuvem';}}
 async function pgAll(table,order){var out=[],from=0,page=1000;for(;;){
   var r=null,tries=0;
-  while(tries<4){var q=supa.from(table).select('*').range(from,from+page-1);if(order)q=q.order(order,{ascending:false});r=await q;if(!r||!r.error)break;tries++;await new Promise(function(res){setTimeout(res,500*tries);});}
+  var _maxTry=(navigator.onLine===false)?1:3;while(tries<_maxTry){var q=supa.from(table).select('*').range(from,from+page-1);if(order)q=q.order(order,{ascending:false});r=await q;if(!r||!r.error)break;tries++;if(tries<_maxTry)await new Promise(function(res){setTimeout(res,500*tries);});}
   if(r&&r.error){
     /* guarda o erro de leitura (ex: RLS/permissão) para avisar na tela */
     try{window._cloudReadErr={table:table,msg:(r.error.message||r.error.code||'erro'),code:r.error.code||''};}catch(e){}
@@ -5607,14 +5607,54 @@ function startRealtime(){if(!supa)return;
 }
 /* rede de segurança: mesmo se o realtime falhar, puxa tudo da nuvem periodicamente.
    pausa quando há um painel/drawer aberto pra não atrapalhar o que você está fazendo. */
+/* pull LEVE: só o que muda ao vivo (recebimento + chão + chão70). Não baixa espaços/movimentos/
+   catálogo — isso é pesado e só é puxado no pull completo (ao abrir/trocar aba/reconectar). */
+async function pullLight(){
+ if(!supa)return false;
+ if(navigator.onLine===false)return false;
+ var guard=_writeGuardActive();
+ try{
+  const sg=await pgAll('stage');if(!guard){STAGE=sg.map(r=>({et:r.etiqueta,pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0,at:r.at,by:r.by_user||''}));saveStage();}
+  try{window._cloudReadErr=null;}catch(e){}
+  const ch=await pgAll('chao');
+  var _errCh=(window._cloudReadErr&&window._cloudReadErr.table==='chao')?window._cloudReadErr:null;
+  if(typeof window.floorPullCloud==='function')window.floorPullCloud(ch,_errCh);
+  try{window._cloudReadErr=null;}catch(e){}
+  const ch70=await pgAll('chao70');
+  var _err70=(window._cloudReadErr&&window._cloudReadErr.table==='chao70')?window._cloudReadErr:null;
+  if(typeof window.floor70PullCloud==='function')window.floor70PullCloud(ch70,_err70);
+  /* re-renderiza SÓ se a aba aberta é uma das telas ao vivo (não redesenha o mapa pesado à toa) */
+  // movimentos recentes (LEVE): só os últimos 40, pras telas ao vivo (VSM/Rastreador) — sem baixar milhares
+  var _mvNew=0;
+  try{
+   var _mvr=await supa.from('movimentos').select('*').order('at',{ascending:false}).limit(40);
+   if(_mvr&&_mvr.data&&_mvr.data.length){
+    var _seen={};MV.forEach(function(m){if(m&&m.id)_seen[m.id]=1;});
+    var _add=[];
+    _mvr.data.forEach(function(r){if(!_seen[r.id])_add.push({id:r.id,action:r.action,w:r.w,code:r.code,pr:r.pr,q:Number(r.q)||0,u:r.u,et:r.et||'',before:Number(r.before_q)||0,after:Number(r.after_q)||0,at:r.at,by:r.by_user||''});});
+    if(_add.length){_mvNew=_add.length;MV=_add.concat(MV);MV.sort(function(a,b){return (b.at||'')<(a.at||'')?-1:((b.at||'')>(a.at||'')?1:0);});if(MV.length>20000)MV.length=20000;DB.saveMovs(MV);}
+   }
+  }catch(e){}
+  /* re-render ao vivo com os IDs CERTOS: recebimento (v-recv), chão (v-floor), chão70 (v-floor70) toda vez;
+     VSM (v-vsm) e Rastreador-tabela (v-track) só quando chegou movimento novo (pra não resetar à toa) */
+  if(session){var _ae=document.activeElement;var _dig=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');var _drw=document.querySelector('#drawer.show');if(!_dig&&!_drw){var v=document.querySelector('.view.active');if(v){var _live=(v.id==='v-recv'||v.id==='v-floor'||v.id==='v-floor70');var _mov=(v.id==='v-vsm'||v.id==='v-track');if(_live||(_mov&&_mvNew))render(v.id);}}}
+  updateStageBadge();return true;
+ }catch(e){return false;}
+}
+var _syncing=false,_tickN=0;
 function autoSyncTick(){
  try{
   if(!supa)return;
   if(document.hidden)return; // aba em segundo plano: não gasta rede
+  if(navigator.onLine===false){setNet('off');return;} // offline: não tenta (evita travar)
   var drawerAberto=document.querySelector('#drawer.show');
   if(drawerAberto)return; // não recarrega enquanto edita algo num painel
-  pullAll(true).then(function(ok){setNet(ok?'on':'off');},function(){});
- }catch(e){}
+  if(_syncing)return; // não empilha: só um pull por vez
+  _syncing=true;_tickN++;
+  var full=(_tickN%12===0); // pull completo (pesado) a cada ~30s; o resto é leve e rápido
+  var p=full?pullAll(true):pullLight();
+  p.then(function(ok){setNet(ok?'on':'off');},function(){}).then(function(){_syncing=false;},function(){_syncing=false;});
+ }catch(e){_syncing=false;}
 }
 let _autoSyncTimer=null;
 function startAutoSync(){clearInterval(_autoSyncTimer);_autoSyncTimer=setInterval(autoSyncTick,2500);}

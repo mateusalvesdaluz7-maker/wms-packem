@@ -1375,7 +1375,13 @@ $('#logBtn').onclick=()=>{try{
   const f=US.find(x=>x&&(x.u||'').toLowerCase()===u.toLowerCase()&&x.p===p&&x.active!==false);
   if(!f){logErr('Usuário ou senha incorretos — tente de novo');$('#logPass').value='';$('#logPass').focus();return;}
   $('#logHint').textContent='';$('#logHint').style.color='';
-  session={u:f.u,role:f.role};logAct('login',f.u);$('#login').style.display='none';applyPerms();refreshUser();go('v-home');$('#logPass').value='';
+  session={u:f.u,role:f.role};
+  try{logAct('login',f.u);}catch(e){}
+  $('#login').style.display='none';
+  try{applyPerms();}catch(e){console.error('applyPerms',e);}
+  try{refreshUser();}catch(e){console.error('refreshUser',e);}
+  try{go('v-home');}catch(e){console.error('go home',e);try{go('v-recv');}catch(e2){}}
+  $('#logPass').value='';
 }catch(err){console.error('login',err);logErr('Erro ao entrar — atualize a página (Ctrl+Shift+R) e tente de novo');}};
 $('#logUser').addEventListener('input',()=>{$('#logHint').textContent='';});
 $('#logPass').addEventListener('input',()=>{$('#logHint').textContent='';});
@@ -3353,6 +3359,12 @@ updateStageBadge();
      Casamento exato (ignora acento, caixa e espaços repetidos). Ambíguos NÃO convertem e avisam. */
   var CONV_MAP={"167 X 91":{"cod":"0303410035","desc":"ALCA PET 1000 KGF 70MM CRISTAL"},"66 X 65":{"cod":"0303480154","desc":"TEC.TUBULAR PP LAM.54G+12GX65CM BR EXT.02"},"137 X 97":{"cod":"0303550015","desc":"TEC.PLANO PP 140G X 97CM - EXT-02"},"66 X 97":{"cod":"0303480152","desc":"TEC. PLANO PP LAM. 54+12G 97CM BRANCO EXT-02"},"155 X 360":{"cod":"0303450156","desc":"TEC.TUBULAR PP 156G 360CM BRANCO EXT 02"},"66 X 45":{"cod":"0303480153","desc":"TEC.TUBULAR PP LAM.54+12G X 45CM BRANCO"},"137 X 105":{"cod":"0303490013","desc":"TEC.PLANO PP 140G 105CM BRANCO"},"155 X 396":{"cod":"0303450157","desc":"TEC.TUBULAR PP 156G 396CM BRANCO EXT-02"},"66 X 55":{"cod":"0303480107","desc":"TEC.TUBULAR PP LAM. 54+12G 55CM BRANCO EXT-01"},"167 X 198":{"cod":"0303450137","desc":"TEC.TUBULAR PET 165G X 392CM CRISTAL R.ALCA"},"97 X 62":{"cod":"0303480151","desc":"TEC.TUB LAM. PET 70+30G 62CM CRISTAL COMPRADO-02"},"167 X 178":{"cod":"0303450132","desc":"TECIDO TUBULAR PET 165GX356CM CRISTAL"},"167 X 100":{"cod":"0303470059","desc":"TEC.PLANO PET 160G 100CM CRISTAL"},"87 X 65":{"cod":"0303480148","desc":"TEC.TUBULAR LAM. PET 70+30G 65CM CRISTAL- INTERNO"},"167 X 97":{"cod":"0303470108","desc":"TEC.PLANO PET 160G 97M CRISTAL"},"177 X 178":{"cod":"0303450132","desc":"TECIDO TUBULAR PET 165GX356CM CRISTAL"},"87 X 103":{"cod":"0303480078","desc":"TEC.PLANO LAM. PET 70+20G 105CM CRISTAL"},"167 X 107":{"cod":"0303470074","desc":"TEC.PLANO PET 160G 105CM CRISTAL"},"54 X 97":{"cod":"0303490095","desc":"TEC.PLANO PP 54G 97CM BRANCO EXT-02"},"54 X 45":{"cod":"0303490098","desc":"TEC.TUBULAR PP 54G 45CM BRANCO EXT-02"},"54 X 55":{"cod":"0303490094","desc":"TEC.TUBULAR PP 54G 55CM BRANCO EXT-02"},"54 X 65":{"cod":"0303490099","desc":"TEC.TUBULAR PP 54G 65CM BRANCO EXT-03"},"POLIPROPILENO":{"cod":"101120035","desc":"POLIPROPILENO PG 480 BR25 - BF"},"POLIPROPILENO H-503 HS":{"cod":"101110007","desc":"POLIPROPILENO HOMOPOLIMERO BRASKEM H503HS-AF"},"POLIETILENO BAIXA DENSIDADE IPHETENE 670":{"cod":"101110033","desc":"POLIETILENO BAIXA DENSIDADE IPHETENE 670"},"POLOPROPILENO COPOLIMERO 2500 E":{"cod":"101000013","desc":"POLIPROPILENO COPOLIMERO 2500 E PETROCUYO"},"PEDB FILME IND - IPETHENE100":{"cod":"101110011","desc":"POLIETILENO BAIXA DENSIDADE IPHETENE 100"},"PEBD COATING 7019EC":{"cod":"101110063","desc":"POLIETILENO BAIXA DENSIDADE COATING - 7019EC"},"POLIPROPILENO RP 144":{"cod":"101110016","desc":"POLIPROPILENO COPOLIMERO BRASKEM PP RP144"},"POLOPROPILENO H107":{"cod":"101110012","desc":"POLIPROPILENO HOMOPOLIMERO BRASKEM H107-AF"},"POLIPROPILENO H 103":{"cod":"101110021","desc":"POLIPROPILENO HOMOPOLIMERO BRASKEM H103-AF"},"MLLDPE 7118A":{"cod":"101210004","desc":""},"METALOCENO 7115A":{"cod":"101120037","desc":"METALOCENO 7115A"},"POLIETILENO BC 818":{"cod":"101110010","desc":"POLIETILENO BAIXA DENSIDADE BRASKEM BC818"},"97 X 97":{"cod":"0303480171","desc":"TEC.TUBULAR LAM.PET 70G+20G 97CM CRISTAL - EXTERNO"}};
   var CONV_AMB={"SUCATA PET":["103580008 - PET FLAKE AZUL","103580003 - PET FLAKE CRISTAL"]};
+  var CONV_BY_COD={};
+  try{
+    Object.keys(CONV_MAP).forEach(function(k){var v=CONV_MAP[k];if(v&&v.cod)CONV_BY_COD[String(v.cod).trim()]=v.desc||'';});
+    Object.keys(CONV_AMB).forEach(function(k){(CONV_AMB[k]||[]).forEach(function(s){var p=String(s).split(' - ');if(p.length>=2)CONV_BY_COD[p[0].trim()]=p.slice(1).join(' - ').trim();});});
+  }catch(e){}
+  window.convDescByCod=function(cod){try{cod=String(cod||'').trim();return CONV_BY_COD[cod]||'';}catch(e){return '';}};
   function convNorm(s){try{s=String(s==null?'':s).toUpperCase();s=s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');s=s.replace(/\s+/g,' ').trim();return s;}catch(e){return String(s||'').toUpperCase().trim();}}
   /* extrai as medidas do texto do romaneio: "ART MAT PLAST 137GM² 97CM" → "137 X 97" (gramatura X largura) */
   function convExtraiMedidas(gram){
@@ -6904,7 +6916,8 @@ function rastQRPayload(e){
 function zEtqCard(e,dim,H,u,kind){
  var W=H*dim.w/dim.h;var f=function(k){return (Math.round(H*k*100)/100)+u;};
  var isRom=kind==='rom';
- var desc=isRom?(e.xProd||e.gramatura||''):(e.xProd||nfDescByCode(e.cProd)||'');
+ var _cdesc=(typeof window.convDescByCod==='function')?window.convDescByCod(e.cProd):'';
+ var desc=isRom?(_cdesc||e.xProd||e.gramatura||''):(_cdesc||e.xProd||nfDescByCode(e.cProd)||'');
  var top='RASTREIO';
  var unit=isRom?'kg':rastUnit(e,desc);
  /* CÓDIGO grande = código Packem (cProd) ou bobina; nunca o id comprido de rastreio */
@@ -8527,69 +8540,154 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
 /* ===================== MODO INVENTÁRIO · contagem cíclica guiada com curva ABC ===================== */
 (function(){
   var IKEY='wmsx_inv';
+  var IHIST='wmsx_inv_hist';
   function loadInv(){try{return JSON.parse(localStorage.getItem(IKEY))||null;}catch(e){return null;}}
   function saveInv(o){try{if(o)localStorage.setItem(IKEY,JSON.stringify(o));else localStorage.removeItem(IKEY);}catch(e){}}
+  function loadInvHist(){try{return JSON.parse(localStorage.getItem(IHIST))||[];}catch(e){return [];}}
+  function saveInvHist(a){try{localStorage.setItem(IHIST,JSON.stringify((a||[]).slice(0,50)));}catch(e){}}
   function _clsDe(pr){try{var d=abcData();var r=(d.arr||[]).find(function(x){return x.pr===pr;});return r?r.cls:'C';}catch(e){return 'C';}}
-  function _alvos(sel){ /* vagas ocupadas do filtro escolhido, em ordem de percurso (rua → posição → nível) */
+  function _chaoFlat(){ /* achata o chão (expedição + 70) em itens {et,pr,pl,src} sem depender do etList interno */
+    var out=[];
+    function push(fs,src){try{Object.keys(fs||{}).forEach(function(k){var g=fs[k]||{};var pr=g.pr||'';(g.ets||[]).forEach(function(x){var et=(typeof x==='string')?x:(x&&x.et);if(!et)return;var pl=(typeof x==='string')?(BOB[x]?Number(BOB[x].pl)||0:0):(Number(x.pl)||0);out.push({et:String(et),pr:pr,pl:pl,src:src});});});}catch(e){}}
+    try{push((typeof window.floorGetState==='function')?window.floorGetState():{},'exp');}catch(e){}
+    try{push((typeof window.floor70GetState==='function')?window.floor70GetState():{},'70');}catch(e){}
+    return out;
+  }
+  function _alvos(sel){ /* itens a contar do escopo escolhido */
+    sel=sel||{};
+    if(sel.chao){
+      return _chaoFlat().map(function(x){return {id:'CHAO:'+x.src+':'+x.et,pr:x.pr,q:x.pl,_chao:x.src,_code:x.et};})
+        .sort(function(a,b){return a._code<b._code?-1:1;});
+    }
     var occ=S.filter(function(x){return x.w===cfg.warehouse&&x.o&&x.pr&&x.q>0;});
-    if(sel&&sel.rua)occ=occ.filter(function(x){return x.s===sel.rua;});
-    if(sel&&sel.cls)occ=occ.filter(function(x){return _clsDe(x.pr)===sel.cls;});
+    if(sel.rua)occ=occ.filter(function(x){return x.s===sel.rua;});
+    if(sel.cls)occ=occ.filter(function(x){return _clsDe(x.pr)===sel.cls;});
+    if(sel.prod)occ=occ.filter(function(x){return String(x.pr)===String(sel.prod);});
     return occ.sort(function(a,b){return a.s!==b.s?(a.s<b.s?-1:1):(Number(a.p)-Number(b.p)||Number(a.l)-Number(b.l));});
   }
-  window.invStart=function(sel){saveInv({sel:sel||{},at:(typeof nowISO==='function'?nowISO():new Date().toISOString()),by:(typeof session!=='undefined'&&session?session.u:''),done:{}});window.renderInv();};
+  function _alvoCode(sp){if(sp._chao)return sp._code;return (typeof code==='function')?code(sp):sp.id;}
+  function _alvoExp(sp){return Number(sp.q)||0;}
+  function _selLabel(sel){sel=sel||{};if(sel.rua)return 'Rua '+sel.rua;if(sel.cls)return 'Classe '+sel.cls;if(sel.prod)return 'Produto '+sel.prod;if(sel.all)return 'Armazém inteiro';if(sel.chao)return 'Chão (conferência)';return 'Inventário';}
+  window.invStart=function(sel,blind){saveInv({sel:sel||{},blind:!!blind,at:(typeof nowISO==='function'?nowISO():new Date().toISOString()),by:(typeof session!=='undefined'&&session?session.u:''),done:{},bip:{}});window.renderInv();};
   window.invStop=function(){saveInv(null);window.renderInv();};
   window.invMark=function(spId,found){
     var inv=loadInv();if(!inv)return;
-    var sp=S.find(function(x){return x.id===spId;});if(!sp)return;
-    var exp=Number(sp.q)||0;var f=(found==null?exp:Number(found)||0);
-    inv.done[spId]={found:f,expected:exp,pr:sp.pr,code:(typeof code==='function'?code(sp):spId),ok:Math.abs(f-exp)<0.001,at:(typeof nowISO==='function'?nowISO():new Date().toISOString())};
+    var sp=_alvos(inv.sel).find(function(x){return x.id===spId;});if(!sp)return;
+    var exp=_alvoExp(sp);var f=(found==null?exp:Number(found)||0);
+    inv.done[spId]={found:f,expected:exp,pr:sp.pr,code:_alvoCode(sp),chao:sp._chao||'',ok:Math.abs(f-exp)<0.001,at:(typeof nowISO==='function'?nowISO():new Date().toISOString())};
+    if(inv.bip)delete inv.bip[spId];
     saveInv(inv);window.renderInv();
   };
-  function _fmtq(v){return (typeof fmt==='function')?fmt(v):String(v);}
-  function _esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-
+  /* bipa uma BOBINA: acha a vaga dela (LOC), confere se está no escopo e soma o peso real no acumulador da vaga */
+  window.invBipBobina=function(et){
+    var inv=loadInv();if(!inv)return;et=(typeof norm==='function')?norm(et):String(et||'').toUpperCase();if(!et)return;
+    var info=(BOB[et]?{pr:BOB[et].pr,pl:Number(BOB[et].pl)||0}:null);
+    if(!info&&typeof window.etqLookup==='function'){var e=window.etqLookup(et);if(e)info={pr:e.pr,pl:Number(e.pl)||0};}
+    if(!info){toast('Bobina '+et+' não está no catálogo',false);return;}
+    var vaga=(typeof LOC!=='undefined'&&LOC[et])?LOC[et]:'';
+    var sp=vaga?_alvos(inv.sel).find(function(x){return _alvoCode(x)===vaga||x.id===vaga;}):null;
+    if(!sp){toast('Bobina '+et+' (registrada em '+(vaga||'sem vaga')+') não está neste escopo',false);return;}
+    inv.bip=inv.bip||{};var b=inv.bip[sp.id]||{sum:0,ets:[]};
+    if(b.ets.indexOf(et)>=0){toast('Bobina '+et+' já bipada nesta vaga',false);return;}
+    b.sum=Math.round((b.sum+info.pl)*1000)/1000;b.ets.push(et);inv.bip[sp.id]=b;
+    saveInv(inv);window.renderInv();
+    toast('Bipada '+et+' · '+_fmtq(info.pl)+' kg → '+_alvoCode(sp)+' (acum '+_fmtq(b.sum)+' kg)');
+  };
+  window.invBipUsar=function(spId){var inv=loadInv();if(!inv||!inv.bip||!inv.bip[spId])return;window.invMark(spId,inv.bip[spId].sum);};
+  function _acc(inv){ /* resumo de acuracidade */
+    var alvos=_alvos(inv.sel),tot=alvos.length,feitas=0,div=0,difKg=0;
+    alvos.forEach(function(sp){var d=inv.done[sp.id];if(d){feitas++;if(!d.ok){div++;difKg+=Math.abs((d.found||0)-(d.expected||0));}}});
+    var acertos=feitas-div;var pct=feitas?Math.round(acertos/feitas*100):0;
+    return {tot:tot,feitas:feitas,div:div,acertos:acertos,pct:pct,difKg:difKg};
+  }
+  window.invSummaryCard=function(a){
+    return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'
+      +'<div style="flex:1;min-width:110px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px"><div style="font-size:.6rem;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-weight:700">Acuracidade</div><div style="font-family:var(--disp);font-weight:800;font-size:1.7rem;line-height:1;margin-top:3px;color:'+(a.pct>=98?'var(--in)':(a.pct>=90?'var(--brand)':'var(--out,#c0392b)'))+'">'+a.pct+'%</div></div>'
+      +'<div style="flex:1;min-width:100px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px"><div style="font-size:.6rem;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-weight:700">Conferidas</div><div style="font-family:var(--disp);font-weight:800;font-size:1.7rem;line-height:1;margin-top:3px">'+a.feitas+'<span style="font-size:.8rem;color:var(--muted)"> / '+a.tot+'</span></div></div>'
+      +'<div style="flex:1;min-width:100px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px"><div style="font-size:.6rem;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-weight:700">Divergências</div><div style="font-family:var(--disp);font-weight:800;font-size:1.7rem;line-height:1;margin-top:3px;color:'+(a.div?'var(--out,#c0392b)':'var(--in)')+'">'+a.div+'</div></div>'
+      +'<div style="flex:1;min-width:110px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px"><div style="font-size:.6rem;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-weight:700">Diferença</div><div style="font-family:var(--disp);font-weight:800;font-size:1.4rem;line-height:1;margin-top:5px">'+_fmtq(a.difKg)+' <span style="font-size:.8rem;color:var(--muted)">kg</span></div></div>'
+      +'</div>';
+  };
+  function _histPush(inv,applied){
+    try{var a=_acc(inv);var h=loadInvHist();h.unshift({at:(typeof nowISO==='function'?nowISO():new Date().toISOString()),by:(typeof session!=='undefined'&&session?session.u:''),sel:_selLabel(inv.sel),tot:a.tot,feitas:a.feitas,div:a.div,pct:a.pct,difKg:Math.round(a.difKg*1000)/1000,applied:!!applied});saveInvHist(h);}catch(e){}
+  }
   window.renderInv=function(){
     var el=document.getElementById('v-inv');if(!el)return;
     var inv=loadInv();
     if(!inv){ /* tela de início: escolher o recorte da contagem */
       var ruas=[];S.forEach(function(x){if(x.w===cfg.warehouse&&ruas.indexOf(x.s)<0)ruas.push(x.s);});ruas.sort();
+      var prods=[];S.forEach(function(x){if(x.w===cfg.warehouse&&x.o&&x.pr&&x.q>0&&prods.indexOf(x.pr)<0)prods.push(x.pr);});prods.sort();
+      var hist=loadInvHist();
       el.innerHTML='<div class="ph-head"><div><p class="eb">Operação · contagem cíclica</p><h1>Inventário</h1></div></div>'
-        +'<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:16px;color:var(--muted);font-size:.84rem;line-height:1.55">Escolha o recorte e o sistema te guia <b>vaga por vaga</b>, na ordem do corredor. Confira o que está em cada uma e aponte divergências. Dica ABC: conte as vagas de <b>classe A</b> com mais frequência — são as que mais giram e mais erram.</div>'
+        +'<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:14px;color:var(--muted);font-size:.84rem;line-height:1.55">Escolha o <b>recorte</b> da contagem. Ligue a <b>contagem cega</b> para conferir sem ver o esperado (evita vício de contagem).</div>'
+        +'<label style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;cursor:pointer;font-weight:600"><input type="checkbox" id="invBlind" style="width:20px;height:20px"> Contagem cega (esconde o esperado)</label>'
         +'<div style="display:flex;gap:12px;flex-wrap:wrap">'
-        +'<div style="flex:1;min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px"><h3 style="margin:0 0 10px">Por rua</h3><select class="input" id="invRua"><option value="">Escolha a rua…</option>'+ruas.map(function(r){return '<option>'+_esc(r)+'</option>';}).join('')+'</select><button class="gbtn" id="invGoRua" style="width:100%;justify-content:center;margin-top:10px">Iniciar contagem da rua</button></div>'
-        +'<div style="flex:1;min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px"><h3 style="margin:0 0 10px">Por classe ABC</h3><div style="display:flex;gap:8px">'+['A','B','C'].map(function(c){return '<button class="gbtn" data-invcls="'+c+'" style="flex:1;justify-content:center">Classe '+c+'</button>';}).join('')+'</div><div style="color:var(--faint);font-size:.72rem;margin-top:8px">Classe A = maior giro/valor (contar com mais frequência)</div></div>'
-        +'</div>';
-      var gr=el.querySelector('#invGoRua');if(gr)gr.onclick=function(){var r=el.querySelector('#invRua').value;if(!r){toast('Escolha a rua',false);return;}window.invStart({rua:r});};
-      el.querySelectorAll('[data-invcls]').forEach(function(b){b.onclick=function(){window.invStart({cls:b.getAttribute('data-invcls')});};});
+        +'<div style="flex:1;min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px"><h3 style="margin:0 0 10px">Por rua</h3><select class="input" id="invRua"><option value="">Escolha a rua…</option>'+ruas.map(function(r){return '<option value="'+_esc(r)+'">Rua '+_esc(r)+'</option>';}).join('')+'</select><button class="btn brand" id="invGoRua" style="width:100%;height:44px;margin-top:10px">Iniciar</button></div>'
+        +'<div style="flex:1;min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px"><h3 style="margin:0 0 10px">Por classe ABC</h3><div style="display:flex;gap:8px">'+['A','B','C'].map(function(c){return '<button class="btn" data-invcls="'+c+'" style="flex:1;height:44px">Classe '+c+'</button>';}).join('')+'</div></div>'
+        +'<div style="flex:1;min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px"><h3 style="margin:0 0 10px">Por produto</h3><select class="input" id="invProd"><option value="">Escolha o produto…</option>'+prods.map(function(p){return '<option value="'+_esc(p)+'">'+_esc(p)+'</option>';}).join('')+'</select><button class="btn brand" id="invGoProd" style="width:100%;height:44px;margin-top:10px">Iniciar</button></div>'
+        +'<div style="flex:1;min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px"><h3 style="margin:0 0 10px">Armazém inteiro</h3><p style="color:var(--muted);font-size:.8rem;margin:0 0 10px">Conta todas as vagas ocupadas do '+_esc(typeof whLabel==='function'?whLabel(cfg.warehouse):'depósito')+'.</p><button class="btn brand" id="invGoAll" style="width:100%;height:44px">Iniciar tudo</button></div>'
+        +'<div style="flex:1;min-width:220px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px"><h3 style="margin:0 0 10px">Chão (conferência)</h3><p style="color:var(--muted);font-size:.8rem;margin:0 0 10px">Confere as bobinas que o sistema acha que estão no chão (expedição + 70). Marque presente ou faltou.</p><button class="btn" id="invGoChao" style="width:100%;height:44px">Conferir chão</button></div>'
+        +'</div>'
+        +(hist.length?('<div style="margin-top:18px"><h3 style="margin:0 0 10px">Histórico de contagens</h3><div style="background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden">'+hist.slice(0,10).map(function(h){return '<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--line)"><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:.9rem">'+_esc(h.sel)+'</div><div style="color:var(--faint);font-size:.72rem">'+_fdate(h.at)+(h.by?' · '+_esc(h.by):'')+(h.applied?' · ajustes aplicados':'')+'</div></div><div style="text-align:right;white-space:nowrap"><span style="font-weight:800;font-family:var(--disp);color:'+(h.pct>=98?'var(--in)':(h.pct>=90?'var(--brand)':'var(--out,#c0392b)'))+'">'+h.pct+'%</span><div style="color:var(--faint);font-size:.72rem">'+h.div+' diverg. · '+_fmtq(h.difKg)+' kg</div></div></div>';}).join('')+'</div><button class="gbtn" id="invHistClr" style="margin-top:10px;font-size:.76rem">Limpar histórico</button></div>'):'');
+      var blindEl=el.querySelector('#invBlind');function _blind(){return blindEl&&blindEl.checked;}
+      var gr=el.querySelector('#invGoRua');if(gr)gr.onclick=function(){var r=el.querySelector('#invRua').value;if(!r){toast('Escolha a rua',false);return;}window.invStart({rua:r},_blind());};
+      var gp=el.querySelector('#invGoProd');if(gp)gp.onclick=function(){var p=el.querySelector('#invProd').value;if(!p){toast('Escolha o produto',false);return;}window.invStart({prod:p},_blind());};
+      var ga=el.querySelector('#invGoAll');if(ga)ga.onclick=function(){window.invStart({all:true},_blind());};
+      var gc=el.querySelector('#invGoChao');if(gc)gc.onclick=function(){window.invStart({chao:true},false);};
+      el.querySelectorAll('[data-invcls]').forEach(function(b){b.onclick=function(){window.invStart({cls:b.getAttribute('data-invcls')},_blind());};});
+      var hc=el.querySelector('#invHistClr');if(hc)hc.onclick=function(){if(!confirm('Limpar o histórico de contagens?'))return;saveInvHist([]);window.renderInv();};
+      try{if(typeof setIcons==='function')setIcons();}catch(e){}
       return;
     }
     /* sessão em andamento */
+    var isChao=!!inv.sel.chao;var blind=!!inv.blind&&!isChao;
     var alvos=_alvos(inv.sel);
-    var tot=alvos.length,feitas=0,div=0;
-    alvos.forEach(function(sp){var d=inv.done[sp.id];if(d){feitas++;if(!d.ok)div++;}});
-    var tit=inv.sel.rua?('Rua '+inv.sel.rua):('Classe '+inv.sel.cls);
+    var a=_acc(inv);
+    var tit=_selLabel(inv.sel);
     var pend=alvos.filter(function(sp){return !inv.done[sp.id];});
     var prox=pend[0]||null;
-    el.innerHTML='<div class="ph-head"><div><p class="eb">Inventário em andamento · '+_esc(tit)+'</p><h1>'+feitas+' / '+tot+' vagas</h1></div>'
-      +'<div class="actions"><button class="gbtn" id="invCsv" data-ic="save"><span></span>Exportar divergências</button><button class="gbtn adminOnly" id="invApply"><span></span>Aplicar ajustes ('+div+')</button><button class="gbtn" id="invEnd"><span></span>Encerrar</button></div></div>'
-      +'<div style="height:8px;background:var(--card-2);border-radius:99px;overflow:hidden;margin-bottom:14px"><div style="height:100%;width:'+(tot?Math.round(feitas/tot*100):0)+'%;background:var(--brand);transition:width .3s"></div></div>'
-      +'<div style="display:flex;gap:10px;margin-bottom:14px"><input class="input" id="invBipe" placeholder="Bipe o endereço da vaga (ex: D-160-1)" style="flex:1"></div>'
-      +(prox?('<div style="background:var(--brand-dim);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:.85rem"><b>Próxima no percurso:</b> '+_esc(typeof code==='function'?code(prox):prox.id)+' · esperado '+_esc(prox.pr)+' ('+_fmtq(prox.q)+' kg)</div>'):'<div style="background:var(--in-dim);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:.9rem;font-weight:700">Contagem concluída! '+(div?div+' divergência(s) — exporte ou aplique os ajustes.':'Tudo bateu ✓')+'</div>')
-      +alvos.map(function(sp){var c=(typeof code==='function')?code(sp):sp.id;var d=inv.done[sp.id];
-        return '<div class="feed" id="inv_'+_esc(sp.id)+'"'+(d?(' style="opacity:'+(d.ok?'.55':'1')+'"'):'')+'>'
-          +'<div class="fi '+(d?(d.ok?'in':'out'):'muted')+'">'+(d?(d.ok?'✓':'≠'):'·')+'</div>'
-          +'<div class="fm"><div class="p">'+_esc(c)+'</div><div class="s">'+_esc(sp.pr)+' · esperado '+_fmtq(sp.q)+' kg'+(d&&!d.ok?(' · <b style="color:var(--out,#c0392b)">contado '+_fmtq(d.found)+' kg</b>'):'')+'</div></div>'
-          +(d?('<button class="gbtn" data-invre="'+_esc(sp.id)+'" style="padding:5px 10px;font-size:.72rem">Recontar</button>')
-              :('<div style="display:flex;gap:6px"><button class="btn in" data-invok="'+_esc(sp.id)+'" style="padding:6px 12px;font-size:.76rem">Confere ✓</button><button class="gbtn" data-invdiv="'+_esc(sp.id)+'" style="padding:6px 10px;font-size:.76rem">Divergente</button></div>'))
-          +'</div>';}).join('');
+    var html='<div class="ph-head"><div><p class="eb">Inventário em andamento · '+_esc(tit)+(blind?' · cega':'')+'</p><h1>'+a.feitas+' / '+a.tot+(isChao?' bobinas':' vagas')+'</h1></div>'
+      +'<div class="actions"><button class="gbtn" id="invCsv" data-ic="save"><span></span>Exportar divergências</button>'+(isChao?'':'<button class="gbtn adminOnly" id="invApply"><span></span>Aplicar ajustes ('+a.div+')</button>')+'<button class="gbtn" id="invEnd" data-ic="x"><span></span>Encerrar</button></div></div>';
+    html+=window.invSummaryCard(a);
+    html+='<div style="height:8px;background:var(--card-2);border-radius:99px;overflow:hidden;margin-bottom:14px"><div style="height:100%;width:'+(a.tot?Math.round(a.feitas/a.tot*100):0)+'%;background:var(--brand);transition:width .3s"></div></div>';
+    html+='<div style="display:flex;gap:10px;margin-bottom:6px"><input class="input" id="invBipe" placeholder="'+(isChao?'Bipe a bobina do chão':'Bipe o endereço da vaga OU a bobina')+'" style="flex:1"></div>';
+    html+='<div style="color:var(--faint);font-size:.72rem;margin:0 0 12px">'+(isChao?'Bipe cada bobina que estiver no chão — ela é marcada como presente.':'Endereço (ex: D-160-1) posiciona; bobina (ex: T4036…) soma o peso real na vaga dela.')+'</div>';
+    html+=(prox?('<div style="background:var(--brand-dim);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:.85rem"><b>Próxima:</b> '+_esc(_alvoCode(prox))+' · '+_esc(prox.pr)+(blind?'':(' ('+_fmtq(prox.q)+' kg)'))+'</div>'):('<div style="background:var(--in-dim);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:.9rem;font-weight:700">Contagem concluída! '+(a.div?a.div+' divergência(s) — exporte ou aplique os ajustes.':'Tudo bateu ✓')+'</div>'));
+    html+=alvos.map(function(sp){
+      var c=_alvoCode(sp);var d=inv.done[sp.id];var bip=(inv.bip&&inv.bip[sp.id])?inv.bip[sp.id]:null;
+      var sub=isChao?('no chão '+(sp._chao==='70'?'70':'exp.')):('esperado '+(blind&&!d?'—':_fmtq(sp.q)+' kg'));
+      if(d&&!d.ok)sub+=' · <b style="color:var(--out,#c0392b)">contado '+_fmtq(d.found)+' kg</b>';
+      var row='<div class="feed" id="inv_'+_esc(sp.id)+'"'+(d?(' style="opacity:'+(d.ok?'.55':'1')+'"'):'')+'>'
+        +'<div class="fi '+(d?(d.ok?'in':'out'):'muted')+'">'+(d?(d.ok?'✓':'≠'):'·')+'</div>'
+        +'<div class="fm"><div class="p">'+_esc(c)+'</div><div class="s">'+_esc(sp.pr)+' · '+sub+(bip&&!d?(' · <b style="color:var(--brand)">bipado '+_fmtq(bip.sum)+' kg ('+bip.ets.length+')</b>'):'')+'</div></div>';
+      if(d){row+='<button class="gbtn" data-invre="'+_esc(sp.id)+'" style="padding:5px 10px;font-size:.72rem">Recontar</button>';}
+      else if(isChao){row+='<div style="display:flex;gap:6px"><button class="btn in" data-invok="'+_esc(sp.id)+'" style="padding:6px 12px;font-size:.76rem">Presente ✓</button><button class="gbtn" data-invmiss="'+_esc(sp.id)+'" style="padding:6px 12px;font-size:.76rem">Faltou</button></div>';}
+      else if(bip){row+='<button class="btn brand" data-invbipuse="'+_esc(sp.id)+'" style="padding:6px 12px;font-size:.76rem">Usar '+_fmtq(bip.sum)+' kg</button>';}
+      else if(blind){row+='<div style="display:flex;gap:6px"><input class="input" data-invblind="'+_esc(sp.id)+'" placeholder="kg contado" style="width:120px;padding:6px 10px;font-size:.82rem" inputmode="decimal"><button class="btn in" data-invblindok="'+_esc(sp.id)+'" style="padding:6px 10px;font-size:.76rem">OK</button></div>';}
+      else{row+='<div style="display:flex;gap:6px"><button class="btn in" data-invok="'+_esc(sp.id)+'" style="padding:6px 12px;font-size:.76rem">Confere ✓</button><button class="gbtn" data-invdiv="'+_esc(sp.id)+'" style="padding:6px 12px;font-size:.76rem">Divergência</button></div>';}
+      row+='</div>';return row;
+    }).join('');
+    el.innerHTML=html;
     el.querySelectorAll('[data-invok]').forEach(function(b){b.onclick=function(){window.invMark(b.getAttribute('data-invok'),null);};});
-    el.querySelectorAll('[data-invdiv]').forEach(function(b){b.onclick=function(){var sp=S.find(function(x){return x.id===b.getAttribute('data-invdiv');});var v=prompt('Quantidade REAL contada em '+(typeof code==='function'?code(sp):'')+' (kg):',sp?sp.q:'');if(v==null)return;window.invMark(b.getAttribute('data-invdiv'),parseFloat(String(v).replace(',','.'))||0);};});
+    el.querySelectorAll('[data-invmiss]').forEach(function(b){b.onclick=function(){window.invMark(b.getAttribute('data-invmiss'),0);};});
+    el.querySelectorAll('[data-invbipuse]').forEach(function(b){b.onclick=function(){window.invBipUsar(b.getAttribute('data-invbipuse'));};});
+    el.querySelectorAll('[data-invdiv]').forEach(function(b){b.onclick=function(){var id=b.getAttribute('data-invdiv');var sp=alvos.find(function(x){return x.id===id;});var v=prompt('Quantidade REAL contada em '+(sp?_alvoCode(sp):'')+' (kg):',blind?'':(sp?sp.q:''));if(v==null)return;window.invMark(id,parseFloat(String(v).replace(',','.'))||0);};});
+    el.querySelectorAll('[data-invblindok]').forEach(function(b){b.onclick=function(){var id=b.getAttribute('data-invblindok');var inp=el.querySelector('[data-invblind="'+id.replace(/"/g,'')+'"]');var v=inp?inp.value:'';if(v===''){toast('Digite o kg contado',false);return;}window.invMark(id,parseFloat(String(v).replace(',','.'))||0);};});
+    el.querySelectorAll('[data-invblind]').forEach(function(inp){inp.onkeydown=function(ev){if(ev.key==='Enter'){var id=inp.getAttribute('data-invblind');window.invMark(id,parseFloat(String(inp.value).replace(',','.'))||0);}};});
     el.querySelectorAll('[data-invre]').forEach(function(b){b.onclick=function(){var inv2=loadInv();delete inv2.done[b.getAttribute('data-invre')];saveInv(inv2);window.renderInv();};});
-    var bip=el.querySelector('#invBipe');if(bip){bip.onkeydown=function(ev){if(ev.key!=='Enter')return;var c=(typeof norm==='function')?norm(bip.value):bip.value.toUpperCase();bip.value='';var sp=alvos.find(function(x){return (typeof code==='function'?norm(code(x)):x.id)===c;});if(!sp){toast('Vaga '+c+' não está nesta contagem',false);return;}var row=el.querySelector('#inv_'+CSS.escape(sp.id));if(row){row.scrollIntoView({behavior:'smooth',block:'center'});row.style.outline='2px solid var(--brand)';setTimeout(function(){row.style.outline='';},1600);}};setTimeout(function(){try{bip.focus();}catch(e){}},250);}
-    var ec=el.querySelector('#invCsv');if(ec)ec.onclick=function(){var inv2=loadInv();var dv=Object.keys(inv2.done).map(function(k){return inv2.done[k];}).filter(function(d){return !d.ok;});if(!dv.length){toast('Sem divergências',false);return;}var h=['Vaga','Produto','Esperado_kg','Contado_kg','Diferenca_kg','Hora'];var rows=dv.map(function(d){return [d.code,d.pr,d.expected,d.found,(d.found-d.expected).toFixed(3),d.at];});if(typeof dl==='function'&&typeof csv==='function'){dl('inventario_divergencias.csv',csv([h].concat(rows)));toast(dv.length+' divergência(s) exportada(s)');}};
+    var bip=el.querySelector('#invBipe');if(bip){bip.focus();bip.onkeydown=function(ev){if(ev.key!=='Enter')return;var raw=bip.value;bip.value='';if(!raw)return;
+      var cnorm=(typeof norm==='function')?norm(raw):raw.toUpperCase();
+      /* 1) é endereço de vaga do escopo? posiciona/marca */
+      var sp=alvos.find(function(x){return _alvoCode(x)===(typeof norm==='function'?norm(_alvoCode(x)):_alvoCode(x))&&(typeof norm==='function'?norm(_alvoCode(x)):_alvoCode(x))===cnorm;});
+      if(sp){var node=document.getElementById('inv_'+sp.id.replace(/"/g,''));if(node)node.scrollIntoView({behavior:'smooth',block:'center'});if(isChao)window.invMark(sp.id,sp.q);return;}
+      /* 2) é bobina? soma peso na vaga dela (ou marca presente no chão) */
+      if(isChao){var et=(typeof norm==='function')?norm(raw):raw.toUpperCase();var alvo=alvos.find(function(x){return x._code&&((typeof norm==='function'?norm(x._code):x._code)===et);});if(alvo){window.invMark(alvo.id,alvo.q);return;}toast('Bobina não está na lista do chão',false);return;}
+      window.invBipBobina(raw);
+    };}
+    var ec=el.querySelector('#invCsv');if(ec)ec.onclick=function(){var inv2=loadInv();var dv=Object.keys(inv2.done).map(function(k){return inv2.done[k];}).filter(function(d){return !d.ok;});if(!dv.length){toast('Sem divergências',false);return;}var h=['Local','Produto','Esperado_kg','Contado_kg','Diferenca_kg','Hora'];var rows=dv.map(function(d){return [d.code,d.pr,d.expected,d.found,(d.found-d.expected).toFixed(3),d.at];});if(typeof dl==='function'&&typeof csv==='function'){dl('inventario_divergencias.csv',csv([h].concat(rows)));toast(dv.length+' divergência(s) exportada(s)');}};
     var ap=el.querySelector('#invApply');if(ap)ap.onclick=function(){
       if(typeof isAdmin==='function'&&!isAdmin()){toast('Somente admin pode aplicar ajustes',false);return;}
-      var inv2=loadInv();var dv=Object.keys(inv2.done).filter(function(k){return !inv2.done[k].ok;});
+      var inv2=loadInv();var dv=Object.keys(inv2.done).filter(function(k){return !inv2.done[k].ok&&!inv2.done[k].chao;});
       if(!dv.length){toast('Sem divergências para aplicar',false);return;}
       if(!confirm('Aplicar '+dv.length+' ajuste(s) de inventário no estoque? Isso altera as quantidades das vagas.'))return;
       try{if(typeof markLocalWrite==='function')markLocalWrite();}catch(e){}
@@ -8597,7 +8695,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
       dv.forEach(function(spId){var d=inv2.done[spId];var sp=S.find(function(x){return x.id===spId;});if(!sp)return;
         var before=Number(sp.q)||0;sp.q=Number(d.found)||0;if(sp.q<=0){sp.q=0;sp.o=false;sp.pr='';}
         sp.upd=(typeof nowISO==='function'?nowISO():new Date().toISOString());sp.by=(typeof session!=='undefined'&&session?session.u:'');
-        var m={id:(typeof uid==='function'?uid():String(Math.random())),action:(sp.q>=before?'entrada':'saida'),w:cfg.warehouse,code:d.code,pr:d.pr,q:Math.abs(sp.q-before),u:'KG',before:before,after:sp.q,at:sp.upd,by:sp.by,note:'ajuste inventário'};
+        var m={id:(typeof uid==='function'?uid():String(Math.random())),action:(sp.q>=before?'entrada':'saida'),w:cfg.warehouse,code:d.code,pr:d.pr,q:Math.abs(sp.q-before),u:'KG',before:before,after:sp.q,at:(typeof nowISO==='function'?nowISO():new Date().toISOString()),by:(typeof session!=='undefined'&&session?session.u:'')};
         MV.unshift(m);
         try{if(typeof syncSpace==='function')syncSpace(sp);}catch(e){}
         try{if(typeof syncMov==='function')syncMov(m);}catch(e){}
@@ -8606,11 +8704,13 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
       try{persist();}catch(e){}
       saveInv(inv2);
       try{if(typeof logAct==='function')logAct('inventario','aplicou '+n+' ajuste(s)');}catch(e){}
+      _histPush(inv2,true);
       toast(n+' ajuste(s) aplicado(s) e sincronizado(s)');window.renderInv();
     };
-    var en=el.querySelector('#invEnd');if(en)en.onclick=function(){if(!confirm('Encerrar a contagem? O progresso desta sessão será descartado.'))return;window.invStop();};
+    var en=el.querySelector('#invEnd');if(en)en.onclick=function(){var inv2=loadInv();var aa=_acc(inv2);if(!confirm('Encerrar a contagem?\n\nAcuracidade: '+aa.pct+'% · '+aa.div+' divergência(s).\n\nO resumo vai pro histórico; o progresso desta sessão será encerrado.'))return;if(aa.feitas>0)_histPush(inv2,false);window.invStop();};
     try{if(typeof setIcons==='function')setIcons();}catch(e){}
   };
+
   /* injeta menu + tela + rota */
   try{
     var navStock=[].slice.call(document.querySelectorAll('.nav')).filter(function(n){return n.dataset.view==='v-stock';})[0];

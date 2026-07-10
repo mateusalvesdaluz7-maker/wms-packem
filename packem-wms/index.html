@@ -2604,8 +2604,8 @@ function renderStageList(){const el=$('#stageList');if(!el)return;const adm=isAd
  el.querySelectorAll('[data-az]').forEach(b=>b.onclick=()=>stageArmazenar(b.dataset.az));
  el.querySelectorAll('[data-pp]').forEach(b=>b.onclick=()=>stageProducao(b.dataset.pp));
  el.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{STAGE=STAGE.filter(x=>x.et!==b.dataset.rm);saveStage();if(typeof syncDelStage==='function')syncDelStage(b.dataset.rm);renderRecv();updateStageBadge();toast('Removido do intermediário');});
- el.querySelectorAll('[data-lbl]').forEach(b=>b.onclick=()=>{var et=norm(b.dataset.lbl);var o=BOB[et]||{};var s=STAGE.find(function(x){return x.et===et;})||{};var it={et:et,pr:o.pr||s.pr||'',desc:o.desc||s.desc||'',pl:(o.pl!=null?o.pl:s.pl)};if(typeof printIntakeLabelChoose==='function')printIntakeLabelChoose(it);else showBobLabel(et);});}
-function showBobLabel(et){et=norm(et);const o=BOB[et]||{};const it=(typeof STAGE!=='undefined'&&STAGE?STAGE.find(s=>s.et===et):null)||{};const pr=o.pr||it.pr||'';const desc=o.desc||it.desc||'';const pl=(o.pl!=null?o.pl:it.pl);
+ el.querySelectorAll('[data-lbl]').forEach(b=>b.onclick=()=>{var et=norm(b.dataset.lbl);var o=BOB[et]||{};var s=STAGE.find(function(x){return x.et===et;})||{};var it={et:et,pr:o.pr||s.pr||'',desc:((typeof window.convDescByCod==='function'&&window.convDescByCod(o.pr||s.pr))||o.desc||s.desc||''),pl:(o.pl!=null?o.pl:s.pl)};if(typeof printIntakeLabelChoose==='function')printIntakeLabelChoose(it);else showBobLabel(et);});}
+function showBobLabel(et){et=norm(et);const o=BOB[et]||{};const it=(typeof STAGE!=='undefined'&&STAGE?STAGE.find(s=>s.et===et):null)||{};const pr=o.pr||it.pr||'';const desc=((typeof window.convDescByCod==='function'&&window.convDescByCod(pr))||o.desc||it.desc||'');const pl=(o.pl!=null?o.pl:it.pl);
  const lbl='<style>#bobQRbox svg{width:96px!important;height:96px!important}</style>'
   +'<div id="printArea"><div style="background:#fff;color:#000;border:1px solid #cfd6de;border-radius:10px;padding:20px 16px;max-width:340px;margin:0 auto;text-align:center;font-family:Arial,Helvetica,sans-serif">'
   +'<div style="font-size:.6rem;letter-spacing:2px;color:#8a939c;font-weight:800;margin-bottom:10px">PACKEM · BOBINA</div>'
@@ -7019,12 +7019,13 @@ function romQRPayload(e){
  return L.join('\n');
 }
 printBobLabel=function(et){var o=BOB[et];if(!o){toast('Etiqueta não encontrada',false);return;}
+ var _bd=((typeof window.convDescByCod==='function'&&window.convDescByCod(o.pr))||o.desc||'');
  var body='<div class="bobprn"><div class="bpbar"></div><div class="bpin">'
   +'<div class="bphead"><img src="'+PACKEM_IMG+'" class="bplogo"><div class="bpbt">PACKEM<span>BOBINA</span></div></div>'
   +'<div class="bpet">'+et+'</div>'+bc39(et)
   +'<div class="bppr">'+(o.pr||'')+'</div>'
   +((o.pl>0)?'<div class="bpw">'+fmt(o.pl)+' KG</div>':'')
-  +(o.desc?'<div class="bpd">'+o.desc+'</div>':'')+'</div></div>';
+  +(_bd?'<div class="bpd">'+_bd+'</div>':'')+'</div></div>';
  var css='*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:100mm 150mm;margin:0}'
   +'.bobprn{width:100mm;height:150mm;display:flex;flex-direction:column;color:#000;font-family:Arial,Helvetica,sans-serif}'
   +'.bpbar{height:6mm;background:#EA5A0C}'

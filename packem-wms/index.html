@@ -4428,7 +4428,8 @@ updateStageBadge();
     NFS[nfParsed.key]={key:nfParsed.key,nNF:nfParsed.nNF,serie:nfParsed.serie,emit:nfParsed.emit,chave:nfParsed.chave,at:nowISO(),by:session.u,total:created.length};
     saveNF();logAct('nf-etiquetas','NF '+nfParsed.nNF+' · '+created.length+' etiquetas');
     if(typeof syncNota==='function')syncNota(NFS[nfParsed.key]);
-    if(typeof syncEtiqueta==='function')created.forEach(function(id){syncEtiqueta(ETQ[id]);});
+    if(typeof syncEtiquetasLote==='function')syncEtiquetasLote(created,'nf');
+    else if(typeof syncEtiqueta==='function')created.forEach(function(id){syncEtiqueta(ETQ[id]);});
     toast(created.length+' etiquetas geradas · salvas no sistema');
     var key=nfParsed.key; renderNF();
     try{openLabelSheet(key);}catch(e){toast('Etiquetas salvas. A impressão não abriu — reimprima depois pela lista.',false);}
@@ -4537,7 +4538,8 @@ updateStageBadge();
     saveNF();logAct('romaneio-etiquetas','Romaneio '+hdr.nRomaneio+' · '+created.length+' etiquetas');
     window._syncErrs={etq:0,rom:0,lastErr:''}; /* zera antes de sincronizar (não carrega erro velho de impressão) */
     if(typeof syncRomaneio==='function')syncRomaneio(ROMS[romParsed.key]);
-    if(typeof syncEtiqueta==='function')created.forEach(function(id){syncEtiqueta(ETQ[id]);});
+    if(typeof syncEtiquetasLote==='function')syncEtiquetasLote(created,'rom');
+    else if(typeof syncEtiqueta==='function')created.forEach(function(id){syncEtiqueta(ETQ[id]);});
     toast(created.length+' etiquetas geradas · salvas no sistema');
     var key=romParsed.key; romParsed=null; renderNF();
     setTimeout(function(){try{if(typeof renderNF==='function'&&document.querySelector('.view.active')&&document.querySelector('.view.active').id==='v-nf')renderNF();}catch(e){}},3000);
@@ -5402,7 +5404,7 @@ updateStageBadge();
     return id;
   };
 
-  var _r=render; render=function(id){if(id==='v-nf')return renderNF();if(id==='v-rastreio')return renderRastreio();if(id==='v-exped')return renderExped();return _r(id);};
+  var _r=render; render=function(id){if(id==='v-nf'){try{if(typeof pullNF==='function')setTimeout(function(){pullNF(true);},0);}catch(e){}return renderNF();}if(id==='v-rastreio')return renderRastreio();if(id==='v-exped')return renderExped();return _r(id);};
   window.renderExped=function(){
     var host=document.getElementById('v-exped');if(!host)return;
     if(typeof loadExpedLibs!=='function'){return;}
@@ -5594,7 +5596,52 @@ function syncDelStage(et){if(!supa||!et)return;supa.from('stage').delete().eq('e
 function syncChao(item){if(!supa||!item||!item.et)return;supa.from('chao').upsert({et:item.et,pr:item.pr||'',descricao:item.desc||'',pl:Number(item.pl)||0,at:item.at||new Date().toISOString(),by_user:item.by||''}).then(()=>{},()=>{});}
 function syncDelChao(et,_try){if(!supa||!et)return;var t=_try||0;supa.from('chao').delete().eq('et',et).then(function(r){if(r&&r.error&&t<4){setTimeout(function(){syncDelChao(et,t+1);},600*(t+1));}else if(typeof window._floorDelClear==='function'){/* mantém o tombstone alguns segundos mesmo após confirmar, pra cobrir sync em voo */setTimeout(function(){try{window._floorDelClear(et);}catch(e){}},8000);}},function(){if(t<4)setTimeout(function(){syncDelChao(et,t+1);},600*(t+1));});}
 window._syncErrs={etq:0,rom:0,lastErr:''};
-function syncEtiqueta(e,_try){if(!supa||!e||!e.id)return;var row={id:e.id,doc_key:e.nf||'',doc_type:e.nRomaneio?'romaneio':(e.addr?'vaga':'nf'),n_nf:e.nNF||'',n_romaneio:e.nRomaneio||'',cliente:e.cliente||'',bobina:e.bobina||'',op:e.op||'',lote:e.lote||'',addr:e.addr||'',gramatura:e.gramatura||e.xProd||'',c_prod:e.cProd||'',u_com:e.uCom||'',kg:Number(e.kg)||0,peso_bruto:Number(e.pesoBruto)||0,vol:Number(e.vol)||0,vol_tot:Number(e.volTot)||0,idx:Number(e.idx)||0,status:e.status||'',hist:e.hist||[],updated_at:new Date().toISOString()};
+function etqRow(e){return {id:e.id,doc_key:e.nf||'',doc_type:e.nRomaneio?'romaneio':(e.addr?'vaga':'nf'),n_nf:e.nNF||'',n_romaneio:e.nRomaneio||'',cliente:e.cliente||'',bobina:e.bobina||'',op:e.op||'',lote:e.lote||'',addr:e.addr||'',gramatura:e.gramatura||e.xProd||'',c_prod:e.cProd||'',u_com:e.uCom||'',kg:Number(e.kg)||0,peso_bruto:Number(e.pesoBruto)||0,vol:Number(e.vol)||0,vol_tot:Number(e.volTot)||0,idx:Number(e.idx)||0,status:e.status||'',hist:e.hist||[],updated_at:new Date().toISOString()};}
+
+/* ===== ENVIO EM LOTE DAS ETIQUETAS DE UMA NF/ROMANEIO =====
+   Antes o import disparava 1 upsert POR etiqueta (200 requisições simultâneas). Numa rede
+   apertada boa parte falhava (só 2 tentativas cada) e a NF ficava salva SÓ no PC que importou.
+   Agora sobe em blocos de 200, em sequência, e CONFERE no fim quantas chegaram — reenviando
+   as que faltaram. */
+async function syncEtiquetasLote(ids,tag){
+ if(!supa||!ids||!ids.length)return false;
+ var rows=ids.map(function(id){return ETQ[id]?etqRow(ETQ[id]):null;}).filter(Boolean);
+ if(!rows.length)return false;
+ window._bulkUp=(window._bulkUp||0)+1;
+ var falhou=0;
+ try{
+  for(var i=0;i<rows.length;i+=200){
+   var bloco=rows.slice(i,i+200);
+   var ok=false;
+   for(var t=0;t<3&&!ok;t++){
+    try{var r=await supa.from('etiquetas').upsert(bloco);if(!r||!r.error)ok=true;}catch(e){}
+    if(!ok)await new Promise(function(res){setTimeout(res,800*(t+1));});
+   }
+   if(!ok)falhou+=bloco.length;
+  }
+  /* confere o que realmente chegou na nuvem e reenvia o que faltou */
+  try{
+   var idsUp=rows.map(function(r){return r.id;});
+   var chegou={};
+   for(var j=0;j<idsUp.length;j+=300){
+    var q=await supa.from('etiquetas').select('id').in('id',idsUp.slice(j,j+300));
+    if(q&&q.data)q.data.forEach(function(x){chegou[x.id]=1;});
+   }
+   var faltam=rows.filter(function(r){return !chegou[r.id];});
+   if(faltam.length){
+    for(var k=0;k<faltam.length;k+=200){try{await supa.from('etiquetas').upsert(faltam.slice(k,k+200));}catch(e){}}
+    var q2=await supa.from('etiquetas').select('id').in('id',faltam.map(function(r){return r.id;}).slice(0,300));
+    var ainda=faltam.length-((q2&&q2.data)?q2.data.length:0);
+    if(ainda>0&&typeof toast==='function')toast(ainda+' etiqueta(s) não subiram — toque em "Enviar p/ nuvem"',false);
+    else if(typeof toast==='function')toast('Etiquetas sincronizadas na nuvem ✓');
+   }else if(typeof toast==='function')toast(rows.length+' etiqueta(s) na nuvem ✓');
+  }catch(e){}
+ }finally{window._bulkUp=Math.max(0,(window._bulkUp||1)-1);}
+ return falhou===0;
+}
+window.syncEtiquetasLote=syncEtiquetasLote;
+
+function syncEtiqueta(e,_try){if(!supa||!e||!e.id)return;var row=etqRow(e);
   supa.from('etiquetas').upsert(row).then(function(r){
     if(r&&r.error){window._syncErrs.etq++;window._syncErrs.lastErr='etiquetas: '+(r.error.message||r.error.code||'erro');
       if((_try||0)<2){setTimeout(function(){syncEtiqueta(e,(_try||0)+1);},1200*((_try||0)+1));}
@@ -5735,10 +5782,7 @@ async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
     if(_merged.length>20000)_merged.length=20000;
     MV=_merged;DB.saveMovs(MV);
   }
-  try{
-    const etq=await pgAll('etiquetas');const ntf=await pgAll('notas_fiscais');const rom=await pgAll('romaneios');
-    if(typeof window.nfPullCloud==='function')window.nfPullCloud(etq,ntf,rom);
-  }catch(e){}
+  try{await pullNF();}catch(e){}
   try{
     try{window._cloudReadErr=null;}catch(e){}
     const ch=await pgAll('chao');
@@ -5762,7 +5806,7 @@ function applyRealtime(p){const t=p.table,n=p.new,o=p.old,ev=p.eventType;
  /* FREIO ANTI-ENXURRADA: se chegarem mais de 120 eventos em 2s (import em massa ecoando de volta),
     para de processar e agenda UM pull leve no fim — em vez de re-renderizar 40 mil vezes. */
  try{var _now=Date.now();if(_now-_rtBurstT>2000){_rtBurstT=_now;_rtBurst=0;}_rtBurst++;
-  if(_rtBurst>120){clearTimeout(applyRealtime._c);applyRealtime._c=setTimeout(function(){try{if(typeof pullLight==='function')pullLight();}catch(e){}},3000);return;}
+  if(_rtBurst>400){clearTimeout(applyRealtime._c);applyRealtime._c=setTimeout(function(){try{if(typeof pullLight==='function')pullLight();}catch(e){}try{if(typeof pullNF==='function')pullNF(true);}catch(e){}},3000);return;}
  }catch(e){}
  /* catálogo de bobinas NÃO entra por realtime (sincroniza por delta/push) */
  if(t==='bobinas')return;
@@ -5824,8 +5868,54 @@ function startRealtime(){if(!supa)return;
 }
 /* rede de segurança: mesmo se o realtime falhar, puxa tudo da nuvem periodicamente.
    pausa quando há um painel/drawer aberto pra não atrapalhar o que você está fazendo. */
+/* ===== PULL DA ABA NOTA FISCAL =====
+   As tabelas de NF (etiquetas / notas_fiscais / romaneios) só vinham no PULL COMPLETO.
+   Como o completo virou raro, uma NF importada em OUTRO PC podia demorar minutos pra
+   aparecer aqui (ou nem aparecer, se o freio anti-enxurrada engolisse os eventos do realtime).
+   Agora existe um pull dedicado: roda ao abrir a aba NF, a cada ~8s enquanto ela está aberta,
+   no pull completo, e sempre que uma rajada de realtime for cortada. */
+var _nfPulling=false,_nfPullAt=0;
+async function pullNF(force){
+ if(!supa)return false;
+ if(_nfPulling)return false;
+ if(!force&&Date.now()-_nfPullAt<6000)return false;
+ _nfPulling=true;_nfPullAt=Date.now();
+ try{
+  const etq=await pgAll('etiquetas',null,25000);
+  const ntf=await pgAll('notas_fiscais',null,15000);
+  const rom=await pgAll('romaneios',null,15000);
+  if(typeof window.nfPullCloud==='function')window.nfPullCloud(etq,ntf,rom);
+  try{window._DIAG.nf=etq.length+' etq · '+ntf.length+' nf · '+rom.length+' rom @'+new Date().toLocaleTimeString();}catch(e){}
+  return true;
+ }catch(e){try{window._DIAG.nf='FALHOU: '+String((e&&e.message)||e);}catch(_){}return false;}
+ finally{_nfPulling=false;_nfPullAt=Date.now();}
+}
+window.pullNF=pullNF;
+
 /* pull LEVE: só o que muda ao vivo (recebimento + chão + chão70 + movimentos e vagas recentes).
    Não baixa o catálogo (74k), nem espaços/movimentos inteiros — isso é só no pull completo (raro). */
+/* ===== PULL DIRECIONADO DA ABA NOTA FISCAL =====
+   As tabelas notas_fiscais/romaneios/etiquetas só vinham no pull COMPLETO (raro). Se o realtime
+   perdesse os eventos (ex.: rajada de 200 etiquetas de uma NF), o outro PC não via a nota.
+   Agora dá pra puxar só a NF, na hora. */
+var _nfPulling=false;
+async function pullNF(force){
+ if(!supa||_nfPulling)return false;
+ if(navigator.onLine===false)return false;
+ var now=Date.now();
+ if(!force && now-(window._nfPullAt||0)<8000)return true; /* throttle: no máximo 1 pull de NF a cada 8s */
+ window._nfPullAt=now;
+ _nfPulling=true;
+ try{
+  const ntf=await pgAll('notas_fiscais',null,15000);
+  const rom=await pgAll('romaneios',null,15000);
+  const etq=await pgAll('etiquetas',null,25000);
+  if(typeof window.nfPullCloud==='function')window.nfPullCloud(etq,ntf,rom);
+  _nfPulling=false;return true;
+ }catch(e){_nfPulling=false;return false;}
+}
+window.pullNF=pullNF;
+
 async function pullLight(){
  var _lt0=Date.now();
  if(!supa){try{window._DIAG.lightErr='supa não iniciado';window._DIAG.lightOk=false;}catch(e){}return false;}
@@ -5843,6 +5933,11 @@ async function pullLight(){
   try{var _spr=await Promise.race([supa.from('espacos').select('*').order('upd',{ascending:false,nullsFirst:false}).limit(200),new Promise(function(res){setTimeout(function(){res({data:null});},9000);})]);if(_spr&&_spr.data&&_spr.data.length){var _byId={};S.forEach(function(x){_byId[x.id]=x;});_spr.data.forEach(function(r){if(!r.upd)return;var cloud={id:r.id,w:r.w,s:r.s,l:r.l,p:r.p,pr:r.pr||'',q:cleanQ(r.q),u:r.u||'KG',o:!!r.o,src:r.src||'',upd:r.upd||'',by:r.by_user||''};var loc=_byId[r.id];if(!loc){S.push(cloud);_spNew++;return;}var _lu=String(loc.upd||''),_cu=String(cloud.upd||'');if(!guard&&_cu&&(!_lu||_cu>_lu)){var i=S.indexOf(loc);if(i>=0){S[i]=cloud;_spNew++;}}});if(_spNew){DB.saveSpaces(S);}}}catch(e){}
   if(session){var _ae=document.activeElement;var _dig=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');var _drw=document.querySelector('#drawer.show');if(!_dig&&!_drw){var v=document.querySelector('.view.active');if(v){var _live=(v.id==='v-recv'||v.id==='v-floor'||v.id==='v-floor70');var _mov=(v.id==='v-vsm'||v.id==='v-track');var _sp=(v.id==='v-home'||v.id==='v-board'||v.id==='v-stock'||v.id==='v-abc');if(_live||(_mov&&_mvNew)||(_sp&&_spNew))render(v.id);}}}
   updateStageBadge();
+  /* aba Nota Fiscal aberta = mantém as NFs/romaneios dos outros PCs chegando ao vivo.
+     (não bloqueia o pull leve: dispara em paralelo e o throttle de 6s evita rajada) */
+  try{var _vnf=document.querySelector('.view.active');
+   if(_vnf&&_vnf.id==='v-nf'&&!document.querySelector('#drawer.show')){pullNF();}
+  }catch(e){}
   try{window._DIAG.lightMs=Date.now()-_lt0;window._DIAG.lightOk=true;window._DIAG.lightErr='';}catch(e){}
   return true;
  }catch(e){try{window._DIAG.lightMs=Date.now()-_lt0;window._DIAG.lightOk=false;window._DIAG.lightErr=String((e&&e.message)||e);}catch(_){}return false;}
@@ -5903,6 +5998,7 @@ async function netDiag(){
  add('pullLight',(D.lightOk===true?'OK em '+D.lightMs+'ms':(D.lightOk===false?'FALHOU: '+(D.lightErr||'?'):'ainda não rodou')),D.lightOk!==true);
  add('ticks de sync',D.ticks||0);
  add('último pull completo',D.fullAt||'—');
+ add('pull da aba NF',D.nf||'ainda não rodou',String(D.nf||'').indexOf('FALHOU')>=0);
  add('envio em massa',(window._bulkUp||0)>0?'RODANDO ('+window._bulkUp+')':'não');
  add('catálogo (BOB)',Object.keys(BOB).length+' etiquetas · IDB '+(window._bobReady?'carregado':'carregando'));
  var _lsB=0;try{for(var _k in localStorage){if(Object.prototype.hasOwnProperty.call(localStorage,_k))_lsB+=(localStorage[_k]||'').length+_k.length;}}catch(e){}

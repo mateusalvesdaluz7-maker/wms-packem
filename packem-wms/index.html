@@ -5607,7 +5607,11 @@ window.resyncTudoNF=function(){
 };
 function syncBobAll(){if(!supa)return;const rows=Object.keys(BOB).map(et=>({etiqueta:et,pr:BOB[et].pr,descricao:BOB[et].desc||'',pl:Number(BOB[et].pl)||0}));chunkUp('bobinas',rows);toast('Sincronizando catálogo na nuvem…');}
 function syncBobDelta(list){if(!supa||!list||!list.length)return;const rows=list.map(et=>BOB[et]?({etiqueta:et,pr:BOB[et].pr,descricao:BOB[et].desc||'',pl:Number(BOB[et].pl)||0}):null).filter(Boolean);if(!rows.length)return;chunkUp('bobinas',rows);toast('Enviando '+rows.length+' etiqueta(s) nova(s)/alterada(s) à nuvem…');}
-async function chunkUp(table,rows){if(!supa)return;for(let i=0;i<rows.length;i+=400){try{await supa.from(table).upsert(rows.slice(i,i+400));}catch(e){}}}
+async function chunkUp(table,rows){if(!supa)return;
+ /* upload em massa (import de 40 mil): marca a flag pro autoSync não brigar por rede ao mesmo tempo */
+ window._bulkUp=(window._bulkUp||0)+1;
+ try{for(let i=0;i<rows.length;i+=400){try{await supa.from(table).upsert(rows.slice(i,i+400));}catch(e){}}}
+ finally{window._bulkUp=Math.max(0,(window._bulkUp||1)-1);}}
 async function pushAll(btn){if(!supa){toast('Sem conexão com a nuvem',false);return;}if(btn){btn.disabled=true;btn.textContent='Enviando…';}setNet('sync');
  try{
   await chunkUp('espacos',S.map(spRow));
@@ -5620,7 +5624,12 @@ async function pushAll(btn){if(!supa){toast('Sem conexão com a nuvem',false);re
   toast('Tudo enviado para a nuvem ✓');setNet('on');
  }catch(e){toast('Erro ao enviar',false);setNet('on');}
  if(btn){btn.disabled=false;btn.textContent='↥ Enviar p/ nuvem';}}
-async function pgAll(table,order){let out=[],from=0,page=1000;for(;;){var tries=0,r=null;var _maxTry=(navigator.onLine===false)?1:3;while(tries<_maxTry){let q=supa.from(table).select('*').range(from,from+page-1);if(order)q=q.order(order,{ascending:false});r=await Promise.race([q,new Promise(function(res){setTimeout(function(){res({data:null,error:{message:'timeout',code:'TIMEOUT'}});},9000);})]);if(!r||!r.error)break;tries++;if(tries<_maxTry)await new Promise(function(res){setTimeout(res,500*tries);});}
+async function pgAll(table,order,budgetMs){let out=[],from=0,page=1000;var _t0=Date.now(),_bud=budgetMs||20000;for(;;){
+  /* ORÇAMENTO DE TEMPO: com tabelas grandes (40 mil bobinas/etiquetas) a paginação
+     rodava indefinidamente, o pullAll passava dos 15s do cão de guarda e o próximo tick
+     disparava OUTRO pullAll por cima — daí o app ficava "atualizando" pra sempre e caía p/ offline. */
+  if(Date.now()-_t0>_bud)break;
+  var tries=0,r=null;var _maxTry=(navigator.onLine===false)?1:3;while(tries<_maxTry){let q=supa.from(table).select('*').range(from,from+page-1);if(order)q=q.order(order,{ascending:false});r=await Promise.race([q,new Promise(function(res){setTimeout(function(){res({data:null,error:{message:'timeout',code:'TIMEOUT'}});},9000);})]);if(!r||!r.error)break;tries++;if(tries<_maxTry)await new Promise(function(res){setTimeout(res,500*tries);});}
   if(!r||r.error){
     /* guarda o erro de leitura (ex: RLS/permissão) para avisar na tela */
     try{window._cloudReadErr={table:table,msg:((r&&r.error&&(r.error.message||r.error.code))||'erro'),code:(r&&r.error&&r.error.code)||''};}catch(e){}
@@ -5658,7 +5667,11 @@ async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
    S=_merged;DB.saveSpaces(S);
    if(_repush.length){try{_repush.slice(0,80).forEach(function(x){syncSpace(x);});}catch(e){}}
    if(corruptIds.length){try{if(typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',S.filter(x=>corruptIds.indexOf(x.id)>=0).map(spRow));}catch(e){}}}
-  if(window._pullCatalogOnce){window._pullCatalogOnce=false;const bo=await pgAll('bobinas');if(bo.length&&!guard&&bo.length>=Object.keys(BOB).length){BOB={};bo.forEach(r=>BOB[r.etiqueta]={pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0});saveBOB();}}
+  if(window._pullCatalogOnce){window._pullCatalogOnce=false;
+   /* só baixa o catálogo inteiro (40 mil linhas = 41 requisições) se o aparelho realmente
+      não tiver catálogo local — antes ele rebaixava tudo e engasgava o sync */
+   if(Object.keys(BOB).length<100){const bo=await pgAll('bobinas',null,30000);if(bo.length&&!guard&&bo.length>=Object.keys(BOB).length){BOB={};bo.forEach(r=>BOB[r.etiqueta]={pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0});saveBOB();}}
+  }
   const lo=await pgAll('locais');if(lo.length&&!guard){LOC={};lo.forEach(r=>LOC[r.etiqueta]=r.code);saveLOC();}
   const sg=await pgAll('stage');if(!guard){STAGE=sg.map(r=>({et:r.etiqueta,pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0,at:r.at,by:r.by_user||''}));saveStage();}
   const vl=await pgAll('valores');if(vl.length&&!guard){var _vlmap={};VL.forEach(function(v){_vlmap[String(v.codigo).toUpperCase()]=v;});vl.forEach(function(r){_vlmap[String(r.codigo).toUpperCase()]={codigo:r.codigo,valor:Number(r.valor)||0,descricao:r.descricao||'',un:(r.un||'')};});VL=Object.keys(_vlmap).map(function(k){return _vlmap[k];});DB.saveValues(VL);}
@@ -5770,9 +5783,14 @@ function autoSyncTick(){
   if(navigator.onLine===false){setNet('off');return;} // offline: não tenta (evita travar)
   var drawerAberto=document.querySelector('#drawer.show');
   if(drawerAberto)return; // não recarrega enquanto edita algo num painel
-  if(_syncing){ if(Date.now()-_syncStart>15000){_syncing=false;} else return; } // cão de guarda: destrava se pendurou
+  if(window._bulkUp>0)return; // envio em massa rodando: não concorre por rede (nem marca offline)
+  /* TRAVA DE VERDADE: antes o cão de guarda soltava _syncing em 15s, mas o pullAll anterior
+     CONTINUAVA rodando — aí o próximo tick abria outro por cima. Com tabela grande isso
+     empilhava dezenas de pulls, saturava a rede e o app vivia "atualizando" + offline.
+     Agora só solta quando a promise de fato termina (com teto de 90s para pane real). */
+  if(_syncing){ if(Date.now()-_syncStart>90000){_syncing=false;} else return; }
   _syncing=true;_syncStart=Date.now();_tickN++;
-  var full=(_tickN%12===0); // pull completo (pesado) a cada ~30s; o resto é leve
+  var full=(_tickN%60===0); // pull completo (pesado) a cada ~2,5 min; o resto é leve
   var p=full?pullAll(true):pullLight();
   p.then(function(ok){
     if(ok){window._lastPullOkAt=Date.now();_netFails=0;setNet('on');}

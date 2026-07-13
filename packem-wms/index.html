@@ -4071,6 +4071,7 @@ updateStageBadge();
             +'<div class="nfDocActs">'
               +'<button class="btn" data-nfprint="'+esc(n.key)+'" title="Reimprimir">'+ICONS.print+'</button>'
               +'<button class="btn" data-nfedit="'+esc(n.key)+'" title="Editar">'+ICO_ED+'</button>'
+              +'<button class="btn" data-resend="'+esc(n.key)+'" title="Reenviar p/ nuvem">↥</button>'
               +'<button class="btn" data-nfdel="'+esc(n.key)+'" title="Excluir">'+ICO_DEL+'</button>'
             +'</div>'
             +'</div>';
@@ -4099,6 +4100,7 @@ updateStageBadge();
             +'</div>'
             +'<div class="nfDocActs">'
               +'<button class="btn" data-romprint="'+esc(n.key)+'" title="Reimprimir">'+ICONS.print+'</button>'
+              +'<button class="btn" data-resend="'+esc(n.key)+'" title="Reenviar p/ nuvem">↥</button>'
               +'<button class="btn" data-romdel="'+esc(n.key)+'" title="Excluir">'+ICO_DEL+'</button>'
             +'</div>'
             +'</div>';
@@ -4211,6 +4213,7 @@ updateStageBadge();
     var g=document.getElementById('nfGen'); if(g)g.onclick=genLabels;
     var rp=document.getElementById('nfReprint'); if(rp)rp.onclick=function(){openLabelSheet(nfParsed.key);};
     el.querySelectorAll('[data-nfprint]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();openLabelSheet(b.getAttribute('data-nfprint'));};});
+    el.querySelectorAll('[data-resend]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();if(typeof reenviarDoc==='function')reenviarDoc(b.getAttribute('data-resend'));};});
     el.querySelectorAll('[data-nfdel]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();nfDeleteNote(b.getAttribute('data-nfdel'));};});
     el.querySelectorAll('[data-nfedit]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();nfEditNote(b.getAttribute('data-nfedit'));};});
     el.querySelectorAll('[data-nfbip]').forEach(function(b){b.onclick=function(){openRomBipDrawer(b.getAttribute('data-nfbip'));};});
@@ -4218,6 +4221,7 @@ updateStageBadge();
     var romG=document.getElementById('romGen'); if(romG)romG.onclick=genRomLabels;
     var romRp=document.getElementById('romReprint'); if(romRp)romRp.onclick=function(){openRomLabelSheet(romParsed.key);};
     el.querySelectorAll('[data-romprint]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();openRomLabelSheet(b.getAttribute('data-romprint'));};});
+    el.querySelectorAll('[data-resend]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();if(typeof reenviarDoc==='function')reenviarDoc(b.getAttribute('data-resend'));};});
     el.querySelectorAll('[data-romdel]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();nfDeleteRomaneio(b.getAttribute('data-romdel'));};});
     el.querySelectorAll('[data-rombip]').forEach(function(b){b.onclick=function(){openRomBipDrawer(b.getAttribute('data-rombip'));};});
     el.querySelectorAll('[data-rmrow]').forEach(function(b){b.onclick=function(){
@@ -5641,13 +5645,16 @@ async function syncEtiquetasLote(ids,tag){
  var rows=ids.map(function(id){return ETQ[id]?etqRow(ETQ[id]):null;}).filter(Boolean);
  if(!rows.length)return false;
  window._bulkUp=(window._bulkUp||0)+1;
- var falhou=0;
+ var falhou=0,ultErro='';
  try{
   for(var i=0;i<rows.length;i+=200){
    var bloco=rows.slice(i,i+200);
    var ok=false;
    for(var t=0;t<3&&!ok;t++){
-    try{var r=await supa.from('etiquetas').upsert(bloco);if(!r||!r.error)ok=true;}catch(e){}
+    try{var r=await supa.from('etiquetas').upsert(bloco);
+      if(!r||!r.error)ok=true;
+      else{ultErro=(r.error.message||'')+' ['+(r.error.code||'')+']'+(r.error.details?' · '+r.error.details:'')+(r.error.hint?' · '+r.error.hint:'');}
+    }catch(e){ultErro=String((e&&e.message)||e);}
     if(!ok)await new Promise(function(res){setTimeout(res,800*(t+1));});
    }
    if(!ok)falhou+=bloco.length;
@@ -5658,21 +5665,40 @@ async function syncEtiquetasLote(ids,tag){
    var chegou={};
    for(var j=0;j<idsUp.length;j+=300){
     var q=await supa.from('etiquetas').select('id').in('id',idsUp.slice(j,j+300));
+    if(q&&q.error)ultErro='LEITURA: '+(q.error.message||'')+' ['+(q.error.code||'')+']';
     if(q&&q.data)q.data.forEach(function(x){chegou[x.id]=1;});
    }
    var faltam=rows.filter(function(r){return !chegou[r.id];});
    if(faltam.length){
-    for(var k=0;k<faltam.length;k+=200){try{await supa.from('etiquetas').upsert(faltam.slice(k,k+200));}catch(e){}}
-    var q2=await supa.from('etiquetas').select('id').in('id',faltam.map(function(r){return r.id;}).slice(0,300));
-    var ainda=faltam.length-((q2&&q2.data)?q2.data.length:0);
-    if(ainda>0&&typeof toast==='function')toast(ainda+' etiqueta(s) não subiram — toque em "Enviar p/ nuvem"',false);
-    else if(typeof toast==='function')toast('Etiquetas sincronizadas na nuvem ✓');
-   }else if(typeof toast==='function')toast(rows.length+' etiqueta(s) na nuvem ✓');
+    for(var k=0;k<faltam.length;k+=200){try{var rr=await supa.from('etiquetas').upsert(faltam.slice(k,k+200));if(rr&&rr.error)ultErro=(rr.error.message||'')+' ['+(rr.error.code||'')+']';}catch(e){ultErro=String((e&&e.message)||e);}}
+    var chegou2={};
+    for(var m=0;m<faltam.length;m+=300){var q2=await supa.from('etiquetas').select('id').in('id',faltam.slice(m,m+300).map(function(r){return r.id;}));if(q2&&q2.data)q2.data.forEach(function(x){chegou2[x.id]=1;});}
+    var ainda=faltam.filter(function(r){return !chegou2[r.id];}).length;
+    if(ainda>0){
+     window._syncErrs.etq+=ainda;window._syncErrs.lastErr='etiquetas: '+(ultErro||'não gravou (sem erro reportado)');
+     window._DIAG.etqFail={qtd:ainda,de:rows.length,erro:(ultErro||'não gravou (sem erro reportado)'),at:new Date().toLocaleTimeString()};
+     if(typeof toast==='function')toast('⚠ '+ainda+' de '+rows.length+' etiquetas NÃO subiram · '+(ultErro||'erro desconhecido'),false);
+     return false;
+    }
+   }
+   try{delete window._DIAG.etqFail;}catch(e){}
+   if(typeof toast==='function')toast(rows.length+' etiqueta(s) na nuvem ✓');
   }catch(e){}
  }finally{window._bulkUp=Math.max(0,(window._bulkUp||1)-1);}
  return falhou===0;
 }
 window.syncEtiquetasLote=syncEtiquetasLote;
+
+/* reenvia TUDO de um documento (NF ou romaneio) para a nuvem, na marra */
+async function reenviarDoc(key){
+ var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;});
+ if(typeof toast==='function')toast('Reenviando '+ids.length+' etiqueta(s)…');
+ try{if(NFS[key]&&typeof syncNota==='function')syncNota(NFS[key]);}catch(e){}
+ try{if(ROMS[key]&&typeof syncRomaneio==='function')syncRomaneio(ROMS[key]);}catch(e){}
+ if(!ids.length){if(typeof toast==='function')toast('Este documento não tem etiquetas locais',false);return;}
+ await syncEtiquetasLote(ids,'reenvio');
+}
+window.reenviarDoc=reenviarDoc;
 
 function syncEtiqueta(e,_try){if(!supa||!e||!e.id)return;var row=etqRow(e);
   supa.from('etiquetas').upsert(row).then(function(r){
@@ -6061,6 +6087,8 @@ async function netDiag(){
  var _lsB=0,_top=[];try{for(var _k in localStorage){if(!Object.prototype.hasOwnProperty.call(localStorage,_k))continue;var _sz=((localStorage[_k]||'').length+_k.length);_lsB+=_sz;_top.push([_k,_sz]);}_top.sort(function(a,b){return b[1]-a[1];});}catch(e){}
  add('memória local',(Math.round(_lsB/1024))+' KB de ~5000 KB'+(window._lsFull?' · JÁ ESTOUROU':''),_lsB>4000000||!!window._lsFull);
  if(_top.length)add('maiores chaves',_top.slice(0,5).map(function(x){return x[0]+':'+Math.round(x[1]/1024)+'KB';}).join(' · '));
+ if(D.etqFail)add('FALHA AO GRAVAR',D.etqFail.qtd+' de '+D.etqFail.de+' etiquetas · '+D.etqFail.erro+' · '+D.etqFail.at,true);
+ try{if(window._syncErrs&&window._syncErrs.lastErr)add('último erro de envio',window._syncErrs.lastErr,true);}catch(e){}
  var errs=Object.keys(D.pgErr||{});
  if(errs.length){errs.forEach(function(t){add('ERRO tabela '+t,(D.pgErr[t].msg||'')+' ['+(D.pgErr[t].code||'')+'] '+(D.pgErr[t].at||''),true);});}
  else add('erros de leitura','nenhum');
@@ -6092,6 +6120,18 @@ async function netDiag(){
     else res.push('<div style="color:#16a34a">✓ '+T[i]+' OK ('+(Date.now()-t2)+'ms)</div>');
    }catch(e){res.push('<div style="color:#dc2626">✗ '+T[i]+' exceção: '+String((e&&e.message)||e)+'</div>');}
   }
+  /* 4) TESTE DE ESCRITA — é isso que revela bloqueio de RLS/permissão por usuário */
+  try{
+   var tid='__TESTE__'+Date.now();
+   var w=await supa.from('etiquetas').upsert({id:tid,doc_key:'__teste__',doc_type:'nf',n_nf:'0',cliente:'teste',kg:0,idx:0,status:'',hist:[],updated_at:new Date().toISOString()});
+   if(w&&w.error)res.push('<div style="color:#dc2626">✗ ESCREVER em etiquetas FALHOU: '+(w.error.message||'')+' ['+(w.error.code||'')+'] '+(w.error.hint||'')+'</div>');
+   else{
+    var v=await supa.from('etiquetas').select('id').eq('id',tid);
+    if(v&&v.data&&v.data.length){res.push('<div style="color:#16a34a">✓ escrita em etiquetas OK (gravou e leu de volta)</div>');}
+    else{res.push('<div style="color:#dc2626">✗ escrita "passou" mas NADA foi gravado — típico de RLS bloqueando INSERT sem erro</div>');}
+    try{await supa.from('etiquetas').delete().eq('id',tid);}catch(e){}
+   }
+  }catch(e){res.push('<div style="color:#dc2626">✗ escrita em etiquetas travou: '+String((e&&e.message)||e)+'</div>');}
   out.innerHTML=res.join('');
  };
 }

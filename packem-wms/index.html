@@ -2426,7 +2426,56 @@ let BOB={},LOC={};
 try{BOB=JSON.parse(localStorage.getItem('wmsx_bob'))||{};}catch(e){BOB={};}
 try{LOC=JSON.parse(localStorage.getItem('wmsx_loc'))||{};}catch(e){LOC={};}
 var _bobVer=0;
-function saveBOB(){_bobVer++;localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}
+
+/* ===== CATÁLOGO DE BOBINAS EM INDEXEDDB =====
+   O localStorage tem teto de ~5 MB. Com 40 mil etiquetas o JSON passa disso e o
+   setItem('wmsx_bob') estourava QuotaExceeded no meio do import ("Deu erro ao importar").
+   Agora o catálogo mora no IndexedDB (centenas de MB) e o localStorage vira só cache
+   de emergência para catálogos pequenos. */
+window._bobReady=false;
+var _bobIDB=(function(){
+ var dbp=null;
+ function open(){
+  if(dbp)return dbp;
+  dbp=new Promise(function(res,rej){
+   try{
+    var rq=indexedDB.open('wmsx',1);
+    rq.onupgradeneeded=function(){try{var db=rq.result;if(!db.objectStoreNames.contains('kv'))db.createObjectStore('kv');}catch(e){}};
+    rq.onsuccess=function(){res(rq.result);};
+    rq.onerror=function(){rej(rq.error);};
+   }catch(e){rej(e);}
+  });
+  return dbp;
+ }
+ return {
+  get:function(k){return open().then(function(db){return new Promise(function(res,rej){try{var t=db.transaction('kv','readonly'),r=t.objectStore('kv').get(k);r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};}catch(e){rej(e);}});});},
+  set:function(k,v){return open().then(function(db){return new Promise(function(res,rej){try{var t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=function(){res(true);};t.onerror=function(){rej(t.error);};}catch(e){rej(e);}});});}
+ };
+})();
+
+var _bobSaveT=null,_bobLSFull=false;
+function saveBOB(){
+ _bobVer++;
+ /* IDB é o dono do dado — gravação debounced (import de 40k não grava 40k vezes) */
+ clearTimeout(_bobSaveT);
+ _bobSaveT=setTimeout(function(){
+  try{_bobIDB.set('bob',BOB).catch(function(e){console.warn('idb bob',e);});}catch(e){console.warn('idb bob',e);}
+ },250);
+ /* localStorage só enquanto couber; ao estourar, limpa e para de tentar (não quebra o import) */
+ if(_bobLSFull)return;
+ try{localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}
+ catch(e){_bobLSFull=true;try{localStorage.removeItem('wmsx_bob');}catch(_){}}
+}
+/* carga inicial do IDB (assíncrona) — usa o que estiver maior entre IDB e o cache local */
+(function(){
+ try{
+  _bobIDB.get('bob').then(function(v){
+   if(v&&typeof v==='object'&&Object.keys(v).length>=Object.keys(BOB).length)BOB=v;
+   window._bobReady=true;
+   try{if(typeof renderBobCatalog==='function'&&document.getElementById('bobTable'))renderBobCatalog();}catch(e){}
+  }).catch(function(){window._bobReady=true;});
+ }catch(e){window._bobReady=true;}
+})();
 /* busca UMA etiqueta na nuvem quando o aparelho não tem o catálogo local (busca sob demanda) */
 async function bobFetch(et){
   try{
@@ -2589,7 +2638,7 @@ function addManualBob(){const et=String(($('#mbEt').value||'')).trim().toUpperCa
 function wireManualBob(){const b=$('#mbAdd');if(b)b.onclick=addManualBob;['mbEt','mbPr','mbDe','mbPl'].forEach(id=>{const e=$('#'+id);if(e)e.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();addManualBob();}});});}
 (function(){const lb=$('#lblBob');if(lb){lb.innerHTML=bobImportUI();$('#impBtn').onclick=()=>$('#impFile').click();$('#impFile').onchange=e=>{if(e.target.files[0])handleImport(e.target.files[0]);};$('#bobSearch').addEventListener('input',renderBobCatalog);wireManualBob();renderBobCatalog();}
  const tb=document.querySelectorAll('#lblTabs button');if(tb[0])tb[0].textContent='Endereços (imprimir)';if(tb[1])tb[1].textContent='Bobinas (importar)';})();
-const _rlbl=render;render=function(id){const x=_rlbl(id);if(id==='v-labels'){setTimeout(renderBobCatalog,0);try{if(Object.keys(BOB).length<100&&typeof supa!=='undefined'&&supa&&navigator.onLine!==false&&!window._catLoading){window._catLoading=true;pgAll('bobinas').then(function(bo){window._catLoading=false;if(bo&&bo.length){var nb={};bo.forEach(function(r){nb[r.etiqueta]={pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0};});if(Object.keys(nb).length>=Object.keys(BOB).length){BOB=nb;saveBOB();try{renderBobCatalog();}catch(e){}}}},function(){window._catLoading=false;});}}catch(e){}}return x;};
+const _rlbl=render;render=function(id){const x=_rlbl(id);if(id==='v-labels'){setTimeout(renderBobCatalog,0);try{if(window._bobReady&&Object.keys(BOB).length<100&&typeof supa!=='undefined'&&supa&&navigator.onLine!==false&&!window._catLoading){window._catLoading=true;pgAll('bobinas').then(function(bo){window._catLoading=false;if(bo&&bo.length){var nb={};bo.forEach(function(r){nb[r.etiqueta]={pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0};});if(Object.keys(nb).length>=Object.keys(BOB).length){BOB=nb;saveBOB();try{renderBobCatalog();}catch(e){}}}},function(){window._catLoading=false;});}}catch(e){}}return x;};
 
 /* ===== RECEBIMENTO / ESTOQUE INTERMEDIÁRIO ===== */
 ICONS.inbox='<svg class="i" viewBox="0 0 24 24"><path d="M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 13h5l1 3h6l1-3h5"/></svg>';

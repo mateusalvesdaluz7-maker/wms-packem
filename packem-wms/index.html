@@ -2426,12 +2426,7 @@ let BOB={},LOC={};
 try{BOB=JSON.parse(localStorage.getItem('wmsx_bob'))||{};}catch(e){BOB={};}
 try{LOC=JSON.parse(localStorage.getItem('wmsx_loc'))||{};}catch(e){LOC={};}
 var _bobVer=0;
-function saveBOB(){_bobVer++;try{localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}catch(e){
-  /* catálogo local passou do limite do navegador (localStorage costuma ter ~5-10MB por site).
-     Isso NÃO deve derrubar a importação nem travar o sync: os dados já vão pra nuvem (Supabase)
-     via chunkUp/syncBobDelta, então mantemos tudo em memória (BOB) e só avisamos 1x. */
-  try{if(!window._bobQuotaWarned){window._bobQuotaWarned=true;console.warn('wmsx_bob: localStorage cheio, mantendo catálogo só em memória + nuvem',e);if(typeof toast==='function')toast('Catálogo de bobinas ficou grande demais para o cache local do navegador — continua funcionando normalmente via nuvem.',false);}}catch(_){}
-}}
+function saveBOB(){_bobVer++;localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}
 /* busca UMA etiqueta na nuvem quando o aparelho não tem o catálogo local (busca sob demanda) */
 async function bobFetch(et){
   try{
@@ -2458,7 +2453,7 @@ function regBobFromEtq(id,e){try{
   BOB[id]={pr:pr,desc:desc,pl:pl};saveBOB();
   try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function')chunkUp('bobinas',[{etiqueta:id,pr:pr,descricao:desc,pl:pl}]);}catch(_){}
 }catch(err){}}
-function saveLOC(){try{localStorage.setItem('wmsx_loc',JSON.stringify(LOC));}catch(e){console.warn('wmsx_loc: localStorage cheio, mantendo só em memória + nuvem',e);}}
+function saveLOC(){localStorage.setItem('wmsx_loc',JSON.stringify(LOC));}
 function brNum(v){if(typeof v==='number')return v;if(v==null)return 0;let s=String(v).trim().replace(/[^\d.,-]/g,'');if(!s)return 0;const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.');if(lc>-1&&ld>-1){if(lc>ld)s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'');}else if(lc>-1){s=s.replace(/,/g,'.');}return parseFloat(s)||0;}
 
 parseBobina=function(v){if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);v=norm(v);if(BOB[v]){const rem=(BOB[v].rem!=null?BOB[v].rem:BOB[v].pl);return{et:v,pr:BOB[v].pr,desc:BOB[v].desc||'',peso:rem,pl:BOB[v].pl,rem:rem};}
@@ -2599,7 +2594,7 @@ const _rlbl=render;render=function(id){const x=_rlbl(id);if(id==='v-labels'){set
 /* ===== RECEBIMENTO / ESTOQUE INTERMEDIÁRIO ===== */
 ICONS.inbox='<svg class="i" viewBox="0 0 24 24"><path d="M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 13h5l1 3h6l1-3h5"/></svg>';
 let STAGE=[];try{STAGE=JSON.parse(localStorage.getItem('wmsx_stage'))||[];}catch(e){STAGE=[];}
-function saveStage(){try{localStorage.setItem('wmsx_stage',JSON.stringify(STAGE));}catch(e){console.warn('wmsx_stage: localStorage cheio, mantendo só em memória + nuvem',e);}}
+function saveStage(){localStorage.setItem('wmsx_stage',JSON.stringify(STAGE));}
 function updateStageBadge(){const n=document.querySelector('.nav[data-view="v-recv"]');if(!n)return;let b=n.querySelector('.badge');if(!STAGE.length){if(b)b.remove();return;}if(!b){b=document.createElement('span');b.className='badge';b.style.cssText='margin-left:auto;background:var(--brand);color:#fff;font-size:.66rem;font-weight:700;padding:1px 8px;border-radius:999px;font-family:var(--mono)';n.appendChild(b);}b.textContent=STAGE.length;}
 function freeStored(et){
  if(!et||typeof LOC==='undefined'||!LOC[et])return null;
@@ -3453,13 +3448,7 @@ updateStageBadge();
   /* migração: etiquetas rastreáveis geradas ANTES desta versão não estavam no catálogo BOB.
      Registra todas agora, pra funcionarem em receber/armazenar/mover/chão como bobina normal. */
   try{if(typeof regBobFromEtq==='function'&&ETQ){Object.keys(ETQ).forEach(function(id){try{if(!BOB[id])regBobFromEtq(id,ETQ[id]);}catch(e){}});}}catch(e){}
-  function saveNF(){try{localStorage.setItem('wmsx_nf',JSON.stringify({NFS:NFS,ETQ:ETQ,ROMS:ROMS}));}catch(e){
-    /* Notas+Etiquetas+Romaneios passaram do limite do cache local do navegador.
-       NÃO deixa isso quebrar o resto do fluxo (ex: abortar o nfPullCloud antes do renderNF,
-       fazendo a lista da aba Nota Fiscal parecer incompleta/desatualizada). Os dados continuam
-       corretos em memória e na nuvem (Supabase) — só o cache local desta aba/aparelho que fica sem espaço. */
-    try{if(!window._nfQuotaWarned){window._nfQuotaWarned=true;console.warn('wmsx_nf: localStorage cheio, mantendo só em memória + nuvem',e);if(typeof toast==='function')toast('Cache local de Notas Fiscais ficou grande demais para o navegador — os dados continuam corretos na nuvem.',false);}}catch(_){}
-  }}
+  function saveNF(){localStorage.setItem('wmsx_nf',JSON.stringify({NFS:NFS,ETQ:ETQ,ROMS:ROMS}));}
   /* ---- ponte com a nuvem (Supabase): substitui tudo local pelo estado da nuvem ---- */
   window.nfGetState=function(){return {ETQ:ETQ,NFS:NFS,ROMS:ROMS};};
   /* ponte: procura uma etiqueta RASTREÁVEL (gerada na Nota Fiscal/Romaneio) e devolve no
@@ -4225,8 +4214,13 @@ updateStageBadge();
   function nfDeleteNote(key){
     var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;});
     var n=NFS[key]||{};
-    if(!confirm('Excluir a NF '+(n.nNF||key)+' e suas '+ids.length+' etiqueta(s)? Esta ação não pode ser desfeita.'))return;
-    ids.forEach(function(id){delete ETQ[id];if(typeof syncDelEtiqueta==='function')syncDelEtiqueta(id);});
+    /* trava anti-exclusão acidental: exige DIGITAR o número (o Enter do leitor não confirma sozinho) */
+    var _alvo=String(n.nNF||key);
+    var _dig=prompt('EXCLUIR a NF '+_alvo+' e suas '+ids.length+' etiqueta(s)?\n\nIsto NÃO pode ser desfeito.\nPara confirmar, digite o número da NF: '+_alvo);
+    if(_dig==null)return;
+    if(String(_dig).trim()!==_alvo.trim()){toast('Número não confere — exclusão cancelada',false);return;}
+    ids.forEach(function(id){delete ETQ[id];});
+    if(typeof syncDelEtiquetasLote==='function')syncDelEtiquetasLote(ids);else if(typeof syncDelEtiqueta==='function')ids.forEach(function(id){syncDelEtiqueta(id);});
     if(NFS[key])delete NFS[key];
     if(typeof syncDelNota==='function')syncDelNota(key);
     saveNF(); if(typeof logAct==='function')logAct('nf-excluir',n.nNF||key);
@@ -4504,8 +4498,13 @@ updateStageBadge();
   function nfDeleteRomaneio(key){
     var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;});
     var n=ROMS[key]||{};
-    if(!confirm('Excluir o romaneio '+(n.nRomaneio||key)+' e suas '+ids.length+' etiqueta(s)? Esta ação não pode ser desfeita.'))return;
-    ids.forEach(function(id){delete ETQ[id];if(typeof syncDelEtiqueta==='function')syncDelEtiqueta(id);});
+    /* trava anti-exclusão acidental: exige DIGITAR o número (o Enter do leitor não confirma sozinho) */
+    var _alvo=String(n.nRomaneio||key);
+    var _dig=prompt('EXCLUIR o romaneio '+_alvo+' e suas '+ids.length+' etiqueta(s)?\n\nIsto NÃO pode ser desfeito.\nPara confirmar, digite o número do romaneio: '+_alvo);
+    if(_dig==null)return;
+    if(String(_dig).trim()!==_alvo.trim()){toast('Número não confere — exclusão cancelada',false);return;}
+    ids.forEach(function(id){delete ETQ[id];});
+    if(typeof syncDelEtiquetasLote==='function')syncDelEtiquetasLote(ids);else if(typeof syncDelEtiqueta==='function')ids.forEach(function(id){syncDelEtiqueta(id);});
     if(ROMS[key])delete ROMS[key];
     if(typeof syncDelRomaneio==='function')syncDelRomaneio(key);
     saveNF(); if(typeof logAct==='function')logAct('romaneio-excluir',n.nRomaneio||key);
@@ -5514,6 +5513,18 @@ window._etqDelMap=(function(){try{return JSON.parse(localStorage.getItem('wmsx_e
 window._etqDelMark=function(id){try{id=String(id||'').trim().toUpperCase();if(!id)return;window._etqDelMap[id]=Date.now();localStorage.setItem('wmsx_etqDel',JSON.stringify(window._etqDelMap));}catch(e){}};
 window._etqDelActive=function(id){try{id=String(id||'').trim().toUpperCase();var t=window._etqDelMap[id];return !!(t&&(Date.now()-t)<600000);}catch(e){return false;}}; /* trava por 10 min */
 window._etqDelClean=function(){try{var now=Date.now(),ch=false;Object.keys(window._etqDelMap).forEach(function(k){if(now-window._etqDelMap[k]>600000){delete window._etqDelMap[k];ch=true;}});if(ch)localStorage.setItem('wmsx_etqDel',JSON.stringify(window._etqDelMap));}catch(e){}};
+/* EXCLUSÃO EM LOTE: apaga N etiquetas em chunks de 100 via .in() — sequencial.
+   Antes: 200 DELETEs individuais simultâneos (cada um com 3 retries) saturavam a conexão
+   e apareciam como "falha na conexão" ao excluir romaneio/NF grande. */
+function syncDelEtiquetasLote(ids){if(!supa||!ids||!ids.length)return;
+ try{var m=window._etqDelMap||{};ids.forEach(function(id){id=String(id||'').trim().toUpperCase();if(id)m[id]=Date.now();});window._etqDelMap=m;localStorage.setItem('wmsx_etqDel',JSON.stringify(m));}catch(e){}
+ var chunks=[];for(var i=0;i<ids.length;i+=100)chunks.push(ids.slice(i,i+100));
+ var run=function(ci,tent){if(ci>=chunks.length)return;var ch=chunks[ci];
+  supa.from('etiquetas').delete().in('id',ch).then(function(r){
+   if(r&&r.error&&(tent||0)<3){setTimeout(function(){run(ci,(tent||0)+1);},1200*((tent||0)+1));}
+   else{setTimeout(function(){run(ci+1,0);},120);}
+  },function(){if((tent||0)<3){setTimeout(function(){run(ci,(tent||0)+1);},1200*((tent||0)+1));}else{setTimeout(function(){run(ci+1,0);},120);}});
+ };run(0,0);}
 function syncDelEtiqueta(id,_t){if(!supa||!id)return;if(!_t){try{window._etqDelMark(id);}catch(e){}}supa.from('etiquetas').delete().eq('id',id).then(function(r){if(r&&r.error&&(_t||0)<3){setTimeout(function(){syncDelEtiqueta(id,(_t||0)+1);},1000*((_t||0)+1));}},function(){if((_t||0)<3){setTimeout(function(){syncDelEtiqueta(id,(_t||0)+1);},1000*((_t||0)+1));}});}
 function syncNota(n,_try){if(!supa||!n||!n.key)return;supa.from('notas_fiscais').upsert({key:n.key,data:n,updated_at:new Date().toISOString()}).then(function(res){
     if(res&&res.error){window._syncErrs.rom++;window._syncErrs.lastErr='notas: '+(res.error.message||res.error.code||'erro');
@@ -6920,23 +6931,41 @@ function pwaInit(){try{const mf={name:'Packem WMS · Dep 70',short_name:'Packem 
 }
 
 /* ===== IMPRESSÃO ROBUSTA VIA IFRAME + QR COM FALLBACK OFFLINE ===== */
-qrSvg=function(text){text=String(text);if(!window.qrcode)return bc39(text);try{var qr=window.qrcode(0,'M');qr.addData(text);qr.make();var n=qr.getModuleCount(),cell=4,margin=2,size=(n+margin*2)*cell,r='';for(var y=0;y<n;y++)for(var x=0;x<n;x++){if(qr.isDark(y,x))r+='<rect x="'+((x+margin)*cell)+'" y="'+((y+margin)*cell)+'" width="'+cell+'" height="'+cell+'"/>';}return '<svg class="qr" viewBox="0 0 '+size+' '+size+'" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><rect width="'+size+'" height="'+size+'" fill="#fff"/><g fill="#000">'+r+'</g></svg>';}catch(e){return bc39(text);}};
+qrSvg=function(text){text=String(text);if(!window.qrcode)return bc39(text);try{var qr=window.qrcode(0,'M');qr.addData(text);qr.make();var n=qr.getModuleCount(),cell=4,margin=2,size=(n+margin*2)*cell;
+ /* PERF: um único <path> em vez de centenas de <rect>. Com 200 etiquetas isso corta o DOM do
+    iframe de impressão de ~140 mil nós pra ~1 mil — era isso que travava a aba e cortava o lote. */
+ var d='';for(var y=0;y<n;y++){var x=0;while(x<n){if(qr.isDark(y,x)){var x0=x;while(x<n&&qr.isDark(y,x))x++;d+='M'+((x0+margin)*cell)+' '+((y+margin)*cell)+'h'+((x-x0)*cell)+'v'+cell+'h-'+((x-x0)*cell)+'z';}else x++;}}
+ return '<svg class="qr" viewBox="0 0 '+size+' '+size+'" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><rect width="'+size+'" height="'+size+'" fill="#fff"/><path fill="#000" d="'+d+'"/></svg>';}catch(e){return bc39(text);}};
 function printDoc(bodyHTML,css){var f=document.getElementById('pkPrintFrame');if(f&&f.parentNode)f.parentNode.removeChild(f);
- f=document.createElement('iframe');f.id='pkPrintFrame';f.setAttribute('aria-hidden','true');f.style.cssText='position:fixed;left:-9999px;top:0;width:170mm;height:230mm;border:0;background:#fff';
+ var _prevFocus=null;try{_prevFocus=document.activeElement;}catch(e){}
+ f=document.createElement('iframe');f.id='pkPrintFrame';f.setAttribute('aria-hidden','true');f.setAttribute('tabindex','-1');f.style.cssText='position:fixed;left:-9999px;top:0;width:170mm;height:230mm;border:0;background:#fff;pointer-events:none';
  document.body.appendChild(f);
  var win=f.contentWindow||f,d=win.document;d.open();d.write('<!doctype html><html><head><meta charset="utf-8"><style>'+css+'</style></head><body>'+bodyHTML+'</body></html>');d.close();
  /* AUTO-FIT: qualquer conteúdo dentro de .zfit é medido e reduzido (scale) para caber SEMPRE dentro da etiqueta, centralizado — nada fica cortado ou fora */
- function fitz(){try{var els=d.querySelectorAll('.zfit');for(var i=0;i<els.length;i++){var el=els[i],p=el.parentElement;if(!p)continue;el.style.transform='';var cs=win.getComputedStyle(p);var aw=p.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0);var ah=p.clientHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);var w=Math.max(1,el.scrollWidth),h=Math.max(1,el.scrollHeight);var s=Math.min(1,aw/w,ah/h);if(s<0.999){el.style.transformOrigin='center center';el.style.transform='scale('+(Math.floor(s*1000)/1000)+')';}}}catch(e){}}
+ function fitz(){try{var els=d.querySelectorAll('.zfit');
+  /* PERF (lotes grandes): antes era escreve-lê-escreve-lê por etiqueta = 1 reflow por etiqueta (layout thrashing).
+     Agora: FASE 1 só lê tudo (1 layout), FASE 2 só escreve (1 layout). 200 etiquetas deixa de travar a aba. */
+  var med=[];for(var i=0;i<els.length;i++){var el=els[i],p=el.parentElement;if(!p){med.push(null);continue;}var cs=win.getComputedStyle(p);var aw=p.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0);var ah=p.clientHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);var w=Math.max(1,el.scrollWidth),h=Math.max(1,el.scrollHeight);med.push(Math.min(1,aw/w,ah/h));}
+  for(var j=0;j<els.length;j++){var s=med[j];if(s==null)continue;if(s<0.999){els[j].style.transformOrigin='center center';els[j].style.transform='scale('+(Math.floor(s*1000)/1000)+')';}}}catch(e){}}
  var fired=false;
  function go(){if(fired)return;fired=true;try{fitz();}catch(e){}
    try{win.focus();win.print();}catch(e){console.warn('print',e);}
+   /* DEVOLVE O FOCO PRO APP: o win.focus() acima joga o foco pra dentro do iframe de impressão.
+      Como o iframe agora fica vivo (pra não cortar o lote), sem isso o leitor/teclado ficava
+      preso lá dentro e o app parava de receber bipe. */
+   var _back=function(){try{window.focus();}catch(e){}
+     try{if(_prevFocus&&_prevFocus.focus&&document.body.contains(_prevFocus))_prevFocus.focus();
+         else{var sc=document.querySelector('.view.active input:not([type=checkbox]):not([type=radio])');if(sc&&sc.focus)sc.focus();}}catch(e){}};
+   _back();setTimeout(_back,300);setTimeout(_back,1200);
    /* NÃO destruir o documento agora: o navegador ainda está enviando as páginas pra impressora
       (destruir cedo era o que cortava o lote no meio). O iframe antigo é removido na PRÓXIMA
       impressão (topo do printDoc). Este timeout é só uma faxina tardia pra não acumular. */
    setTimeout(function(){try{if(f&&f.parentNode)f.parentNode.removeChild(f);}catch(e){}},300000);
  }
+ /* lote grande precisa de mais tempo de layout antes do print — senão o spool sai cortado no meio */
+ var _big=Math.min(6000,Math.max(0,Math.floor((bodyHTML.length/100000))*400));
  var imgs=d.images,total=imgs?imgs.length:0,loaded=0;
- if(total){for(var i=0;i<total;i++){var im=imgs[i];if(im.complete){loaded++;}else{im.onload=im.onerror=function(){loaded++;if(loaded>=total)go();};}}if(loaded>=total)setTimeout(go,150);setTimeout(go,1800);}else{setTimeout(go,250);}}
+ if(total){for(var i=0;i<total;i++){var im=imgs[i];if(im.complete){loaded++;}else{im.onload=im.onerror=function(){loaded++;if(loaded>=total)setTimeout(go,150+_big);};}}if(loaded>=total)setTimeout(go,150+_big);setTimeout(go,1800+_big);}else{setTimeout(go,250+_big);}}
 printZebra=function(codes,w,dim){if(!codes||!codes.length){toast('Nada para imprimir',false);return;}dim=dim||ZSIZES.z150;
  var render=function(){var labels=codes.map(function(c){return zebraLabelHTML(c,w,dim);}).join('');
   var css='*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:'+dim.w+'mm '+dim.h+'mm;margin:0}'

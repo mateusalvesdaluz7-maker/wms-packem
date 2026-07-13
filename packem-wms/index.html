@@ -5709,7 +5709,15 @@ async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
 let _rt=null;function scheduleRerender(){clearTimeout(_rt);_rt=setTimeout(()=>{if(session){var _ae=document.activeElement;var _dig=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');var _drawer=document.querySelector('#drawer.show');if(!_dig&&!_drawer){const v=document.querySelector('.view.active');if(v)render(v.id);}}updateStageBadge();},120);}
 /* grava no localStorage de forma agrupada: durante uma rajada de sync, salva 1x por tabela depois que acalmar (evita travar o celular regravando arrays gigantes a cada evento) */
 let _pT={};function persistDebounced(k){clearTimeout(_pT[k]);_pT[k]=setTimeout(function(){try{if(k==='sp')DB.saveSpaces(S);else if(k==='bob')saveBOB();else if(k==='loc')saveLOC();else if(k==='stage')saveStage();else if(k==='mv')DB.saveMovs(MV);else if(k==='vl')DB.saveValues(VL);else if(k==='us')DB.saveUsers(US);}catch(e){}},200);}
+var _rtBurst=0,_rtBurstT=0;
 function applyRealtime(p){const t=p.table,n=p.new,o=p.old,ev=p.eventType;
+ /* FREIO ANTI-ENXURRADA: se chegarem mais de 120 eventos em 2s (import em massa ecoando de volta),
+    para de processar e agenda UM pull leve no fim — em vez de re-renderizar 40 mil vezes. */
+ try{var _now=Date.now();if(_now-_rtBurstT>2000){_rtBurstT=_now;_rtBurst=0;}_rtBurst++;
+  if(_rtBurst>120){clearTimeout(applyRealtime._c);applyRealtime._c=setTimeout(function(){try{if(typeof pullLight==='function')pullLight();}catch(e){}},3000);return;}
+ }catch(e){}
+ /* catálogo de bobinas NÃO entra por realtime (sincroniza por delta/push) */
+ if(t==='bobinas')return;
  try{
  if(t==='espacos'&&n){const i=S.findIndex(x=>x.id===n.id);const row={id:n.id,w:n.w,s:n.s,l:n.l,p:n.p,pr:n.pr||'',q:cleanQ(n.q),u:n.u||'KG',o:!!n.o,src:n.src||'',upd:n.upd||'',by:n.by_user||''};
   // anti-eco: se chega uma versão MAIS ANTIGA desta vaga do que a que já tenho, ignoro SEMPRE (é eco atrasado / aparelho desatualizado)
@@ -5740,10 +5748,22 @@ let _rtChan=null,_rtOk=false,_rtRetry=0;
 function startRealtime(){if(!supa)return;
  try{if(_rtChan){try{supa.removeChannel(_rtChan);}catch(e){}_rtChan=null;}}catch(e){}
  try{
-  _rtChan=supa.channel('wms-all-'+Date.now())
-   .on('postgres_changes',{event:'*',schema:'public'},p=>applyRealtime(p))
-   .subscribe(function(status){
-     if(status==='SUBSCRIBED'){_rtOk=true;_rtRetry=0;try{pullAll(true);}catch(e){}}
+  /* ===== CAUSA DO "ATUALIZANDO SEM PARAR" =====
+     A inscrição era schema-wide (event:'*', schema:'public'), ou seja, INCLUÍA a tabela `bobinas`.
+     Ao subir o catálogo de 40.900 etiquetas, o Supabase devolvia 40.900 eventos de realtime pra
+     ESTE MESMO aparelho → applyRealtime 40 mil vezes → saveBOB + re-render em loop, socket
+     estourado → CHANNEL_ERROR → reconecta → e no SUBSCRIBED disparava pullAll() FORA da trava
+     de sync. Resultado: "ao vivo / atualizando / offline" piscando pra sempre.
+     Agora: assina tabela por tabela, SEM `bobinas` (o catálogo já sincroniza por delta/push). */
+  var TBL=['espacos','locais','stage','movimentos','valores','usuarios','chao','chao70','etiquetas','notas_fiscais','romaneios'];
+  var ch=supa.channel('wms-ops-'+Date.now());
+  TBL.forEach(function(t){ch=ch.on('postgres_changes',{event:'*',schema:'public',table:t},function(p){applyRealtime(p);});});
+  _rtChan=ch.subscribe(function(status){
+     if(status==='SUBSCRIBED'){_rtOk=true;_rtRetry=0;
+       /* só puxa tudo na PRIMEIRA conexão. Reconexões não disparam mais pullAll —
+          era isso que furava a trava e empilhava pull em cima de pull. */
+       if(!window._rtFirstDone){window._rtFirstDone=true;try{pullAll(true);}catch(e){}}
+     }
      else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){_rtOk=false;
        // reconecta em SILÊNCIO no fundo (não mexe no status visual — quem manda no status é o auto-sync).
        // espera curta e crescente (1.5s,3s,6s… até 20s).

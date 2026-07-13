@@ -3453,7 +3453,13 @@ updateStageBadge();
   /* migração: etiquetas rastreáveis geradas ANTES desta versão não estavam no catálogo BOB.
      Registra todas agora, pra funcionarem em receber/armazenar/mover/chão como bobina normal. */
   try{if(typeof regBobFromEtq==='function'&&ETQ){Object.keys(ETQ).forEach(function(id){try{if(!BOB[id])regBobFromEtq(id,ETQ[id]);}catch(e){}});}}catch(e){}
-  function saveNF(){localStorage.setItem('wmsx_nf',JSON.stringify({NFS:NFS,ETQ:ETQ,ROMS:ROMS}));}
+  function saveNF(){try{localStorage.setItem('wmsx_nf',JSON.stringify({NFS:NFS,ETQ:ETQ,ROMS:ROMS}));}catch(e){
+    /* Notas+Etiquetas+Romaneios passaram do limite do cache local do navegador.
+       NÃO deixa isso quebrar o resto do fluxo (ex: abortar o nfPullCloud antes do renderNF,
+       fazendo a lista da aba Nota Fiscal parecer incompleta/desatualizada). Os dados continuam
+       corretos em memória e na nuvem (Supabase) — só o cache local desta aba/aparelho que fica sem espaço. */
+    try{if(!window._nfQuotaWarned){window._nfQuotaWarned=true;console.warn('wmsx_nf: localStorage cheio, mantendo só em memória + nuvem',e);if(typeof toast==='function')toast('Cache local de Notas Fiscais ficou grande demais para o navegador — os dados continuam corretos na nuvem.',false);}}catch(_){}
+  }}
   /* ---- ponte com a nuvem (Supabase): substitui tudo local pelo estado da nuvem ---- */
   window.nfGetState=function(){return {ETQ:ETQ,NFS:NFS,ROMS:ROMS};};
   /* ponte: procura uma etiqueta RASTREÁVEL (gerada na Nota Fiscal/Romaneio) e devolve no

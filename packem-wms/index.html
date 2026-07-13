@@ -5624,6 +5624,8 @@ async function pushAll(btn){if(!supa){toast('Sem conexão com a nuvem',false);re
   toast('Tudo enviado para a nuvem ✓');setNet('on');
  }catch(e){toast('Erro ao enviar',false);setNet('on');}
  if(btn){btn.disabled=false;btn.textContent='↥ Enviar p/ nuvem';}}
+/* ===== DIAGNÓSTICO DE CONEXÃO (clique no chip de status pra abrir) ===== */
+window._DIAG={pgErr:{},pgOk:{},rt:'—',lightMs:0,lightOk:null,lightErr:'',ticks:0,fullAt:'—'};
 async function pgAll(table,order,budgetMs){let out=[],from=0,page=1000;var _t0=Date.now(),_bud=budgetMs||20000;for(;;){
   /* ORÇAMENTO DE TEMPO: com tabelas grandes (40 mil bobinas/etiquetas) a paginação
      rodava indefinidamente, o pullAll passava dos 15s do cão de guarda e o próximo tick
@@ -5633,8 +5635,10 @@ async function pgAll(table,order,budgetMs){let out=[],from=0,page=1000;var _t0=D
   if(!r||r.error){
     /* guarda o erro de leitura (ex: RLS/permissão) para avisar na tela */
     try{window._cloudReadErr={table:table,msg:((r&&r.error&&(r.error.message||r.error.code))||'erro'),code:(r&&r.error&&r.error.code)||''};}catch(e){}
+    try{window._DIAG.pgErr[table]={msg:((r&&r.error&&(r.error.message||r.error.code))||'sem resposta'),code:(r&&r.error&&r.error.code)||'',at:new Date().toLocaleTimeString()};}catch(e){}
     break;
   }
+  try{delete window._DIAG.pgErr[table];window._DIAG.pgOk[table]=(out.length+((r.data&&r.data.length)||0));}catch(e){}
   if(!r.data||!r.data.length)break;out=out.concat(r.data);if(r.data.length<page)break;from+=page;if(from>300000)break;}return out;}
 /* trava anti-corrida: quando você grava algo local, o pullAll não pode sobrescrever
    os espaços/movimentos com a versão antiga da nuvem enquanto seu dado ainda está subindo. */
@@ -5759,6 +5763,7 @@ function startRealtime(){if(!supa)return;
   var ch=supa.channel('wms-ops-'+Date.now());
   TBL.forEach(function(t){ch=ch.on('postgres_changes',{event:'*',schema:'public',table:t},function(p){applyRealtime(p);});});
   _rtChan=ch.subscribe(function(status){
+     try{window._DIAG.rt=status+' @'+new Date().toLocaleTimeString();}catch(e){}
      if(status==='SUBSCRIBED'){_rtOk=true;_rtRetry=0;
        /* só puxa tudo na PRIMEIRA conexão. Reconexões não disparam mais pullAll —
           era isso que furava a trava e empilhava pull em cima de pull. */
@@ -5778,8 +5783,9 @@ function startRealtime(){if(!supa)return;
 /* pull LEVE: só o que muda ao vivo (recebimento + chão + chão70 + movimentos e vagas recentes).
    Não baixa o catálogo (74k), nem espaços/movimentos inteiros — isso é só no pull completo (raro). */
 async function pullLight(){
- if(!supa)return false;
- if(navigator.onLine===false)return false;
+ var _lt0=Date.now();
+ if(!supa){try{window._DIAG.lightErr='supa não iniciado';window._DIAG.lightOk=false;}catch(e){}return false;}
+ if(navigator.onLine===false){try{window._DIAG.lightErr='navigator.onLine=false';window._DIAG.lightOk=false;}catch(e){}return false;}
  var guard=_writeGuardActive();
  try{
   const sg=await pgAll('stage');if(!guard){STAGE=sg.map(r=>({et:r.etiqueta,pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0,at:r.at,by:r.by_user||''}));saveStage();}
@@ -5792,8 +5798,10 @@ async function pullLight(){
   var _spNew=0;
   try{var _spr=await Promise.race([supa.from('espacos').select('*').order('upd',{ascending:false,nullsFirst:false}).limit(200),new Promise(function(res){setTimeout(function(){res({data:null});},9000);})]);if(_spr&&_spr.data&&_spr.data.length){var _byId={};S.forEach(function(x){_byId[x.id]=x;});_spr.data.forEach(function(r){if(!r.upd)return;var cloud={id:r.id,w:r.w,s:r.s,l:r.l,p:r.p,pr:r.pr||'',q:cleanQ(r.q),u:r.u||'KG',o:!!r.o,src:r.src||'',upd:r.upd||'',by:r.by_user||''};var loc=_byId[r.id];if(!loc){S.push(cloud);_spNew++;return;}var _lu=String(loc.upd||''),_cu=String(cloud.upd||'');if(!guard&&_cu&&(!_lu||_cu>_lu)){var i=S.indexOf(loc);if(i>=0){S[i]=cloud;_spNew++;}}});if(_spNew){DB.saveSpaces(S);}}}catch(e){}
   if(session){var _ae=document.activeElement;var _dig=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');var _drw=document.querySelector('#drawer.show');if(!_dig&&!_drw){var v=document.querySelector('.view.active');if(v){var _live=(v.id==='v-recv'||v.id==='v-floor'||v.id==='v-floor70');var _mov=(v.id==='v-vsm'||v.id==='v-track');var _sp=(v.id==='v-home'||v.id==='v-board'||v.id==='v-stock'||v.id==='v-abc');if(_live||(_mov&&_mvNew)||(_sp&&_spNew))render(v.id);}}}
-  updateStageBadge();return true;
- }catch(e){return false;}
+  updateStageBadge();
+  try{window._DIAG.lightMs=Date.now()-_lt0;window._DIAG.lightOk=true;window._DIAG.lightErr='';}catch(e){}
+  return true;
+ }catch(e){try{window._DIAG.lightMs=Date.now()-_lt0;window._DIAG.lightOk=false;window._DIAG.lightErr=String((e&&e.message)||e);}catch(_){}return false;}
 }
 var _syncing=false,_tickN=0,_syncStart=0,_netFails=0;
 function autoSyncTick(){
@@ -5811,6 +5819,7 @@ function autoSyncTick(){
   if(_syncing){ if(Date.now()-_syncStart>90000){_syncing=false;} else return; }
   _syncing=true;_syncStart=Date.now();_tickN++;
   var full=(_tickN%60===0); // pull completo (pesado) a cada ~2,5 min; o resto é leve
+  try{window._DIAG.ticks=_tickN;if(full)window._DIAG.fullAt=new Date().toLocaleTimeString();}catch(e){}
   var p=full?pullAll(true):pullLight();
   p.then(function(ok){
     if(ok){window._lastPullOkAt=Date.now();_netFails=0;setNet('on');}
@@ -5837,7 +5846,56 @@ function startAutoSync(){clearInterval(_autoSyncTimer);_autoSyncTimer=setInterva
   if(lb&&x&&!document.getElementById('spZebra')){const b=document.createElement('button');b.id='spZebra';b.className='gbtn';b.style.cssText='width:100%;justify-content:center;margin-top:10px';b.innerHTML=ICONS.print+' Imprimir na Zebra (100×150)';b.onclick=()=>printZebra([code(x)],x.w,ZSIZES.z150);(document.getElementById('spRast')||lb).after(b);}};
 })();
 /* injeta indicador + botão migrar no topo */
-(function(){const tb=document.querySelector('.topbar');if(!tb)return;const u=document.getElementById('userBtn');const chip=document.createElement('div');chip.id='netChip';chip.style.cssText='font-size:.78rem;font-weight:700;color:var(--faint);white-space:nowrap';chip.textContent='● offline';const btn=document.createElement('button');btn.className='gbtn';btn.id='cloudPush';btn.style.cssText='padding:8px 12px';btn.textContent='↥ Enviar p/ nuvem';btn.onclick=()=>pushAll(btn);tb.insertBefore(chip,u);tb.insertBefore(btn,u);})();
+(function(){const tb=document.querySelector('.topbar');if(!tb)return;const u=document.getElementById('userBtn');const chip=document.createElement('div');chip.id='netChip';chip.style.cssText='font-size:.78rem;font-weight:700;color:var(--faint);white-space:nowrap;cursor:pointer';chip.title='clique para diagnosticar a conexão';chip.textContent='● offline';chip.onclick=function(){if(typeof netDiag==='function')netDiag();};const btn=document.createElement('button');btn.className='gbtn';btn.id='cloudPush';btn.style.cssText='padding:8px 12px';btn.textContent='↥ Enviar p/ nuvem';btn.onclick=()=>pushAll(btn);tb.insertBefore(chip,u);tb.insertBefore(btn,u);})();
+
+/* ===== PAINEL DE DIAGNÓSTICO: mostra EXATAMENTE por que está offline ===== */
+async function netDiag(){
+ var D=window._DIAG||{};
+ var linhas=[];
+ var add=function(k,v,ruim){linhas.push('<div style="display:flex;gap:10px;padding:7px 0;border-top:1px solid var(--line,rgba(255,255,255,.07))"><div style="flex:none;width:150px;color:var(--muted);font-size:.78rem">'+k+'</div><div class="mono" style="flex:1;font-size:.78rem;word-break:break-word;color:'+(ruim?'#dc2626':'var(--ink)')+'">'+String(v)+'</div></div>');};
+ add('navigator.onLine',navigator.onLine,!navigator.onLine);
+ add('status atual',window._netState||'—',window._netState!=='on');
+ add('realtime',D.rt||'—',String(D.rt||'').indexOf('SUBSCRIBED')<0);
+ add('pullLight',(D.lightOk===true?'OK em '+D.lightMs+'ms':(D.lightOk===false?'FALHOU: '+(D.lightErr||'?'):'ainda não rodou')),D.lightOk!==true);
+ add('ticks de sync',D.ticks||0);
+ add('último pull completo',D.fullAt||'—');
+ add('envio em massa',(window._bulkUp||0)>0?'RODANDO ('+window._bulkUp+')':'não');
+ add('catálogo (BOB)',Object.keys(BOB).length+' etiquetas · IDB '+(window._bobReady?'carregado':'carregando'));
+ var errs=Object.keys(D.pgErr||{});
+ if(errs.length){errs.forEach(function(t){add('ERRO tabela '+t,(D.pgErr[t].msg||'')+' ['+(D.pgErr[t].code||'')+'] '+(D.pgErr[t].at||''),true);});}
+ else add('erros de leitura','nenhum');
+ var oks=Object.keys(D.pgOk||{});
+ if(oks.length)add('leituras ok',oks.map(function(t){return t+':'+D.pgOk[t];}).join(' · '));
+ openDrawer('Diagnóstico de conexão',
+   '<div style="color:var(--muted);font-size:.82rem;margin-bottom:8px">Se algo estiver em vermelho, é a causa do “offline”. Tire um print desta tela.</div>'
+   +linhas.join('')
+   +'<button class="btn brand" id="ndTest" style="width:100%;height:46px;margin-top:14px">Testar conexão agora</button>'
+   +'<div id="ndOut" style="margin-top:10px;font-size:.78rem" class="mono"></div>');
+ var out=document.getElementById('ndOut');
+ document.getElementById('ndTest').onclick=async function(){
+  out.innerHTML='testando…';
+  var res=[];
+  /* 1) o servidor responde? */
+  try{var t0=Date.now();var ctrl=new AbortController();setTimeout(function(){ctrl.abort();},8000);
+   var r=await fetch(SUPA_URL+'/rest/v1/',{method:'HEAD',headers:{apikey:SUPA_KEY},signal:ctrl.signal});
+   res.push('<div style="color:#16a34a">✓ servidor respondeu ('+r.status+') em '+(Date.now()-t0)+'ms</div>');
+  }catch(e){res.push('<div style="color:#dc2626">✗ servidor NÃO respondeu: '+String((e&&e.message)||e)+'</div>');}
+  /* 2) uma leitura simples passa? (pega RLS/chave errada) */
+  try{var t1=Date.now();var q=await supa.from('espacos').select('id').limit(1);
+   if(q.error)res.push('<div style="color:#dc2626">✗ leitura espacos: '+(q.error.message||'')+' ['+(q.error.code||'')+']</div>');
+   else res.push('<div style="color:#16a34a">✓ leitura espacos OK em '+(Date.now()-t1)+'ms</div>');
+  }catch(e){res.push('<div style="color:#dc2626">✗ leitura espacos travou: '+String((e&&e.message)||e)+'</div>');}
+  /* 3) as tabelas que o pull leve usa */
+  for(var i=0,T=['stage','chao','chao70','movimentos'];i<T.length;i++){
+   try{var t2=Date.now();var qq=await supa.from(T[i]).select('*').limit(1);
+    if(qq.error)res.push('<div style="color:#dc2626">✗ '+T[i]+': '+(qq.error.message||'')+' ['+(qq.error.code||'')+']</div>');
+    else res.push('<div style="color:#16a34a">✓ '+T[i]+' OK ('+(Date.now()-t2)+'ms)</div>');
+   }catch(e){res.push('<div style="color:#dc2626">✗ '+T[i]+' exceção: '+String((e&&e.message)||e)+'</div>');}
+  }
+  out.innerHTML=res.join('');
+ };
+}
+window.netDiag=netDiag;
 /* ===== bloqueio de tela quando cai a internet ===== */
 function netBlockShow(){var b=document.getElementById('netBlock');if(b)b.style.display='flex';}
 function netBlockHide(){var b=document.getElementById('netBlock');if(b)b.style.display='none';}

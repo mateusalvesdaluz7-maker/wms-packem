@@ -2426,7 +2426,12 @@ let BOB={},LOC={};
 try{BOB=JSON.parse(localStorage.getItem('wmsx_bob'))||{};}catch(e){BOB={};}
 try{LOC=JSON.parse(localStorage.getItem('wmsx_loc'))||{};}catch(e){LOC={};}
 var _bobVer=0;
-function saveBOB(){_bobVer++;localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}
+function saveBOB(){_bobVer++;try{localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}catch(e){
+  /* catálogo local passou do limite do navegador (localStorage costuma ter ~5-10MB por site).
+     Isso NÃO deve derrubar a importação nem travar o sync: os dados já vão pra nuvem (Supabase)
+     via chunkUp/syncBobDelta, então mantemos tudo em memória (BOB) e só avisamos 1x. */
+  try{if(!window._bobQuotaWarned){window._bobQuotaWarned=true;console.warn('wmsx_bob: localStorage cheio, mantendo catálogo só em memória + nuvem',e);if(typeof toast==='function')toast('Catálogo de bobinas ficou grande demais para o cache local do navegador — continua funcionando normalmente via nuvem.',false);}}catch(_){}
+}}
 /* busca UMA etiqueta na nuvem quando o aparelho não tem o catálogo local (busca sob demanda) */
 async function bobFetch(et){
   try{
@@ -2453,7 +2458,7 @@ function regBobFromEtq(id,e){try{
   BOB[id]={pr:pr,desc:desc,pl:pl};saveBOB();
   try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function')chunkUp('bobinas',[{etiqueta:id,pr:pr,descricao:desc,pl:pl}]);}catch(_){}
 }catch(err){}}
-function saveLOC(){localStorage.setItem('wmsx_loc',JSON.stringify(LOC));}
+function saveLOC(){try{localStorage.setItem('wmsx_loc',JSON.stringify(LOC));}catch(e){console.warn('wmsx_loc: localStorage cheio, mantendo só em memória + nuvem',e);}}
 function brNum(v){if(typeof v==='number')return v;if(v==null)return 0;let s=String(v).trim().replace(/[^\d.,-]/g,'');if(!s)return 0;const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.');if(lc>-1&&ld>-1){if(lc>ld)s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'');}else if(lc>-1){s=s.replace(/,/g,'.');}return parseFloat(s)||0;}
 
 parseBobina=function(v){if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);v=norm(v);if(BOB[v]){const rem=(BOB[v].rem!=null?BOB[v].rem:BOB[v].pl);return{et:v,pr:BOB[v].pr,desc:BOB[v].desc||'',peso:rem,pl:BOB[v].pl,rem:rem};}
@@ -2594,7 +2599,7 @@ const _rlbl=render;render=function(id){const x=_rlbl(id);if(id==='v-labels'){set
 /* ===== RECEBIMENTO / ESTOQUE INTERMEDIÁRIO ===== */
 ICONS.inbox='<svg class="i" viewBox="0 0 24 24"><path d="M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 13h5l1 3h6l1-3h5"/></svg>';
 let STAGE=[];try{STAGE=JSON.parse(localStorage.getItem('wmsx_stage'))||[];}catch(e){STAGE=[];}
-function saveStage(){localStorage.setItem('wmsx_stage',JSON.stringify(STAGE));}
+function saveStage(){try{localStorage.setItem('wmsx_stage',JSON.stringify(STAGE));}catch(e){console.warn('wmsx_stage: localStorage cheio, mantendo só em memória + nuvem',e);}}
 function updateStageBadge(){const n=document.querySelector('.nav[data-view="v-recv"]');if(!n)return;let b=n.querySelector('.badge');if(!STAGE.length){if(b)b.remove();return;}if(!b){b=document.createElement('span');b.className='badge';b.style.cssText='margin-left:auto;background:var(--brand);color:#fff;font-size:.66rem;font-weight:700;padding:1px 8px;border-radius:999px;font-family:var(--mono)';n.appendChild(b);}b.textContent=STAGE.length;}
 function freeStored(et){
  if(!et||typeof LOC==='undefined'||!LOC[et])return null;

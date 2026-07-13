@@ -5689,14 +5689,43 @@ async function syncEtiquetasLote(ids,tag){
 }
 window.syncEtiquetasLote=syncEtiquetasLote;
 
-/* reenvia TUDO de um documento (NF ou romaneio) para a nuvem, na marra */
+/* Botão ↥ — REPARO DE MÃO DUPLA de um documento (NF ou romaneio).
+   Compara quantas etiquetas existem AQUI e quantas existem NA NUVEM e conserta o lado
+   que estiver faltando. Antes só empurrava — e no PC que estava zerado não havia o que empurrar. */
 async function reenviarDoc(key){
- var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;});
- if(typeof toast==='function')toast('Reenviando '+ids.length+' etiqueta(s)…');
+ if(!supa){toast('Sem conexão com a nuvem',false);return;}
+ var locais=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;});
+ toast('Conferindo documento na nuvem…');
  try{if(NFS[key]&&typeof syncNota==='function')syncNota(NFS[key]);}catch(e){}
  try{if(ROMS[key]&&typeof syncRomaneio==='function')syncRomaneio(ROMS[key]);}catch(e){}
- if(!ids.length){if(typeof toast==='function')toast('Este documento não tem etiquetas locais',false);return;}
- await syncEtiquetasLote(ids,'reenvio');
+ /* o que a nuvem tem deste documento */
+ var nuvem=[],de=0;
+ try{
+  for(;;){
+   var q=await supa.from('etiquetas').select('*').eq('doc_key',key).order('id',{ascending:true}).range(de,de+999);
+   if(!q||q.error){toast('Erro ao ler a nuvem: '+((q&&q.error&&q.error.message)||'?'),false);return;}
+   var d=q.data||[];nuvem=nuvem.concat(d);
+   if(d.length<1000)break;de+=1000;
+  }
+ }catch(e){toast('Erro ao ler a nuvem: '+String((e&&e.message)||e),false);return;}
+
+ if(nuvem.length>locais.length){
+  /* a nuvem tem mais: PUXA pra cá */
+  if(typeof window.nfPullCloud==='function')window.nfPullCloud(nuvem,[],[]);
+  toast('Puxado da nuvem: '+nuvem.length+' etiqueta(s) ✓');
+  try{if(typeof renderNF==='function')renderNF();}catch(e){}
+  return;
+ }
+ if(locais.length>nuvem.length){
+  /* aqui tem mais: ENVIA o que falta */
+  await syncEtiquetasLote(locais,'reparo');
+  return;
+ }
+ if(!locais.length&&!nuvem.length){
+  toast('Este documento não tem etiquetas nem aqui nem na nuvem — reimporte o arquivo no PC de origem',false);
+  return;
+ }
+ toast('Já está igual: '+locais.length+' etiqueta(s) aqui e na nuvem ✓');
 }
 window.reenviarDoc=reenviarDoc;
 
@@ -5776,12 +5805,22 @@ async function pushAll(btn){if(!supa){toast('Sem conexão com a nuvem',false);re
  if(btn){btn.disabled=false;btn.textContent='↥ Enviar p/ nuvem';}}
 /* ===== DIAGNÓSTICO DE CONEXÃO (clique no chip de status pra abrir) ===== */
 window._DIAG={pgErr:{},pgOk:{},rt:'—',lightMs:0,lightOk:null,lightErr:'',ticks:0,fullAt:'—'};
-async function pgAll(table,order,budgetMs){let out=[],from=0,page=1000;var _t0=Date.now(),_bud=budgetMs||20000;for(;;){
+/* chave única de cada tabela — usada para ORDENAR a paginação */
+var PK={etiquetas:'id',bobinas:'etiqueta',stage:'etiqueta',notas_fiscais:'key',romaneios:'key',movimentos:'id',espacos:'id',locais:'etiqueta',valores:'id',usuarios:'u',chao:'etiqueta',chao70:'etiqueta'};
+async function pgAll(table,order,budgetMs){let out=[],from=0,page=1000;var _t0=Date.now(),_bud=budgetMs||20000;
+ /* ===== BUG GRAVE CORRIGIDO AQUI =====
+    Paginar com .range() SEM "ORDER BY" é indefinido no Postgres: cada página pode
+    repetir linhas e PULAR outras. Era por isso que cada PC via um número diferente
+    (91 x 80 x 0 etiquetas) e o romaneio aparecia ZERADO. Agora sempre ordena por uma
+    chave única, o que torna a paginação determinística e completa. */
+ var _ord=order||PK[table]||null;
+ var _asc=order?false:true;
+ for(;;){
   /* ORÇAMENTO DE TEMPO: com tabelas grandes (40 mil bobinas/etiquetas) a paginação
      rodava indefinidamente, o pullAll passava dos 15s do cão de guarda e o próximo tick
      disparava OUTRO pullAll por cima — daí o app ficava "atualizando" pra sempre e caía p/ offline. */
   if(Date.now()-_t0>_bud)break;
-  var tries=0,r=null;var _maxTry=(navigator.onLine===false)?1:3;while(tries<_maxTry){let q=supa.from(table).select('*').range(from,from+page-1);if(order)q=q.order(order,{ascending:false});r=await Promise.race([q,new Promise(function(res){setTimeout(function(){res({data:null,error:{message:'timeout',code:'TIMEOUT'}});},9000);})]);if(!r||!r.error)break;tries++;if(tries<_maxTry)await new Promise(function(res){setTimeout(res,500*tries);});}
+  var tries=0,r=null;var _maxTry=(navigator.onLine===false)?1:3;while(tries<_maxTry){let q=supa.from(table).select('*').range(from,from+page-1);if(_ord)q=q.order(_ord,{ascending:_asc});r=await Promise.race([q,new Promise(function(res){setTimeout(function(){res({data:null,error:{message:'timeout',code:'TIMEOUT'}});},9000);})]);if(!r||!r.error)break;tries++;if(tries<_maxTry)await new Promise(function(res){setTimeout(res,500*tries);});}
   if(!r||r.error){
     /* guarda o erro de leitura (ex: RLS/permissão) para avisar na tela */
     try{window._cloudReadErr={table:table,msg:((r&&r.error&&(r.error.message||r.error.code))||'erro'),code:(r&&r.error&&r.error.code)||''};}catch(e){}
@@ -5979,7 +6018,28 @@ async function pullNF(force){
  try{
   const ntf=await pgAll('notas_fiscais',null,15000);
   const rom=await pgAll('romaneios',null,15000);
-  const etq=await pgAll('etiquetas',null,25000);
+  /* ===== BUSCA POR DOCUMENTO =====
+     Em vez de varrer a tabela inteira de etiquetas (que era paginada sem ordem e vinha
+     incompleta), agora pergunta direto: "me dá TODAS as etiquetas destes documentos".
+     É determinístico — nenhum romaneio volta zerado. */
+  var keys={};
+  (ntf||[]).forEach(function(r){if(r.key)keys[r.key]=1;});
+  (rom||[]).forEach(function(r){if(r.key)keys[r.key]=1;});
+  Object.keys(NFS||{}).forEach(function(k){keys[k]=1;});
+  Object.keys(ROMS||{}).forEach(function(k){keys[k]=1;});
+  var ks=Object.keys(keys);
+  var etq=[];
+  for(var i=0;i<ks.length;i+=20){
+   var lote=ks.slice(i,i+20),de=0;
+   for(;;){
+    var q=await supa.from('etiquetas').select('*').in('doc_key',lote).order('id',{ascending:true}).range(de,de+999);
+    if(!q||q.error){try{window._DIAG.pgErr['etiquetas']={msg:((q&&q.error&&q.error.message)||'erro'),code:(q&&q.error&&q.error.code)||'',at:new Date().toLocaleTimeString()};}catch(e){}break;}
+    var d=q.data||[];etq=etq.concat(d);
+    if(d.length<1000)break;
+    de+=1000;
+   }
+  }
+  try{window._DIAG.pgOk['etiquetas']=etq.length;delete window._DIAG.pgErr['etiquetas'];}catch(e){}
   if(typeof window.nfPullCloud==='function')window.nfPullCloud(etq,ntf,rom);
   _nfPulling=false;return true;
  }catch(e){_nfPulling=false;return false;}

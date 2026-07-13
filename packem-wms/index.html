@@ -6917,24 +6917,15 @@ function printDoc(bodyHTML,css){var f=document.getElementById('pkPrintFrame');if
  /* AUTO-FIT: qualquer conteúdo dentro de .zfit é medido e reduzido (scale) para caber SEMPRE dentro da etiqueta, centralizado — nada fica cortado ou fora */
  function fitz(){try{var els=d.querySelectorAll('.zfit');for(var i=0;i<els.length;i++){var el=els[i],p=el.parentElement;if(!p)continue;el.style.transform='';var cs=win.getComputedStyle(p);var aw=p.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0);var ah=p.clientHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);var w=Math.max(1,el.scrollWidth),h=Math.max(1,el.scrollHeight);var s=Math.min(1,aw/w,ah/h);if(s<0.999){el.style.transformOrigin='center center';el.style.transform='scale('+(Math.floor(s*1000)/1000)+')';}}}catch(e){}}
  var fired=false;
- function _kill(){try{if(f&&f.parentNode)f.parentNode.removeChild(f);}catch(e){}}
  function go(){if(fired)return;fired=true;try{fitz();}catch(e){}
-   /* NÃO destruir o documento enquanto o navegador ainda envia as páginas pra impressora
-      (era o que cortava o lote no meio). Só remove DEPOIS do afterprint, com folga. */
-   var done=false;var _fin=function(){if(done)return;done=true;setTimeout(_kill,4000);};
-   try{win.onafterprint=_fin;}catch(e){}
-   try{if(win.matchMedia){var mq=win.matchMedia('print');if(mq&&mq.addListener)mq.addListener(function(m){if(!m.matches)_fin();});}}catch(e){}
    try{win.focus();win.print();}catch(e){console.warn('print',e);}
-   /* rede de segurança: se o afterprint não vier (alguns navegadores), espera bem mais,
-      proporcional ao tamanho do lote — nunca menos de 60s. */
-   var nPg=0;try{nPg=d.querySelectorAll('.zlbl,.zetq,.bobprn').length||0;}catch(e){}
-   setTimeout(_fin,Math.max(60000,nPg*1200));
+   /* NÃO destruir o documento agora: o navegador ainda está enviando as páginas pra impressora
+      (destruir cedo era o que cortava o lote no meio). O iframe antigo é removido na PRÓXIMA
+      impressão (topo do printDoc). Este timeout é só uma faxina tardia pra não acumular. */
+   setTimeout(function(){try{if(f&&f.parentNode)f.parentNode.removeChild(f);}catch(e){}},300000);
  }
  var imgs=d.images,total=imgs?imgs.length:0,loaded=0;
- if(total){for(var i=0;i<total;i++){var im=imgs[i];if(im.complete){loaded++;}else{im.onload=im.onerror=function(){loaded++;if(loaded>=total)go();};}}if(loaded>=total)setTimeout(go,150);
-   /* espera proporcional: lote grande com muitos QR precisa de mais tempo pra carregar tudo
-      (antes forçava em 1,8s e saíam etiquetas sem QR/logo) */
-   setTimeout(go,Math.max(2500,Math.min(30000,total*220)));}else{setTimeout(go,250);}}
+ if(total){for(var i=0;i<total;i++){var im=imgs[i];if(im.complete){loaded++;}else{im.onload=im.onerror=function(){loaded++;if(loaded>=total)go();};}}if(loaded>=total)setTimeout(go,150);setTimeout(go,1800);}else{setTimeout(go,250);}}
 printZebra=function(codes,w,dim){if(!codes||!codes.length){toast('Nada para imprimir',false);return;}dim=dim||ZSIZES.z150;
  var render=function(){var labels=codes.map(function(c){return zebraLabelHTML(c,w,dim);}).join('');
   var css='*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:'+dim.w+'mm '+dim.h+'mm;margin:0}'

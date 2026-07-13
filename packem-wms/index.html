@@ -1270,6 +1270,45 @@ const ICONS={
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 function setIcons(){document.querySelectorAll('[data-ic]').forEach(e=>{const t=e.querySelector('.ni,.si,.ki,span:empty')||e;(e.querySelector('.ni')||e.querySelector('.si')||e.querySelector('span')||e).innerHTML=ICONS[e.dataset.ic]||'';});$('#mk1').innerHTML=ICONS.reel;$('#mk2').innerHTML=ICONS.reel;}
 
+/* ===== BLINDAGEM DE QUOTA DO LOCALSTORAGE =====
+   O localStorage tem teto de ~5 MB. Com o catálogo gigante, ele encheu — e QUALQUER
+   setItem passou a estourar QuotaExceeded. Como o pullLight faz saveStage() no meio,
+   ele quebrava TODA vez → nunca voltava "Ao vivo" → offline eterno.
+   Agora: se estourar, o app libera espaço sozinho (em etapas) e regrava. Nunca mais explode. */
+(function(){
+ if(!window.localStorage||window._lsGuard)return;window._lsGuard=1;
+ var _raw=Storage.prototype.setItem;
+ window._lsRawSet=function(k,v){return _raw.call(localStorage,k,v);};
+ function liberar(passo){
+  try{
+   /* 1) catálogo de bobinas: agora mora no IndexedDB, não precisa ficar no localStorage */
+   if(passo===0){if(localStorage.getItem('wmsx_bob')!=null){localStorage.removeItem('wmsx_bob');return true;}return false;}
+   /* 2) logs e caches descartáveis */
+   if(passo===1){var t=false;['wmsx_fixlog','wmsx_printedEts','wmsx_etqDel'].forEach(function(k){if(localStorage.getItem(k)!=null){localStorage.removeItem(k);t=true;}});return t;}
+   /* 3) histórico de movimentos: corta pros 3.000 mais recentes (o resto está na nuvem) */
+   if(passo===2){try{var mv=JSON.parse(localStorage.getItem('wmsx_mv')||'[]');if(mv.length>3000){_raw.call(localStorage,'wmsx_mv',JSON.stringify(mv.slice(0,3000)));return true;}}catch(e){}
+                 if(localStorage.getItem('wmsx_ac')!=null){localStorage.removeItem('wmsx_ac');return true;}return false;}
+   /* 4) último recurso: corta movimentos pros 500 mais recentes */
+   if(passo===3){try{var m2=JSON.parse(localStorage.getItem('wmsx_mv')||'[]');if(m2.length>500){_raw.call(localStorage,'wmsx_mv',JSON.stringify(m2.slice(0,500)));return true;}}catch(e){}return false;}
+  }catch(e){}
+  return false;
+ }
+ Storage.prototype.setItem=function(k,v){
+  try{return _raw.call(this,k,v);}
+  catch(e){
+   if(this!==window.localStorage)throw e;
+   for(var p=0;p<4;p++){
+    if(!liberar(p))continue;
+    try{return _raw.call(this,k,v);}catch(e2){}
+   }
+   /* mesmo depois de limpar não coube: NÃO estoura (o dado está na nuvem/IndexedDB).
+      Só registra pro diagnóstico — antes essa exceção derrubava o pullLight inteiro. */
+   try{window._lsFull=Date.now();if(window._DIAG)window._DIAG.lsFull='cheio · chave '+k+' não coube';}catch(_){}
+   return;
+  }
+ };
+})();
+
 const DB=(()=>{const K={sp:'wmsx_sp',mv:'wmsx_mv',tr:'wmsx_tr',vl:'wmsx_vl',us:'wmsx_us',ac:'wmsx_ac',cf:'wmsx_cf'};
   const r=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d;}catch{return d;}};const w=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
   const seedSp=()=>SEED_SPACES.map(x=>({id:'70-'+x.s+'-'+x.p+'-'+x.l,w:'70',s:x.s,l:x.l,p:x.p,pr:(x.pr&&x.pr!=='0')?x.pr:'',q:x.q||0,u:'KG',o:!!x.o,src:x.src||'',upd:'',by:''}));
@@ -2461,7 +2500,7 @@ function saveBOB(){
  _bobSaveT=setTimeout(function(){
   try{_bobIDB.set('bob',BOB).catch(function(e){console.warn('idb bob',e);});}catch(e){console.warn('idb bob',e);}
  },250);
- /* localStorage só enquanto couber; ao estourar, limpa e para de tentar (não quebra o import) */
+ /* localStorage NÃO guarda mais o catálogo (é ele que enchia os 5 MB e derrubava o sync) */
  if(_bobLSFull)return;
  try{localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}
  catch(e){_bobLSFull=true;try{localStorage.removeItem('wmsx_bob');}catch(_){}}
@@ -2471,6 +2510,11 @@ function saveBOB(){
  try{
   _bobIDB.get('bob').then(function(v){
    if(v&&typeof v==='object'&&Object.keys(v).length>=Object.keys(BOB).length)BOB=v;
+   else if(Object.keys(BOB).length){try{_bobIDB.set('bob',BOB);}catch(e){}} /* migra o que veio do localStorage */
+   /* LIBERA OS ~5 MB: o catálogo passa a viver só no IndexedDB. Enquanto essa chave existia,
+      o localStorage ficava cheio e TODO setItem (inclusive o saveStage do pullLight) estourava. */
+   _bobLSFull=true;
+   try{localStorage.removeItem('wmsx_bob');}catch(e){}
    window._bobReady=true;
    try{if(typeof renderBobCatalog==='function'&&document.getElementById('bobTable'))renderBobCatalog();}catch(e){}
   }).catch(function(){window._bobReady=true;});
@@ -5861,6 +5905,8 @@ async function netDiag(){
  add('último pull completo',D.fullAt||'—');
  add('envio em massa',(window._bulkUp||0)>0?'RODANDO ('+window._bulkUp+')':'não');
  add('catálogo (BOB)',Object.keys(BOB).length+' etiquetas · IDB '+(window._bobReady?'carregado':'carregando'));
+ var _lsB=0;try{for(var _k in localStorage){if(Object.prototype.hasOwnProperty.call(localStorage,_k))_lsB+=(localStorage[_k]||'').length+_k.length;}}catch(e){}
+ add('memória local',(Math.round(_lsB/1024))+' KB usados'+(window._lsFull?' · JÁ ESTOUROU (liberado automaticamente)':' · ok'),!!window._lsFull);
  var errs=Object.keys(D.pgErr||{});
  if(errs.length){errs.forEach(function(t){add('ERRO tabela '+t,(D.pgErr[t].msg||'')+' ['+(D.pgErr[t].code||'')+'] '+(D.pgErr[t].at||''),true);});}
  else add('erros de leitura','nenhum');

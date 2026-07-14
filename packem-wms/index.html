@@ -12,6 +12,10 @@
     --bg:#EEF1F6;--card:#FFFFFF;--card-2:#F7F9FC;--navy:#0F1B2E;--navy-2:#16263d;
     --ink:#0F1B2E;--muted:#5B6877;--faint:#9AA6B4;
     --brand:#EA5A0C;--brand-2:#F26419;--brand-dim:rgba(234,90,12,.10);
+    /* Amarelo-ouro Packem: o 3º tom da marca. Entra como DESTAQUE (métrica, badge, detalhe
+       geométrico) — nunca como ação. Ação é só laranja: se as duas cores puderem ser clicadas,
+       nenhuma das duas significa "clique aqui". */
+    --gold:#D99A0B;--gold-2:#F0B429;--gold-dim:rgba(217,154,11,.10);
     --in:#15A34A;--in-dim:rgba(21,163,74,.12);--out:#DC2626;--out-dim:rgba(220,38,38,.10);--info:#2563EB;
     --a:#15A34A;--b:#D97706;--c:#64748B;
     --line:#E4E8EF;--line-2:#D4DBE5;
@@ -178,7 +182,9 @@
   .cellx.warn{background:linear-gradient(135deg,#d97706,#fbbf24);border-color:transparent;}
   .cellx.crit{background:linear-gradient(135deg,#7f1d1d,#b91c1c);border-color:transparent;box-shadow:0 0 0 1px rgba(127,29,29,.35) inset;}
   .cellx.zero{background:linear-gradient(135deg,#ef4444,#f87171);border-color:transparent;}
-  .cellx.none{background:repeating-linear-gradient(45deg,#fff,#fff 4px,#f1f4f8 4px,#f1f4f8 8px);border:1px dashed var(--line-2);cursor:default;}
+  /* vaga que NÃO existe naquela rua: antes era listrada + tracejada e gritava tanto quanto
+     uma vaga real. Ocupava 1/3 da tela sem significar nada. Agora quase some. */
+  .cellx.none{background:transparent;border:1px solid rgba(148,163,184,.13);cursor:default;opacity:.5;}
   .cellx.none:hover{transform:none;box-shadow:none;}
 
   .empty{text-align:center;color:var(--muted);padding:60px 24px;}
@@ -1366,7 +1372,10 @@ const isAdmin=()=>{const r=curRole();return r==='admin'||r==='operador';};
 const isSuper=()=>curRole()==='admin';
 /* admin pode digitar manual em qualquer campo de bipagem; operador segue só-câmera */
 function scanLock(el){if(!el)return;el.style.cursor='pointer';if(isSuper()){el.readOnly=false;el.removeAttribute('inputmode');el.style.cursor='text';el.title='Digite ou toque no botão da câmera';return;}el.readOnly=true;el.setAttribute('inputmode','none');el.title='Toque para bipar com a câmera';el.addEventListener('focus',function(){setTimeout(function(){el.blur();},0);});el.addEventListener('click',function(){var w=el.parentNode;var b=w&&w.querySelector('.cambtn');if(b)b.click();});}
-const ROLE_VIEWS={operador:['v-board','v-recv','v-floor','v-floor70','v-mov','v-stock','v-labels'],recepcao:['v-nf','v-labels','v-recv','v-floor','v-floor70']};
+/* Inventário liberado para TODOS os papéis: o operador precisa ver a contagem que o admin
+   atribuiu a ele. O que ele NÃO pode é escolher o que contar — só executa o que foi atribuído.
+   Essa trava mora no renderInv (cards de início escondidos p/ não-admin), não aqui. */
+const ROLE_VIEWS={operador:['v-board','v-recv','v-floor','v-floor70','v-mov','v-stock','v-labels','v-inv'],recepcao:['v-nf','v-labels','v-recv','v-floor','v-floor70','v-inv']};
 function allowedViews(){const r=curRole();return (r&&ROLE_VIEWS[r])||null;}
 const code=sp=>sp.s+'-'+sp.p+'-'+sp.l;
 const whLabel=w=>w==='70'?'Dep 70':w==='novo'?'Novo':'Chão';
@@ -1572,31 +1581,103 @@ function renderBoard(){
   const byStreet=!!boardStreet;
   const occ=all.filter(x=>x.o).length;
   const whs=isSuper()?['70','novo','chao'].concat(SS.map(x=>x&&x.w).filter(Boolean)).filter((w,i,a)=>w&&a.indexOf(w)===i):['70'];
+  /* ===== MAPA DO ARMAZÉM — CABEÇALHO RECONSTRUÍDO =====
+     Antes: 3 fileiras de chips (depósito + 22 ruas + 5 níveis) + legenda espremida + a barra
+     de bipe, tudo com o mesmo peso visual. Virava ruído: nada dizia o que era importante.
+     Agora:
+       · a AÇÃO (bipar entrada/saída) sobe pro topo, com destaque — é o que se usa o dia todo;
+       · os FILTROS viram uma barra única e compacta: rua e nível como <select>, não 27 botões;
+       · a OCUPAÇÃO vira número grande com barra — informação de gestão, não decoração;
+       · a legenda fica discreta, do lado do mapa. */
+  var _pctOcc = all.length ? Math.round(occ/all.length*100) : 0;
+  var _corOcc = _pctOcc>=90 ? 'var(--out)' : (_pctOcc>=75 ? 'var(--brand)' : 'var(--in)');
+
   box.innerHTML=`
-    <div class="ph-head"><div><p class="eb">${whLabel(wh)}</p><h1>Mapa do armazém</h1></div></div>
-    <div class="board-ctrl">
-      <div class="ruatabs whpick">${whs.map(w=>`<button class="${w===wh?'on':''}" data-wh="${w}">${whLabel(w)}</button>`).join('')}</div>
-      ${allStreets.length?`<div class="ruatabs"><button class="${!boardStreet?'on':''}" data-r="">Todas as ruas</button>${allStreets.map(s=>`<button class="${s===boardStreet?'on':''}" data-r="${s}">Rua ${s}</button>`).join('')}</div>`:''}
-      ${byStreet||!levels.length?'':`<div class="lvtabs">${levels.map(l=>`<button class="${Number(l)===Number(boardLevel)?'on':''}" data-l="${l}">Nível ${l}</button>`).join('')}</div>`}
-      <div class="legend"><span><i style="background:linear-gradient(135deg,#15A34A,#22c55e)"></i>Vago</span><span><i style="background:linear-gradient(135deg,#ef4444,#f87171)"></i>Ocupado</span><span><i style="background:linear-gradient(135deg,#d97706,#fbbf24)"></i>+20 dias</span><span><i style="background:linear-gradient(135deg,#7f1d1d,#b91c1c)"></i>+40 dias</span><span style="color:var(--faint)">${occ} ocupadas</span></div>
+    <div class="ph-head" style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px"><p class="eb">${whLabel(wh)}</p><h1 style="margin:0">Mapa do armazém</h1></div>
+      <div class="bd-occ">
+        <div class="bd-occ-n" style="color:${_corOcc}">${_pctOcc}<span>%</span></div>
+        <div class="bd-occ-b"><i style="width:${_pctOcc}%;background:${_corOcc}"></i></div>
+        <div class="bd-occ-s">${occ.toLocaleString('pt-BR')} de ${all.length.toLocaleString('pt-BR')} vagas</div>
+      </div>
     </div>
-    <div class="board-quick" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:12px">
-      <div class="ruatabs" style="margin:0"><button class="${boardQMode==='entrada'?'on':''}" data-qm="entrada" style="min-width:96px">↓ Entrada</button><button class="${boardQMode==='saida'?'on':''}" data-qm="saida" style="min-width:96px">↑ Saída</button></div>
-      <input class="input code" id="bqLoc" placeholder="Bipe o endereço (A-20-1)" autocomplete="off" style="flex:1;min-width:150px">
-      <input class="input code" id="bqEt" placeholder="Bipe a bobina" autocomplete="off" style="flex:1;min-width:150px">
-      <span style="color:var(--faint);font-size:.72rem;flex-basis:100%">Modo <b>${boardQMode==='entrada'?'Entrada':'Saída'}</b>: bipe o endereço e a bobina — a vaga muda de cor na hora.</span>
+
+    <!-- AÇÃO: o que o operador usa o dia inteiro -->
+    <div class="bd-act">
+      <div class="bd-mode">
+        <button class="${boardQMode==='entrada'?'on in':''}" data-qm="entrada">↓ Entrada</button>
+        <button class="${boardQMode==='saida'?'on out':''}" data-qm="saida">↑ Saída</button>
+      </div>
+      <div class="bd-inputs">
+        <div class="bd-f"><label>1 · Endereço</label><input class="input code" id="bqLoc" placeholder="A-20-1" autocomplete="off"></div>
+        <div class="bd-arrow">→</div>
+        <div class="bd-f"><label>2 · Bobina</label><input class="input code" id="bqEt" placeholder="Bipe a bobina" autocomplete="off"></div>
+      </div>
+      <div class="bd-hint">${boardQMode==='entrada'?'A bobina <b>entra</b> na vaga — ela fica vermelha na hora.':'A bobina <b>sai</b> da vaga — ela fica verde na hora.'}</div>
     </div>
-    <div class="board" id="boardBox"></div>`;
+
+    <!-- FILTROS: uma barra só, compacta -->
+    <div class="bd-filters">
+      ${whs.length>1?`<div class="bd-seg whpick">${whs.map(w=>`<button class="${w===wh?'on':''}" data-wh="${w}">${whLabel(w)}</button>`).join('')}</div>`:''}
+      ${allStreets.length?`<label class="bd-sel"><span>Rua</span><select id="bdRua"><option value="">Todas (${allStreets.length})</option>${allStreets.map(s=>`<option value="${s}" ${boardStreet===s?'selected':''}>Rua ${s}</option>`).join('')}</select></label>`:''}
+      ${(byStreet||!levels.length)?'':`<label class="bd-sel"><span>Nível</span><select id="bdLvl">${levels.map(l=>`<option value="${l}" ${Number(l)===Number(boardLevel)?'selected':''}>Nível ${l}</option>`).join('')}</select></label>`}
+      <div class="bd-leg">
+        <span><i style="background:#15A34A"></i>Vago</span>
+        <span><i style="background:#ef4444"></i>Ocupado</span>
+        <span><i style="background:#f59e0b"></i>+20d</span>
+        <span><i style="background:#7f1d1d"></i>+40d</span>
+      </div>
+    </div>
+
+    <div class="board" id="boardBox"></div>
+
+    <style>
+      #v-board .bd-occ{flex:none;min-width:170px;text-align:right}
+      #v-board .bd-occ-n{font-family:var(--disp);font-weight:800;font-size:2.1rem;line-height:1;font-variant-numeric:tabular-nums}
+      #v-board .bd-occ-n span{font-size:.95rem;margin-left:2px}
+      #v-board .bd-occ-b{height:5px;border-radius:99px;background:var(--line);margin:7px 0 5px;overflow:hidden}
+      #v-board .bd-occ-b i{display:block;height:100%;border-radius:99px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+      #v-board .bd-occ-s{font-size:.72rem;color:var(--faint);font-variant-numeric:tabular-nums}
+
+      #v-board .bd-act{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--brand);
+        border-radius:16px;padding:16px 18px;margin:4px 0 12px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+      #v-board .bd-mode{display:flex;gap:0;flex:none;border:1px solid var(--line);border-radius:11px;overflow:hidden}
+      #v-board .bd-mode button{border:0;background:var(--card-2);padding:11px 18px;font-weight:700;font-size:.86rem;cursor:pointer;color:var(--muted);transition:.15s}
+      #v-board .bd-mode button:hover{background:var(--line)}
+      #v-board .bd-mode button.on.in{background:#15A34A;color:#fff}
+      #v-board .bd-mode button.on.out{background:#ef4444;color:#fff}
+      #v-board .bd-inputs{flex:1;min-width:280px;display:flex;gap:10px;align-items:flex-end}
+      #v-board .bd-f{flex:1;min-width:120px}
+      #v-board .bd-f label{display:block;font-size:.64rem;letter-spacing:.7px;text-transform:uppercase;color:var(--faint);font-weight:800;margin-bottom:5px}
+      #v-board .bd-f .input{width:100%;height:44px}
+      #v-board .bd-arrow{flex:none;color:var(--faint);font-weight:800;padding-bottom:12px}
+      #v-board .bd-hint{flex-basis:100%;font-size:.74rem;color:var(--faint)}
+
+      #v-board .bd-filters{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+      #v-board .bd-seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+      #v-board .bd-seg button{border:0;background:var(--card);padding:8px 14px;font-size:.8rem;font-weight:700;cursor:pointer;color:var(--muted);transition:.15s}
+      #v-board .bd-seg button:hover{background:var(--card-2)}
+      #v-board .bd-seg button.on{background:var(--brand);color:#fff}
+      #v-board .bd-sel{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0 12px 0 14px;height:38px}
+      #v-board .bd-sel span{font-size:.66rem;letter-spacing:.6px;text-transform:uppercase;color:var(--faint);font-weight:800}
+      #v-board .bd-sel select{border:0;background:transparent;color:var(--ink);font-weight:700;font-size:.84rem;height:36px;cursor:pointer;outline:none;padding-right:2px}
+      #v-board .bd-leg{margin-left:auto;display:flex;gap:14px;flex-wrap:wrap}
+      #v-board .bd-leg span{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--faint);font-weight:600}
+      #v-board .bd-leg i{width:11px;height:11px;border-radius:3px;flex:none}
+      @media(max-width:760px){#v-board .bd-leg{margin-left:0;flex-basis:100%}#v-board .bd-occ{text-align:left}}
+    </style>`;
   $$('#v-board .whpick button').forEach(b=>b.onclick=()=>{cfg.warehouse=b.dataset.wh;try{DB.saveCfg(cfg);}catch(e){}boardWH=null;boardStreet=null;boardLevel=null;renderBoard();});
-  $$('#v-board .ruatabs button').forEach(b=>b.onclick=()=>{boardStreet=b.dataset.r||null;renderBoard();});
+  /* rua e nível viraram <select> (eram 27 botões): menos ruído, mesma função */
+  var _br=$('#bdRua'); if(_br)_br.onchange=function(){boardStreet=_br.value||null;renderBoard();};
+  var _bl=$('#bdLvl'); if(_bl)_bl.onchange=function(){boardLevel=Number(_bl.value);renderBoard();};
   /* bipagem rápida entrada/saída no mapa */
-  $$('#v-board .board-quick [data-qm]').forEach(function(b){b.onclick=function(){boardQMode=b.getAttribute('data-qm');renderBoard();};});
+  $$('#v-board .bd-mode [data-qm]').forEach(function(b){b.onclick=function(){boardQMode=b.getAttribute('data-qm');renderBoard();};});
   (function(){var _l=$('#bqLoc'),_e=$('#bqEt');var _commit=function(){var a=_l?_l.value:'',et=_e?_e.value:'';if(!a){toast('Bipe o endereço primeiro',false);if(_l)_l.focus();return;}if(!et){toast('Bipe a bobina',false);if(_e)_e.focus();return;}Promise.resolve(boardQuickMove(boardQMode,a,et)).then(function(){if(_l)_l.value='';if(_e)_e.value='';var l2=$('#bqLoc');if(l2)l2.focus();});};
    if(_l)_l.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();if(!findSpace(norm(_l.value))){toast('Endereço não existe',false);return;}if(_e)_e.focus();}});
    if(_e)_e.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();_commit();}});
    try{if(window.addCam){if(_l)window.addCam('bqLoc',{title:'Bipe o endereço',onResult:function(v){var el=$('#bqLoc');if(el){el.value=v;if($('#bqEt'))$('#bqEt').focus();}}});if(_e)window.addCam('bqEt',{title:'Bipe a bobina',onResult:function(v){var el=$('#bqEt');if(el)el.value=v;_commit();}});}}catch(e){}
   })();
-  if(!byStreet)$$('#v-board .lvtabs button').forEach(b=>b.onclick=()=>{boardLevel=Number(b.dataset.l);renderBoard();});
+  /* (nível agora é o <select> #bdLvl acima) */
   const bs=$('#boardSearch');
   if(bs){
     bs.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();boardSearchGo(bs.value,false);}});
@@ -6006,6 +6087,7 @@ let _rt=null;function scheduleRerender(){clearTimeout(_rt);_rt=setTimeout(()=>{i
 let _pT={};function persistDebounced(k){clearTimeout(_pT[k]);_pT[k]=setTimeout(function(){try{if(k==='sp')DB.saveSpaces(S);else if(k==='bob')saveBOB();else if(k==='loc')saveLOC();else if(k==='stage')saveStage();else if(k==='mv')DB.saveMovs(MV);else if(k==='vl')DB.saveValues(VL);else if(k==='us')DB.saveUsers(US);}catch(e){}},200);}
 var _rtBurst=0,_rtBurstT=0;
 function applyRealtime(p){const t=p.table,n=p.new,o=p.old,ev=p.eventType;
+ try{if(t==='inventarios'){if(typeof window.invPullQ==='function')window.invPullQ();var _av=document.querySelector('.view.active');if(_av&&_av.id==='v-inv'&&typeof window.renderInv==='function'&&!document.querySelector('#invBipe:focus'))setTimeout(window.renderInv,400);return;}}catch(e){}
  /* FREIO ANTI-ENXURRADA: se chegarem mais de 120 eventos em 2s (import em massa ecoando de volta),
     para de processar e agenda UM pull leve no fim — em vez de re-renderizar 40 mil vezes. */
  try{var _now=Date.now();if(_now-_rtBurstT>2000){_rtBurstT=_now;_rtBurst=0;}_rtBurst++;
@@ -6050,7 +6132,7 @@ function startRealtime(){if(!supa)return;
      estourado → CHANNEL_ERROR → reconecta → e no SUBSCRIBED disparava pullAll() FORA da trava
      de sync. Resultado: "ao vivo / atualizando / offline" piscando pra sempre.
      Agora: assina tabela por tabela, SEM `bobinas` (o catálogo já sincroniza por delta/push). */
-  var TBL=['espacos','locais','stage','movimentos','valores','usuarios','chao','chao70','etiquetas','notas_fiscais','romaneios'];
+  var TBL=['espacos','locais','stage','movimentos','valores','usuarios','chao','chao70','etiquetas','notas_fiscais','romaneios','inventarios'];
   var ch=supa.channel('wms-ops-'+Date.now());
   TBL.forEach(function(t){ch=ch.on('postgres_changes',{event:'*',schema:'public',table:t},function(p){applyRealtime(p);});});
   _rtChan=ch.subscribe(function(status){
@@ -8242,7 +8324,12 @@ async function runDiag(){
 function ensureSyncBadge(){
   if(document.getElementById('syncBadge')) return;
   const b=document.createElement('div'); b.id='syncBadge';
-  b.style.cssText='position:fixed;top:9px;right:11px;z-index:99999;display:flex;align-items:center;gap:5px;font:700 10px Inter,system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.30);padding:4px 9px;border-radius:999px;cursor:pointer;letter-spacing:.3px';
+  /* Este badge (fixed, canto superior direito) caía EM CIMA do chip de usuário — dava aquele
+     "sincronizado v18" sobreposto no admin. É informação de depuração, não de operação:
+     mandei pro canto inferior esquerdo, discreto, sem competir com nada. */
+  b.style.cssText='position:fixed;bottom:10px;right:12px;z-index:9998;display:flex;align-items:center;gap:5px;font:700 10px Inter,system-ui,sans-serif;color:var(--faint);background:var(--card);border:1px solid var(--line);border-radius:99px;padding:5px 11px;cursor:pointer;opacity:.45;transition:opacity .2s ease';
+  b.onmouseenter=function(){b.style.opacity='1';};
+  b.onmouseleave=function(){b.style.opacity='.55';};
   b.onclick=runDiag;
   b.innerHTML='<span id="syncDot" style="width:8px;height:8px;border-radius:50%;background:#d1d5db;display:inline-block"></span><span id="syncTxt">conectando…</span><span style="opacity:.65;margin-left:1px">· '+APP_VER+'</span>';
   document.body.appendChild(b);
@@ -9483,7 +9570,118 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
   function _fmtq(v){return (typeof fmt==='function')?fmt(v):String(v);}
   function _fdate(iso){try{return iso?new Date(iso).toLocaleString('pt-BR'):'—';}catch(e){return '—';}}
   function loadInv(){try{return JSON.parse(localStorage.getItem(IKEY))||null;}catch(e){return null;}}
-  function saveInv(o){try{if(o)localStorage.setItem(IKEY,JSON.stringify(o));else localStorage.removeItem(IKEY);}catch(e){}}
+  function saveInv(o){
+    try{if(o)localStorage.setItem(IKEY,JSON.stringify(o));else localStorage.removeItem(IKEY);}catch(e){}
+    /* ===== A CONTAGEM AGORA VIVE NA NUVEM =====
+       Antes ela só existia no localStorage do PC que começou. Isso significa:
+         · o admin não conseguia atribuir contagem pra ninguém;
+         · fechar o navegador = a contagem "sumia" pro resto do time;
+         · dois PCs não podiam dividir a mesma contagem.
+       Agora todo saveInv também empurra a tarefa pra tabela `inventarios`. O progresso
+       (done/bip/extra) vai junto — dá pra parar no meio, fechar tudo e voltar depois,
+       de qualquer máquina. */
+    try{if(o&&o.tid)invTaskPush(o);}catch(e){}
+  }
+
+  /* ---------- FILA DE CONTAGENS (tarefas) ---------- */
+  var IQK='wmsx_invq';
+  function loadQ(){try{return JSON.parse(localStorage.getItem(IQK))||[];}catch(e){return [];}}
+  function saveQ(a){try{localStorage.setItem(IQK,JSON.stringify((a||[]).slice(0,80)));}catch(e){}}
+  function _me(){try{return (typeof session!=='undefined'&&session)?session.u:'';}catch(e){return '';}}
+  function _adm(){try{return typeof isSuper==='function'?isSuper():false;}catch(e){return false;}}
+
+  function invTaskRow(t){
+    return {id:t.tid,sel:t.sel||{},blind:!!t.blind,atribuido:t.atribuido||'',criado_por:t.by||'',
+            status:t.status||'pendente',done:t.done||{},bip:t.bip||{},extra:t.extra||[],
+            titulo:_selLabel(t.sel||{}),iniciado:t.at||'',updated_at:new Date().toISOString()};
+  }
+  function invTaskPush(t){
+    if(typeof supa==='undefined'||!supa||!t||!t.tid)return;
+    /* atualiza a cópia local da fila na hora (a tela não espera a nuvem) */
+    var q=loadQ(),i=q.findIndex(function(x){return x.tid===t.tid;});
+    if(i>=0)q[i]=t;else q.unshift(t);
+    saveQ(q);
+    supa.from('inventarios').upsert(invTaskRow(t)).then(function(r){
+      if(r&&r.error){try{window._DIAG.invErr=(r.error.message||'')+' ['+(r.error.code||'')+']';}catch(e){}}
+    },function(){});
+  }
+  function invTaskFromRow(r){
+    return {tid:r.id,sel:r.sel||{},blind:!!r.blind,atribuido:r.atribuido||'',by:r.criado_por||'',
+            status:r.status||'pendente',done:r.done||{},bip:r.bip||{},extra:r.extra||[],at:r.iniciado||'',upd:r.updated_at||''};
+  }
+  var _qPulling=false;
+  async function invPullQ(){
+    if(typeof supa==='undefined'||!supa||_qPulling)return;
+    if(navigator.onLine===false)return;
+    _qPulling=true;
+    try{
+      var q=await supa.from('inventarios').select('*').neq('status','concluida').order('updated_at',{ascending:false}).limit(60);
+      if(q&&q.error){try{window._DIAG.invErr=(q.error.message||'')+' ['+(q.error.code||'')+']';}catch(e){}_qPulling=false;return;}
+      var lista=(q.data||[]).map(invTaskFromRow);
+      /* preserva o progresso LOCAL que ainda não subiu (a nuvem não pode apagar bipe recente) */
+      var loc=loadQ(),porId={};lista.forEach(function(t){porId[t.tid]=t;});
+      loc.forEach(function(t){
+        var c=porId[t.tid];
+        if(!c){lista.unshift(t);return;}
+        var nLoc=Object.keys(t.done||{}).length, nCloud=Object.keys(c.done||{}).length;
+        if(nLoc>nCloud)porId[t.tid]=t;   /* o local está mais adiantado: manda ele */
+      });
+      saveQ(Object.keys(porId).map(function(k){return porId[k];}).concat(lista.filter(function(t){return !porId[t.tid];})));
+      _qPulling=false;
+    }catch(e){_qPulling=false;}
+  }
+  window.invPullQ=invPullQ;
+
+  /* tarefas que interessam a ESTA pessoa */
+  function minhasTarefas(){
+    var eu=_me(),adm=_adm();
+    return loadQ().filter(function(t){
+      if(t.status==='concluida')return false;
+      if(adm)return true;                 /* admin vê tudo */
+      /* ===== OPERADOR SÓ VÊ O QUE FOI ATRIBUÍDO A ELE =====
+         Nominalmente. Contagem "aberta para todos" NÃO aparece pra ele — se aparecesse,
+         dois operadores começariam a mesma contagem e um sobrescreveria o outro.
+         Quem decide quem conta o quê é o admin. */
+      return !!t.atribuido && t.atribuido===eu;
+    });
+  }
+
+  window.invCriarTarefa=function(sel,blind,atribuido){
+    if(!_adm()){toast('Só o supervisor pode criar contagem',false);return;}
+    var t={tid:'INV-'+Date.now()+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),
+           sel:sel||{},blind:!!blind,atribuido:atribuido||'',by:_me(),
+           status:'pendente',done:{},bip:{},extra:[],at:''};
+    invTaskPush(t);
+    toast('Contagem criada'+(atribuido?(' para '+atribuido):' (aberta para todos)'));
+    window.renderInv();
+  };
+  window.invAbrirTarefa=function(tid){
+    var t=loadQ().find(function(x){return x.tid===tid;});
+    if(!t){toast('Contagem não encontrada',false);return;}
+    /* TRAVA: operador só abre o que é DELE. Esconder o botão não basta — a regra mora aqui. */
+    if(!_adm() && t.atribuido!==_me()){
+      toast('Esta contagem não foi atribuída a você',false);return;
+    }
+    if(t.status==='pendente'){t.status='andamento';t.at=(typeof nowISO==='function'?nowISO():new Date().toISOString());}
+    window._invMaisP=0;window._invMaisF=0;
+    saveInv(t);              /* vira a contagem ativa deste PC — e sobe pra nuvem */
+    window.renderInv();
+  };
+  window.invFechar=function(){
+    /* FECHAR ≠ CANCELAR: a contagem continua PENDENTE e você volta depois, de qualquer PC. */
+    var inv=loadInv();
+    if(inv&&inv.tid){inv.status='andamento';invTaskPush(inv);}
+    saveInv(null);
+    toast('Contagem salva — você pode voltar nela quando quiser');
+    window.renderInv();
+  };
+  window.invExcluirTarefa=function(tid){
+    if(!confirm('Excluir esta contagem? O progresso será perdido.'))return;
+    var q=loadQ().filter(function(x){return x.tid!==tid;});saveQ(q);
+    try{if(supa)supa.from('inventarios').delete().eq('id',tid);}catch(e){}
+    var inv=loadInv();if(inv&&inv.tid===tid)saveInv(null);
+    window.renderInv();
+  };
   function loadInvHist(){try{return JSON.parse(localStorage.getItem(IHIST))||[];}catch(e){return [];}}
   function saveInvHist(a){try{localStorage.setItem(IHIST,JSON.stringify((a||[]).slice(0,50)));}catch(e){}}
 
@@ -9524,6 +9722,26 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
   }
   function _alvos(sel){ /* itens a contar do escopo escolhido */
     sel=sel||{};
+    var _base=_alvosBase(sel);
+    /* ===== ACHADOS FORA DO ESCOPO =====
+       Se você conta "Produto X" e encontra o produto numa vaga que o sistema NÃO associa a ele,
+       essa vaga não estaria na lista — e o achado (o dado mais valioso do inventário) se perderia.
+       Aqui a gente anexa as vagas que o operador bipou e marcou como "achei aqui". */
+    try{
+      var _iv=loadInv();
+      if(_iv&&_iv.extra&&_iv.extra.length&&!sel.chao){
+        var _tem={};_base.forEach(function(x){_tem[x.id]=1;});
+        _iv.extra.forEach(function(id){
+          if(_tem[id])return;
+          var sp=S.find(function(x){return x.id===id;});
+          if(sp){var c=Object.assign({},sp);c._achada=true;_base.push(c);}
+        });
+      }
+    }catch(e){}
+    return _base;
+  }
+  function _alvosBase(sel){
+    sel=sel||{};
     if(sel.chao){
       return _chaoFlat().map(function(x){return {id:'CHAO:'+x.src+':'+x.et,pr:x.pr,q:x.pl,_chao:x.src,_code:x.et};})
         .sort(function(a,b){return a._code<b._code?-1:1;});
@@ -9543,9 +9761,37 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
   function _alvoCode(sp){if(sp._chao)return sp._code;return (typeof code==='function')?code(sp):sp.id;}
   function _alvoExp(sp){return Number(sp.q)||0;}
   function _selLabel(sel){sel=sel||{};if(sel.codes)return 'Reincidentes ('+sel.codes.length+' vagas)';if(sel.rua)return 'Rua '+sel.rua;if(sel.cls)return 'Classe '+sel.cls;if(sel.prod)return 'Produto '+sel.prod;if(sel.all)return 'Armazém inteiro';if(sel.chao)return 'Chão (conferência)';return 'Inventário';}
-  window.invStart=function(sel,blind){window._invMaisP=0;window._invMaisF=0;saveInv({sel:sel||{},blind:!!blind,at:(typeof nowISO==='function'?nowISO():new Date().toISOString()),by:(typeof session!=='undefined'&&session?session.u:''),done:{},bip:{}});window.renderInv();};
-  window.invStop=function(){saveInv(null);window.renderInv();};
-  window.invMark=function(spId,found){
+  window.invStart=function(sel,blind,atribuido){
+    /* TRAVA: só admin inicia contagem por conta própria. O operador executa o que foi atribuído. */
+    if(!_adm()){toast('Só o supervisor pode iniciar uma contagem',false);return;}
+    window._invMaisP=0;window._invMaisF=0;
+    /* toda contagem agora nasce como TAREFA (tem tid) — é o que permite atribuir,
+       fechar e retomar depois, de qualquer PC. */
+    saveInv({tid:'INV-'+Date.now()+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),
+             sel:sel||{},blind:!!blind,atribuido:atribuido||'',by:_me(),status:'andamento',
+             done:{},bip:{},extra:[],
+             at:(typeof nowISO==='function'?nowISO():new Date().toISOString())});
+    window.renderInv();};
+  window.invStop=function(){
+    /* CANCELAR: descarta a tarefa. Diferente de invFechar(), que preserva o progresso. */
+    var inv=loadInv();
+    if(inv&&inv.tid){try{var q=loadQ().filter(function(x){return x.tid!==inv.tid;});saveQ(q);if(typeof supa!=='undefined'&&supa)supa.from('inventarios').delete().eq('id',inv.tid);}catch(e){}}
+    saveInv(null);window.renderInv();};
+  window.invMark=function(spId,found,_viaBipe){
+    /* ===== TRAVA DE REGRA: CONTAGEM SÓ POR BIPE =====
+       Tirar os botões da tela não basta — qualquer chamada solta (console, código futuro,
+       um handler esquecido) poderia marcar uma vaga sem leitura. A trava mora AQUI.
+       Só passam duas coisas:
+         · _viaBipe = true  → veio da leitura da etiqueta (invConfirmVaga / invBipBobina)
+         · found === 0      → "faltou": bobina ausente NÃO TEM COMO ser bipada. É a única
+                              exceção legítima, e ela registra divergência (não acerto). */
+    /* ATENÇÃO ao comparar: Number(null) é 0. Um "OK" sem bipe chega com found=null e passaria
+       pela exceção do "faltou" se a checagem fosse frouxa. Aqui exigimos o zero EXPLÍCITO. */
+    var _faltou = (found===0 || found==='0');
+    if(!_viaBipe && !_faltou){
+      try{toast('A contagem é por bipe — leia a etiqueta da bobina',false);}catch(e){}
+      return;
+    }
     var inv=loadInv();if(!inv)return;
     var sp=_alvos(inv.sel).find(function(x){return x.id===spId;});if(!sp)return;
     var exp=_alvoExp(sp);var f=(found==null?exp:Number(found)||0);
@@ -9562,6 +9808,14 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     return {tot:tot,feitas:feitas,div:div,acertos:acertos,pct:pct,difKg:difKg};
   }
   function _histPush(inv,applied){
+    /* finalizou: a tarefa sai da fila (status concluida) e vira histórico */
+    try{
+      if(inv&&inv.tid){
+        inv.status='concluida';
+        if(typeof supa!=='undefined'&&supa)supa.from('inventarios').upsert(invTaskRow(inv));
+        var q=loadQ().filter(function(x){return x.tid!==inv.tid;});saveQ(q);
+      }
+    }catch(e){}
     try{var a=_acc(inv);var h=loadInvHist();h.unshift({at:(typeof nowISO==='function'?nowISO():new Date().toISOString()),by:(typeof session!=='undefined'&&session?session.u:''),sel:_selLabel(inv.sel),tot:a.tot,feitas:a.feitas,div:a.div,pct:a.pct,difKg:Math.round(a.difKg*1000)/1000,applied:!!applied});saveInvHist(h);}catch(e){}
   }
   /* ===== bipagem: vaga por vaga. Bipa o ENDEREÇO (vira a vaga ativa), depois as BOBINAS que estão nela.
@@ -9593,7 +9847,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     if(inv.sel.chao){
       var alvo=alvos.find(function(x){return x._code&&((typeof norm==='function'?norm(x._code):x._code)===et);});
       if(!alvo){_setLast({st:'err',et:et,pr:info.pr,msg:'Esta bobina não está na lista do chão'});window.renderInv();return;}
-      window.invMark(alvo.id,alvo.q);
+      window.invMark(alvo.id,alvo.q,true); /* true = veio do BIPE */
       _setLast({st:'ok',et:et,pr:info.pr,pl:info.pl,loc:'CHÃO',msg:'Presente no chão'});window.renderInv();return;
     }
     /* precisa de uma VAGA ATIVA (bipe o endereço primeiro) */
@@ -9709,161 +9963,314 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     var inv=loadInv();
     /* ---------- TELA DE INÍCIO ---------- */
     if(!inv){
-      /* ===== TELA INICIAL DO INVENTÁRIO — REDESENHADA =====
-         Cada modo de contagem virou um cartão com ícone, número em destaque e ação clara.
-         Os cálculos abaixo varrem S uma única vez (antes eram 3 varreduras separadas). */
-      var ruas=[],prods=[],nOcc=0,kgOcc=0;
-      var _ru={},_pr={};
+      /* ============================================================
+         INVENTÁRIO — IDENTIDADE VISUAL PACKEM
+         Decisões (o porquê de cada uma está no comentário do bloco):
+         · Navy = autoridade e contexto. Laranja = ação. Ouro = destaque/métrica.
+           O ouro NUNCA é clicável — se duas cores puderem ser clicadas, nenhuma
+           significa "clique aqui".
+         · O motivo diagonal do logo entra como textura de fundo a 3–4% de opacidade,
+           só nas superfícies escuras. Marca boa se sente, não se lê.
+         · Números gigantes com tabular-nums: dígito não "dança" quando atualiza.
+         ============================================================ */
+      var ruas=[],prods=[],nOcc=0,kgOcc=0,_ru={},_pr={};
       S.forEach(function(x){
         if(x.w!==cfg.warehouse)return;
         if(!_ru[x.s]){_ru[x.s]=1;ruas.push(x.s);}
         if(x.o&&x.pr&&x.q>0){nOcc++;kgOcc+=Number(x.q)||0;if(!_pr[x.pr]){_pr[x.pr]=1;prods.push(x.pr);}}
       });
       ruas.sort();prods.sort();
-      var hist=loadInvHist();
-      var nChao=_chaoFlat().length;
-      var ultima=hist[0]||null;
+      var hist=loadInvHist(), nChao=_chaoFlat().length, ultima=hist[0]||null;
       var wl=_esc(typeof whLabel==='function'?whLabel(cfg.warehouse):'depósito');
+      var _rein=[];try{_rein=_divReincidentes();}catch(e){}
 
-      var IC={
-        rua:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg>',
-        prod:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7.3 12 12l8.7-4.7M12 12v9"/></svg>',
-        abc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
-        all:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
-        chao:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 20h20"/><circle cx="8" cy="13" r="3.2"/><circle cx="16" cy="13" r="3.2"/></svg>'
+      /* ícones de linha, 1.5px — peso de traço uniforme em todos (Lucide-like) */
+      var I={
+        rua :'<path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-7h6v7"/>',
+        prod:'<path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/>',
+        abc :'<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx="1"/><rect x="12" y="8" width="3" height="10" rx="1"/><rect x="17" y="4" width="3" height="14" rx="1"/>',
+        all :'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+        chao:'<path d="M2 20h20"/><circle cx="8" cy="13" r="3"/><circle cx="16" cy="13" r="3"/><path d="M8 10V6M16 10V6"/>',
+        warn:'<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>'
       };
+      var svg=function(d,cls){return '<svg class="'+(cls||'')+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';};
 
-      function card(o){
-        return '<div class="ivc'+(o.noclick?' nc':'')+'"'+(o.esc?(' data-invesc="'+o.esc+'"'):'')+'>'
-          +'<div class="ivc-h"><span class="ivc-ic">'+o.ic+'</span>'
-          +'<div class="ivc-tt"><div class="ivc-t">'+o.t+'</div><div class="ivc-s">'+o.s+'</div></div></div>'
-          +(o.n!=null?('<div class="ivc-n">'+o.n+'<span class="ivc-nu">'+(o.nu||'')+'</span></div>'):'')
-          +(o.body||'')
-          +(o.esc?'<div class="ivc-go">Iniciar contagem <span>→</span></div>':'')
-          +'</div>';
+      var H='<div class="ph-head"><p class="eb">Operação · contagem cíclica</p><h1>Inventário</h1></div>';
+
+      /* ---------- ESTILOS ---------- */
+      H+='<style>'
+      /* motivo diagonal da marca — chevrons entrelaçados, 45°, opacidade baixíssima */
+      +'#v-inv .ivx{position:relative;overflow:hidden}'
+      +'#v-inv .ivx::before{content:"";position:absolute;inset:0;pointer-events:none;'
+        +'background-image:repeating-linear-gradient(135deg,transparent 0 22px,rgba(255,255,255,.05) 22px 24px,transparent 24px 46px);}'
+      /* faixa navy da última contagem */
+      +'#v-inv .ivhero{background:linear-gradient(100deg,var(--navy) 0%,var(--navy-2) 100%);color:#fff;'
+        +'border-radius:14px;padding:20px 24px;margin-bottom:14px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}'
+      +'#v-inv .ivhero-l{flex:1;min-width:200px;position:relative;z-index:1}'
+      +'#v-inv .ivhero .eyebrow{font-size:.62rem;letter-spacing:1.4px;text-transform:uppercase;font-weight:800;color:var(--gold-2);margin-bottom:6px}'
+      +'#v-inv .ivhero h2{margin:0;font-size:1.15rem;font-weight:700;letter-spacing:-.2px}'
+      +'#v-inv .ivhero .sub{color:rgba(255,255,255,.5);font-size:.78rem;margin-top:3px;font-variant-numeric:tabular-nums}'
+      +'#v-inv .ivhero-r{position:relative;z-index:1;text-align:right}'
+      /* cards */
+      +'#v-inv .ivgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:14px}'
+      +'#v-inv .ivc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;'
+        +'display:flex;flex-direction:column;position:relative;overflow:hidden;'
+        +'box-shadow:0 1px 2px rgba(15,27,46,.04);'
+        +'transition:box-shadow .22s ease,border-color .22s ease,transform .22s cubic-bezier(.2,.8,.2,1)}'
+      +'#v-inv .ivc.go{cursor:pointer}'
+      /* corte diagonal no canto: a assinatura angular da marca, sem poluir */
+      +'#v-inv .ivc::before{content:"";position:absolute;top:0;right:0;width:46px;height:46px;'
+        +'background:linear-gradient(225deg,var(--brand-dim) 0%,transparent 62%);pointer-events:none;transition:opacity .22s ease}'
+      +'#v-inv .ivc.gold::before{background:linear-gradient(225deg,var(--gold-dim) 0%,transparent 62%)}'
+      +'#v-inv .ivc.go:hover{border-color:var(--brand);transform:translateY(-2px);box-shadow:0 10px 30px rgba(15,27,46,.09)}'
+      +'#v-inv .ivc.go:hover::before{opacity:.55}'
+      /* caixa do ícone: cantos angulares (não é círculo) + degradê 10% */
+      +'#v-inv .ivi{width:38px;height:38px;flex:none;border-radius:9px;display:flex;align-items:center;justify-content:center;'
+        +'background:linear-gradient(140deg,var(--brand-dim),rgba(234,90,12,.03));color:var(--brand);'
+        +'border:1px solid rgba(234,90,12,.14);transition:.22s}'
+      +'#v-inv .ivc.gold .ivi{background:linear-gradient(140deg,var(--gold-dim),rgba(217,154,11,.03));color:var(--gold);border-color:rgba(217,154,11,.18)}'
+      +'#v-inv .ivi svg{width:19px;height:19px}'
+      +'#v-inv .ivc.go:hover .ivi{background:var(--brand);color:#fff;border-color:var(--brand)}'
+      +'#v-inv .ivc.gold.go:hover .ivi{background:var(--gold);color:#fff;border-color:var(--gold)}'
+      +'#v-inv .ivh{position:relative;z-index:1}'
+      +'#v-inv .ivt{font-weight:700;font-size:1rem;letter-spacing:-.25px;line-height:1.3}'
+      +'#v-inv .ivs{color:var(--faint);font-size:.75rem;line-height:1.5;margin-top:4px}'
+      /* números imponentes */
+      +'#v-inv .ivn{font-family:var(--disp);font-weight:800;font-size:2.7rem;line-height:1;letter-spacing:-2px;'
+        +'margin-top:20px;font-variant-numeric:tabular-nums;color:var(--ink);display:flex;align-items:baseline;gap:9px}'
+      +'#v-inv .ivn u{text-decoration:none;font-size:.62rem;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--faint)}'
+      +'#v-inv .ivbar{height:3px;border-radius:99px;background:var(--line);margin-top:14px;overflow:hidden}'
+      +'#v-inv .ivbar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--brand),var(--gold-2))}'
+      +'#v-inv .ivgo{margin-top:auto;padding-top:16px;font-size:.76rem;font-weight:700;color:var(--brand);display:flex;align-items:center;gap:6px;position:relative;z-index:1}'
+      +'#v-inv .ivgo b{transition:transform .22s ease;font-weight:800}'
+      +'#v-inv .ivc:hover .ivgo b{transform:translateX(4px)}'
+      /* controles */
+      +'#v-inv .ivc .input{margin-top:16px;height:42px;border-radius:9px}'
+      +'#v-inv .ivc .btn{margin-top:10px;width:100%;height:42px;border-radius:9px;font-weight:700}'
+      +'#v-inv .abc{display:flex;gap:8px;margin-top:16px}'
+      +'#v-inv .abc button{flex:1;height:46px;border-radius:9px;border:1px solid var(--line);background:var(--card-2);'
+        +'font-family:var(--disp);font-weight:800;font-size:1.05rem;color:var(--ink);cursor:pointer;transition:.16s}'
+      +'#v-inv .abc button:hover{background:var(--brand);border-color:var(--brand);color:#fff;transform:translateY(-2px)}'
+      /* contagem cega */
+      +'#v-inv .blind{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);'
+        +'border-radius:12px;padding:15px 18px;margin-bottom:14px;cursor:pointer;transition:border-color .2s ease}'
+      +'#v-inv .blind:hover{border-color:var(--brand)}'
+      +'#v-inv .blind input{width:19px;height:19px;flex:none;accent-color:var(--brand);cursor:pointer}'
+      /* histórico: tabela densa */
+      +'#v-inv .htab{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}'
+      +'#v-inv .hr{display:flex;align-items:center;gap:16px;padding:13px 18px;transition:background .12s ease}'
+      +'#v-inv .hr+.hr{border-top:1px solid var(--line)}'
+      +'#v-inv .hr:hover{background:var(--card-2)}'
+      +'#v-inv .hhd{display:flex;gap:16px;padding:9px 18px;background:var(--card-2);border-bottom:1px solid var(--line);'
+        +'font-size:.62rem;letter-spacing:1px;text-transform:uppercase;color:var(--faint);font-weight:800}'
+      +'#v-inv .badge{display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:3px 9px;'
+        +'font-size:.72rem;font-weight:800;font-variant-numeric:tabular-nums}'
+      +'#v-inv .badge.ok{background:var(--in-dim);color:var(--in)}'
+      +'#v-inv .badge.warn{background:var(--gold-dim);color:var(--gold)}'
+      +'#v-inv .badge.bad{background:var(--out-dim);color:var(--out)}'
+      /* reincidentes */
+      +'#v-inv .rein{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--out);'
+        +'border-radius:12px;padding:16px 18px;margin-bottom:14px}'
+      +'#v-inv .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card-2);border:1px solid var(--out);'
+        +'border-radius:7px;padding:6px 11px;font-family:var(--mono);font-size:.8rem;font-weight:700}'
+      +'#v-inv .chip b{background:var(--out);color:#fff;border-radius:4px;padding:1px 6px;font-size:.66rem;font-family:var(--disp)}'
+      +'</style>';
+
+      /* ---------- ÚLTIMA CONTAGEM (navy + textura diagonal) ---------- */
+      if(ultima){
+        var uc = ultima.pct>=98?'#34d399':(ultima.pct>=90?'var(--gold-2)':'#f87171');
+        H+='<div class="ivhero ivx">'
+          +'<div class="ivhero-l"><div class="eyebrow">Última contagem</div>'
+          +'<h2>'+_esc(ultima.sel)+'</h2>'
+          +'<div class="sub">'+_fdate(ultima.at)+' · '+_esc(ultima.by||'')+'</div></div>'
+          +'<div class="ivhero-r">'
+          +'<div style="font-family:var(--disp);font-weight:800;font-size:2.4rem;line-height:1;letter-spacing:-1.5px;color:'+uc+';font-variant-numeric:tabular-nums">'+ultima.pct+'<span style="font-size:1rem">%</span></div>'
+          +'<div style="color:rgba(255,255,255,.45);font-size:.72rem;margin-top:5px">'+(ultima.div||0)+' divergência(s)</div>'
+          +'</div></div>';
       }
 
-      var elHTML='<div class="ph-head"><div><p class="eb">Operação · contagem cíclica</p><h1>Inventário</h1></div></div>'
-        +'<style>'
-        +'#v-inv .ivgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:14px}'
-        +'#v-inv .ivc{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;flex-direction:column;'
-        +'transition:border-color .18s ease,transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease;overflow:hidden}'
-        +'#v-inv .ivc:not(.nc){cursor:pointer}'
-        +'#v-inv .ivc::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--brand);opacity:0;transition:opacity .18s ease}'
-        +'#v-inv .ivc:not(.nc):hover{border-color:var(--brand);transform:translateY(-3px);box-shadow:0 12px 28px rgba(15,23,42,.10)}'
-        +'#v-inv .ivc:hover::after{opacity:1}'
-        +'#v-inv .ivc-h{display:flex;gap:12px;align-items:flex-start}'
-        +'#v-inv .ivc-ic{flex:none;width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;'
-        +'background:var(--brand-dim);color:var(--brand);transition:background .18s ease,color .18s ease}'
-        +'#v-inv .ivc-ic svg{width:19px;height:19px}'
-        +'#v-inv .ivc:not(.nc):hover .ivc-ic{background:var(--brand);color:#fff}'
-        +'#v-inv .ivc-tt{min-width:0}'
-        +'#v-inv .ivc-t{font-weight:800;font-size:1rem;letter-spacing:-.2px}'
-        +'#v-inv .ivc-s{color:var(--faint);font-size:.76rem;line-height:1.5;margin-top:3px}'
-        +'#v-inv .ivc-n{font-family:var(--disp);font-weight:800;font-size:2.1rem;line-height:1;margin-top:14px;font-variant-numeric:tabular-nums}'
-        +'#v-inv .ivc-nu{font-size:.72rem;font-weight:700;color:var(--faint);margin-left:6px;letter-spacing:.4px;text-transform:uppercase}'
-        +'#v-inv .ivc-go{margin-top:auto;padding-top:14px;font-size:.78rem;font-weight:700;color:var(--brand);display:flex;align-items:center;gap:6px}'
-        +'#v-inv .ivc-go span{transition:transform .18s ease}'
-        +'#v-inv .ivc:hover .ivc-go span{transform:translateX(4px)}'
-        +'#v-inv .ivc .input{margin-top:14px}'
-        +'#v-inv .ivc .btn{margin-top:10px;width:100%;height:42px}'
-        +'#v-inv .abcrow{display:flex;gap:8px;margin-top:14px}'
-        +'#v-inv .abcb{flex:1;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--card-2);font-family:var(--disp);'
-        +'font-weight:800;font-size:1.1rem;cursor:pointer;transition:.15s;color:var(--ink)}'
-        +'#v-inv .abcb:hover{background:var(--brand);border-color:var(--brand);color:#fff;transform:translateY(-2px)}'
-        +'#v-inv .blindbar{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);'
-        +'border-radius:16px;padding:16px 18px;margin-bottom:16px;cursor:pointer;transition:border-color .18s ease}'
-        +'#v-inv .blindbar:hover{border-color:var(--brand)}'
-        +'#v-inv .hrow{display:flex;align-items:center;gap:14px;padding:14px 16px}'
-        +'#v-inv .hrow+.hrow{border-top:1px solid var(--line)}'
-        +'#v-inv .hrow:hover{background:var(--card-2)}'
-        +'</style>';
-
-      /* faixa: última contagem */
-      /* ===== PAINEL DE REINCIDENTES =====
-         Vaga que divergiu 2+ contagens seguidas não é erro de contagem — é processo furado.
-         Aparece aqui em cima, antes de tudo, porque é a informação mais acionável da tela. */
-      var _rein=[];try{_rein=_divReincidentes();}catch(e){}
+      /* ---------- REINCIDENTES ---------- */
       if(_rein.length){
-        elHTML+='<div style="background:var(--out-dim);border:1px solid var(--out);border-radius:16px;padding:16px 18px;margin-bottom:16px">'
-          +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
-          +'<div style="width:34px;height:34px;flex:none;border-radius:10px;background:var(--out);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.05rem">⚠</div>'
-          +'<div><div style="font-weight:800">'+_rein.length+' vaga(s) com divergência recorrente</div>'
-          +'<div style="color:var(--muted);font-size:.76rem;margin-top:1px">Divergiram em contagens seguidas — indício de movimentação sem bipe, não de erro de contagem. Priorize estas.</div></div></div>'
+        H+='<div class="rein">'
+          +'<div style="display:flex;align-items:center;gap:11px;margin-bottom:11px">'
+          +'<div style="width:32px;height:32px;flex:none;border-radius:8px;background:var(--out-dim);color:var(--out);display:flex;align-items:center;justify-content:center">'+svg(I.warn)+'</div>'
+          +'<div><div style="font-weight:700;font-size:.95rem">'+_rein.length+' vaga(s) com divergência recorrente</div>'
+          +'<div style="color:var(--faint);font-size:.75rem;margin-top:2px">Divergiram em contagens seguidas. Isso é processo furado (movimentação sem bipe), não erro de contagem.</div></div></div>'
           +'<div style="display:flex;flex-wrap:wrap;gap:8px">'
           +_rein.slice(0,12).map(function(r){
-            var ult=(r.hist&&r.hist[0])?r.hist[0]:null;
-            return '<div title="'+(ult?('última: '+_fdate(ult.at)+' · dif '+(ult.dif>0?'+':'')+_fmtq(ult.dif)+' kg'+(ult.by?(' · '+_esc(ult.by)):'')):'')+'" '
-              +'style="background:var(--card);border:1px solid var(--out);border-radius:10px;padding:7px 12px;display:flex;align-items:center;gap:8px">'
-              +'<b style="font-family:var(--mono);font-size:.85rem">'+_esc(r.code)+'</b>'
-              +'<span style="background:var(--out);color:#fff;border-radius:99px;padding:1px 8px;font-size:.66rem;font-weight:800">'+r.n+'×</span>'
-              +'</div>';
+            var u=(r.hist&&r.hist[0])||null;
+            return '<span class="chip" title="'+(u?('última: '+_fdate(u.at)+' · dif '+(u.dif>0?'+':'')+_fmtq(u.dif)+' kg'):'')+'">'+_esc(r.code)+'<b>'+r.n+'×</b></span>';
           }).join('')
-          +(_rein.length>12?('<div style="align-self:center;color:var(--muted);font-size:.76rem">+'+(_rein.length-12)+' vaga(s)</div>'):'')
+          +(_rein.length>12?'<span style="align-self:center;color:var(--faint);font-size:.75rem">+'+(_rein.length-12)+'</span>':'')
           +'</div>'
-          +'<button class="btn brand" id="invGoRein" style="margin-top:12px;height:42px">Contar só estas vagas agora</button>'
+          +'<button class="btn brand" id="invGoRein" style="margin-top:13px;height:42px;border-radius:9px">Contar só estas vagas</button>'
           +'</div>';
       }
 
-      if(ultima){
-        var uc=(ultima.pct>=98?'var(--in)':(ultima.pct>=90?'var(--brand)':'var(--out)'));
-        elHTML+='<div style="display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);'
-          +'border-left:3px solid '+uc+';border-radius:14px;padding:14px 18px;margin-bottom:16px">'
-          +'<div style="flex:1;min-width:0"><div style="font-size:.64rem;letter-spacing:1px;text-transform:uppercase;color:var(--faint);font-weight:800">Última contagem</div>'
-          +'<div style="font-weight:700;margin-top:3px">'+_esc(ultima.sel)+' <span style="color:var(--faint);font-weight:500;font-size:.82rem">· '+_fdate(ultima.at)+'</span></div></div>'
-          +'<div style="text-align:right;white-space:nowrap"><div style="font-family:var(--disp);font-weight:800;font-size:1.5rem;color:'+uc+';font-variant-numeric:tabular-nums">'+ultima.pct+'%</div>'
-          +'<div style="font-size:.7rem;color:var(--faint)">'+(ultima.div||0)+' diverg.</div></div></div>';
-      }
+      /* ---------- FILA DE CONTAGENS: pendentes e em andamento ---------- */
+      try{invPullQ();}catch(e){}
+      var _tar=minhasTarefas();
+      var _eu=_me(), _isAdm=_adm();
 
-      /* contagem cega */
-      elHTML+='<label class="blindbar">'
-        +'<input type="checkbox" id="invBlind" style="width:20px;height:20px;flex:none;accent-color:var(--brand)">'
-        +'<div><div style="font-weight:700">Contagem cega</div>'
-        +'<div style="color:var(--faint);font-size:.76rem;margin-top:2px">Esconde o esperado — você conta sem saber o valor do sistema (evita vício de contagem).</div></div>'
-        +'</label>';
-
-      elHTML+='<div class="ivgrid">'
-        +card({noclick:1,ic:IC.rua,t:'Por rua',s:'Contagem cíclica clássica, rua por rua.',
-               body:'<select class="input" id="invRua"><option value="">Escolha a rua…</option>'+ruas.map(function(r){return '<option>'+_esc(r)+'</option>';}).join('')+'</select>'
-                    +'<button class="btn brand" id="invGoRua">Iniciar</button>'})
-        +card({noclick:1,ic:IC.prod,t:'Por produto',s:'Confere todas as vagas de um produto só.',
-               body:'<select class="input" id="invProd"><option value="">Escolha o produto…</option>'+prods.map(function(r){return '<option>'+_esc(r)+'</option>';}).join('')+'</select>'
-                    +'<button class="btn brand" id="invGoProd">Iniciar</button>'})
-        +card({noclick:1,ic:IC.abc,t:'Por classe ABC',s:'Classe A gira mais — conte com mais frequência.',
-               body:'<div class="abcrow"><button class="abcb" data-invcls="A">A</button><button class="abcb" data-invcls="B">B</button><button class="abcb" data-invcls="C">C</button></div>'})
-        +card({esc:'all',ic:IC.all,t:'Armazém inteiro',s:'Todas as vagas ocupadas no '+wl+'.',
-               n:nOcc,nu:'vagas · '+_fmtq(kgOcc)+' kg'})
-        +card({esc:'chao',ic:IC.chao,t:'Chão (conferência)',s:'Expedição + Chão 70. Bipe cada bobina para marcar presente.',
-               n:nChao,nu:'bobinas'})
-        +'</div>';
-
-      /* histórico */
-      if(hist.length){
-        elHTML+='<div style="margin-top:26px"><h3 style="margin:0 0 12px;font-size:1.05rem">Histórico de contagens</h3>'
-          +'<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden">'
-          +hist.slice(0,10).map(function(h){
-            var c=(h.pct>=98?'var(--in)':(h.pct>=90?'var(--brand)':'var(--out)'));
-            return '<div class="hrow">'
-              +'<div style="width:6px;height:34px;border-radius:99px;background:'+c+';flex:none"></div>'
-              +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:.9rem">'+_esc(h.sel)+'</div>'
-              +'<div style="color:var(--faint);font-size:.72rem;margin-top:1px">'+_fdate(h.at)+' · '+_esc(h.by||'')+'</div></div>'
-              +'<div style="text-align:right;white-space:nowrap">'
-              +'<div style="font-family:var(--disp);font-weight:800;color:'+c+';font-variant-numeric:tabular-nums">'+h.pct+'%</div>'
-              +'<div style="font-size:.7rem;color:var(--faint)">'+(h.div||0)+' diverg. · '+_fmtq(h.difKg||0)+' kg</div></div>'
+      if(_tar.length){
+        H+='<div style="margin-bottom:14px">'
+          +'<h3 style="margin:0 0 10px;font-size:1.05rem;letter-spacing:-.2px">Contagens pendentes <span style="color:var(--faint);font-weight:500;font-size:.85rem">· '+_tar.length+'</span></h3>'
+          +'<div class="htab">'
+          +_tar.map(function(t){
+            var alv=[];try{alv=_alvosBase(t.sel);}catch(e){}
+            var feitas=Object.keys(t.done||{}).length, tot=alv.length||1;
+            var pct=Math.round(feitas/tot*100);
+            var and=(t.status==='andamento');
+            var meu=(t.atribuido===_eu);
+            return '<div class="hr" style="cursor:pointer" data-invopen="'+_esc(t.tid)+'">'
+              +'<span style="width:4px;height:30px;border-radius:99px;background:'+(and?'var(--brand)':'var(--line-2)')+';flex:none"></span>'
+              +'<span style="flex:1;min-width:0">'
+                +'<span style="font-weight:700;font-size:.9rem">'+_esc(_selLabel(t.sel))+'</span>'
+                +(t.blind?'<span class="badge warn" style="margin-left:8px">cega</span>':'')
+                +(and?'<span class="badge ok" style="margin-left:6px">em andamento</span>':'<span class="badge" style="margin-left:6px;background:var(--card-2);color:var(--faint)">pendente</span>')
+                +'<div style="color:var(--faint);font-size:.73rem;margin-top:3px">'
+                  +(t.atribuido?('Para <b style="color:'+(meu?'var(--brand)':'var(--muted)')+'">'+_esc(t.atribuido)+'</b>'):'Aberta para todos')
+                  +(t.by?(' · criada por '+_esc(t.by)):'')
+                  +(and?(' · '+feitas+' de '+tot+' vagas'):'')
+                +'</div></span>'
+              +(and?('<span style="width:110px;flex:none"><div style="height:4px;border-radius:99px;background:var(--line);overflow:hidden"><i style="display:block;height:100%;width:'+pct+'%;background:linear-gradient(90deg,var(--brand),var(--gold-2))"></i></div>'
+                    +'<div style="font-size:.68rem;color:var(--faint);margin-top:4px;text-align:right;font-variant-numeric:tabular-nums">'+pct+'%</div></span>'):'<span style="width:110px;flex:none"></span>')
+              +'<span style="flex:none;font-size:.78rem;font-weight:700;color:var(--brand);white-space:nowrap">'+(and?'Continuar':'Iniciar')+' →</span>'
+              +(_isAdm?('<button class="gbtn" data-invdel="'+_esc(t.tid)+'" style="flex:none;padding:5px 9px;font-size:.7rem" title="Excluir contagem">✕</button>'):'')
               +'</div>';
           }).join('')
-          +'</div><button class="gbtn" id="invHistClr" style="margin-top:12px;font-size:.76rem">Limpar histórico</button></div>';
+          +'</div></div>';
       }
 
-      el.innerHTML=elHTML;
+      /* ---------- ADMIN: criar e atribuir ---------- */
+      if(_isAdm){
+        var _users=[];try{_users=(typeof US!=='undefined'&&Array.isArray(US))?US.filter(function(u){return u.active!==false;}).map(function(u){return u.u;}):[];}catch(e){}
+        H+='<details class="ivadm" style="margin-bottom:14px">'
+          +'<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;background:var(--navy);color:#fff;border-radius:12px;padding:14px 18px;font-weight:700;font-size:.92rem">'
+          +'<span style="color:var(--gold-2);font-weight:800">+</span> Atribuir contagem a alguém'
+          +'<span style="margin-left:auto;color:rgba(255,255,255,.4);font-size:.74rem;font-weight:500">só admin</span>'
+          +'</summary>'
+          +'<div style="background:var(--card);border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;padding:18px;margin-top:-6px">'
+          +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">'
+          +'<label class="fld"><span class="lab">O que contar</span><select class="input" id="atbEsc">'
+            +'<option value="all">Armazém inteiro</option>'
+            +'<option value="chao">Chão (conferência)</option>'
+            +ruas.map(function(r){return '<option value="rua:'+_esc(r)+'">Rua '+_esc(r)+'</option>';}).join('')
+            +'<option value="cls:A">Classe A</option><option value="cls:B">Classe B</option><option value="cls:C">Classe C</option>'
+            +prods.slice(0,300).map(function(pp){return '<option value="prod:'+_esc(pp)+'">Produto '+_esc(pp)+'</option>';}).join('')
+          +'</select></label>'
+          +'<label class="fld"><span class="lab">Para quem</span><select class="input" id="atbUser">'
+            +'<option value="">Qualquer um (aberta)</option>'
+            +_users.map(function(u){return '<option value="'+_esc(u)+'">'+_esc(u)+'</option>';}).join('')
+          +'</select></label>'
+          +'<label class="fld"><span class="lab">Modo</span><select class="input" id="atbBlind">'
+            +'<option value="0">Normal</option><option value="1">Contagem cega</option>'
+          +'</select></label>'
+          +'</div>'
+          +'<button class="btn brand" id="atbGo" style="margin-top:14px;height:44px;border-radius:9px">Criar contagem</button>'
+          +'<div style="color:var(--faint);font-size:.74rem;margin-top:9px">A contagem aparece na tela do operador assim que ele abrir o Inventário. Ele pode parar no meio e voltar depois — o progresso fica salvo.</div>'
+          +'</div></details>';
+      }
 
-      var blindEl=el.querySelector('#invBlind');function _bl(){return !!(blindEl&&blindEl.checked);}
+      /* ===== A PARTIR DAQUI: SÓ ADMIN =====
+         O operador não escolhe o que contar. Ele executa o que foi atribuído — nada mais.
+         Se ele pudesse iniciar uma contagem por conta própria, a atribuição perderia o sentido
+         e dois operadores acabariam contando a mesma rua ao mesmo tempo. */
+      if(!_isAdm){
+        if(!_tar.length){
+          H+='<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:44px 24px;text-align:center">'
+            +'<div style="font-weight:700;font-size:1.05rem;margin-bottom:6px">Nenhuma contagem para você agora</div>'
+            +'<div style="color:var(--faint);font-size:.84rem">Quando o supervisor atribuir uma contagem, ela aparece aqui automaticamente.</div>'
+            +'</div>';
+        }
+        el.innerHTML=H;
+        el.querySelectorAll('[data-invopen]').forEach(function(r){r.onclick=function(){window.invAbrirTarefa(r.getAttribute('data-invopen'));};});
+        return;
+      }
+
+      /* ---------- CONTAGEM CEGA (avulsa) ---------- */
+      H+='<label class="blind"><input type="checkbox" id="invBlind">'
+        +'<div><div style="font-weight:700;font-size:.92rem">Contagem cega</div>'
+        +'<div style="color:var(--faint);font-size:.75rem;margin-top:2px">Esconde o valor do sistema — você conta sem saber o esperado. Elimina o vício de contagem.</div></div></label>';
+
+      /* ---------- CARDS ---------- */
+      function card(o){
+        /* ícones removidos a pedido: o título já diz tudo. Menos ornamento, mais dado. */
+        return '<div class="ivc'+(o.go?' go':'')+(o.gold?' gold':'')+'"'+(o.act?(' data-invesc="'+o.act+'"'):'')+'>'
+          +'<div class="ivh"><div style="min-width:0"><div class="ivt">'+o.t+'</div><div class="ivs">'+o.s+'</div></div></div>'
+          +(o.n!=null?('<div class="ivn">'+o.n.toLocaleString('pt-BR')+'<u>'+(o.u||'')+'</u></div>'):'')
+          +(o.bar!=null?('<div class="ivbar"><i style="width:'+o.bar+'%"></i></div>'):'')
+          +(o.body||'')
+          +(o.go?'<div class="ivgo">Iniciar contagem <b>→</b></div>':'')
+          +'</div>';
+      }
+
+      H+='<div class="ivgrid">'
+        +card({ic:I.rua,t:'Por rua',s:'Contagem cíclica clássica, rua por rua.',
+               body:'<select class="input" id="invRua"><option value="">Escolha a rua…</option>'+ruas.map(function(r){return '<option>'+_esc(r)+'</option>';}).join('')+'</select><button class="btn brand" id="invGoRua">Iniciar</button>'})
+        +card({ic:I.prod,t:'Por produto',s:'Confere todas as vagas de um produto só.',
+               body:'<select class="input" id="invProd"><option value="">Escolha o produto…</option>'+prods.map(function(r){return '<option>'+_esc(r)+'</option>';}).join('')+'</select><button class="btn brand" id="invGoProd">Iniciar</button>'})
+        +card({ic:I.abc,t:'Por classe ABC',s:'Classe A gira mais — conte com mais frequência.',
+               body:'<div class="abc"><button data-invcls="A">A</button><button data-invcls="B">B</button><button data-invcls="C">C</button></div>'})
+        +card({go:1,act:'all',ic:I.all,t:'Armazém inteiro',s:'Todas as vagas ocupadas no '+wl+'.',
+               n:nOcc,u:'vagas · '+_fmtq(kgOcc)+' kg',bar:100})
+        +card({go:1,gold:1,act:'chao',ic:I.chao,t:'Chão · conferência',s:'Expedição + Chão 70. Bipe cada bobina para marcar presente.',
+               n:nChao,u:'bobinas',bar:100})
+        +'</div>';
+
+      /* ---------- HISTÓRICO ---------- */
+      if(hist.length){
+        H+='<div style="margin-top:26px"><h3 style="margin:0 0 12px;font-size:1.05rem;letter-spacing:-.2px">Histórico de contagens</h3>'
+          +'<div class="htab">'
+          +'<div class="hhd"><span style="flex:1">Escopo</span><span style="width:150px">Data</span><span style="width:90px">Operador</span><span style="width:130px;text-align:right">Acuracidade</span></div>'
+          +hist.slice(0,12).map(function(h){
+            var cls=h.pct>=98?'ok':(h.pct>=90?'warn':'bad');
+            return '<div class="hr">'
+              +'<span style="flex:1;font-weight:600;font-size:.88rem">'+_esc(h.sel)+'</span>'
+              +'<span style="width:150px;color:var(--faint);font-size:.76rem;font-variant-numeric:tabular-nums">'+_fdate(h.at)+'</span>'
+              +'<span style="width:90px;color:var(--faint);font-size:.76rem">'+_esc(h.by||'—')+'</span>'
+              +'<span style="width:130px;text-align:right;display:flex;justify-content:flex-end;gap:8px;align-items:center">'
+                +'<span style="color:var(--faint);font-size:.72rem;font-variant-numeric:tabular-nums">'+(h.div||0)+' div.</span>'
+                +'<span class="badge '+cls+'">'+h.pct+'%</span>'
+              +'</span></div>';
+          }).join('')
+          +'</div>'
+          +'<button class="gbtn" id="invHistClr" style="margin-top:12px;font-size:.76rem">Limpar histórico</button></div>';
+      }
+
+      el.innerHTML=H;
+
+      var bEl=el.querySelector('#invBlind');function _bl(){return !!(bEl&&bEl.checked);}
       el.querySelectorAll('[data-invesc]').forEach(function(c){c.onclick=function(){var t=c.getAttribute('data-invesc');if(t==='all')window.invStart({all:true},_bl());else if(t==='chao')window.invStart({chao:true},_bl());};});
       var gr=el.querySelector('#invGoRua');if(gr)gr.onclick=function(e){e.stopPropagation();var r=el.querySelector('#invRua').value;if(!r){toast('Escolha a rua',false);return;}window.invStart({rua:r},_bl());};
-      var gp=el.querySelector('#invGoProd');if(gp)gp.onclick=function(e){e.stopPropagation();var p=el.querySelector('#invProd').value;if(!p){toast('Escolha o produto',false);return;}window.invStart({prod:p},_bl());};
+      var gp=el.querySelector('#invGoProd');if(gp)gp.onclick=function(e){e.stopPropagation();var pv=el.querySelector('#invProd').value;if(!pv){toast('Escolha o produto',false);return;}window.invStart({prod:pv},_bl());};
       el.querySelectorAll('[data-invcls]').forEach(function(b){b.onclick=function(e){e.stopPropagation();window.invStart({cls:b.getAttribute('data-invcls')},_bl());};});
       var hc=el.querySelector('#invHistClr');if(hc)hc.onclick=function(){if(!confirm('Limpar o histórico de contagens?'))return;saveInvHist([]);window.renderInv();};
       var grn=el.querySelector('#invGoRein');if(grn)grn.onclick=function(){var rr=_divReincidentes();if(!rr.length)return;window.invStart({codes:rr.map(function(x){return x.code;})},_bl());};
+
+      /* abrir / continuar uma contagem da fila */
+      el.querySelectorAll('[data-invopen]').forEach(function(r){r.onclick=function(ev){
+        if(ev.target.closest('[data-invdel]'))return;
+        window.invAbrirTarefa(r.getAttribute('data-invopen'));
+      };});
+      el.querySelectorAll('[data-invdel]').forEach(function(b){b.onclick=function(ev){
+        ev.stopPropagation();window.invExcluirTarefa(b.getAttribute('data-invdel'));
+      };});
+
+      /* admin: criar e atribuir */
+      var ag=el.querySelector('#atbGo');
+      if(ag)ag.onclick=function(){
+        var v=(el.querySelector('#atbEsc')||{}).value||'all';
+        var u=(el.querySelector('#atbUser')||{}).value||'';
+        var bl=((el.querySelector('#atbBlind')||{}).value==='1');
+        var sel={};
+        if(v==='all')sel={all:true};
+        else if(v==='chao')sel={chao:true};
+        else if(v.indexOf('rua:')===0)sel={rua:v.slice(4)};
+        else if(v.indexOf('cls:')===0)sel={cls:v.slice(4)};
+        else if(v.indexOf('prod:')===0)sel={prod:v.slice(5)};
+        window.invCriarTarefa(sel,bl,u);
+      };
       return;
     }
     /* ---------- CONTAGEM EM ANDAMENTO ---------- */
@@ -9877,6 +10284,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     var h='<div class="ph-head"><div><p class="eb">Contagem em andamento · '+_esc(_selLabel(inv.sel))+(blind?' · CEGA':'')+'</p><h1>'+a.feitas+' <span style="color:var(--faint);font-weight:600">de '+a.tot+'</span></h1></div>'
       +'<div class="actions"><button class="gbtn" id="invCsv">Exportar divergências</button>'
       +(isChao?'':'<button class="gbtn" id="invApply">Aplicar ajustes ('+a.div+')</button>')
+      +'<button class="gbtn" id="invPause" title="Sai da contagem mas guarda tudo — você (ou outra pessoa) volta nela depois">⏸ Pausar</button>'
       +'<button class="gbtn" id="invEnd">Encerrar</button></div></div>'
       +'<style>'
       +'#v-inv .bipbox{position:sticky;top:0;z-index:5;background:var(--bg);padding-bottom:10px}'
@@ -9898,7 +10306,11 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     } else if(!spCur){
       h+='<div style="font-size:.64rem;letter-spacing:.8px;text-transform:uppercase;color:var(--brand);font-weight:800;margin-bottom:7px">Passo 1 · bipe o ENDEREÇO da vaga</div>'
         +'<input class="input bipin" id="invBipe" autocomplete="off" placeholder="BIPE O ENDEREÇO (EX: A-20-1)">'
-        +'<div style="color:var(--faint);font-size:.74rem;margin-top:7px">Vamos vaga por vaga: bipe o endereço, depois as bobinas que estão nela de verdade.</div>';
+        +'<div style="color:var(--faint);font-size:.74rem;margin-top:7px">Vamos vaga por vaga: bipe o endereço, depois as bobinas que estão nela de verdade.</div>'
+        +'<div style="display:flex;gap:8px;align-items:flex-start;background:var(--gold-dim);border:1px solid rgba(217,154,11,.25);border-radius:9px;padding:9px 12px;margin-top:9px">'
+        +'<span style="color:var(--gold);font-weight:800;flex:none">✦</span>'
+        +'<span style="color:var(--muted);font-size:.74rem;line-height:1.5">Achou o item numa vaga <b>que não está na lista</b>? Bipe o endereço dela assim mesmo — o sistema pergunta se você quer <b>adicioná-la à contagem</b>.</span>'
+        +'</div>';
     } else {
       var expC=_alvoExp(spCur);var sumC=bipCur?bipCur.sum:0;var difC=Math.round((sumC-expC)*1000)/1000;
       h+='<div style="background:var(--brand-dim);border:1.5px solid var(--brand);border-radius:14px;padding:12px 14px;margin-bottom:10px">'
@@ -9932,6 +10344,10 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
       var selo=(_stk>=2)?('<span title="Esta vaga divergiu em '+_stk+' contagens seguidas — indício de processo furado (movimentação sem bipe), não de erro de contagem" '
         +'style="flex:none;display:inline-flex;align-items:center;gap:4px;background:var(--out-dim);color:var(--out);border:1px solid var(--out);'
         +'border-radius:99px;padding:2px 9px;font-size:.66rem;font-weight:800;letter-spacing:.3px;white-space:nowrap">⚠ '+_stk+'ª diverg.</span>'):'';
+      /* selo de vaga ACHADA fora do escopo — o operador encontrou o item aqui */
+      if(sp._achada)selo+='<span title="Esta vaga não estava no escopo. Foi adicionada porque o item foi encontrado aqui." '
+        +'style="flex:none;display:inline-flex;align-items:center;gap:4px;background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold);'
+        +'border-radius:99px;padding:2px 9px;font-size:.66rem;font-weight:800;letter-spacing:.3px;white-space:nowrap">✦ achada fora do escopo</span>';
       var sub;
       if(isChao)sub='no chão '+(sp._chao==='70'?'70':'expedição');
       else if(d&&!d.ok)sub='esperado '+_fmtq(d.expected)+' kg · <b style="color:var(--out)">contado '+_fmtq(d.found)+' kg</b>';
@@ -9941,10 +10357,18 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
         +'<div style="width:30px;height:30px;flex:none;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:900;background:'+(d?(d.ok?'var(--in)':'var(--out)'):'var(--card-2)')+';color:'+(d?'#fff':'var(--faint)')+'">'+(d?(d.ok?'✓':'≠'):'·')+'</div>'
         +'<div style="flex:1;min-width:0"><div class="vcode" style="display:flex;align-items:center;gap:8px">'+_esc(c)+selo+'</div><div class="vsub">'+_esc(sp.pr)+' · '+sub+'</div></div>';
       if(d)r+='<button class="gbtn" data-invre="'+_esc(sp.id)+'" style="padding:5px 10px;font-size:.72rem">Recontar</button>';
-      else if(isChao)r+='<div style="display:flex;gap:6px"><button class="btn in" data-invok="'+_esc(sp.id)+'" style="padding:7px 12px;font-size:.75rem">Presente</button><button class="gbtn" data-invmiss="'+_esc(sp.id)+'" style="padding:7px 12px;font-size:.75rem">Faltou</button></div>';
+      /* CHÃO: "Presente" só se BIPAR. O botão manual foi removido — ele deixava marcar presença
+         sem ler a etiqueta, que é exatamente a fraude que o inventário existe pra pegar.
+         "Faltou" continua: bobina ausente não tem como ser bipada. */
+      else if(isChao)r+='<button class="gbtn" data-invmiss="'+_esc(sp.id)+'" style="padding:7px 12px;font-size:.75rem">Faltou</button>';
       else if(bip)r+='<button class="btn brand" data-invbipuse="'+_esc(sp.id)+'" style="padding:8px 14px;font-size:.78rem;white-space:nowrap">Confirmar '+_fmtq(bip.sum)+' kg</button>';
-      else if(blind)r+='<div style="display:flex;gap:6px"><input class="input" data-invblind="'+_esc(sp.id)+'" placeholder="kg" inputmode="decimal" style="width:96px;padding:7px 10px;font-size:.82rem"><button class="btn in" data-invblindok="'+_esc(sp.id)+'" style="padding:7px 10px;font-size:.75rem">OK</button></div>';
-      else r+='<div style="display:flex;gap:6px"><button class="btn brand" data-invcnt="'+_esc(sp.id)+'" style="padding:7px 14px;font-size:.75rem">Contar</button><button class="gbtn" data-invok="'+_esc(sp.id)+'" style="padding:7px 10px;font-size:.75rem" title="Confere sem bipar">OK</button></div>';
+      /* ===== CONTAGEM É 100% POR BIPE — NADA DE DIGITAR =====
+         Antes existiam 3 formas de resolver a vaga sem bipar: o botão "Contar" (abria um
+         prompt de kg), o campo de kg da contagem cega, e o "OK" que aceitava o valor do
+         sistema sem conferir NADA. Isso destrói o propósito do inventário: o operador
+         "confirma" o que o sistema já diz e a divergência real nunca aparece.
+         Agora a única saída é BIPAR a bobina. A vaga só fecha com o que foi lido. */
+      else r+='<button class="btn brand" data-invsetvaga="'+_esc(sp.id)+'" style="padding:8px 14px;font-size:.78rem;white-space:nowrap">Bipar esta vaga</button>';
       return r+'</div>';
     }
     /* ===== TRAVAMENTO RESOLVIDO AQUI =====
@@ -9969,16 +10393,14 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     }
     el.innerHTML=h;
     /* fiação */
-    el.querySelectorAll('[data-invcnt]').forEach(function(b){b.onclick=function(){window.invSetVaga(b.getAttribute('data-invcnt'));try{var e2=document.getElementById('invBipe');if(e2)e2.focus();}catch(e){}};});
-    el.querySelectorAll('[data-invok]').forEach(function(b){b.onclick=function(){window.invMark(b.getAttribute('data-invok'),null);};});
+    el.querySelectorAll('[data-invsetvaga]').forEach(function(b){b.onclick=function(){window.invSetVaga(b.getAttribute('data-invsetvaga'));};});
+    /* handler do botão manual 'Presente' removido: presença só se comprova bipando */
     var _mp=el.querySelector('#invMaisP');if(_mp)_mp.onclick=function(){window._invMaisP+=60;window.renderInv();};
     var _mf=el.querySelector('#invMaisF');if(_mf)_mf.onclick=function(){window._invMaisF+=60;window.renderInv();};
     el.querySelectorAll('[data-invmiss]').forEach(function(b){b.onclick=function(){window.invMark(b.getAttribute('data-invmiss'),0);};});
     el.querySelectorAll('[data-invbipuse]').forEach(function(b){b.onclick=function(){window.invBipUsar(b.getAttribute('data-invbipuse'));};});
     el.querySelectorAll('[data-invre]').forEach(function(b){b.onclick=function(){var i2=loadInv();delete i2.done[b.getAttribute('data-invre')];if(i2.bip)delete i2.bip[b.getAttribute('data-invre')];saveInv(i2);window.renderInv();};});
-    el.querySelectorAll('[data-invdiv]').forEach(function(b){b.onclick=function(){var id=b.getAttribute('data-invdiv');var sp=alvos.find(function(x){return x.id===id;});var v=prompt('Quantidade REAL contada em '+(sp?_alvoCode(sp):'')+' (kg):',blind?'':(sp?sp.q:''));if(v==null)return;window.invMark(id,parseFloat(String(v).replace(',','.'))||0);};});
-    el.querySelectorAll('[data-invblindok]').forEach(function(b){b.onclick=function(){var id=b.getAttribute('data-invblindok');var inp=el.querySelector('[data-invblind="'+id+'"]');if(!inp||inp.value===''){toast('Digite o kg contado',false);return;}window.invMark(id,parseFloat(String(inp.value).replace(',','.'))||0);};});
-    el.querySelectorAll('[data-invblind]').forEach(function(inp){inp.onkeydown=function(ev){if(ev.key==='Enter'){window.invMark(inp.getAttribute('data-invblind'),parseFloat(String(inp.value).replace(',','.'))||0);}};});
+    /* handlers de DIGITAR quantidade removidos: a contagem é só por bipe (ver comentário em row()) */
     /* trata o que foi bipado: ENDEREÇO vira a vaga ativa; BOBINA vai pra vaga ativa */
     function _invScan(raw){
       if(!raw)return;
@@ -9992,7 +10414,27 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
           window.invSetVaga(spA.id);toast('Vaga '+_alvoCode(spA)+' — agora bipe as bobinas dela');return;
         }
         var spOut=S.find(function(x){return x.w===cfg.warehouse&&((typeof norm==='function')?norm(code(x)):code(x))===cn;});
-        if(spOut){_setLast({st:'warn',et:cn,msg:'A vaga '+cn+' existe, mas está fora deste escopo de contagem'});window.renderInv();return;}
+        if(spOut){
+          /* ===== "ACHEI O ITEM EM OUTRA VAGA" =====
+             Antes o app simplesmente recusava ("fora deste escopo") — e o achado morria ali.
+             Encontrar estoque num lugar que o sistema não esperava é o resultado MAIS VALIOSO
+             de um inventário: é a prova de movimentação sem bipe. Agora dá pra anexar a vaga
+             à contagem em andamento e conferi-la normalmente (bipando). */
+          var _iv2=loadInv();
+          var _jaExtra=_iv2&&_iv2.extra&&_iv2.extra.indexOf(spOut.id)>=0;
+          if(!_jaExtra){
+            var _oq=spOut.o&&spOut.pr?(spOut.pr+' · '+_fmtq(spOut.q)+' kg'):'vaga vazia no sistema';
+            if(!confirm('A vaga '+cn+' NÃO está no escopo desta contagem.\n\n'
+                +'Sistema diz: '+_oq+'\n\n'
+                +'Você encontrou o item AQUI?\n'
+                +'Se sim, a vaga entra nesta contagem e você bipa as bobinas dela normalmente.'))
+              {_setLast({st:'warn',et:cn,msg:'Vaga '+cn+' fora do escopo — não adicionada'});window.renderInv();return;}
+            _iv2.extra=_iv2.extra||[];_iv2.extra.push(spOut.id);saveInv(_iv2);
+          }
+          window.invSetVaga(spOut.id);
+          toast('Vaga '+cn+' adicionada à contagem — agora bipe as bobinas dela');
+          return;
+        }
       }
       window.invBipBobina(raw);
     }
@@ -10028,6 +10470,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
       _histPush(i2,true);
       toast(n+' ajuste(s) aplicado(s) e sincronizado(s)');window.renderInv();
     };
+    var pz=el.querySelector('#invPause');if(pz)pz.onclick=function(){window.invFechar();};
     var en=el.querySelector('#invEnd');if(en)en.onclick=function(){var i2=loadInv();var aa=_acc(i2);if(!confirm('Encerrar a contagem?\n\nAcuracidade: '+aa.pct+'% · '+aa.div+' divergência(s).\n\nO resumo vai para o histórico.'))return;if(aa.feitas>0)_histPush(i2,false);window.invStop();};
     try{if(typeof setIcons==='function')setIcons();}catch(e){}
   };

@@ -4740,6 +4740,9 @@ updateStageBadge();
          Aqui dá pra imprimir só de 301 até 400 — e retomar exatamente de onde parou. */
       +'<label class="fld" style="flex:1;min-width:110px"><span class="lab">Da etiqueta</span><input class="input" id="romLblDe" type="number" min="1" value="1" style="font-family:var(--mono)"></label>'
       +'<label class="fld" style="flex:1;min-width:110px"><span class="lab">Até a</span><input class="input" id="romLblAte" type="number" min="1" value="'+arr.length+'" style="font-family:var(--mono)"></label>'
+      +'<label class="fld" style="flex:1;min-width:130px"><span class="lab">Etiquetas por bloco</span><select class="input" id="romLblBloco">'
+        +[15,20,25,30,40,50,60,75].map(function(n){return '<option value="'+n+'"'+(n===ZBLOCO?' selected':'')+'>'+n+' por vez</option>';}).join('')
+      +'</select></label>'
       +'</div>'
       +'<div style="background:var(--card,rgba(0,0,0,.02));border-radius:12px;padding:12px;max-height:46vh;overflow-y:auto"><div style="display:flex;flex-wrap:wrap;gap:10px">'+previa+'</div>'+maisMsg+'</div>'
       +'<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">'
@@ -4772,6 +4775,8 @@ updateStageBadge();
           +'"Da etiqueta / Até a" para imprimir só o que faltou.\n\n'
           +'Mandar as '+_arr.length+' agora?'))return;
       }
+      var _zb=(document.getElementById('romLblBloco')||{}).value;
+      if(_zb&&typeof setZBloco==='function')setZBloco(_zb);
       toast('Preparando '+_arr.length+' etiqueta(s)…');
       try{if(typeof printZebraRom==='function')printZebraRom(_arr,dim);}catch(e){toast('A impressão falhou — tente de novo.',false);}
     };
@@ -7810,7 +7815,7 @@ qrSvg=function(text){text=String(text);if(!window.qrcode)return bc39(text);try{v
     iframe de impressão de ~140 mil nós pra ~1 mil — era isso que travava a aba e cortava o lote. */
  var d='';for(var y=0;y<n;y++){var x=0;while(x<n){if(qr.isDark(y,x)){var x0=x;while(x<n&&qr.isDark(y,x))x++;d+='M'+((x0+margin)*cell)+' '+((y+margin)*cell)+'h'+((x-x0)*cell)+'v'+cell+'h-'+((x-x0)*cell)+'z';}else x++;}}
  return '<svg class="qr" viewBox="0 0 '+size+' '+size+'" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><rect width="'+size+'" height="'+size+'" fill="#fff"/><path fill="#000" d="'+d+'"/></svg>';}catch(e){return bc39(text);}};
-function printDoc(bodyHTML,css){var f=document.getElementById('pkPrintFrame');if(f&&f.parentNode)f.parentNode.removeChild(f);
+function printDoc(bodyHTML,css,aoTerminar){var f=document.getElementById('pkPrintFrame');if(f&&f.parentNode)f.parentNode.removeChild(f);
  var _prevFocus=null;try{_prevFocus=document.activeElement;}catch(e){}
  f=document.createElement('iframe');f.id='pkPrintFrame';f.setAttribute('aria-hidden','true');f.setAttribute('tabindex','-1');f.style.cssText='position:fixed;left:-9999px;top:0;width:170mm;height:230mm;border:0;background:#fff;pointer-events:none';
  document.body.appendChild(f);
@@ -7823,7 +7828,15 @@ function printDoc(bodyHTML,css){var f=document.getElementById('pkPrintFrame');if
   for(var j=0;j<els.length;j++){var s=med[j];if(s==null)continue;if(s<0.999){els[j].style.transformOrigin='center center';els[j].style.transform='scale('+(Math.floor(s*1000)/1000)+')';}}}catch(e){}}
  var fired=false;
  function go(){if(fired)return;fired=true;try{fitz();}catch(e){}
-   try{win.focus();win.print();}catch(e){console.warn('print',e);}
+   /* avisa quem chamou assim que a janela de impressão fechar — é o que encadeia os blocos.
+      onafterprint dispara tanto se imprimiu quanto se cancelou; o timeout é a rede de
+      segurança para navegadores que não disparam o evento. */
+   var _done=false;
+   var _fim=function(){if(_done)return;_done=true;if(typeof aoTerminar==='function'){try{aoTerminar();}catch(e){}}};
+   try{win.onafterprint=_fim;}catch(e){}
+   try{win.addEventListener('afterprint',_fim);}catch(e){}
+   if(typeof aoTerminar==='function')setTimeout(_fim,90000);
+   try{win.focus();win.print();}catch(e){console.warn('print',e);_fim();}
    /* DEVOLVE O FOCO PRO APP: o win.focus() acima joga o foco pra dentro do iframe de impressão.
       Como o iframe agora fica vivo (pra não cortar o lote), sem isso o leitor/teclado ficava
       preso lá dentro e o app parava de receber bipe. */
@@ -7976,10 +7989,63 @@ function zEtqCSS(dim){
   +'.zlbl .zlote{font-weight:800;color:#0a0c10;background:#f0f0f0;border-radius:1.4mm;letter-spacing:.2mm;display:inline-block}'
   +'.zlbl .zkgbig{font-weight:900;color:#0a0c10;line-height:1;letter-spacing:-.3mm;font-family:"Arial Black",Arial,sans-serif;white-space:nowrap}';
 }
+/* ===== IMPRESSÃO EM BLOCOS =====
+   A mensagem "Falha na impressão · Verifique a impressora" é do WINDOWS, não do navegador.
+   Ou seja: o app montou as 200 etiquetas certinho — quem engasgou foi o spooler/driver da
+   Zebra, que não aguenta um job desse tamanho de uma vez (a impressora tem memória limitada
+   e cada etiqueta vira raster).
+   Não adianta otimizar mais o HTML: o gargalo está DEPOIS do navegador.
+   Solução: mandar VÁRIOS jobs pequenos, em sequência. 50 por vez já se provou que funciona —
+   é justamente onde ele travava. Cada bloco é um trabalho independente: se um falhar, os
+   outros saem, e você sabe exatamente qual reimprimir. */
+/* ajustável na tela de impressão. Se 50 ainda falhar, baixe para 25 ou 20:
+   impressora com pouca memória pode não aguentar nem isso. */
+var ZBLOCO=(function(){try{var v=parseInt(localStorage.getItem('wmsx_zbloco'),10);return (v>=5&&v<=200)?v:40;}catch(e){return 40;}})();
+window.setZBloco=function(n){n=parseInt(n,10)||40;if(n<5)n=5;if(n>200)n=200;ZBLOCO=n;try{localStorage.setItem('wmsx_zbloco',String(n));}catch(e){}};
+
 function printZebraEtq(arr,dim,kind){
  if(!arr||!arr.length){toast('Nada para imprimir',false);return;}
  dim=dim||(typeof ZSIZES!=='undefined'?ZSIZES.z100:{w:100,h:100,n:'100×100 mm'});
- var render=function(){var labels=arr.map(function(e){return zEtqCard(e,dim,dim.h,'mm',kind);}).join('');printDoc(labels,zEtqCSS(dim));};
+
+ var render=function(){
+   /* lote pequeno: um job só, como antes */
+   if(arr.length<=ZBLOCO){
+     printDoc(arr.map(function(e){return zEtqCard(e,dim,dim.h,'mm',kind);}).join(''),zEtqCSS(dim));
+     return;
+   }
+   /* lote grande: fatia em blocos e imprime um de cada vez */
+   var blocos=[];
+   for(var i=0;i<arr.length;i+=ZBLOCO)blocos.push(arr.slice(i,i+ZBLOCO));
+
+   if(!confirm('São '+arr.length+' etiquetas.\n\n'
+     +'A impressora não aguenta tudo de uma vez (é isso que dá "Falha na impressão").\n'
+     +'Vou mandar em '+blocos.length+' blocos de até '+ZBLOCO+', um de cada vez.\n\n'
+     +'Vai abrir a janela de impressão '+blocos.length+' vezes — confirme cada uma.\n'
+     +'Se a impressora travar num bloco, os outros saem mesmo assim.\n\n'
+     +'Começar?'))return;
+
+   var n=0;
+   var proximo=function(){
+     if(n>=blocos.length){toast('Todos os '+blocos.length+' blocos foram enviados ✓');return;}
+     var b=blocos[n],de=n*ZBLOCO+1,ate=de+b.length-1;
+     n++;
+     toast('Bloco '+n+' de '+blocos.length+' · etiquetas '+de+' a '+ate);
+     printDoc(b.map(function(e){return zEtqCard(e,dim,dim.h,'mm',kind);}).join(''),zEtqCSS(dim),function(){
+       /* só manda o próximo depois que a janela de impressão deste fechar */
+       if(n<blocos.length){
+         setTimeout(function(){
+           if(confirm('Bloco '+n+' de '+blocos.length+' enviado (etiquetas '+de+' a '+ate+').\n\n'
+             +'Confira se saiu na impressora.\n\n'
+             +'Mandar o próximo bloco ('+(ate+1)+' a '+Math.min(ate+ZBLOCO,arr.length)+')?'))proximo();
+           else toast('Parado no bloco '+n+'. Use "Da etiqueta / Até a" para retomar de '+(ate+1),false);
+         },600);
+       } else {
+         toast('Todos os '+blocos.length+' blocos foram enviados ✓');
+       }
+     });
+   };
+   proximo();
+ };
  loadQR().then(render).catch(render);
 }
 function printZebraRast(arr,dim,orient){var d=dim||(typeof ZSIZES!=='undefined'?ZSIZES.z100:{w:100,h:100,n:'100×100'});if(orient==='paisagem'){d={w:d.h,h:d.w,n:(d.n||'')+' (deitada)'};}return printZebraEtq(arr,d,'rast');}
@@ -10480,12 +10546,25 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     if(!_invSec){_invSec=document.createElement('section');_invSec.className='view';_invSec.id='v-inv';var _mn=document.querySelector('main');if(_mn)_mn.appendChild(_invSec);}
     if(typeof TITLES!=='undefined')TITLES['v-inv']='Inventário';
     var _rv2=render;render=function(id){if(id==='v-inv'){try{return window.renderInv();}catch(e){try{var _e=document.getElementById('v-inv');if(_e)_e.innerHTML='<div style="padding:24px;color:var(--muted)">Inventário: erro ao carregar — '+(e&&e.message||e)+'</div>';}catch(_){}return;}}return _rv2(id);};
+    /* função nomeada: a barra lateral é reconstruída ao trocar de usuário (restoreFull),
+       e isso apagava o item do menu. Agora dá pra recriar quando precisar. */
+    window.ensureInvNav=function(){
     var navStock=[].slice.call(document.querySelectorAll('.nav')).filter(function(n){return n.dataset.view==='v-stock';})[0];
-    if(navStock&&!document.querySelector('.nav[data-view="v-inv"]')){var nv=document.createElement('div');nv.className='nav';nv.dataset.view='v-inv';nv.dataset.ic='box';nv.innerHTML='<span class="ni"></span>Inventário';navStock.after(nv);
+    /* ===== BUG: O OPERADOR NÃO VIA O MENU "INVENTÁRIO" =====
+       Este item era inserido logo DEPOIS do menu "Estoque" (v-stock). Só que o papel
+       `recepcao` NÃO TEM v-stock — então navStock era null, a condição falhava e o item
+       simplesmente nunca era criado pra ele. A aba existia, o menu não.
+       Agora: se não achar o "Estoque", anexa no fim da barra lateral. Sempre aparece. */
+    if(!document.querySelector('.nav[data-view="v-inv"]')){
+      var nv=document.createElement('div');nv.className='nav';nv.dataset.view='v-inv';nv.dataset.ic='box';nv.innerHTML='<span class="ni"></span>Inventário';
+      if(navStock&&navStock.parentNode){navStock.after(nv);}
+      else{var _sn=document.querySelector('.sb-nav');if(_sn)_sn.appendChild(nv);else return;}
     /* BUG DO MENU: este item é injetado DEPOIS que o setIcons() já rodou, então o <span class="ni">
        ficava vazio — sem ícone e com o texto desalinhado do resto da lista. Pinta o ícone agora. */
     try{var _ni=nv.querySelector('.ni');if(_ni&&typeof ICONS!=='undefined'&&ICONS.box)_ni.innerHTML=ICONS.box;else if(typeof setIcons==='function')setIcons();}catch(e){}
     nv.onclick=function(){try{if(typeof closeDrawer==='function')closeDrawer();$$('.view').forEach(function(v){v.classList.toggle('active',v.id==='v-inv');});$$('.nav').forEach(function(n){n.classList.toggle('active',n.dataset.view==='v-inv');});var mm=document.querySelector('main');if(mm)mm.scrollTop=0;if(typeof window.renderInv==='function')window.renderInv();}catch(e){}};}
+    };
+    window.ensureInvNav();
   }catch(e){}
 })();
 

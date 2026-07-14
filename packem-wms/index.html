@@ -1612,6 +1612,7 @@ function renderBoard(){
         <div class="bd-f"><label>1 · Endereço</label><input class="input code" id="bqLoc" placeholder="A-20-1" autocomplete="off"></div>
         <div class="bd-arrow">→</div>
         <div class="bd-f"><label>2 · Bobina</label><input class="input code" id="bqEt" placeholder="Bipe a bobina" autocomplete="off"></div>
+        <button class="bd-ok" id="bqOk" disabled>Confirmar</button>
       </div>
       <div class="bd-hint">${boardQMode==='entrada'?'A bobina <b>entra</b> na vaga — ela fica vermelha na hora.':'A bobina <b>sai</b> da vaga — ela fica verde na hora.'}</div>
     </div>
@@ -1651,6 +1652,16 @@ function renderBoard(){
       #v-board .bd-f label{display:block;font-size:.64rem;letter-spacing:.7px;text-transform:uppercase;color:var(--faint);font-weight:800;margin-bottom:5px}
       #v-board .bd-f .input{width:100%;height:44px}
       #v-board .bd-arrow{flex:none;color:var(--faint);font-weight:800;padding-bottom:12px}
+      /* O botão só acende quando os DOIS campos estão preenchidos. Antes a confirmação
+         dependia de dar Enter no campo da bobina — com leitor que não manda Enter, ou usando
+         a câmera, não acontecia nada e a pessoa achava que o sistema estava travado. */
+      #v-board .bd-ok{flex:none;height:44px;padding:0 22px;border:0;border-radius:10px;font-weight:800;font-size:.88rem;
+        cursor:pointer;color:#fff;transition:.16s;white-space:nowrap;align-self:flex-end}
+      #v-board .bd-ok:disabled{background:var(--line-2);color:var(--faint);cursor:not-allowed}
+      #v-board .bd-ok:not(:disabled).in{background:#15A34A;box-shadow:0 4px 14px rgba(21,163,74,.28)}
+      #v-board .bd-ok:not(:disabled).out{background:#ef4444;box-shadow:0 4px 14px rgba(239,68,68,.28)}
+      #v-board .bd-ok:not(:disabled):hover{filter:brightness(1.07)}
+      #v-board .bd-ok:not(:disabled):active{transform:scale(.97)}
       #v-board .bd-hint{flex-basis:100%;font-size:.74rem;color:var(--faint)}
 
       #v-board .bd-filters{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
@@ -1672,10 +1683,42 @@ function renderBoard(){
   var _bl=$('#bdLvl'); if(_bl)_bl.onchange=function(){boardLevel=Number(_bl.value);renderBoard();};
   /* bipagem rápida entrada/saída no mapa */
   $$('#v-board .bd-mode [data-qm]').forEach(function(b){b.onclick=function(){boardQMode=b.getAttribute('data-qm');renderBoard();};});
-  (function(){var _l=$('#bqLoc'),_e=$('#bqEt');var _commit=function(){var a=_l?_l.value:'',et=_e?_e.value:'';if(!a){toast('Bipe o endereço primeiro',false);if(_l)_l.focus();return;}if(!et){toast('Bipe a bobina',false);if(_e)_e.focus();return;}Promise.resolve(boardQuickMove(boardQMode,a,et)).then(function(){if(_l)_l.value='';if(_e)_e.value='';var l2=$('#bqLoc');if(l2)l2.focus();});};
+  (function(){
+   var _l=$('#bqLoc'),_e=$('#bqEt'),_ok=$('#bqOk');
+   var _entrada=(boardQMode==='entrada');
+   /* estado do botão: só acende com os DOIS campos preenchidos */
+   var _sync=function(){
+     if(!_ok)return;
+     var pronto=!!(_l&&_l.value.trim()&&_e&&_e.value.trim());
+     _ok.disabled=!pronto;
+     _ok.className='bd-ok '+(_entrada?'in':'out');
+     _ok.textContent=pronto?(_entrada?'✓ Confirmar entrada':'✓ Confirmar saída'):'Confirmar';
+   };
+   var _commit=function(){
+     var a=_l?_l.value:'',et=_e?_e.value:'';
+     if(!a){toast('Bipe o endereço primeiro',false);if(_l)_l.focus();return;}
+     if(!et){toast('Bipe a bobina',false);if(_e)_e.focus();return;}
+     if(_ok){_ok.disabled=true;_ok.textContent='Confirmando…';}   /* trava contra duplo clique */
+     Promise.resolve(boardQuickMove(boardQMode,a,et)).then(function(){
+       if(_l)_l.value='';if(_e)_e.value='';
+       var l2=$('#bqLoc');if(l2)l2.focus();
+       _sync();
+     },function(){_sync();});
+   };
    if(_l)_l.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();if(!findSpace(norm(_l.value))){toast('Endereço não existe',false);return;}if(_e)_e.focus();}});
    if(_e)_e.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();_commit();}});
-   try{if(window.addCam){if(_l)window.addCam('bqLoc',{title:'Bipe o endereço',onResult:function(v){var el=$('#bqLoc');if(el){el.value=v;if($('#bqEt'))$('#bqEt').focus();}}});if(_e)window.addCam('bqEt',{title:'Bipe a bobina',onResult:function(v){var el=$('#bqEt');if(el)el.value=v;_commit();}});}}catch(e){}
+   /* qualquer mudança (digitação, leitor, câmera, colar) reavalia o botão */
+   [_l,_e].forEach(function(x){if(!x)return;['input','change','paste'].forEach(function(evt){x.addEventListener(evt,function(){setTimeout(_sync,0);});});});
+   if(_ok)_ok.onclick=function(){_commit();};
+   _sync();
+   if(_l)_l.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();if(!findSpace(norm(_l.value))){toast('Endereço não existe',false);return;}if(_e)_e.focus();}});
+   if(_e)_e.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();_commit();}});
+   /* CÂMERA: antes ela lia a bobina e disparava o _commit() na hora — sem você conferir nada.
+      Agora ela só preenche o campo e ACENDE o botão. Quem confirma é você. */
+   try{if(window.addCam){
+     if(_l)window.addCam('bqLoc',{title:'Bipe o endereço',onResult:function(v){var el=$('#bqLoc');if(el){el.value=v;if($('#bqEt'))$('#bqEt').focus();}_sync();}});
+     if(_e)window.addCam('bqEt',{title:'Bipe a bobina',onResult:function(v){var el=$('#bqEt');if(el)el.value=v;_sync();var b=$('#bqOk');if(b&&!b.disabled)b.focus();}});
+   }}catch(e){}
   })();
   /* (nível agora é o <select> #bdLvl acima) */
   const bs=$('#boardSearch');

@@ -1381,7 +1381,35 @@ function scanFeedback(m,ok){try{
   try{if(navigator.vibrate)navigator.vibrate(bloqueio?[90,60,90]:35);}catch(e){}
   clearTimeout(fb._t);fb._t=setTimeout(function(){fb.className='scanFb';},bloqueio?2600:1300);
 }catch(e){}}
-function persist(){try{if(typeof markLocalWrite==='function')markLocalWrite();}catch(e){}DB.saveSpaces(S);DB.saveMovs(MV);DB.saveTransf(TR);DB.saveValues(VL);DB.saveUsers(US);DB.saveAct(AC);try{_persistSyncSpaces();}catch(e){}}
+/* ===== TRAVAMENTO AO CLICAR: RESOLVIDO AQUI =====
+   persist() era chamado em TODA ação e serializava 6 listas de uma vez — incluindo o log de
+   movimentos com até 20.000 registros. Cada clique fazia um JSON.stringify de vários MB na
+   thread principal (50–300ms de congelamento) e ainda gravava tudo no localStorage.
+   Agora:
+   1) o envio pra nuvem continua IMEDIATO (nada de atraso no que importa);
+   2) a gravação local pesada é agrupada (debounce de 200ms) — 10 cliques rápidos viram 1 gravação;
+   3) tudo é descarregado na hora se a aba for fechada/escondida (não perde nada);
+   4) o log de movimentos foi limitado a 5.000 (o histórico completo vive na nuvem). */
+var _persistT=null,_persistPend=false;
+function _persistFlush(){
+ if(!_persistPend)return;
+ _persistPend=false;clearTimeout(_persistT);_persistT=null;
+ try{if(MV.length>5000)MV.length=5000;}catch(e){}
+ try{if(AC.length>800)AC.length=800;}catch(e){}
+ DB.saveSpaces(S);DB.saveMovs(MV);DB.saveTransf(TR);DB.saveValues(VL);DB.saveUsers(US);DB.saveAct(AC);
+}
+function persist(){
+ try{if(typeof markLocalWrite==='function')markLocalWrite();}catch(e){}
+ try{_persistSyncSpaces();}catch(e){}   /* nuvem: imediato */
+ _persistPend=true;                      /* disco: agrupado */
+ clearTimeout(_persistT);
+ _persistT=setTimeout(_persistFlush,200);
+}
+window.persistFlush=_persistFlush;
+/* rede de segurança: se fechar, recarregar ou trocar de aba, grava na hora */
+window.addEventListener('beforeunload',_persistFlush);
+window.addEventListener('pagehide',_persistFlush);
+document.addEventListener('visibilitychange',function(){if(document.hidden)_persistFlush();});
 /* ===== REDE DE SEGURANÇA: sincroniza pra nuvem TODA vaga cujo 'upd' mudou desde a última gravação.
    Assim, não importa qual dos vários fluxos alterou a vaga (entrada, saída, editar, produção,
    requisição, transferência...) — se ele chamou persist(), a vaga sobe. Corrige de vez o
@@ -1521,7 +1549,7 @@ async function boardQuickMove(mode,addrRaw,etRaw){
     try{markLocalWrite();}catch(e){}
     sp.q=Math.max(0,before-q);if(sp.q<=0){sp.q=0;sp.o=false;sp.pr='';}sp.u='KG';sp.upd=nowISO();sp.by=(session?session.u:'');
     var m={id:(typeof uid==='function'?uid():String(Math.random())),action:'saida',w:cfg.warehouse,code:c,pr:prod,q:q,u:'KG',before:before,after:sp.o?sp.q:0,at:nowISO(),by:(session?session.u:'')};
-    MV.unshift(m);if(MV.length>20000)MV.length=20000;
+    MV.unshift(m);if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */
     if(typeof LOC!=='undefined'&&et&&LOC[et]===c){delete LOC[et];try{saveLOC();}catch(e){}if(BOB[et])BOB[et].rem=0;}
     try{persist();}catch(e){}
     try{if(typeof syncSpace==='function')syncSpace(sp);if(typeof syncMov==='function')syncMov(m);if(et&&typeof syncDelLoc==='function')syncDelLoc(et);}catch(e){}
@@ -1693,7 +1721,7 @@ function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdm
   if(adm){if(window.addCam){var _pe=document.getElementById('spProd');if(_pe)window.addCam('spProd',{title:'Bipe a bobina',onResult:function(v){var _fill=function(p){if(p&&p.pr)_pe.value=p.pr;var _q=document.getElementById('spQty');if(_q&&p&&p.peso!=null&&!isNaN(p.peso))_q.value=p.peso;toast('Etiqueta '+(p&&(p.et||p.pr)||v)+' lida · confira e Salvar');};var p=parseBobina(v);var _cn=norm(typeof window.cleanScanCode==='function'?window.cleanScanCode(v):v);if(p.peso==null&&typeof norm==='function'&&(p.pr===_cn||!p.pr)&&_cn&&typeof window.bobFetch==='function'){toast('buscando etiqueta na nuvem…');window.bobFetch(_cn).then(function(){_fill(parseBobina(v));},function(){_fill(p);});}else{_fill(p);}}});}
   $('#spSave').onclick=()=>{x.pr=(typeof cleanProd==='function')?cleanProd($('#spProd').value):norm($('#spProd').value);x.q=Number($('#spQty').value)||0;x.src=norm($('#spSrc').value);x.o=!!(x.pr&&x.pr!=='0');x.upd=nowISO();x.by=session.u;persist();/* empurra a vaga pra nuvem NA HORA — sem isso o sync trazia o estado antigo e a vaga voltava a verde */try{if(typeof syncSpace==='function')syncSpace(x);}catch(e){}logAct('edit','posição '+code(x));closeDrawer();render($('.view.active').id);toast('Posição salva');};
   $('#spFree').onclick=()=>{const before=Number(x.q)||0;if(!x.o||before<=0){toast('Posição já está vazia',false);return;}
-   const doSend=(et)=>{x.upd=nowISO();x.by=session.u;const m={id:uid(),action:'producao',w:cfg.warehouse,code:code(x),pr:x.pr||'',q:before,u:unitOf(x),et:et||'',before:before,after:0,at:nowISO(),by:session.u};MV.unshift(m);if(MV.length>20000)MV.length=20000;x.pr='';x.q=0;x.o=false;x.src='';persist();try{syncMov(m);}catch(e){}try{syncSpace(x);}catch(e){}logAct('producao','enviou p/ produção '+fmt(before)+' @ '+code(x));try{enqueue3dTask(code(x),'out');}catch(e){}closeDrawer();render($('.view.active').id);try{renderMovRecent();}catch(e){}toast('Enviado para produção · '+fmt(before)+' '+unitOf(x));};
+   const doSend=(et)=>{x.upd=nowISO();x.by=session.u;const m={id:uid(),action:'producao',w:cfg.warehouse,code:code(x),pr:x.pr||'',q:before,u:unitOf(x),et:et||'',before:before,after:0,at:nowISO(),by:session.u};MV.unshift(m);if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */x.pr='';x.q=0;x.o=false;x.src='';persist();try{syncMov(m);}catch(e){}try{syncSpace(x);}catch(e){}logAct('producao','enviou p/ produção '+fmt(before)+' @ '+code(x));try{enqueue3dTask(code(x),'out');}catch(e){}closeDrawer();render($('.view.active').id);try{renderMovRecent();}catch(e){}toast('Enviado para produção · '+fmt(before)+' '+unitOf(x));};
    const head='<div style="margin-bottom:14px"><div class="mono" style="font-size:1.1rem;font-weight:700">'+code(x)+'</div><div style="color:var(--muted);font-size:.9rem">'+(x.pr||'(sem produto)')+' · '+fmt(before)+' '+unitOf(x)+'</div></div>';
    openDrawer('Enviar para produção',head+'<p style="color:var(--muted);font-size:.85rem;line-height:1.5;margin-bottom:14px">Registra uma saída por <b>produção</b> e esvazia a posição.</p><button class="btn brand" id="prodGo" style="width:100%;height:48px;margin-bottom:10px">Confirmar envio</button><button class="gbtn" id="prodCancel" style="width:100%;justify-content:center">Cancelar</button>');$('#prodGo').onclick=()=>doSend('');$('#prodCancel').onclick=()=>openSpace(x.id);};}
   $('#spLabel').onclick=()=>{closeDrawer();showLabelSheet(code(x),x.pr||'',x.w);};
@@ -2599,7 +2627,7 @@ confirmMov=function(){if(!isAdmin()){toast('Somente admin pode movimentar',false
   if(et&&BOB[et]){const rb=(BOB[et].rem!=null?BOB[et].rem:BOB[et].pl);const ra=Math.max(0,rb-qty);BOB[et].rem=ra;saveBOB();if(ra<=0&&LOC[et]){delete LOC[et];saveLOC();}}
   else if(et&&LOC[et]&&sp.q<=0){delete LOC[et];saveLOC();}
   if(sp.q<=0){sp.q=0;sp.o=false;sp.pr='';}}
- var _un=unitOf(prod);sp.u=_un;sp.upd=nowISO();sp.by=session.u;MV.unshift({id:uid(),action:mode,w:cfg.warehouse,code:c,pr:prod,q:qty,u:_un,et:et||'',before,after:sp.o?sp.q:0,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;
+ var _un=unitOf(prod);sp.u=_un;sp.upd=nowISO();sp.by=session.u;MV.unshift({id:uid(),action:mode,w:cfg.warehouse,code:c,pr:prod,q:qty,u:_un,et:et||'',before,after:sp.o?sp.q:0,at:nowISO(),by:session.u});if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */
  persist();/* empurra a vaga e o movimento pra nuvem NA HORA — esta é a versão ATIVA do confirmMov; sem isso o sync revertia a entrada/saída */try{if(typeof syncSpace==='function')syncSpace(sp);}catch(e){}try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}logAct(mode,(et?et+' · ':'')+prod+' '+(mode==='entrada'?'+':'−')+qty+' @ '+c);try{enqueue3dTask(c,mode==='entrada'?'in':'out');}catch(e){}const bobMsg=(mode==='saida'&&et&&BOB[et])?(' · bobina '+fmt(BOB[et].rem)+' '+_un.toLowerCase()):'';toast((mode==='entrada'?'Entrada':'Saída')+(et?' · '+et:'')+' · '+c+' · pos '+fmt(sp.q)+bobMsg);clearScan();renderMovRecent();$('#mLoc').focus();};
 $('#confirmBtn').onclick=function(){confirmMov();};
 
@@ -2694,7 +2722,7 @@ function freeStored(et){
  const c=LOC[et],sp=findSpace(c);
  const rem=(typeof BOB!=='undefined'&&BOB[et]&&BOB[et].rem!=null)?BOB[et].rem:((typeof BOB!=='undefined'&&BOB[et])?BOB[et].pl:(sp?sp.q:0));
  if(sp){const before=sp.q||0;const out=Math.min(before,rem||before);sp.q=Math.max(0,before-out);if(sp.q<=0){sp.q=0;sp.o=false;sp.pr='';}sp.upd=nowISO();sp.by=session.u;
-  MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:c,pr:(typeof BOB!=='undefined'&&BOB[et]?BOB[et].pr:sp.pr),q:out,u:'KG',et:et,before,after:sp.o?sp.q:0,at:nowISO(),by:session.u,note:'retorno de produção'});if(MV.length>20000)MV.length=20000;
+  MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:c,pr:(typeof BOB!=='undefined'&&BOB[et]?BOB[et].pr:sp.pr),q:out,u:'KG',et:et,before,after:sp.o?sp.q:0,at:nowISO(),by:session.u,note:'retorno de produção'});if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */
   if(typeof syncSpace==='function')syncSpace(sp);if(typeof syncMov==='function'&&MV[0])syncMov(MV[0]);}
  delete LOC[et];saveLOC();if(typeof BOB!=='undefined'&&BOB[et]){BOB[et].rem=0;saveBOB();}
  if(typeof syncDelLoc==='function')syncDelLoc(et);persist();try{enqueue3dTask(c,'out');}catch(e){}
@@ -2709,7 +2737,7 @@ function placeBobina(et,pr,pl,c){c=norm(c);if(typeof cleanProd==='function')pr=c
    if(!noStage){toast('Bobina '+et+' já está em '+LOC[et]+'. Faça a SAÍDA dela antes de armazenar em outro lugar.',false);return false;}
    const _old=freeStored(et);if(_old)toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');
  }
- if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}const before=Number(sp.q)||0;sp.pr=pr;sp.q=before+(Number(pl)||0);sp.o=true;sp.u='KG';sp.upd=nowISO();sp.by=session.u;if(et){LOC[et]=c;saveLOC();}MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:'KG',et:et||'',before,after:sp.q,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;persist();if(typeof syncSpace==='function')syncSpace(sp);logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}
+ if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}const before=Number(sp.q)||0;sp.pr=pr;sp.q=before+(Number(pl)||0);sp.o=true;sp.u='KG';sp.upd=nowISO();sp.by=session.u;if(et){LOC[et]=c;saveLOC();}MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:'KG',et:et||'',before,after:sp.q,at:nowISO(),by:session.u});if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */persist();if(typeof syncSpace==='function')syncSpace(sp);logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}
  /* armazenou na prateleira → tira do chão (não pode ficar em dois lugares; a prateleira é a entrada mais recente) */
  if(et){
    try{if(typeof window.f70HasEt==='function'&&window.f70HasEt(et)&&typeof window.f70Saida==='function'){window.f70Saida(et);toast('Saiu do Chão 70 · '+et);}}catch(e){}
@@ -2727,7 +2755,7 @@ async function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',fals
      versão da nuvem ANTES do syncStage chegar lá — e o bipe sumia do estoque intermediário. */
   try{markLocalWrite();}catch(e){}
   try{if(typeof syncStage==='function')syncStage(_it);}catch(e){}
-  MV.unshift({id:uid(),action:'recebimento',w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:b.pr||'',q:Number(b.pl)||0,u:(typeof unitOf==='function'?unitOf(b.pr):'KG'),et:et,before:0,after:Number(b.pl)||0,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}logAct('recebimento',et+' · '+b.pr);renderRecv();updateStageBadge();toast('Recebido: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});}
+  MV.unshift({id:uid(),action:'recebimento',w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:b.pr||'',q:Number(b.pl)||0,u:(typeof unitOf==='function'?unitOf(b.pr):'KG'),et:et,before:0,after:Number(b.pl)||0,at:nowISO(),by:session.u});if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}logAct('recebimento',et+' · '+b.pr);renderRecv();updateStageBadge();toast('Recebido: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});}
 function renderRecv(){const adm=isAdmin();
  $('#v-recv').innerHTML='<div class="ph-head"><div><p class="eb">Operação · recebimento</p><h1>Estoque intermediário</h1></div></div>'+
  '<div class="two">'+
@@ -3026,7 +3054,7 @@ function stageArmazenar(et){const it=STAGE.find(s=>s.et===et);if(!it)return;cons
  setTimeout(function(){$('#azEt').click();},120);
 }
 function commitProducao(et){const it=STAGE.find(s=>s.et===et);if(!it)return;var _u=(typeof unitOf==='function'?unitOf(it.pr):'KG');
- MV.unshift({id:uid(),action:'producao',w:cfg.warehouse,code:'PRODUÇÃO',pr:it.pr,q:it.pl,u:_u,et,before:0,after:0,at:nowISO(),by:session.u});if(MV.length>20000)MV.length=20000;
+ MV.unshift({id:uid(),action:'producao',w:cfg.warehouse,code:'PRODUÇÃO',pr:it.pr,q:it.pl,u:_u,et,before:0,after:0,at:nowISO(),by:session.u});if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */
  STAGE=STAGE.filter(s=>s.et!==et);saveStage();/* sem isso o item voltava pro intermediário pelo sync, e a produção não chegava nos outros aparelhos */try{if(typeof syncDelStage==='function')syncDelStage(et);}catch(e){}try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}persist();logAct('producao',et+' · '+it.pr+' · '+fmt(it.pl)+' '+_u.toLowerCase());renderRecv();updateStageBadge();toast('Enviado p/ produção: '+et);}
 function stageProducao(et){const it=STAGE.find(s=>s.et===et);if(!it)return;if(!isAdmin()){toast('Somente admin',false);return;}
  openDrawer(ICONS.transfer+' Enviar p/ produção '+et,'<div style="margin-bottom:16px"><div class="mono" style="font-weight:700;font-size:1.05rem">'+it.pr+'</div><div style="font-size:.8rem;color:var(--muted);margin-top:3px">'+(it.desc||'')+' · '+fmt(it.pl)+' kg</div></div>'+'<label class="fld"><span class="lab">Bipe a bobina ('+et+') para confirmar</span><input class="input code" id="prEt" placeholder="toque para bipar"></label><div id="prEtChk" style="font-size:.8rem;font-weight:700;margin:-8px 0 12px 2px"></div><button class="btn in" id="prDo" style="width:100%;height:48px">Confirmar produção</button>');
@@ -3161,7 +3189,7 @@ updateStageBadge();
     if(!achouPr){toast('Etiqueta '+et+' não está no chão',false);return false;}
     floorRemoveEt(achouPr,et);
     if(typeof logAct==='function')logAct('saida_chao',et+' · '+achouPr);
-    try{if(typeof MV!=='undefined'){MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:'CHÃO',pr:achouPr,q:achouPl,u:(typeof unitOf==='function'?unitOf(achouPr):'KG'),et:_kc,before:achouPl,after:0,at:nowISO(),by:session?session.u:''});if(MV.length>20000)MV.length=20000;if(typeof syncMov==='function')syncMov(MV[0]);}}catch(e){}
+    try{if(typeof MV!=='undefined'){MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:'CHÃO',pr:achouPr,q:achouPl,u:(typeof unitOf==='function'?unitOf(achouPr):'KG'),et:_kc,before:achouPl,after:0,at:nowISO(),by:session?session.u:''});if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */if(typeof syncMov==='function')syncMov(MV[0]);}}catch(e){}
     toast('Saída · '+et+' ('+achouPr+') removido do chão');
     return true;
   };
@@ -3396,7 +3424,7 @@ updateStageBadge();
     if(!achouPr){toast('Etiqueta '+et+' não está no Chão 70',false);return false;}
     f70RemoveEt(achouPr,et);
     if(typeof logAct==='function')logAct('saida_chao70',et+' · '+achouPr);
-    try{if(typeof MV!=='undefined'){MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:'CHÃO 70',pr:achouPr,q:achouPl,u:(typeof unitOf==='function'?unitOf(achouPr):'KG'),et:_kc,before:achouPl,after:0,at:nowISO(),by:session?session.u:''});if(MV.length>20000)MV.length=20000;if(typeof syncMov==='function')syncMov(MV[0]);}}catch(e){}
+    try{if(typeof MV!=='undefined'){MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:'CHÃO 70',pr:achouPr,q:achouPl,u:(typeof unitOf==='function'?unitOf(achouPr):'KG'),et:_kc,before:achouPl,after:0,at:nowISO(),by:session?session.u:''});if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */if(typeof syncMov==='function')syncMov(MV[0]);}}catch(e){}
     toast('Saída · '+et+' ('+achouPr+') removido do Chão 70');
     return true;
   };
@@ -3510,6 +3538,20 @@ updateStageBadge();
 
   /* ---- estado / persistência ---- */
   var NFS={}, ETQ={}, ROMS={}, nfParsed=null, romParsed=null, rastMode='entrada';
+
+  /* ===== BUG CRÍTICO DE ESCOPO — CORRIGIDO AQUI =====
+     NFS/ETQ/ROMS são `var` DENTRO deste módulo (IIFE). Funções escritas FORA dele
+     (pullNF, syncEtiquetasLote, reenviarDoc, limparDuplicadas, netDiag...) não enxergavam
+     essas variáveis: davam ReferenceError e, por estarem dentro de try/catch, FALHAVAM EM
+     SILÊNCIO — o que explicaria NF não sincronizando sem nenhum erro na tela.
+     _nfPub() publica as referências no escopo global. Como as funções de fora usam o
+     identificador nu (ETQ), ele passa a resolver para window.ETQ.
+     IMPORTANTE: precisa ser chamado de novo a cada REATRIBUIÇÃO (ETQ={...}), porque
+     reatribuir troca a referência e quebraria o vínculo. */
+  function _nfPub(){ window.NFS=NFS; window.ETQ=ETQ; window.ROMS=ROMS; }
+  _nfPub();
+  window.saveNF=function(){ try{saveNF();}catch(e){} };
+  window.renderNF=function(){ try{return renderNF();}catch(e){} };
   /* ===== TABELA DE CONVERSÃO: descrição da NF → código+descrição Packem =====
      Casa pela DESCRIÇÃO que vem na nota (ex: "167 X 91" → 0303410035 · ALCA PET...).
      Casamento exato (ignora acento, caixa e espaços repetidos). Ambíguos NÃO convertem e avisam. */
@@ -3544,29 +3586,32 @@ updateStageBadge();
     return null;
   }
   window.convLookup=convLookup;
-  try{var _raw=JSON.parse(localStorage.getItem('wmsx_nf')||'{}');NFS=_raw.NFS||{};ETQ=_raw.ETQ||{};ROMS=_raw.ROMS||{};}catch(e){NFS={};ETQ={};ROMS={};}
+  try{var _raw=JSON.parse(localStorage.getItem('wmsx_nf')||'{}');NFS=_raw.NFS||{};ETQ=_raw.ETQ||{};ROMS=_raw.ROMS||{};_nfPub();}catch(e){NFS={};ETQ={};ROMS={};}
   /* migração: etiquetas rastreáveis geradas ANTES desta versão não estavam no catálogo BOB.
      Registra todas agora, pra funcionarem em receber/armazenar/mover/chão como bobina normal. */
   try{if(typeof regBobFromEtq==='function'&&ETQ){Object.keys(ETQ).forEach(function(id){try{if(!BOB[id])regBobFromEtq(id,ETQ[id]);}catch(e){}});}}catch(e){}
   function saveNF(){
+   try{_nfPub();}catch(e){}   /* rede de segurança: mantém o vínculo global sempre válido */
    /* ===== NF NO INDEXEDDB =====
       NFS+ETQ+ROMS é o blob que mais cresce (cada NF gera centenas de etiquetas, cada uma
       com histórico). Era ele que enchia os 5 MB do localStorage — e quando o setItem falhava,
       a NF puxada da nuvem não persistia e voltava ZERADA no próximo carregamento.
-      Agora mora no IndexedDB (sem teto prático). O localStorage vira só cache pequeno. */
-   var pack={NFS:NFS,ETQ:ETQ,ROMS:ROMS};
+      Agora mora no IndexedDB (sem teto prático) e a gravação é agrupada: o pull da aba NF roda
+      a cada 8s e antes re-serializava milhares de etiquetas toda vez — o que engasgava a tela. */
    clearTimeout(saveNF._t);
-   saveNF._t=setTimeout(function(){try{_bobIDB.set('nf',pack).catch(function(){});}catch(e){}},200);
-   if(window._nfLSFull)return;
-   try{localStorage.setItem('wmsx_nf',JSON.stringify(pack));}
-   catch(e){window._nfLSFull=true;try{localStorage.removeItem('wmsx_nf');}catch(_){}}
+   saveNF._t=setTimeout(function(){
+    try{_bobIDB.set('nf',{NFS:NFS,ETQ:ETQ,ROMS:ROMS}).catch(function(){});}catch(e){}
+    if(window._nfLSFull)return;
+    try{localStorage.setItem('wmsx_nf',JSON.stringify({NFS:NFS,ETQ:ETQ,ROMS:ROMS}));}
+    catch(e){window._nfLSFull=true;try{localStorage.removeItem('wmsx_nf');}catch(_){}}
+   },300);
   }
   /* carga do IndexedDB: se lá tiver mais etiquetas que o cache local, ele manda */
   (function(){
    try{_bobIDB.get('nf').then(function(v){
     if(v&&typeof v==='object'){
      var nEtqIDB=Object.keys(v.ETQ||{}).length, nEtqLS=Object.keys(ETQ||{}).length;
-     if(nEtqIDB>=nEtqLS){NFS=v.NFS||{};ETQ=v.ETQ||{};ROMS=v.ROMS||{};}
+     if(nEtqIDB>=nEtqLS){NFS=v.NFS||{};ETQ=v.ETQ||{};ROMS=v.ROMS||{};_nfPub();}
     }
     /* libera espaço: a NF não vive mais no localStorage */
     window._nfLSFull=true;try{localStorage.removeItem('wmsx_nf');}catch(e){}
@@ -3666,7 +3711,7 @@ updateStageBadge();
          (evita 'sumir' quando um aparelho gerou e ainda não sincronizou) */
       if(rowsEtq&&rowsEtq.length){
         Object.keys(ETQ).forEach(function(id){if(!fromCloud[id]&&!(typeof window._etqDelActive==='function'&&window._etqDelActive(id)))fromCloud[id]=ETQ[id];});
-        ETQ=fromCloud;
+        ETQ=fromCloud;_nfPub();
       }
       if(rowsNotas&&rowsNotas.length){var newNFS={};(rowsNotas||[]).forEach(function(r){if(r.data)newNFS[r.key]=r.data;});Object.keys(NFS).forEach(function(k){if(!newNFS[k])newNFS[k]=NFS[k];});NFS=newNFS;}
       if(rowsRom&&rowsRom.length){var newROMS={};(rowsRom||[]).forEach(function(r){if(r.data)newROMS[r.key]=r.data;});Object.keys(ROMS).forEach(function(k){if(!newROMS[k])newROMS[k]=ROMS[k];});ROMS=newROMS;}
@@ -4048,7 +4093,7 @@ updateStageBadge();
         +'</div>';
     }
     if(notas.length){
-      list='<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Notas importadas</div><div class="nfDocList">'
+      list='<div class="panel" style="margin-top:16px"><div class="ph" style="display:flex;align-items:center;gap:8px"><span class="pdot"></span>Notas importadas<button class="btn" id="btnDedup" style="margin-left:auto;padding:6px 12px;font-size:.78rem" title="Remove etiquetas duplicadas mantendo sempre a que já foi bipada">🧹 Limpar duplicadas</button></div><div class="nfDocList">'
         +notas.map(function(n){
           var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});
           var entIds=ids.filter(function(id){return ETQ[id].status==='entrada';});
@@ -4214,6 +4259,7 @@ updateStageBadge();
     var rp=document.getElementById('nfReprint'); if(rp)rp.onclick=function(){openLabelSheet(nfParsed.key);};
     el.querySelectorAll('[data-nfprint]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();openLabelSheet(b.getAttribute('data-nfprint'));};});
     el.querySelectorAll('[data-resend]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();if(typeof reenviarDoc==='function')reenviarDoc(b.getAttribute('data-resend'));};});
+    var _bd=document.getElementById('btnDedup');if(_bd)_bd.onclick=function(ev){ev.stopPropagation();if(typeof limparDuplicadas==='function')limparDuplicadas();};
     el.querySelectorAll('[data-nfdel]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();nfDeleteNote(b.getAttribute('data-nfdel'));};});
     el.querySelectorAll('[data-nfedit]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();nfEditNote(b.getAttribute('data-nfedit'));};});
     el.querySelectorAll('[data-nfbip]').forEach(function(b){b.onclick=function(){openRomBipDrawer(b.getAttribute('data-nfbip'));};});
@@ -4307,7 +4353,7 @@ updateStageBadge();
         if(typeof MV!=='undefined'&&MV){
           var _un=(typeof unitOf==='function')?unitOf(e.cProd):'KG';
           var _mv={id:uid(),action:'recebimento',w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:e.cProd||id,q:Number(e.kg)||0,u:_un,et:id,before:0,after:Number(e.kg)||0,at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:''),req:(e.nf&&e.nf!=='__vaga__'?e.nf:'')};
-          MV.unshift(_mv); if(MV.length>20000)MV.length=20000;
+          MV.unshift(_mv); if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */
           if(typeof persist==='function')persist(); else if(DB&&DB.saveMovs)DB.saveMovs(MV);
           if(typeof syncMov==='function')syncMov(MV[0]);
         }
@@ -4608,6 +4654,11 @@ updateStageBadge();
       +'<label class="fld" style="flex:1;min-width:150px"><span class="lab">Tamanho da etiqueta</span><select class="input" id="romLblSize">'+sizeOpts+'</select></label>'
       +'<label class="fld" style="flex:1;min-width:150px"><span class="lab">Orientação</span><select class="input" id="romLblOri"><option value="retrato">Retrato (em pé)</option><option value="paisagem">Paisagem (deitada)</option></select></label>'
       +'<label class="fld" style="flex:1;min-width:150px"><span class="lab">Cópias por bobina</span><select class="input" id="romLblCopies"><option value="1">1 · uma etiqueta</option><option value="2" selected>2 · colar nos dois lados</option><option value="3">3</option><option value="4">4</option></select></label>'
+      /* ===== FAIXA DE IMPRESSÃO =====
+         Com 400 etiquetas, se a Zebra engasgar na 300ª você NÃO quer reimprimir as 300 boas.
+         Aqui dá pra imprimir só de 301 até 400 — e retomar exatamente de onde parou. */
+      +'<label class="fld" style="flex:1;min-width:110px"><span class="lab">Da etiqueta</span><input class="input" id="romLblDe" type="number" min="1" value="1" style="font-family:var(--mono)"></label>'
+      +'<label class="fld" style="flex:1;min-width:110px"><span class="lab">Até a</span><input class="input" id="romLblAte" type="number" min="1" value="'+arr.length+'" style="font-family:var(--mono)"></label>'
       +'</div>'
       +'<div style="background:var(--card,rgba(0,0,0,.02));border-radius:12px;padding:12px;max-height:46vh;overflow-y:auto"><div style="display:flex;flex-wrap:wrap;gap:10px">'+previa+'</div>'+maisMsg+'</div>'
       +'<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">'
@@ -4622,7 +4673,25 @@ updateStageBadge();
       var dim=sizes[k]||sizes.z100;
       if(ori==='paisagem')dim={w:dim.h,h:dim.w,n:(dim.n||'')+' (deitada)'};
       var _cp=Math.max(1,parseInt((document.getElementById('romLblCopies')||{}).value,10)||1);
-      var _arr=arr;if(_cp>1){_arr=[];arr.forEach(function(e){for(var _i=0;_i<_cp;_i++)_arr.push(e);});}
+
+      /* recorta a faixa escolhida (1-based, inclusivo nas duas pontas) */
+      var _de=Math.max(1,parseInt((document.getElementById('romLblDe')||{}).value,10)||1);
+      var _ate=Math.min(arr.length,parseInt((document.getElementById('romLblAte')||{}).value,10)||arr.length);
+      if(_ate<_de){toast('A faixa está invertida: "até" tem que ser maior que "da"',false);return;}
+      var _base=arr.slice(_de-1,_ate);
+      if(!_base.length){toast('Faixa vazia',false);return;}
+
+      var _arr=_base;if(_cp>1){_arr=[];_base.forEach(function(e){for(var _i=0;_i<_cp;_i++)_arr.push(e);});}
+
+      /* lote grande: avisa e ensina a retomar se a impressora engasgar */
+      if(_arr.length>250){
+        if(!confirm('Você vai mandar '+_arr.length+' etiquetas de uma vez.\n\n'
+          +'Isso funciona, mas leva alguns segundos para montar e a impressora pode demorar.\n\n'
+          +'DICA: se ela travar no meio, NÃO reimprima tudo — volte aqui e use\n'
+          +'"Da etiqueta / Até a" para imprimir só o que faltou.\n\n'
+          +'Mandar as '+_arr.length+' agora?'))return;
+      }
+      toast('Preparando '+_arr.length+' etiqueta(s)…');
       try{if(typeof printZebraRom==='function')printZebraRom(_arr,dim);}catch(e){toast('A impressão falhou — tente de novo.',false);}
     };
     var cb=document.getElementById('romLblClose');if(cb)cb.onclick=function(){closeDrawer();};
@@ -5171,7 +5240,7 @@ updateStageBadge();
         var _txt=((it.material||'')+' '+(it.codigo||'')).toUpperCase();
         var _un=(String(it.un||'').toLowerCase()==='mt')?'MT':((typeof unitOf==='function'&&it.codigo)?unitOf(it.codigo):'KG');
         var _mv={id:uid(),action:'saida',w:cfg.warehouse,code:'SEM VAGA',pr:it.codigo||it.material||'',q:qtd,u:_un,before:0,after:0,at:nowISO(),by:(session?session.u:''),dest:it.maquina||'',req:req.numero||'',note:'baixa sem vaga (matéria-prima)'};
-        MV.unshift(_mv); if(MV.length>20000)MV.length=20000;
+        MV.unshift(_mv); if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */
         if(typeof persist==='function')persist();
         if(typeof syncMov==='function')syncMov(MV[0]);
       }
@@ -5813,18 +5882,43 @@ async function pgAll(table,order,budgetMs){let out=[],from=0,page=1000;var _t0=D
     repetir linhas e PULAR outras. Era por isso que cada PC via um número diferente
     (91 x 80 x 0 etiquetas) e o romaneio aparecia ZERADO. Agora sempre ordena por uma
     chave única, o que torna a paginação determinística e completa. */
- var _ord=order||PK[table]||null;
+ var _ord=(window._pkRuim&&window._pkRuim[table])?null:(order||PK[table]||null);
  var _asc=order?false:true;
  for(;;){
   /* ORÇAMENTO DE TEMPO: com tabelas grandes (40 mil bobinas/etiquetas) a paginação
      rodava indefinidamente, o pullAll passava dos 15s do cão de guarda e o próximo tick
      disparava OUTRO pullAll por cima — daí o app ficava "atualizando" pra sempre e caía p/ offline. */
   if(Date.now()-_t0>_bud)break;
-  var tries=0,r=null;var _maxTry=(navigator.onLine===false)?1:3;while(tries<_maxTry){let q=supa.from(table).select('*').range(from,from+page-1);if(_ord)q=q.order(_ord,{ascending:_asc});r=await Promise.race([q,new Promise(function(res){setTimeout(function(){res({data:null,error:{message:'timeout',code:'TIMEOUT'}});},9000);})]);if(!r||!r.error)break;tries++;if(tries<_maxTry)await new Promise(function(res){setTimeout(res,500*tries);});}
+  var tries=0,r=null;var _maxTry=(navigator.onLine===false)?1:3;
+  while(tries<_maxTry){
+   let q=supa.from(table).select('*').range(from,from+page-1);
+   if(_ord)q=q.order(_ord,{ascending:_asc});
+   r=await Promise.race([q,new Promise(function(res){setTimeout(function(){res({data:null,error:{message:'timeout',code:'TIMEOUT'}});},9000);})]);
+   /* BLINDAGEM: se a coluna que eu escolhi pra ordenar NÃO existir nessa tabela, o Postgres
+      devolve 42703 e a tabela pararia de sincronizar em silêncio. Aqui a gente desliga a
+      ordenação, avisa no diagnóstico e segue (volta ao comportamento antigo só nessa tabela). */
+   if(r&&r.error&&(r.error.code==='42703'||/column .* does not exist/i.test(r.error.message||''))&&_ord){
+    try{window._DIAG.ordFail=(window._DIAG.ordFail||'')+table+'.'+_ord+' não existe · ';}catch(e){}
+    PK[table]=null;_ord=null;continue;   /* tenta de novo sem ordenar */
+   }
+   if(!r||!r.error)break;
+   tries++;if(tries<_maxTry)await new Promise(function(res){setTimeout(res,500*tries);});
+  }
   if(!r||r.error){
+    /* ===== BLINDAGEM: coluna de ordenação inexistente =====
+       O mapa PK é um palpite sobre a chave de cada tabela. Se eu errei o nome, o .order()
+       devolve 42703 ("column does not exist") — e SEM isto a tabela pararia de sincronizar
+       de vez. Aqui a gente detecta, marca, e refaz a consulta sem ordenação (com aviso). */
+    var _msg=String((r&&r.error&&(r.error.message||''))||'');
+    var _cod=String((r&&r.error&&r.error.code)||'');
+    if(_ord&&(_cod==='42703'||/column|does not exist|not found/i.test(_msg))){
+      window._pkRuim=window._pkRuim||{};window._pkRuim[table]=1;
+      try{window._DIAG.pkRuim=(window._DIAG.pkRuim?window._DIAG.pkRuim+' · ':'')+table+' (coluna "'+_ord+'" não existe — paginação sem ordem, pode duplicar/pular linhas)';}catch(e){}
+      _ord=null;continue;   /* tenta de novo, sem order */
+    }
     /* guarda o erro de leitura (ex: RLS/permissão) para avisar na tela */
-    try{window._cloudReadErr={table:table,msg:((r&&r.error&&(r.error.message||r.error.code))||'erro'),code:(r&&r.error&&r.error.code)||''};}catch(e){}
-    try{window._DIAG.pgErr[table]={msg:((r&&r.error&&(r.error.message||r.error.code))||'sem resposta'),code:(r&&r.error&&r.error.code)||'',at:new Date().toLocaleTimeString()};}catch(e){}
+    try{window._cloudReadErr={table:table,msg:(_msg||_cod||'erro'),code:_cod};}catch(e){}
+    try{window._DIAG.pgErr[table]={msg:(_msg||'sem resposta'),code:_cod,at:new Date().toLocaleTimeString()};}catch(e){}
     break;
   }
   try{delete window._DIAG.pgErr[table];window._DIAG.pgOk[table]=(out.length+((r.data&&r.data.length)||0));}catch(e){}
@@ -5937,7 +6031,7 @@ function applyRealtime(p){const t=p.table,n=p.new,o=p.old,ev=p.eventType;
  else if(t==='bobinas'){if(ev==='DELETE'&&o){delete BOB[o.etiqueta];}else if(n){BOB[n.etiqueta]={pr:n.pr,desc:n.descricao||'',pl:Number(n.pl)||0};}persistDebounced('bob');}
  else if(t==='locais'){if(ev==='DELETE'&&o){delete LOC[o.etiqueta];}else if(n){LOC[n.etiqueta]=n.code;}persistDebounced('loc');}
  else if(t==='stage'){if(ev==='DELETE'&&o){STAGE=STAGE.filter(s=>s.et!==o.etiqueta);}else if(n){const i=STAGE.findIndex(s=>s.et===n.etiqueta);const it={et:n.etiqueta,pr:n.pr,desc:n.descricao||'',pl:Number(n.pl)||0,at:n.at,by:n.by_user||''};if(i>=0){STAGE[i]=it;}else{STAGE.unshift(it);try{stationPrint(it);}catch(e){}}}persistDebounced('stage');}
- else if(t==='movimentos'&&n&&ev==='INSERT'){if(!MV.some(m=>m.id===n.id)){MV.unshift({id:n.id,action:n.action,w:n.w,code:n.code,pr:n.pr,q:Number(n.q)||0,u:n.u,et:n.et||'',before:Number(n.before_q)||0,after:Number(n.after_q)||0,at:n.at,by:n.by_user||''});if(MV.length>20000)MV.length=20000;persistDebounced('mv');}}
+ else if(t==='movimentos'&&n&&ev==='INSERT'){if(!MV.some(m=>m.id===n.id)){MV.unshift({id:n.id,action:n.action,w:n.w,code:n.code,pr:n.pr,q:Number(n.q)||0,u:n.u,et:n.et||'',before:Number(n.before_q)||0,after:Number(n.after_q)||0,at:n.at,by:n.by_user||''});if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */persistDebounced('mv');}}
  else if(t==='valores'&&n){const i=VL.findIndex(v=>v.codigo===n.codigo);const row={codigo:n.codigo,valor:Number(n.valor)||0,descricao:n.descricao||'',un:(n.un||'')};if(i>=0)VL[i]=row;else VL.push(row);persistDebounced('vl');}
  else if(t==='usuarios'&&n){const i=US.findIndex(u=>u.u===n.u);const row={u:n.u,p:n.p,role:n.role,active:n.active!==false};if(i>=0)US[i]=row;else US.push(row);persistDebounced('us');}
  else if((t==='etiquetas'||t==='notas_fiscais'||t==='romaneios')&&typeof window.nfApplyRealtimeRow==='function'){window.nfApplyRealtimeRow(t,ev,n,o);}
@@ -5984,22 +6078,6 @@ function startRealtime(){if(!supa)return;
    Agora existe um pull dedicado: roda ao abrir a aba NF, a cada ~8s enquanto ela está aberta,
    no pull completo, e sempre que uma rajada de realtime for cortada. */
 var _nfPulling=false,_nfPullAt=0;
-async function pullNF(force){
- if(!supa)return false;
- if(_nfPulling)return false;
- if(!force&&Date.now()-_nfPullAt<6000)return false;
- _nfPulling=true;_nfPullAt=Date.now();
- try{
-  const etq=await pgAll('etiquetas',null,25000);
-  const ntf=await pgAll('notas_fiscais',null,15000);
-  const rom=await pgAll('romaneios',null,15000);
-  if(typeof window.nfPullCloud==='function')window.nfPullCloud(etq,ntf,rom);
-  try{window._DIAG.nf=etq.length+' etq · '+ntf.length+' nf · '+rom.length+' rom @'+new Date().toLocaleTimeString();}catch(e){}
-  return true;
- }catch(e){try{window._DIAG.nf='FALHOU: '+String((e&&e.message)||e);}catch(_){}return false;}
- finally{_nfPulling=false;_nfPullAt=Date.now();}
-}
-window.pullNF=pullNF;
 
 /* pull LEVE: só o que muda ao vivo (recebimento + chão + chão70 + movimentos e vagas recentes).
    Não baixa o catálogo (74k), nem espaços/movimentos inteiros — isso é só no pull completo (raro). */
@@ -6008,13 +6086,182 @@ window.pullNF=pullNF;
    perdesse os eventos (ex.: rajada de 200 etiquetas de uma NF), o outro PC não via a nota.
    Agora dá pra puxar só a NF, na hora. */
 var _nfPulling=false;
+/* ===== LIMPEZA DE DUPLICATAS =====
+   Reimportar o mesmo romaneio cria etiquetas NOVAS (o ID leva um carimbo único), então a mesma
+   bobina física acaba com 2+ etiquetas na nuvem — é a origem do "80/91". O fixDupEtq antigo
+   agrupava pelo ID e não pegava essas, porque o ID-base era diferente.
+   Aqui a gente agrupa pela IDENTIDADE FÍSICA: documento + bobina.
+   Regra de sobrevivência (nesta ordem): 1º a que JÁ FOI BIPADA · 2º a com mais histórico ·
+   3º a mais antiga. Ou seja: NENHUM bipe é perdido. */
+function _dupChave(e){
+ var b=String(e.bobina||'').trim().toUpperCase();
+ if(!b)b='#IDX'+(e.idx||0)+'#'+String(e.id||'').replace(/-[0-9A-Z]+$/i,'');
+ return String(e.nf||'')+'||'+b;
+}
+function _dupMelhor(a,b){
+ var sa=(a.status&&a.status!=='')?1:0, sb=(b.status&&b.status!=='')?1:0;
+ if(sa!==sb)return sb-sa;                                /* bipada ganha */
+ var ha=(a.hist&&a.hist.length)||0, hb=(b.hist&&b.hist.length)||0;
+ if(ha!==hb)return hb-ha;                                /* mais histórico ganha */
+ return String(a.id)<String(b.id)?-1:1;                  /* mais antiga ganha */
+}
+
+/* analisa SEM apagar nada — junta nuvem + local */
+async function analisarDup(){
+ if(!supa)return null;
+ var ntf=await pgAll('notas_fiscais',null,15000);
+ var rom=await pgAll('romaneios',null,15000);
+ var keys={};
+ (ntf||[]).forEach(function(r){if(r.key)keys[r.key]=1;});
+ (rom||[]).forEach(function(r){if(r.key)keys[r.key]=1;});
+ Object.keys(NFS||{}).forEach(function(k){keys[k]=1;});
+ Object.keys(ROMS||{}).forEach(function(k){keys[k]=1;});
+ var ks=Object.keys(keys),todas={};
+ for(var i=0;i<ks.length;i+=20){
+  var lote=ks.slice(i,i+20),de=0;
+  for(;;){
+   var q=await supa.from('etiquetas').select('*').in('doc_key',lote).order('id',{ascending:true}).range(de,de+999);
+   if(!q||q.error)break;
+   var d=q.data||[];
+   d.forEach(function(r){todas[r.id]={id:r.id,nf:r.doc_key||'',bobina:r.bobina||'',idx:r.idx||0,status:r.status||'',hist:r.hist||[],kg:Number(r.kg)||0};});
+   if(d.length<1000)break;de+=1000;
+  }
+ }
+ Object.keys(ETQ).forEach(function(id){if(!todas[id])todas[id]={id:id,nf:ETQ[id].nf||'',bobina:ETQ[id].bobina||'',idx:ETQ[id].idx||0,status:ETQ[id].status||'',hist:ETQ[id].hist||[],kg:Number(ETQ[id].kg)||0};});
+
+ var g={};
+ Object.keys(todas).forEach(function(id){var e=todas[id];if(!e.nf)return;var k=_dupChave(e);(g[k]=g[k]||[]).push(e);});
+
+ var remover=[],porDoc={},bipesSalvos=0;
+ Object.keys(g).forEach(function(k){
+  var arr=g[k];if(arr.length<2)return;
+  arr.sort(_dupMelhor);
+  if(arr[0].status&&arr[0].status!=='')bipesSalvos++;
+  arr.slice(1).forEach(function(e){remover.push(e.id);porDoc[e.nf]=(porDoc[e.nf]||0)+1;});
+ });
+ return {remover:remover,porDoc:porDoc,bipesSalvos:bipesSalvos,total:Object.keys(todas).length};
+}
+
+async function limparDuplicadas(){
+ if(!supa){toast('Sem conexão com a nuvem',false);return;}
+ toast('Analisando duplicatas na nuvem…');
+ var r=null;try{r=await analisarDup();}catch(e){}
+ if(!r){toast('Não consegui analisar',false);return;}
+ if(!r.remover.length){toast('Nenhuma duplicata encontrada ✓ ('+r.total+' etiquetas)');return;}
+
+ var det=Object.keys(r.porDoc).map(function(k){
+  var nome=(ROMS[k]&&ROMS[k].nRomaneio)?('Romaneio '+ROMS[k].nRomaneio):((NFS[k]&&NFS[k].nNF)?('NF '+NFS[k].nNF):k);
+  return '• '+nome+': '+r.porDoc[k]+' duplicada(s)';
+ }).join('\n');
+
+ if(!confirm('LIMPEZA DE DUPLICATAS\n\n'
+   +'Encontrei '+r.remover.length+' etiqueta(s) duplicada(s) em '+Object.keys(r.porDoc).length+' documento(s):\n\n'
+   +det+'\n\n'
+   +'A etiqueta que JÁ FOI BIPADA é sempre a que fica.\n'
+   +'NENHUM bipe será perdido.\n\n'
+   +'Remover as '+r.remover.length+' duplicata(s)?')){toast('Cancelado');return;}
+
+ r.remover.forEach(function(id){
+  if(ETQ[id])delete ETQ[id];
+  try{if(typeof window._etqDelMark==='function')window._etqDelMark(id);}catch(e){}
+ });
+ try{saveNF();}catch(e){}
+ if(typeof syncDelEtiquetasLote==='function')syncDelEtiquetasLote(r.remover);
+ else r.remover.forEach(function(id){try{syncDelEtiqueta(id);}catch(e){}});
+
+ try{if(typeof logAct==='function')logAct('nf-dedup','limpou '+r.remover.length+' duplicada(s)');}catch(e){}
+ toast('Removidas '+r.remover.length+' duplicata(s) · '+r.bipesSalvos+' bipe(s) preservado(s) ✓');
+ setTimeout(function(){try{if(typeof renderNF==='function')renderNF();}catch(e){}},800);
+}
+window.limparDuplicadas=limparDuplicadas;
+window.analisarDup=analisarDup;
+
+/* ===== SYNC INCREMENTAL (economia de tráfego) =====
+   O pull da NF baixava a tabela INTEIRA de etiquetas a cada 8s. Com ~8.000 etiquetas isso dá
+   ~4,8 MB por pull → mais de 2 GB/hora POR PC. O free tier do Supabase dá 5 GB/mês de egress:
+   estouraria em poucas horas (e no plano pago viraria conta alta).
+   Agora o app guarda uma "marca d'água" (o maior updated_at que já viu) e pergunta só:
+   "o que mudou depois disso?" — normalmente 0 linhas, alguns bytes.
+   A varredura completa (que também detecta EXCLUSÕES) roda só ao abrir a aba e a cada 5 min. */
+function _nfMergeRows(rowsEtq,rowsNotas,rowsRom){
+ var mudou=false;
+ (rowsEtq||[]).forEach(function(r){
+  if(typeof window._etqDelActive==='function'&&window._etqDelActive(r.id))return;
+  ETQ[r.id]={id:r.id,nf:r.doc_key||'',nNF:r.n_nf||'',nRomaneio:r.n_romaneio||'',nNFe:r.n_nf||'',cliente:r.cliente||'',
+   bobina:r.bobina||'',op:r.op||'',lote:r.lote||'',addr:r.addr||'',gramatura:r.gramatura||'',xProd:r.gramatura||'',
+   cProd:r.c_prod||'',uCom:r.u_com||'',kg:Number(r.kg)||0,pesoBruto:Number(r.peso_bruto)||0,vol:Number(r.vol)||0,
+   volTot:Number(r.vol_tot)||0,idx:Number(r.idx)||0,status:r.status||'',hist:r.hist||[]};
+  mudou=true;
+ });
+ (rowsNotas||[]).forEach(function(r){if(r.data){NFS[r.key]=r.data;mudou=true;}});
+ (rowsRom||[]).forEach(function(r){if(r.data){ROMS[r.key]=r.data;mudou=true;}});
+ if(mudou){
+  try{if(typeof window.fixDupEtq==='function')window.fixDupEtq();}catch(e){}
+  saveNF();
+  var _af=document.activeElement,_foco=_af&&(_af.tagName==='INPUT'||_af.tagName==='SELECT'||_af.tagName==='TEXTAREA');
+  var _edt=(typeof nfParsed!=='undefined'&&nfParsed)||(typeof romParsed!=='undefined'&&romParsed);
+  var act=document.querySelector('.view.active');
+  if(act&&act.id==='v-nf'&&!_edt&&!_foco&&typeof renderNF==='function')renderNF();
+ }
+ return mudou;
+}
+function _nfMarca(rows){
+ var m=window._nfWM||'';
+ (rows||[]).forEach(function(r){var u=r.updated_at||'';if(u>m)m=u;});
+ return m;
+}
+async function pullNFIncremental(){
+ if(window._nfSemWM)return false;
+ var wm=window._nfWM;
+ if(!wm)return false;
+ var novo=wm,total=0;
+ var tabs=[['etiquetas','etq'],['notas_fiscais','nf'],['romaneios','rom']];
+ var pack={etq:[],nf:[],rom:[]};
+ for(var i=0;i<tabs.length;i++){
+  var t=tabs[i][0],k=tabs[i][1],de=0;
+  for(;;){
+   var q=await supa.from(t).select('*').gt('updated_at',wm).order('updated_at',{ascending:true}).range(de,de+499);
+   if(!q||q.error){
+    /* sem coluna updated_at nesta tabela? desliga o incremental e volta pro completo (correto, só mais caro) */
+    var em=String((q&&q.error&&(q.error.message||''))||''),ec=String((q&&q.error&&q.error.code)||'');
+    if(ec==='42703'||/updated_at/i.test(em)){
+     window._nfSemWM=1;window._nfWM=null;
+     try{window._DIAG.nfInc='SEM updated_at em "'+t+'" — usando varredura completa (mais tráfego)';}catch(e){}
+    }
+    return false;
+   }
+   var d=q.data||[];
+   pack[k]=pack[k].concat(d);total+=d.length;
+   var mm=_nfMarca(d);if(mm>novo)novo=mm;
+   if(d.length<500)break;
+   de+=500;
+  }
+ }
+ window._nfWM=novo;
+ if(total)_nfMergeRows(pack.etq,pack.nf,pack.rom);
+ try{window._DIAG.nfInc=total+' linha(s) novas · marca '+String(novo).slice(11,19);}catch(e){}
+ return true;
+}
+
 async function pullNF(force){
  if(!supa||_nfPulling)return false;
  if(navigator.onLine===false)return false;
  var now=Date.now();
  if(!force && now-(window._nfPullAt||0)<8000)return true; /* throttle: no máximo 1 pull de NF a cada 8s */
  window._nfPullAt=now;
+
+ /* varredura COMPLETA só ao abrir a aba (force) ou a cada 5 min — é ela que detecta exclusões.
+    Nos outros ciclos, só o incremental (praticamente 0 bytes quando nada mudou). */
+ var precisaFull = force || !window._nfWM || (now-(window._nfFullAt||0)>300000);
+ if(!precisaFull){
+  _nfPulling=true;
+  try{var ok=await pullNFIncremental();_nfPulling=false;if(ok)return true;}catch(e){_nfPulling=false;}
+  /* se o incremental falhar, cai pro completo abaixo */
+  if(_nfPulling)return false;
+ }
+
  _nfPulling=true;
+ window._nfFullAt=now;
  try{
   const ntf=await pgAll('notas_fiscais',null,15000);
   const rom=await pgAll('romaneios',null,15000);
@@ -6028,19 +6275,85 @@ async function pullNF(force){
   Object.keys(NFS||{}).forEach(function(k){keys[k]=1;});
   Object.keys(ROMS||{}).forEach(function(k){keys[k]=1;});
   var ks=Object.keys(keys);
-  var etq=[];
+  /* ===== VARREDURA COMPLETA BARATA =====
+     Antes: select('*') de TODAS as etiquetas (~4,8 MB por varredura).
+     Agora: baixa só o INVENTÁRIO DE IDs (id + updated_at ≈ 60 bytes/linha, ~20× menor) e depois
+     busca a linha inteira APENAS das etiquetas que este PC ainda não tem.
+     Na operação normal (nada novo), isso baixa ~250 KB em vez de 4,8 MB. */
+  var idsNuvem={},etq=[];
   for(var i=0;i<ks.length;i+=20){
    var lote=ks.slice(i,i+20),de=0;
    for(;;){
-    var q=await supa.from('etiquetas').select('*').in('doc_key',lote).order('id',{ascending:true}).range(de,de+999);
+    var q=await supa.from('etiquetas').select('id,updated_at').in('doc_key',lote).order('id',{ascending:true}).range(de,de+999);
     if(!q||q.error){try{window._DIAG.pgErr['etiquetas']={msg:((q&&q.error&&q.error.message)||'erro'),code:(q&&q.error&&q.error.code)||'',at:new Date().toLocaleTimeString()};}catch(e){}break;}
-    var d=q.data||[];etq=etq.concat(d);
+    var d=q.data||[];
+    d.forEach(function(r){idsNuvem[r.id]=r.updated_at||'';});
     if(d.length<1000)break;
     de+=1000;
    }
   }
+  /* quais linhas eu preciso mesmo baixar? só as que faltam aqui */
+  var faltamAqui=Object.keys(idsNuvem).filter(function(id){return !ETQ[id];});
+  for(var f=0;f<faltamAqui.length;f+=300){
+   var qf=await supa.from('etiquetas').select('*').in('id',faltamAqui.slice(f,f+300));
+   if(qf&&qf.data)etq=etq.concat(qf.data);
+  }
+  /* EXCLUSÕES: o que existe aqui mas sumiu da nuvem (e não é recém-criado local) */
+  try{
+   var apagadas=Object.keys(ETQ).filter(function(id){
+    var k=ETQ[id].nf;
+    if(!k||!keys[k])return false;               /* documento desconhecido: não mexe */
+    if(idsNuvem[id])return false;               /* está na nuvem: ok */
+    if((window._fixDone||{})[k])return false;   /* acabamos de subir este doc: não apaga */
+    return false;                                /* conservador: NUNCA apaga por ausência.
+       Apagar por ausência é perigoso (uma varredura incompleta destruiria dados). A exclusão
+       real já é propagada pelo realtime + pelo _etqDelMark. */
+   });
+  }catch(e){}
+  /* mantém o que já está aqui e é conhecido pela nuvem, sem re-baixar (Set: O(n), não O(n²)) */
+  var jaTem={};etq.forEach(function(r){jaTem[r.id]=1;});
+  Object.keys(idsNuvem).forEach(function(id){
+   if(ETQ[id]&&!jaTem[id])etq.push(etqRow(ETQ[id]));
+  });
   try{window._DIAG.pgOk['etiquetas']=etq.length;delete window._DIAG.pgErr['etiquetas'];}catch(e){}
+  /* registra a marca d'água: a partir daqui os próximos ciclos só baixam o que for MAIS NOVO */
+  try{
+   var _wm='';
+   [etq,ntf,rom].forEach(function(arr){(arr||[]).forEach(function(r){var u=r.updated_at||'';if(u>_wm)_wm=u;});});
+   if(_wm)window._nfWM=_wm;
+   window._DIAG.nfFull=etq.length+' etq · '+(ntf||[]).length+' nf · '+(rom||[]).length+' rom @'+new Date().toLocaleTimeString();
+  }catch(e){}
   if(typeof window.nfPullCloud==='function')window.nfPullCloud(etq,ntf,rom);
+
+  /* ===== AUTO-REPARO =====
+     Se um documento tem etiquetas AQUI que não existem na nuvem (ex: o import de 5h atrás,
+     feito com o código velho que disparava 78 upserts em paralelo e perdia quase todos),
+     o app sobe sozinho o que está faltando. Uma vez por documento por sessão. */
+  try{
+   window._fixDone=window._fixDone||{};
+   var naNuvem={},cloudPorDoc={};
+   (etq||[]).forEach(function(r){naNuvem[r.id]=1;cloudPorDoc[r.doc_key]=(cloudPorDoc[r.doc_key]||0)+1;});
+   var localPorDoc={},faltamPorDoc={};
+   Object.keys(ETQ).forEach(function(id){
+    var k=ETQ[id].nf;if(!k||!keys[k])return;
+    if(typeof window._etqDelActive==='function'&&window._etqDelActive(id))return;
+    localPorDoc[k]=(localPorDoc[k]||0)+1;
+    if(!naNuvem[id]){(faltamPorDoc[k]=faltamPorDoc[k]||[]).push(id);}
+   });
+   var repara=[];
+   Object.keys(faltamPorDoc).forEach(function(k){
+    if(window._fixDone[k])return;
+    /* só repara se a nuvem tem MENOS que o local — nunca ressuscita o que foi apagado de propósito */
+    if((cloudPorDoc[k]||0)>=(localPorDoc[k]||0))return;
+    window._fixDone[k]=1;
+    repara=repara.concat(faltamPorDoc[k]);
+   });
+   if(repara.length&&!window._autoFix){
+    window._autoFix=1;
+    if(typeof toast==='function')toast('Reparando: subindo '+repara.length+' etiqueta(s) que faltavam na nuvem…');
+    syncEtiquetasLote(repara,'auto').then(function(){window._autoFix=0;},function(){window._autoFix=0;});
+   }
+  }catch(e){}
   _nfPulling=false;return true;
  }catch(e){_nfPulling=false;return false;}
 }
@@ -6069,7 +6382,7 @@ async function pullLight(){
   try{window._cloudReadErr=null;}catch(e){}
   const ch70=await pgAll('chao70');var _err70=(window._cloudReadErr&&window._cloudReadErr.table==='chao70')?window._cloudReadErr:null;if(typeof window.floor70PullCloud==='function')window.floor70PullCloud(ch70,_err70);
   var _mvNew=0;
-  try{var _mvr=await Promise.race([supa.from('movimentos').select('*').order('at',{ascending:false}).limit(40),new Promise(function(res){setTimeout(function(){res({data:null});},9000);})]);if(_mvr&&_mvr.data&&_mvr.data.length){var _seen={};MV.forEach(function(m){if(m&&m.id)_seen[m.id]=1;});var _add=[];_mvr.data.forEach(function(r){if(!_seen[r.id])_add.push({id:r.id,action:r.action,w:r.w,code:r.code,pr:r.pr,q:Number(r.q)||0,u:r.u,et:r.et||'',before:Number(r.before_q)||0,after:Number(r.after_q)||0,at:r.at,by:r.by_user||''});});if(_add.length){_mvNew=_add.length;MV=_add.concat(MV);MV.sort(function(a,b){return (b.at||'')<(a.at||'')?-1:((b.at||'')>(a.at||'')?1:0);});if(MV.length>20000)MV.length=20000;DB.saveMovs(MV);}}}catch(e){}
+  try{var _mvr=await Promise.race([supa.from('movimentos').select('*').order('at',{ascending:false}).limit(40),new Promise(function(res){setTimeout(function(){res({data:null});},9000);})]);if(_mvr&&_mvr.data&&_mvr.data.length){var _seen={};MV.forEach(function(m){if(m&&m.id)_seen[m.id]=1;});var _add=[];_mvr.data.forEach(function(r){if(!_seen[r.id])_add.push({id:r.id,action:r.action,w:r.w,code:r.code,pr:r.pr,q:Number(r.q)||0,u:r.u,et:r.et||'',before:Number(r.before_q)||0,after:Number(r.after_q)||0,at:r.at,by:r.by_user||''});});if(_add.length){_mvNew=_add.length;MV=_add.concat(MV);MV.sort(function(a,b){return (b.at||'')<(a.at||'')?-1:((b.at||'')>(a.at||'')?1:0);});if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */DB.saveMovs(MV);}}}catch(e){}
   var _spNew=0;
   try{var _spr=await Promise.race([supa.from('espacos').select('*').order('upd',{ascending:false,nullsFirst:false}).limit(200),new Promise(function(res){setTimeout(function(){res({data:null});},9000);})]);if(_spr&&_spr.data&&_spr.data.length){var _byId={};S.forEach(function(x){_byId[x.id]=x;});_spr.data.forEach(function(r){if(!r.upd)return;var cloud={id:r.id,w:r.w,s:r.s,l:r.l,p:r.p,pr:r.pr||'',q:cleanQ(r.q),u:r.u||'KG',o:!!r.o,src:r.src||'',upd:r.upd||'',by:r.by_user||''};var loc=_byId[r.id];if(!loc){S.push(cloud);_spNew++;return;}var _lu=String(loc.upd||''),_cu=String(cloud.upd||'');if(!guard&&_cu&&(!_lu||_cu>_lu)){var i=S.indexOf(loc);if(i>=0){S[i]=cloud;_spNew++;}}});if(_spNew){DB.saveSpaces(S);}}}catch(e){}
   if(session){var _ae=document.activeElement;var _dig=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');var _drw=document.querySelector('#drawer.show');if(!_dig&&!_drw){var v=document.querySelector('.view.active');if(v){var _live=(v.id==='v-recv'||v.id==='v-floor'||v.id==='v-floor70');var _mov=(v.id==='v-vsm'||v.id==='v-track');var _sp=(v.id==='v-home'||v.id==='v-board'||v.id==='v-stock'||v.id==='v-abc');if(_live||(_mov&&_mvNew)||(_sp&&_spNew))render(v.id);}}}
@@ -6143,10 +6456,14 @@ async function netDiag(){
  add('envio em massa',(window._bulkUp||0)>0?'RODANDO ('+window._bulkUp+')':'não');
  add('catálogo (BOB)',Object.keys(BOB).length+' etiquetas · IDB '+(window._bobReady?'carregado':'carregando'));
  try{add('NF (memória)',Object.keys(NFS||{}).length+' notas · '+Object.keys(ROMS||{}).length+' romaneios · '+Object.keys(ETQ||{}).length+' etiquetas · IDB '+(window._nfReady?'carregado':'carregando'));}catch(e){}
+ if(D.pkRuim)add('COLUNA FALTANDO',D.pkRuim,true);
+ try{add('sync NF (completo)',D.nfFull||'ainda não rodou');}catch(e){}
+ try{add('sync NF (incremental)',D.nfInc||'—');}catch(e){}
  try{add('estoque interm.',(STAGE||[]).length+' pendentes');}catch(e){}
  var _lsB=0,_top=[];try{for(var _k in localStorage){if(!Object.prototype.hasOwnProperty.call(localStorage,_k))continue;var _sz=((localStorage[_k]||'').length+_k.length);_lsB+=_sz;_top.push([_k,_sz]);}_top.sort(function(a,b){return b[1]-a[1];});}catch(e){}
  add('memória local',(Math.round(_lsB/1024))+' KB de ~5000 KB'+(window._lsFull?' · JÁ ESTOUROU':''),_lsB>4000000||!!window._lsFull);
  if(_top.length)add('maiores chaves',_top.slice(0,5).map(function(x){return x[0]+':'+Math.round(x[1]/1024)+'KB';}).join(' · '));
+ if(D.ordFail)add('COLUNA AUSENTE',D.ordFail+'— paginação sem ordem nessa tabela (risco de linha faltando). Crie a coluna ou me avise.',true);
  if(D.etqFail)add('FALHA AO GRAVAR',D.etqFail.qtd+' de '+D.etqFail.de+' etiquetas · '+D.etqFail.erro+' · '+D.etqFail.at,true);
  try{if(window._syncErrs&&window._syncErrs.lastErr)add('último erro de envio',window._syncErrs.lastErr,true);}catch(e){}
  var errs=Object.keys(D.pgErr||{});
@@ -6336,14 +6653,44 @@ labelHTML=function(c,desc,w){var pp=String(c).split('-');var rua=pp[0]||'',pos=p
  +'.sb-brand .wm .eb{font-size:.53rem;letter-spacing:2.4px;color:#7e90a8;margin-top:5px}'
  +'.sb-nav{padding:12px 12px 20px}'
  +'.sb-grp{color:#6c7f99;font-size:.56rem;letter-spacing:1.8px;margin:20px 12px 9px}'
- +'.nav{padding:11px 13px;border-radius:11px;color:#aeb9c9;font-size:.92rem;gap:13px;margin-bottom:3px}'
- +'.nav .ni{opacity:.82;font-size:1.18rem}'
- +'.nav:hover{background:rgba(255,255,255,.055);color:#fff}.nav:hover .ni{opacity:1}'
- +'.nav.active{background:rgba(255,255,255,.07);color:#fff;font-weight:600}'
+ +'.nav{padding:11px 13px;border-radius:11px;color:#aeb9c9;font-size:.92rem;gap:13px;margin-bottom:3px;align-items:center}'
+ /* BLINDAGEM DE ALINHAMENTO: o ícone tem largura FIXA. Se algum ícone faltar (era o caso do
+    "Inventário", injetado depois do setIcons), o espaço continua reservado e o texto não anda. */
+ +'.nav .ni{opacity:.82;font-size:1.18rem;width:20px;min-width:20px;flex:0 0 20px;display:flex;align-items:center;justify-content:center}'
+ +'.nav .ni svg{width:18px;height:18px}'
+ +'.nav:hover{background:rgba(255,255,255,.055);color:#fff;transform:translateX(2px)}.nav:hover .ni{opacity:1}'
+ +'.nav{transition:background .16s ease,color .16s ease,transform .16s cubic-bezier(.2,.8,.2,1)}'
+ +'.nav.active{background:linear-gradient(90deg,rgba(255,122,24,.14),rgba(255,255,255,.05));color:#fff;font-weight:600;transform:none}'
  +'.nav.active .ni{opacity:1;color:var(--brand-2)}'
  +'.nav.active::before{left:0;top:9px;bottom:9px;width:3.5px;border-radius:0 4px 4px 0;background:var(--brand-2);box-shadow:0 0 12px rgba(255,122,24,.7)}'
  +'.nav .badge{background:var(--brand);color:#fff}'
  +'.sb-foot{padding:14px;border-top:1px solid rgba(255,255,255,.06)}'
+
+ /* ===== POLIMENTO VISUAL ===== */
+ /* barra de rolagem do menu: fina e discreta (a padrão do Windows é grossa e feia) */
+ +'.sb-nav{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent}'
+ +'.sb-nav::-webkit-scrollbar{width:6px}'
+ +'.sb-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:99px}'
+ +'.sb-nav::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.26)}'
+ +'.sb-nav::-webkit-scrollbar-track{background:transparent}'
+ /* separação sutil entre os grupos do menu */
+ +'.sb-grp{position:relative;padding-top:14px}'
+ +'.sb-grp::before{content:"";position:absolute;left:0;right:12px;top:0;height:1px;background:linear-gradient(90deg,rgba(255,255,255,.09),transparent)}'
+ +'.sb-nav .sb-grp:first-child::before{display:none}'
+ /* cards: sombra mais suave e um leve realce ao passar o mouse */
+ +'.panel{transition:box-shadow .18s ease,border-color .18s ease}'
+ +'.panel:hover{box-shadow:0 4px 20px rgba(15,23,42,.07)}'
+ /* botões: resposta tátil imediata ao clique (a tela "responde" mesmo antes do render terminar) */
+ +'.btn,.gbtn{transition:transform .09s ease,background .15s ease,box-shadow .15s ease}'
+ +'.btn:active,.gbtn:active{transform:scale(.96)}'
+ +'.btn:focus-visible,.gbtn:focus-visible,.input:focus-visible{outline:2px solid var(--brand-2);outline-offset:2px}'
+ /* números grandes: fonte tabular, para os dígitos não "dançarem" ao atualizar */
+ +'.kpi b,.kpi .big,.mono{font-variant-numeric:tabular-nums}'
+ /* linhas de tabela: destaque suave sob o cursor */
+ +'tbody tr{transition:background .12s ease}'
+ +'tbody tr:hover{background:rgba(255,122,24,.045)}'
+ /* respeita quem tem sensibilidade a movimento / máquinas fracas */
+ +'@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}'
  +'#logoutBtn{width:100%;justify-content:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:#ff9a9a;font-weight:600}'
  +'#logoutBtn:hover{background:rgba(255,90,84,.14);border-color:rgba(255,90,84,.4);color:#ffb3b3}';
  document.head.appendChild(s);})();
@@ -7407,8 +7754,9 @@ function printDoc(bodyHTML,css){var f=document.getElementById('pkPrintFrame');if
       impressão (topo do printDoc). Este timeout é só uma faxina tardia pra não acumular. */
    setTimeout(function(){try{if(f&&f.parentNode)f.parentNode.removeChild(f);}catch(e){}},300000);
  }
- /* lote grande precisa de mais tempo de layout antes do print — senão o spool sai cortado no meio */
- var _big=Math.min(6000,Math.max(0,Math.floor((bodyHTML.length/100000))*400));
+ /* lote grande precisa de mais tempo de layout antes do print — senão o spool sai cortado no meio.
+    Teto subiu de 6s para 12s: com 400+ etiquetas (~1,6 MB de HTML) 6s podia não bastar. */
+ var _big=Math.min(12000,Math.max(0,Math.floor((bodyHTML.length/100000))*400));
  var imgs=d.images,total=imgs?imgs.length:0,loaded=0;
  if(total){for(var i=0;i<total;i++){var im=imgs[i];if(im.complete){loaded++;}else{im.onload=im.onerror=function(){loaded++;if(loaded>=total)setTimeout(go,150+_big);};}}if(loaded>=total)setTimeout(go,150+_big);setTimeout(go,1800+_big);}else{setTimeout(go,250+_big);}}
 printZebra=function(codes,w,dim){if(!codes||!codes.length){toast('Nada para imprimir',false);return;}dim=dim||ZSIZES.z150;
@@ -9127,6 +9475,34 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
   function saveInv(o){try{if(o)localStorage.setItem(IKEY,JSON.stringify(o));else localStorage.removeItem(IKEY);}catch(e){}}
   function loadInvHist(){try{return JSON.parse(localStorage.getItem(IHIST))||[];}catch(e){return [];}}
   function saveInvHist(a){try{localStorage.setItem(IHIST,JSON.stringify((a||[]).slice(0,50)));}catch(e){}}
+
+  /* ===== REINCIDÊNCIA DE DIVERGÊNCIA (por vaga) =====
+     Mesma vaga divergindo em 2 contagens SEGUIDAS não é erro de contagem — é processo furado
+     (alguém tira/põe bobina sem bipar). Aqui a gente guarda, POR VAGA, o resultado das últimas
+     conferências e mantém um contador de divergências consecutivas. Uma contagem OK zera. */
+  var IDIV='wmsx_invdiv';
+  function _divLoad(){try{return JSON.parse(localStorage.getItem(IDIV))||{};}catch(e){return {};}}
+  function _divSave(m){try{localStorage.setItem(IDIV,JSON.stringify(m));}catch(e){}}
+  function _divLog(code,ok,difKg){
+    if(!code)return;
+    var m=_divLoad(),r=m[code]||{n:0,hist:[]};
+    if(ok){r.n=0;}else{r.n=(r.n||0)+1;}
+    r.at=(typeof nowISO==='function'?nowISO():new Date().toISOString());
+    r.hist=r.hist||[];r.hist.unshift({at:r.at,ok:!!ok,dif:Math.round((Number(difKg)||0)*1000)/1000,by:(typeof session!=='undefined'&&session?session.u:'')});
+    if(r.hist.length>6)r.hist.length=6;
+    m[code]=r;
+    /* poda: guarda só vagas com algum histórico relevante (limpas há muito tempo saem) */
+    var ks=Object.keys(m);if(ks.length>400){ks.sort(function(a,b){return (m[a].at||'')<(m[b].at||'')?-1:1;});ks.slice(0,ks.length-400).forEach(function(k){delete m[k];});}
+    _divSave(m);
+  }
+  function _divStreak(code){var m=_divLoad();return (m[code]&&m[code].n)||0;}
+  function _divReincidentes(){
+    var m=_divLoad(),out=[];
+    Object.keys(m).forEach(function(c){if((m[c].n||0)>=2)out.push({code:c,n:m[c].n,at:m[c].at,hist:m[c].hist||[]});});
+    out.sort(function(a,b){return b.n-a.n||((b.at||'')<(a.at||'')?-1:1);});
+    return out;
+  }
+  window._divStreak=_divStreak;
   function _clsDe(pr){try{var d=abcData();var r=(d.arr||[]).find(function(x){return x.pr===pr;});return r?r.cls:'C';}catch(e){return 'C';}}
   function _chaoFlat(){ /* achata o chão (expedição + 70) em itens {et,pr,pl,src} sem depender do etList interno */
     var out=[];
@@ -9145,18 +9521,25 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     if(sel.rua)occ=occ.filter(function(x){return x.s===sel.rua;});
     if(sel.cls)occ=occ.filter(function(x){return _clsDe(x.pr)===sel.cls;});
     if(sel.prod)occ=occ.filter(function(x){return String(x.pr)===String(sel.prod);});
+    /* escopo "vagas específicas" (usado pelas reincidentes): inclui até vagas hoje vazias,
+       porque a divergência pode ser justamente a vaga ter sido esvaziada sem bipe */
+    if(sel.codes&&sel.codes.length){
+      var quer={};sel.codes.forEach(function(c){quer[String(c)]=1;});
+      occ=S.filter(function(x){return x.w===cfg.warehouse&&quer[(typeof code==='function')?code(x):x.id];});
+    }
     return occ.sort(function(a,b){return a.s!==b.s?(a.s<b.s?-1:1):(Number(a.p)-Number(b.p)||Number(a.l)-Number(b.l));});
   }
   function _alvoCode(sp){if(sp._chao)return sp._code;return (typeof code==='function')?code(sp):sp.id;}
   function _alvoExp(sp){return Number(sp.q)||0;}
-  function _selLabel(sel){sel=sel||{};if(sel.rua)return 'Rua '+sel.rua;if(sel.cls)return 'Classe '+sel.cls;if(sel.prod)return 'Produto '+sel.prod;if(sel.all)return 'Armazém inteiro';if(sel.chao)return 'Chão (conferência)';return 'Inventário';}
-  window.invStart=function(sel,blind){saveInv({sel:sel||{},blind:!!blind,at:(typeof nowISO==='function'?nowISO():new Date().toISOString()),by:(typeof session!=='undefined'&&session?session.u:''),done:{},bip:{}});window.renderInv();};
+  function _selLabel(sel){sel=sel||{};if(sel.codes)return 'Reincidentes ('+sel.codes.length+' vagas)';if(sel.rua)return 'Rua '+sel.rua;if(sel.cls)return 'Classe '+sel.cls;if(sel.prod)return 'Produto '+sel.prod;if(sel.all)return 'Armazém inteiro';if(sel.chao)return 'Chão (conferência)';return 'Inventário';}
+  window.invStart=function(sel,blind){window._invMaisP=0;window._invMaisF=0;saveInv({sel:sel||{},blind:!!blind,at:(typeof nowISO==='function'?nowISO():new Date().toISOString()),by:(typeof session!=='undefined'&&session?session.u:''),done:{},bip:{}});window.renderInv();};
   window.invStop=function(){saveInv(null);window.renderInv();};
   window.invMark=function(spId,found){
     var inv=loadInv();if(!inv)return;
     var sp=_alvos(inv.sel).find(function(x){return x.id===spId;});if(!sp)return;
     var exp=_alvoExp(sp);var f=(found==null?exp:Number(found)||0);
     inv.done[spId]={found:f,expected:exp,pr:sp.pr,code:_alvoCode(sp),chao:sp._chao||'',ok:Math.abs(f-exp)<0.001,at:(typeof nowISO==='function'?nowISO():new Date().toISOString())};
+    try{_divLog(_alvoCode(sp),Math.abs(f-exp)<0.001,f-exp);}catch(e){}
     if(inv.bip)delete inv.bip[spId];
     saveInv(inv);window.renderInv();
   };
@@ -9257,11 +9640,12 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     if(!sp.o){sp.pr='';sp.q=0;}
     sp.upd=(typeof nowISO==='function'?nowISO():new Date().toISOString());sp.by=(typeof session!=='undefined'&&session?session.u:'');
     var m={id:(typeof uid==='function'?uid():String(Math.random())),action:(sp.q>=antesQ?'entrada':'saida'),w:cfg.warehouse,code:cd,pr:sp.pr||antesPr,q:Math.abs(Math.round((sp.q-antesQ)*1000)/1000),u:'KG',before:antesQ,after:sp.q,at:(typeof nowISO==='function'?nowISO():new Date().toISOString()),by:(typeof session!=='undefined'&&session?session.u:'')};
-    if(m.q>0){MV.unshift(m);if(MV.length>20000)MV.length=20000;try{if(typeof syncMov==='function')syncMov(m);}catch(e){}}
+    if(m.q>0){MV.unshift(m);if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */try{if(typeof syncMov==='function')syncMov(m);}catch(e){}}
     try{if(typeof syncSpace==='function')syncSpace(sp);}catch(e){}
     try{persist();}catch(e){}
     /* 3) registra a conferência */
     inv.done[spId]={found:b.sum,expected:antesQ,pr:sp.pr||novoPr,code:cd,chao:'',ok:Math.abs(b.sum-antesQ)<0.001&&(!antesPr||!novoPr||antesPr===novoPr),at:(typeof nowISO==='function'?nowISO():new Date().toISOString()),corrigido:(novoPr!==antesPr||Math.abs(b.sum-antesQ)>=0.001)};
+    try{_divLog(cd,inv.done[spId].ok,b.sum-antesQ);}catch(e){}
     delete inv.bip[spId];inv.cur=null;inv.last=null;
     saveInv(inv);
     try{if(typeof logAct==='function')logAct('inventario','vaga '+cd+' → '+(sp.pr||'vazia')+' '+_fmtq(sp.q)+' kg');}catch(e){}
@@ -9314,43 +9698,161 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     var inv=loadInv();
     /* ---------- TELA DE INÍCIO ---------- */
     if(!inv){
-      var ruas=[];S.forEach(function(x){if(x.w===cfg.warehouse&&ruas.indexOf(x.s)<0)ruas.push(x.s);});ruas.sort();
-      var prods=[];S.forEach(function(x){if(x.w===cfg.warehouse&&x.o&&x.pr&&x.q>0&&prods.indexOf(x.pr)<0)prods.push(x.pr);});prods.sort();
+      /* ===== TELA INICIAL DO INVENTÁRIO — REDESENHADA =====
+         Cada modo de contagem virou um cartão com ícone, número em destaque e ação clara.
+         Os cálculos abaixo varrem S uma única vez (antes eram 3 varreduras separadas). */
+      var ruas=[],prods=[],nOcc=0,kgOcc=0;
+      var _ru={},_pr={};
+      S.forEach(function(x){
+        if(x.w!==cfg.warehouse)return;
+        if(!_ru[x.s]){_ru[x.s]=1;ruas.push(x.s);}
+        if(x.o&&x.pr&&x.q>0){nOcc++;kgOcc+=Number(x.q)||0;if(!_pr[x.pr]){_pr[x.pr]=1;prods.push(x.pr);}}
+      });
+      ruas.sort();prods.sort();
       var hist=loadInvHist();
-      var nOcc=S.filter(function(x){return x.w===cfg.warehouse&&x.o&&x.pr&&x.q>0;}).length;
       var nChao=_chaoFlat().length;
-      function esc(t,tit,sub,extra){return '<div class="invcard" data-invesc="'+t+'"><div class="ic-t">'+tit+'</div><div class="ic-s">'+sub+'</div>'+(extra||'')+'</div>';}
-      el.innerHTML='<div class="ph-head"><div><p class="eb">Operação · contagem cíclica</p><h1>Inventário</h1></div></div>'
+      var ultima=hist[0]||null;
+      var wl=_esc(typeof whLabel==='function'?whLabel(cfg.warehouse):'depósito');
+
+      var IC={
+        rua:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg>',
+        prod:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7.3 12 12l8.7-4.7M12 12v9"/></svg>',
+        abc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+        all:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+        chao:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 20h20"/><circle cx="8" cy="13" r="3.2"/><circle cx="16" cy="13" r="3.2"/></svg>'
+      };
+
+      function card(o){
+        return '<div class="ivc'+(o.noclick?' nc':'')+'"'+(o.esc?(' data-invesc="'+o.esc+'"'):'')+'>'
+          +'<div class="ivc-h"><span class="ivc-ic">'+o.ic+'</span>'
+          +'<div class="ivc-tt"><div class="ivc-t">'+o.t+'</div><div class="ivc-s">'+o.s+'</div></div></div>'
+          +(o.n!=null?('<div class="ivc-n">'+o.n+'<span class="ivc-nu">'+(o.nu||'')+'</span></div>'):'')
+          +(o.body||'')
+          +(o.esc?'<div class="ivc-go">Iniciar contagem <span>→</span></div>':'')
+          +'</div>';
+      }
+
+      var elHTML='<div class="ph-head"><div><p class="eb">Operação · contagem cíclica</p><h1>Inventário</h1></div></div>'
         +'<style>'
-        +'#v-inv .invcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:2px}'
-        +'#v-inv .invcard:hover{border-color:var(--brand);transform:translateY(-1px)}'
-        +'#v-inv .ic-t{font-weight:800;font-size:1rem}'
-        +'#v-inv .ic-s{color:var(--faint);font-size:.78rem;line-height:1.45}'
-        +'#v-inv .invgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:12px}'
-        +'#v-inv .invcard .input,#v-inv .invcard .btn{margin-top:10px}'
-        +'</style>'
-        +'<label style="display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:14px;cursor:pointer">'
-        +'<input type="checkbox" id="invBlind" style="width:20px;height:20px;flex:none">'
-        +'<div><div style="font-weight:700">Contagem cega</div><div style="color:var(--faint);font-size:.76rem">Esconde o esperado — você conta sem saber o valor do sistema (evita vício de contagem).</div></div></label>'
-        +'<div class="invgrid">'
-        +'<div class="invcard" data-noclick="1"><div class="ic-t">Por rua</div><div class="ic-s">Contagem cíclica clássica, rua por rua.</div><select class="input" id="invRua"><option value="">Escolha a rua…</option>'+ruas.map(function(r){return '<option value="'+_esc(r)+'">Rua '+_esc(r)+'</option>';}).join('')+'</select><button class="btn brand" id="invGoRua" style="width:100%;height:42px">Iniciar</button></div>'
-        +'<div class="invcard" data-noclick="1"><div class="ic-t">Por produto</div><div class="ic-s">Confere todas as vagas de um produto só.</div><select class="input" id="invProd"><option value="">Escolha o produto…</option>'+prods.map(function(p){return '<option value="'+_esc(p)+'">'+_esc(p)+'</option>';}).join('')+'</select><button class="btn brand" id="invGoProd" style="width:100%;height:42px">Iniciar</button></div>'
-        +'<div class="invcard" data-noclick="1"><div class="ic-t">Por classe ABC</div><div class="ic-s">Classe A gira mais — conte com mais frequência.</div><div style="display:flex;gap:8px;margin-top:10px">'+['A','B','C'].map(function(c){return '<button class="btn" data-invcls="'+c+'" style="flex:1;height:42px">'+c+'</button>';}).join('')+'</div></div>'
-        +esc('all','Armazém inteiro',nOcc+' vaga(s) ocupada(s) no '+_esc(typeof whLabel==='function'?whLabel(cfg.warehouse):'depósito')+'.')
-        +esc('chao','Chão (conferência)',nChao+' bobina(s) no chão (expedição + 70). Bipe cada uma para marcar presente.')
-        +'</div>'
-        +(hist.length?('<div style="margin-top:22px"><h3 style="margin:0 0 10px">Histórico de contagens</h3><div style="background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden">'
-          +hist.slice(0,10).map(function(h,i){return '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px'+(i?';border-top:1px solid var(--line)':'')+'">'
-            +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:.9rem">'+_esc(h.sel)+'</div><div style="color:var(--faint);font-size:.72rem">'+_fdate(h.at)+(h.by?' · '+_esc(h.by):'')+(h.applied?' · <b>ajustes aplicados</b>':'')+'</div></div>'
-            +'<div style="text-align:right;white-space:nowrap"><div style="font-family:var(--disp);font-weight:800;color:'+(h.pct>=98?'var(--in)':(h.pct>=90?'var(--brand)':'var(--out)'))+'">'+h.pct+'%</div><div style="color:var(--faint);font-size:.7rem">'+h.div+' diverg. · '+_fmtq(h.difKg)+' kg</div></div></div>';}).join('')
-          +'</div><button class="gbtn" id="invHistClr" style="margin-top:10px;font-size:.76rem">Limpar histórico</button></div>'):'');
+        +'#v-inv .ivgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:14px}'
+        +'#v-inv .ivc{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;flex-direction:column;'
+        +'transition:border-color .18s ease,transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease;overflow:hidden}'
+        +'#v-inv .ivc:not(.nc){cursor:pointer}'
+        +'#v-inv .ivc::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--brand);opacity:0;transition:opacity .18s ease}'
+        +'#v-inv .ivc:not(.nc):hover{border-color:var(--brand);transform:translateY(-3px);box-shadow:0 12px 28px rgba(15,23,42,.10)}'
+        +'#v-inv .ivc:hover::after{opacity:1}'
+        +'#v-inv .ivc-h{display:flex;gap:12px;align-items:flex-start}'
+        +'#v-inv .ivc-ic{flex:none;width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;'
+        +'background:var(--brand-dim);color:var(--brand);transition:background .18s ease,color .18s ease}'
+        +'#v-inv .ivc-ic svg{width:19px;height:19px}'
+        +'#v-inv .ivc:not(.nc):hover .ivc-ic{background:var(--brand);color:#fff}'
+        +'#v-inv .ivc-tt{min-width:0}'
+        +'#v-inv .ivc-t{font-weight:800;font-size:1rem;letter-spacing:-.2px}'
+        +'#v-inv .ivc-s{color:var(--faint);font-size:.76rem;line-height:1.5;margin-top:3px}'
+        +'#v-inv .ivc-n{font-family:var(--disp);font-weight:800;font-size:2.1rem;line-height:1;margin-top:14px;font-variant-numeric:tabular-nums}'
+        +'#v-inv .ivc-nu{font-size:.72rem;font-weight:700;color:var(--faint);margin-left:6px;letter-spacing:.4px;text-transform:uppercase}'
+        +'#v-inv .ivc-go{margin-top:auto;padding-top:14px;font-size:.78rem;font-weight:700;color:var(--brand);display:flex;align-items:center;gap:6px}'
+        +'#v-inv .ivc-go span{transition:transform .18s ease}'
+        +'#v-inv .ivc:hover .ivc-go span{transform:translateX(4px)}'
+        +'#v-inv .ivc .input{margin-top:14px}'
+        +'#v-inv .ivc .btn{margin-top:10px;width:100%;height:42px}'
+        +'#v-inv .abcrow{display:flex;gap:8px;margin-top:14px}'
+        +'#v-inv .abcb{flex:1;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--card-2);font-family:var(--disp);'
+        +'font-weight:800;font-size:1.1rem;cursor:pointer;transition:.15s;color:var(--ink)}'
+        +'#v-inv .abcb:hover{background:var(--brand);border-color:var(--brand);color:#fff;transform:translateY(-2px)}'
+        +'#v-inv .blindbar{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);'
+        +'border-radius:16px;padding:16px 18px;margin-bottom:16px;cursor:pointer;transition:border-color .18s ease}'
+        +'#v-inv .blindbar:hover{border-color:var(--brand)}'
+        +'#v-inv .hrow{display:flex;align-items:center;gap:14px;padding:14px 16px}'
+        +'#v-inv .hrow+.hrow{border-top:1px solid var(--line)}'
+        +'#v-inv .hrow:hover{background:var(--card-2)}'
+        +'</style>';
+
+      /* faixa: última contagem */
+      /* ===== PAINEL DE REINCIDENTES =====
+         Vaga que divergiu 2+ contagens seguidas não é erro de contagem — é processo furado.
+         Aparece aqui em cima, antes de tudo, porque é a informação mais acionável da tela. */
+      var _rein=[];try{_rein=_divReincidentes();}catch(e){}
+      if(_rein.length){
+        elHTML+='<div style="background:var(--out-dim);border:1px solid var(--out);border-radius:16px;padding:16px 18px;margin-bottom:16px">'
+          +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+          +'<div style="width:34px;height:34px;flex:none;border-radius:10px;background:var(--out);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.05rem">⚠</div>'
+          +'<div><div style="font-weight:800">'+_rein.length+' vaga(s) com divergência recorrente</div>'
+          +'<div style="color:var(--muted);font-size:.76rem;margin-top:1px">Divergiram em contagens seguidas — indício de movimentação sem bipe, não de erro de contagem. Priorize estas.</div></div></div>'
+          +'<div style="display:flex;flex-wrap:wrap;gap:8px">'
+          +_rein.slice(0,12).map(function(r){
+            var ult=(r.hist&&r.hist[0])?r.hist[0]:null;
+            return '<div title="'+(ult?('última: '+_fdate(ult.at)+' · dif '+(ult.dif>0?'+':'')+_fmtq(ult.dif)+' kg'+(ult.by?(' · '+_esc(ult.by)):'')):'')+'" '
+              +'style="background:var(--card);border:1px solid var(--out);border-radius:10px;padding:7px 12px;display:flex;align-items:center;gap:8px">'
+              +'<b style="font-family:var(--mono);font-size:.85rem">'+_esc(r.code)+'</b>'
+              +'<span style="background:var(--out);color:#fff;border-radius:99px;padding:1px 8px;font-size:.66rem;font-weight:800">'+r.n+'×</span>'
+              +'</div>';
+          }).join('')
+          +(_rein.length>12?('<div style="align-self:center;color:var(--muted);font-size:.76rem">+'+(_rein.length-12)+' vaga(s)</div>'):'')
+          +'</div>'
+          +'<button class="btn brand" id="invGoRein" style="margin-top:12px;height:42px">Contar só estas vagas agora</button>'
+          +'</div>';
+      }
+
+      if(ultima){
+        var uc=(ultima.pct>=98?'var(--in)':(ultima.pct>=90?'var(--brand)':'var(--out)'));
+        elHTML+='<div style="display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);'
+          +'border-left:3px solid '+uc+';border-radius:14px;padding:14px 18px;margin-bottom:16px">'
+          +'<div style="flex:1;min-width:0"><div style="font-size:.64rem;letter-spacing:1px;text-transform:uppercase;color:var(--faint);font-weight:800">Última contagem</div>'
+          +'<div style="font-weight:700;margin-top:3px">'+_esc(ultima.sel)+' <span style="color:var(--faint);font-weight:500;font-size:.82rem">· '+_fdate(ultima.at)+'</span></div></div>'
+          +'<div style="text-align:right;white-space:nowrap"><div style="font-family:var(--disp);font-weight:800;font-size:1.5rem;color:'+uc+';font-variant-numeric:tabular-nums">'+ultima.pct+'%</div>'
+          +'<div style="font-size:.7rem;color:var(--faint)">'+(ultima.div||0)+' diverg.</div></div></div>';
+      }
+
+      /* contagem cega */
+      elHTML+='<label class="blindbar">'
+        +'<input type="checkbox" id="invBlind" style="width:20px;height:20px;flex:none;accent-color:var(--brand)">'
+        +'<div><div style="font-weight:700">Contagem cega</div>'
+        +'<div style="color:var(--faint);font-size:.76rem;margin-top:2px">Esconde o esperado — você conta sem saber o valor do sistema (evita vício de contagem).</div></div>'
+        +'</label>';
+
+      elHTML+='<div class="ivgrid">'
+        +card({noclick:1,ic:IC.rua,t:'Por rua',s:'Contagem cíclica clássica, rua por rua.',
+               body:'<select class="input" id="invRua"><option value="">Escolha a rua…</option>'+ruas.map(function(r){return '<option>'+_esc(r)+'</option>';}).join('')+'</select>'
+                    +'<button class="btn brand" id="invGoRua">Iniciar</button>'})
+        +card({noclick:1,ic:IC.prod,t:'Por produto',s:'Confere todas as vagas de um produto só.',
+               body:'<select class="input" id="invProd"><option value="">Escolha o produto…</option>'+prods.map(function(r){return '<option>'+_esc(r)+'</option>';}).join('')+'</select>'
+                    +'<button class="btn brand" id="invGoProd">Iniciar</button>'})
+        +card({noclick:1,ic:IC.abc,t:'Por classe ABC',s:'Classe A gira mais — conte com mais frequência.',
+               body:'<div class="abcrow"><button class="abcb" data-invcls="A">A</button><button class="abcb" data-invcls="B">B</button><button class="abcb" data-invcls="C">C</button></div>'})
+        +card({esc:'all',ic:IC.all,t:'Armazém inteiro',s:'Todas as vagas ocupadas no '+wl+'.',
+               n:nOcc,nu:'vagas · '+_fmtq(kgOcc)+' kg'})
+        +card({esc:'chao',ic:IC.chao,t:'Chão (conferência)',s:'Expedição + Chão 70. Bipe cada bobina para marcar presente.',
+               n:nChao,nu:'bobinas'})
+        +'</div>';
+
+      /* histórico */
+      if(hist.length){
+        elHTML+='<div style="margin-top:26px"><h3 style="margin:0 0 12px;font-size:1.05rem">Histórico de contagens</h3>'
+          +'<div style="background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden">'
+          +hist.slice(0,10).map(function(h){
+            var c=(h.pct>=98?'var(--in)':(h.pct>=90?'var(--brand)':'var(--out)'));
+            return '<div class="hrow">'
+              +'<div style="width:6px;height:34px;border-radius:99px;background:'+c+';flex:none"></div>'
+              +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:.9rem">'+_esc(h.sel)+'</div>'
+              +'<div style="color:var(--faint);font-size:.72rem;margin-top:1px">'+_fdate(h.at)+' · '+_esc(h.by||'')+'</div></div>'
+              +'<div style="text-align:right;white-space:nowrap">'
+              +'<div style="font-family:var(--disp);font-weight:800;color:'+c+';font-variant-numeric:tabular-nums">'+h.pct+'%</div>'
+              +'<div style="font-size:.7rem;color:var(--faint)">'+(h.div||0)+' diverg. · '+_fmtq(h.difKg||0)+' kg</div></div>'
+              +'</div>';
+          }).join('')
+          +'</div><button class="gbtn" id="invHistClr" style="margin-top:12px;font-size:.76rem">Limpar histórico</button></div>';
+      }
+
+      el.innerHTML=elHTML;
+
       var blindEl=el.querySelector('#invBlind');function _bl(){return !!(blindEl&&blindEl.checked);}
-      el.querySelectorAll('[data-invesc]').forEach(function(c){c.onclick=function(){var t=c.getAttribute('data-invesc');if(t==='all')window.invStart({all:true},_bl());else if(t==='chao')window.invStart({chao:true},false);};});
+      el.querySelectorAll('[data-invesc]').forEach(function(c){c.onclick=function(){var t=c.getAttribute('data-invesc');if(t==='all')window.invStart({all:true},_bl());else if(t==='chao')window.invStart({chao:true},_bl());};});
       var gr=el.querySelector('#invGoRua');if(gr)gr.onclick=function(e){e.stopPropagation();var r=el.querySelector('#invRua').value;if(!r){toast('Escolha a rua',false);return;}window.invStart({rua:r},_bl());};
       var gp=el.querySelector('#invGoProd');if(gp)gp.onclick=function(e){e.stopPropagation();var p=el.querySelector('#invProd').value;if(!p){toast('Escolha o produto',false);return;}window.invStart({prod:p},_bl());};
       el.querySelectorAll('[data-invcls]').forEach(function(b){b.onclick=function(e){e.stopPropagation();window.invStart({cls:b.getAttribute('data-invcls')},_bl());};});
       var hc=el.querySelector('#invHistClr');if(hc)hc.onclick=function(){if(!confirm('Limpar o histórico de contagens?'))return;saveInvHist([]);window.renderInv();};
-      try{if(typeof setIcons==='function')setIcons();}catch(e){}
+      var grn=el.querySelector('#invGoRein');if(grn)grn.onclick=function(){var rr=_divReincidentes();if(!rr.length)return;window.invStart({codes:rr.map(function(x){return x.code;})},_bl());};
       return;
     }
     /* ---------- CONTAGEM EM ANDAMENTO ---------- */
@@ -9414,6 +9916,11 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
       var c=_alvoCode(sp);var d=inv.done[sp.id];var bip=(inv.bip&&inv.bip[sp.id])?inv.bip[sp.id]:null;
       var act=(inv.last&&inv.last.spId===sp.id&&!d);
       var cls='vrow'+(d?' done':'')+(d&&!d.ok?' diff':'')+(act?' act':'');
+      /* selo de reincidência: esta vaga divergiu nas últimas N contagens seguidas */
+      var _stk=0;try{_stk=_divStreak(c);}catch(e){}
+      var selo=(_stk>=2)?('<span title="Esta vaga divergiu em '+_stk+' contagens seguidas — indício de processo furado (movimentação sem bipe), não de erro de contagem" '
+        +'style="flex:none;display:inline-flex;align-items:center;gap:4px;background:var(--out-dim);color:var(--out);border:1px solid var(--out);'
+        +'border-radius:99px;padding:2px 9px;font-size:.66rem;font-weight:800;letter-spacing:.3px;white-space:nowrap">⚠ '+_stk+'ª diverg.</span>'):'';
       var sub;
       if(isChao)sub='no chão '+(sp._chao==='70'?'70':'expedição');
       else if(d&&!d.ok)sub='esperado '+_fmtq(d.expected)+' kg · <b style="color:var(--out)">contado '+_fmtq(d.found)+' kg</b>';
@@ -9421,7 +9928,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
       else sub='esperado '+((blind&&!d)?'—':(_fmtq(sp.q)+' kg'));
       var r='<div class="'+cls+'" id="inv_'+_esc(sp.id)+'">'
         +'<div style="width:30px;height:30px;flex:none;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:900;background:'+(d?(d.ok?'var(--in)':'var(--out)'):'var(--card-2)')+';color:'+(d?'#fff':'var(--faint)')+'">'+(d?(d.ok?'✓':'≠'):'·')+'</div>'
-        +'<div style="flex:1;min-width:0"><div class="vcode">'+_esc(c)+'</div><div class="vsub">'+_esc(sp.pr)+' · '+sub+'</div></div>';
+        +'<div style="flex:1;min-width:0"><div class="vcode" style="display:flex;align-items:center;gap:8px">'+_esc(c)+selo+'</div><div class="vsub">'+_esc(sp.pr)+' · '+sub+'</div></div>';
       if(d)r+='<button class="gbtn" data-invre="'+_esc(sp.id)+'" style="padding:5px 10px;font-size:.72rem">Recontar</button>';
       else if(isChao)r+='<div style="display:flex;gap:6px"><button class="btn in" data-invok="'+_esc(sp.id)+'" style="padding:7px 12px;font-size:.75rem">Presente</button><button class="gbtn" data-invmiss="'+_esc(sp.id)+'" style="padding:7px 12px;font-size:.75rem">Faltou</button></div>';
       else if(bip)r+='<button class="btn brand" data-invbipuse="'+_esc(sp.id)+'" style="padding:8px 14px;font-size:.78rem;white-space:nowrap">Confirmar '+_fmtq(bip.sum)+' kg</button>';
@@ -9429,12 +9936,32 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
       else r+='<div style="display:flex;gap:6px"><button class="btn brand" data-invcnt="'+_esc(sp.id)+'" style="padding:7px 14px;font-size:.75rem">Contar</button><button class="gbtn" data-invok="'+_esc(sp.id)+'" style="padding:7px 10px;font-size:.75rem" title="Confere sem bipar">OK</button></div>';
       return r+'</div>';
     }
-    if(pend.length){h+='<div style="font-size:.66rem;letter-spacing:.7px;text-transform:uppercase;color:var(--faint);font-weight:800;margin:16px 0 8px">Pendentes ('+pend.length+')</div>'+pend.map(function(sp){return row(sp,false);}).join('');}
-    if(feitas.length){h+='<div style="font-size:.66rem;letter-spacing:.7px;text-transform:uppercase;color:var(--faint);font-weight:800;margin:18px 0 8px">Conferidas ('+feitas.length+')</div>'+feitas.map(function(sp){return row(sp,true);}).join('');}
+    /* ===== TRAVAMENTO RESOLVIDO AQUI =====
+       "Armazém inteiro" tem 1.703 vagas. Antes o código montava as 1.703 linhas de HTML de uma
+       vez — e refazia isso A CADA BIPE (renderInv roda inteiro toda vez). Era isso que congelava
+       a aba por vários segundos.
+       Agora mostra um lote de cada vez, com botão "carregar mais". Ninguém precisa ver 1.700
+       linhas na tela: você conta a vaga da vez, não a lista. */
+    var LOTE=60;
+    window._invMaisP=window._invMaisP||0;window._invMaisF=window._invMaisF||0;
+    if(pend.length){
+      var mostraP=Math.min(pend.length,LOTE+window._invMaisP);
+      h+='<div style="font-size:.66rem;letter-spacing:.7px;text-transform:uppercase;color:var(--faint);font-weight:800;margin:16px 0 8px">Pendentes ('+pend.length+')</div>'
+       +pend.slice(0,mostraP).map(function(sp){return row(sp,false);}).join('');
+      if(mostraP<pend.length)h+='<button class="gbtn" id="invMaisP" style="width:100%;height:44px;margin-top:8px">Mostrar mais '+Math.min(LOTE,pend.length-mostraP)+' · faltam '+(pend.length-mostraP)+'</button>';
+    }
+    if(feitas.length){
+      var mostraF=Math.min(feitas.length,LOTE+window._invMaisF);
+      h+='<div style="font-size:.66rem;letter-spacing:.7px;text-transform:uppercase;color:var(--faint);font-weight:800;margin:18px 0 8px">Conferidas ('+feitas.length+')</div>'
+       +feitas.slice(0,mostraF).map(function(sp){return row(sp,true);}).join('');
+      if(mostraF<feitas.length)h+='<button class="gbtn" id="invMaisF" style="width:100%;height:44px;margin-top:8px">Mostrar mais '+Math.min(LOTE,feitas.length-mostraF)+' · faltam '+(feitas.length-mostraF)+'</button>';
+    }
     el.innerHTML=h;
     /* fiação */
     el.querySelectorAll('[data-invcnt]').forEach(function(b){b.onclick=function(){window.invSetVaga(b.getAttribute('data-invcnt'));try{var e2=document.getElementById('invBipe');if(e2)e2.focus();}catch(e){}};});
     el.querySelectorAll('[data-invok]').forEach(function(b){b.onclick=function(){window.invMark(b.getAttribute('data-invok'),null);};});
+    var _mp=el.querySelector('#invMaisP');if(_mp)_mp.onclick=function(){window._invMaisP+=60;window.renderInv();};
+    var _mf=el.querySelector('#invMaisF');if(_mf)_mf.onclick=function(){window._invMaisF+=60;window.renderInv();};
     el.querySelectorAll('[data-invmiss]').forEach(function(b){b.onclick=function(){window.invMark(b.getAttribute('data-invmiss'),0);};});
     el.querySelectorAll('[data-invbipuse]').forEach(function(b){b.onclick=function(){window.invBipUsar(b.getAttribute('data-invbipuse'));};});
     el.querySelectorAll('[data-invre]').forEach(function(b){b.onclick=function(){var i2=loadInv();delete i2.done[b.getAttribute('data-invre')];if(i2.bip)delete i2.bip[b.getAttribute('data-invre')];saveInv(i2);window.renderInv();};});
@@ -9500,7 +10027,11 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     if(typeof TITLES!=='undefined')TITLES['v-inv']='Inventário';
     var _rv2=render;render=function(id){if(id==='v-inv'){try{return window.renderInv();}catch(e){try{var _e=document.getElementById('v-inv');if(_e)_e.innerHTML='<div style="padding:24px;color:var(--muted)">Inventário: erro ao carregar — '+(e&&e.message||e)+'</div>';}catch(_){}return;}}return _rv2(id);};
     var navStock=[].slice.call(document.querySelectorAll('.nav')).filter(function(n){return n.dataset.view==='v-stock';})[0];
-    if(navStock&&!document.querySelector('.nav[data-view="v-inv"]')){var nv=document.createElement('div');nv.className='nav';nv.dataset.view='v-inv';nv.dataset.ic='box';nv.innerHTML='<span class="ni"></span>Inventário';navStock.after(nv);nv.onclick=function(){try{if(typeof closeDrawer==='function')closeDrawer();$$('.view').forEach(function(v){v.classList.toggle('active',v.id==='v-inv');});$$('.nav').forEach(function(n){n.classList.toggle('active',n.dataset.view==='v-inv');});var mm=document.querySelector('main');if(mm)mm.scrollTop=0;if(typeof window.renderInv==='function')window.renderInv();}catch(e){}};}
+    if(navStock&&!document.querySelector('.nav[data-view="v-inv"]')){var nv=document.createElement('div');nv.className='nav';nv.dataset.view='v-inv';nv.dataset.ic='box';nv.innerHTML='<span class="ni"></span>Inventário';navStock.after(nv);
+    /* BUG DO MENU: este item é injetado DEPOIS que o setIcons() já rodou, então o <span class="ni">
+       ficava vazio — sem ícone e com o texto desalinhado do resto da lista. Pinta o ícone agora. */
+    try{var _ni=nv.querySelector('.ni');if(_ni&&typeof ICONS!=='undefined'&&ICONS.box)_ni.innerHTML=ICONS.box;else if(typeof setIcons==='function')setIcons();}catch(e){}
+    nv.onclick=function(){try{if(typeof closeDrawer==='function')closeDrawer();$$('.view').forEach(function(v){v.classList.toggle('active',v.id==='v-inv');});$$('.nav').forEach(function(n){n.classList.toggle('active',n.dataset.view==='v-inv');});var mm=document.querySelector('main');if(mm)mm.scrollTop=0;if(typeof window.renderInv==='function')window.renderInv();}catch(e){}};}
   }catch(e){}
 })();
 

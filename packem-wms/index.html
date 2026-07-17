@@ -3827,15 +3827,30 @@ updateStageBadge();
     try{
       try{if(typeof window._etqDelClean==='function')window._etqDelClean();}catch(e){}
       var fromCloud={};
+      var _stRank=function(s){s=String(s||'');return s==='saida'?2:(s==='entrada'?1:0);};
+      var _reSubir=[]; /* etiquetas cujo status AQUI é mais forte que o da nuvem: reenviar */
       (rowsEtq||[]).forEach(function(r){
         if(typeof window._etqDelActive==='function'&&window._etqDelActive(r.id))return; /* recém-excluída: NÃO rebaixa da nuvem */
-        fromCloud[r.id]={id:r.id,nf:r.doc_key||'',nNF:r.n_nf||'',nRomaneio:r.n_romaneio||'',nNFe:r.n_nf||'',cliente:r.cliente||'',bobina:r.bobina||'',op:r.op||'',lote:r.lote||'',addr:r.addr||'',gramatura:r.gramatura||'',xProd:r.gramatura||'',cProd:r.c_prod||'',uCom:r.u_com||'',kg:Number(r.kg)||0,pesoBruto:Number(r.peso_bruto)||0,vol:Number(r.vol)||0,volTot:Number(r.vol_tot)||0,idx:Number(r.idx)||0,status:r.status||'',hist:r.hist||[]};
+        var cloudObj={id:r.id,nf:r.doc_key||'',nNF:r.n_nf||'',nRomaneio:r.n_romaneio||'',nNFe:r.n_nf||'',cliente:r.cliente||'',bobina:r.bobina||'',op:r.op||'',lote:r.lote||'',addr:r.addr||'',gramatura:r.gramatura||'',xProd:r.gramatura||'',cProd:r.c_prod||'',uCom:r.u_com||'',kg:Number(r.kg)||0,pesoBruto:Number(r.peso_bruto)||0,vol:Number(r.vol)||0,volTot:Number(r.vol_tot)||0,idx:Number(r.idx)||0,status:r.status||'',hist:r.hist||[],_uat:r.updated_at||''};
+        /* STATUS MONOTÔNICO: uma etiqueta só AVANÇA (gerada→entrada→saida). Se a nuvem tenta
+           REBAIXAR um status que aqui já está mais forte, mantém o forte E marca pra reenviar.
+           É isto que conserta 'NF concluída num PC e em aberto no outro' quando o bipe de um
+           PC não chegou (ou chegou com relógio atrasado) na nuvem. */
+        var loc=ETQ[r.id];
+        if(loc&&_stRank(loc.status)>_stRank(cloudObj.status)){
+          cloudObj.status=loc.status;
+          if(loc.hist&&loc.hist.length>=(cloudObj.hist||[]).length)cloudObj.hist=loc.hist;
+          _reSubir.push(r.id);
+        }
+        fromCloud[r.id]=cloudObj;
       });
       /* MERGE: a nuvem tem prioridade, mas mantém etiquetas locais que ainda não subiram
          (evita 'sumir' quando um aparelho gerou e ainda não sincronizou) */
       if(rowsEtq&&rowsEtq.length){
         Object.keys(ETQ).forEach(function(id){if(!fromCloud[id]&&!(typeof window._etqDelActive==='function'&&window._etqDelActive(id)))fromCloud[id]=ETQ[id];});
         ETQ=fromCloud;_nfPub();
+        /* reenvia (sem travar a UI) os bipes que a nuvem ainda não tinha */
+        if(_reSubir.length){try{if(typeof syncEtiquetasLote==='function')syncEtiquetasLote(_reSubir,'status');else if(typeof syncEtiqueta==='function')_reSubir.forEach(function(id){if(ETQ[id])syncEtiqueta(ETQ[id]);});}catch(e){}}
       }
       if(rowsNotas&&rowsNotas.length){var newNFS={};(rowsNotas||[]).forEach(function(r){if(r.data)newNFS[r.key]=r.data;});Object.keys(NFS).forEach(function(k){if(!newNFS[k])newNFS[k]=NFS[k];});NFS=newNFS;}
       if(rowsRom&&rowsRom.length){var newROMS={};(rowsRom||[]).forEach(function(r){if(r.data)newROMS[r.key]=r.data;});Object.keys(ROMS).forEach(function(k){if(!newROMS[k])newROMS[k]=ROMS[k];});ROMS=newROMS;}
@@ -5880,6 +5895,7 @@ async function syncEtiquetasLote(ids,tag){
     }
    }
    try{delete window._DIAG.etqFail;}catch(e){}
+   try{rows.forEach(function(r){if(ETQ[r.id])ETQ[r.id]._uat=r.updated_at;});}catch(e){}
    if(typeof toast==='function')toast(rows.length+' etiqueta(s) na nuvem ✓');
   }catch(e){}
  }finally{window._bulkUp=Math.max(0,(window._bulkUp||1)-1);}
@@ -5931,7 +5947,7 @@ function syncEtiqueta(e,_try){if(!supa||!e||!e.id)return;var row=etqRow(e);
   supa.from('etiquetas').upsert(row).then(function(r){
     if(r&&r.error){window._syncErrs.etq++;window._syncErrs.lastErr='etiquetas: '+(r.error.message||r.error.code||'erro');
       if((_try||0)<2){setTimeout(function(){syncEtiqueta(e,(_try||0)+1);},1200*((_try||0)+1));}
-    }
+    }else{try{e._uat=row.updated_at;}catch(_){}}
   },function(err){window._syncErrs.etq++;window._syncErrs.lastErr='etiquetas: rede';if((_try||0)<2){setTimeout(function(){syncEtiqueta(e,(_try||0)+1);},1200*((_try||0)+1));}});}
 /* TOMBSTONE de etiquetas excluídas: marca ids apagados por um tempo, pra o pull da nuvem
    NÃO rebaixar elas de volta (corrige 'excluí etiqueta e ela voltou ao reimportar a NF'). */
@@ -6315,16 +6331,23 @@ window.analisarDup=analisarDup;
    A varredura completa (que também detecta EXCLUSÕES) roda só ao abrir a aba e a cada 5 min. */
 function _nfMergeRows(rowsEtq,rowsNotas,rowsRom){
  var mudou=false;
+ var _stRank=function(s){s=String(s||'');return s==='saida'?2:(s==='entrada'?1:0);};
+ var _reSubir=[];
  (rowsEtq||[]).forEach(function(r){
   if(typeof window._etqDelActive==='function'&&window._etqDelActive(r.id))return;
-  ETQ[r.id]={id:r.id,nf:r.doc_key||'',nNF:r.n_nf||'',nRomaneio:r.n_romaneio||'',nNFe:r.n_nf||'',cliente:r.cliente||'',
+  var loc=ETQ[r.id];
+  var novo={id:r.id,nf:r.doc_key||'',nNF:r.n_nf||'',nRomaneio:r.n_romaneio||'',nNFe:r.n_nf||'',cliente:r.cliente||'',
    bobina:r.bobina||'',op:r.op||'',lote:r.lote||'',addr:r.addr||'',gramatura:r.gramatura||'',xProd:r.gramatura||'',
    cProd:r.c_prod||'',uCom:r.u_com||'',kg:Number(r.kg)||0,pesoBruto:Number(r.peso_bruto)||0,vol:Number(r.vol)||0,
-   volTot:Number(r.vol_tot)||0,idx:Number(r.idx)||0,status:r.status||'',hist:r.hist||[]};
+   volTot:Number(r.vol_tot)||0,idx:Number(r.idx)||0,status:r.status||'',hist:r.hist||[],_uat:r.updated_at||''};
+  /* status monotônico: não deixa a nuvem rebaixar um bipe que aqui já está mais forte */
+  if(loc&&_stRank(loc.status)>_stRank(novo.status)){novo.status=loc.status;if(loc.hist&&loc.hist.length>=(novo.hist||[]).length)novo.hist=loc.hist;_reSubir.push(r.id);}
+  ETQ[r.id]=novo;
   mudou=true;
  });
  (rowsNotas||[]).forEach(function(r){if(r.data){NFS[r.key]=r.data;mudou=true;}});
  (rowsRom||[]).forEach(function(r){if(r.data){ROMS[r.key]=r.data;mudou=true;}});
+ if(_reSubir.length){try{if(typeof syncEtiquetasLote==='function')syncEtiquetasLote(_reSubir,'status');else if(typeof syncEtiqueta==='function')_reSubir.forEach(function(id){if(ETQ[id])syncEtiqueta(ETQ[id]);});}catch(e){}}
  if(mudou){
   try{if(typeof window.fixDupEtq==='function')window.fixDupEtq();}catch(e){}
   saveNF();
@@ -6422,8 +6445,15 @@ async function pullNF(force){
     de+=1000;
    }
   }
-  /* quais linhas eu preciso mesmo baixar? só as que faltam aqui */
-  var faltamAqui=Object.keys(idsNuvem).filter(function(id){return !ETQ[id];});
+  /* quais linhas eu preciso mesmo baixar? as que FALTAM aqui + as que MUDARAM na nuvem
+     (updated_at mais novo que o que este PC já tem). Sem o "mudaram", uma etiqueta já
+     baixada NUNCA atualizava de status: se fosse bipada como "entrada" noutro PC, aqui
+     continuava "em aberto" pra sempre (bug da NF concluída num PC e aberta no outro). */
+  var faltamAqui=Object.keys(idsNuvem).filter(function(id){
+   if(!ETQ[id])return true;
+   var cu=idsNuvem[id]||'', lu=(ETQ[id]&&ETQ[id]._uat)||'';
+   return !!cu && cu>lu;
+  });
   for(var f=0;f<faltamAqui.length;f+=300){
    var qf=await supa.from('etiquetas').select('*').in('id',faltamAqui.slice(f,f+300));
    if(qf&&qf.data)etq=etq.concat(qf.data);
@@ -6454,6 +6484,9 @@ async function pullNF(force){
    window._DIAG.nfFull=etq.length+' etq · '+(ntf||[]).length+' nf · '+(rom||[]).length+' rom @'+new Date().toLocaleTimeString();
   }catch(e){}
   if(typeof window.nfPullCloud==='function')window.nfPullCloud(etq,ntf,rom);
+  /* grava a marca d'água POR ETIQUETA (o updated_at que a nuvem tem AGORA) pra o próximo
+     ciclo saber exatamente o que mudou e não re-baixar o que já está igual */
+  try{Object.keys(idsNuvem).forEach(function(id){if(ETQ[id])ETQ[id]._uat=idsNuvem[id]||ETQ[id]._uat||'';});}catch(e){}
 
   /* ===== AUTO-REPARO =====
      Se um documento tem etiquetas AQUI que não existem na nuvem (ex: o import de 5h atrás,

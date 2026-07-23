@@ -1560,6 +1560,15 @@ async function boardQuickMove(mode,addrRaw,etRaw){
     var m={id:(typeof uid==='function'?uid():String(Math.random())),action:'saida',w:cfg.warehouse,code:c,pr:prod,q:q,u:'KG',before:before,after:sp.o?sp.q:0,at:nowISO(),by:(session?session.u:'')};
     MV.unshift(m);if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */
     if(typeof LOC!=='undefined'&&et&&LOC[et]===c){delete LOC[et];try{saveLOC();}catch(e){}if(BOB[et])BOB[et].rem=0;}
+    /* vaga ZEROU: solta TODAS as etiquetas que ainda apontavam pra ela — antes só a
+       bipada saía, e as outras ficavam apontando pra vaga vazia (aparecia na Saúde). */
+    if(sp.q<=0&&typeof LOC!=='undefined'){
+      Object.keys(LOC).forEach(function(k){
+        if(LOC[k]===c){delete LOC[k];if(typeof BOB!=='undefined'&&BOB[k])BOB[k].rem=0;
+          try{if(typeof syncDelLoc==='function')syncDelLoc(k);}catch(e){}}
+      });
+      try{saveLOC();}catch(e){}
+    }
     try{persist();}catch(e){}
     try{if(typeof syncSpace==='function')syncSpace(sp);if(typeof syncMov==='function')syncMov(m);if(et&&typeof syncDelLoc==='function')syncDelLoc(et);}catch(e){}
     try{enqueue3dTask(c,'out');}catch(e){}
@@ -2942,7 +2951,8 @@ function renderStageList(){const el=$('#stageList');if(!el)return;const adm=isAd
  el.innerHTML=STAGE.map(s=>'<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--sh-sm);margin-bottom:12px"><div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:200px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="mono" style="font-weight:800;font-size:1.05rem">'+s.pr+'</span><span class="pill muted">'+s.et+'</span></div><div style="color:var(--ink);font-size:.9rem;margin-top:6px;font-weight:500">'+(s.desc||'—')+'</div><div style="color:var(--faint);font-size:.72rem;margin-top:5px">recebido '+rel(s.at)+(s.by?" · por "+s.by:"")+'</div></div><div style="text-align:right;white-space:nowrap"><div style="font-family:var(--disp);font-weight:800;font-size:1.5rem;line-height:1">'+fmt(s.pl)+' <span style="font-size:.8rem;color:var(--muted);font-weight:600">kg</span></div></div></div>'+(adm?'<div style="display:flex;gap:10px;margin-top:14px"><button class="btn in" data-az="'+s.et+'" style="flex:1">'+ICONS.box+' Armazenar</button><button class="btn out" data-pp="'+s.et+'" style="flex:1">Produção</button><button class="gbtn" data-rm="'+s.et+'" style="width:48px;justify-content:center">✕</button></div><div style="margin-top:10px"><button class="gbtn" data-lbl="'+s.et+'" style="width:100%;justify-content:center">'+ICONS.tag+' Gerar etiqueta</button></div>':'')+'</div>').join('');
  el.querySelectorAll('[data-az]').forEach(b=>b.onclick=()=>stageArmazenar(b.dataset.az));
  el.querySelectorAll('[data-pp]').forEach(b=>b.onclick=()=>stageProducao(b.dataset.pp));
- el.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{try{if(typeof window.f70HasEt==='function'&&window.f70HasEt(b.dataset.rm)&&typeof window.f70Saida==='function')window.f70Saida(b.dataset.rm);}catch(e){}STAGE=STAGE.filter(x=>x.et!==b.dataset.rm);saveStage();if(typeof syncDelStage==='function')syncDelStage(b.dataset.rm);renderRecv();updateStageBadge();toast('Removido do intermediário');});
+ el.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{/* ✕ limpa só a LISTA de pendências — a bobina continua fisicamente no chão.
+   Chão 70 só perde bobina por PRODUÇÃO ou ENTRADA NA PRATELEIRA (regra do usuário). */STAGE=STAGE.filter(x=>x.et!==b.dataset.rm);saveStage();if(typeof syncDelStage==='function')syncDelStage(b.dataset.rm);renderRecv();updateStageBadge();toast('Removido do intermediário');});
  el.querySelectorAll('[data-lbl]').forEach(b=>b.onclick=()=>{var et=norm(b.dataset.lbl);var o=BOB[et]||{};var s=STAGE.find(function(x){return x.et===et;})||{};var it={et:et,pr:o.pr||s.pr||'',desc:((typeof window.convDescByCod==='function'&&window.convDescByCod(o.pr||s.pr))||o.desc||s.desc||''),pl:(o.pl!=null?o.pl:s.pl)};if(typeof printIntakeLabelChoose==='function')printIntakeLabelChoose(it);else showBobLabel(et);});}
 function showBobLabel(et){et=norm(et);const o=BOB[et]||{};const it=(typeof STAGE!=='undefined'&&STAGE?STAGE.find(s=>s.et===et):null)||{};const pr=o.pr||it.pr||'';const desc=((typeof window.convDescByCod==='function'&&window.convDescByCod(pr))||o.desc||it.desc||'');const pl=(o.pl!=null?o.pl:it.pl);
  const lbl='<style>#bobQRbox svg{width:96px!important;height:96px!important}</style>'
@@ -4561,7 +4571,11 @@ updateStageBadge();
       try{
         if(typeof MV!=='undefined'&&MV){
           var _un=(typeof unitOf==='function')?unitOf(e.cProd):'KG';
-          var _mv={id:uid(),action:'recebimento',w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:e.cProd||id,q:Number(e.kg)||0,u:_un,et:id,before:0,after:Number(e.kg)||0,at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:''),req:(e.nf&&e.nf!=='__vaga__'?e.nf:'')};
+          var _mv={id:uid(),action:'recebimento',nf:1,w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:e.cProd||id,q:Number(e.kg)||0,u:_un,et:id,before:0,after:Number(e.kg)||0,at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:''),req:(function(){try{var k=e.nf;if(!k||k==='__vaga__')return '';
+            /* resolve o NÚMERO humano — o rastreador mostra "NF 1378", não a chave interna */
+            var d=(typeof NFS!=='undefined'&&NFS[k])||null;if(d&&d.nNF)return 'NF '+d.nNF;
+            var r=(typeof ROMS!=='undefined'&&ROMS[k])||null;if(r&&r.nRomaneio)return 'Rom. '+r.nRomaneio;
+            return '';}catch(_e){return '';}})()};
           MV.unshift(_mv); if(MV.length>5000)MV.length=5000; /* log local enxuto: o histórico completo fica na nuvem */
           if(typeof persist==='function')persist(); else if(DB&&DB.saveMovs)DB.saveMovs(MV);
           if(typeof syncMov==='function')syncMov(MV[0]);
@@ -5353,8 +5367,8 @@ updateStageBadge();
   // limpa o resultado do scan: QR de etiqueta de rastreio vem com várias linhas (id, Cod:, descrição, Vaga:, ...)
   function rqlLimpaScan(v,tipo){
     v=String(v||'').trim();
-    if(v.indexOf('\n')<0&&v.indexOf('COD:')<0&&v.indexOf('Cod:')<0&&v.indexOf('VAGA')<0&&v.indexOf('Vaga:')<0)return v; // texto simples, retorna como veio
-    var lines=v.split(/\r?\n/).map(function(s){return s.trim();}).filter(Boolean);
+    if(v.indexOf('\n')<0&&v.indexOf('COD:')<0&&v.indexOf('Cod:')<0&&v.indexOf('VAGA')<0&&v.indexOf('Vaga:')<0&&v.indexOf('|')<0)return v; // texto simples, retorna como veio
+    var lines=v.split(/[\r\n|]+/).map(function(s){return s.trim();}).filter(Boolean);
     if(tipo==='addr'){
       // procura a linha "Vaga: X-000-0" ou um padrão de endereço
       for(var i=0;i<lines.length;i++){
@@ -5786,9 +5800,10 @@ window.cleanScanCode=function(v,kind){
   try{
     v=String(v==null?'':v).trim();
     if(!v)return v;
-    var multi=(v.indexOf('\n')>=0)||/COD:|Cod:|\bVAGA\b|Vaga:/.test(v);
+    var multi=(v.indexOf('\n')>=0)||(v.indexOf('|')>=0)||/COD:|Cod:|\bVAGA\b|Vaga:/.test(v);
     if(kind==='addr'){
-      var La=v.split(/\r?\n/).map(function(s){return s.trim();}).filter(Boolean);
+      /* separa por quebra de linha OU por | — cobre o QR antigo (multi-linha) e o novo (linha única) */
+      var La=v.split(/[\r\n|]+/).map(function(s){return s.trim();}).filter(Boolean);
       for(var i=0;i<La.length;i++){
         var m=La[i].match(/vaga:?\s*([A-Za-z]-?\d+-?\d*)/i);if(m)return m[1].toUpperCase();
         var m2=La[i].match(/\b([A-Za-z]-\d{2,3}-\d{1,2})\b/);if(m2)return m2[1].toUpperCase();
@@ -5796,7 +5811,7 @@ window.cleanScanCode=function(v,kind){
       return La[0]||v;
     }
     if(!multi)return v; /* texto simples (código de barras normal): retorna como veio */
-    var lines=v.split(/\r?\n/).map(function(s){return s.trim();}).filter(Boolean);
+    var lines=v.split(/[\r\n|]+/).map(function(s){return s.trim();}).filter(Boolean);
     /* o ID da etiqueta é a 1ª linha, antes de qualquer "COD:" */
     var first=(lines[0]||v).split(/cod:?/i)[0].trim();
     /* se a 1ª linha vier vazia por algum motivo, procura a primeira que pareça um ID */
@@ -5892,7 +5907,7 @@ async function pdfExtractLines(buf){
 }
 function qrSvg(text){if(!window.qrcode)return '<div style="font-size:.6rem;color:#999;padding:30px 0">QR…</div>';try{const qr=window.qrcode(0,'M');qr.addData(String(text));qr.make();const n=qr.getModuleCount(),cell=4,margin=2,size=(n+margin*2)*cell;let r='';for(let y=0;y<n;y++)for(let x=0;x<n;x++){if(qr.isDark(y,x))r+='<rect x="'+((x+margin)*cell)+'" y="'+((y+margin)*cell)+'" width="'+cell+'" height="'+cell+'"/>';}return '<svg class="qr" viewBox="0 0 '+size+' '+size+'" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"><rect width="'+size+'" height="'+size+'" fill="#fff"/><g fill="#000">'+r+'</g></svg>';}catch(e){return '<div style="font-size:.6rem;color:#c00">erro QR</div>';}}
 labelHTML=function(c,desc,w,bcText){return '<div class="label"><div class="lt">PACKEM · '+whLabel(w).toUpperCase()+'</div><div class="lc2">'+c+'</div>'+qrSvg(bcText||c)+(desc?'<div class="ld">'+desc+'</div>':'')+'</div>';};
-showLabelSheet=function(c,desc,w){openDrawer(ICONS.tag+' Etiqueta','<div id="printArea"><div class="labels" style="grid-template-columns:1fr" id="lsBox"><div style="text-align:center;color:var(--muted);padding:30px">gerando QR…</div></div></div><button class="gbtn" id="shPrint" style="width:100%;justify-content:center;margin-top:16px">'+ICONS.print+' Imprimir</button>');const draw=()=>{const b=$('#lsBox');if(b)b.innerHTML=labelHTML(c,desc,w);};loadQR().then(draw).catch(draw);$('#shPrint').onclick=()=>{try{window.print();}catch(_pe){}};};
+/* [consolidação] definição intermediária de showLabelSheet removida — código morto: a versão final (com logo Packem, mais abaixo) a sobrescrevia no carregamento antes de qualquer uso. */
 $('#genEnd').onclick=function(){const st=$('#lblStreet').value,scope=$('#lblScope').value;let rows=S.filter(x=>x.w===cfg.warehouse);if(scope!=='todas')rows=rows.filter(x=>x.s===st);if(scope==='ocupados')rows=rows.filter(x=>x.o&&x.pr);rows.sort((a,b)=>a.s.localeCompare(b.s)||a.p-b.p||a.l.localeCompare(b.l));if(!rows.length){toast('Nada para gerar',false);return;}$('#labelsBox').innerHTML='<div style="color:var(--muted);padding:20px">gerando QR codes…</div>';loadQR().then(()=>{$('#labelsBox').innerHTML=rows.slice(0,600).map(x=>labelHTML(code(x),x.pr||'',cfg.warehouse)).join('');$('#printLabels').style.display='inline-flex';toast(rows.length+' etiquetas'+(rows.length>600?' · 600 mostradas (imprima por rua p/ todas)':''));}).catch(()=>toast('Sem internet para gerar QR — conecte e tente de novo',false));};
 
 /* ===== SUPABASE SYNC ===== */
@@ -7098,23 +7113,41 @@ renderStockTable=_renderStockTableNova=function(){const rows=filterStock();
  const fxw=document.getElementById('stFixWeights');if(fxw)fxw.onclick=()=>{const bad=S.filter(x=>x.w===cfg.warehouse&&qBad(x.q,x));if(!bad.length){toast('Nenhum peso inválido encontrado');return;}if(!confirm('Encontrei '+bad.length+' posição(ões) com peso bugado. Vou corrigir pelo peso do cadastro das bobinas (quando houver) — as demais ficam zeradas p/ recontar. Confirmar?'))return;try{_wPushed=false;_wToasted=false;autoFixWeights();}catch(e){}try{persist();}catch(e){}logAct&&logAct('fix','corrigiu '+bad.length+' pesos bugados pelo cadastro');renderStockTable();};})();
 
 /* ===== RASTREADOR DE MOVIMENTAÇÕES (aba nova) ===== */
+/* ===== ORIGEM NF RETROATIVA =====
+   Movimentos novos já nascem com a marca nf:1. Os ANTIGOS não têm a marca, mas dá
+   pra deduzir com segurança: toda etiqueta gerada pela aba Nota Fiscal vive no
+   registro ETQ — então recebimento cuja etiqueta está no ETQ veio da NF. E o ETQ
+   guarda de QUAL documento, o que resolve o número retroativamente também. */
+function trkEhNF(m){try{if(m&&m.nf)return true;return !!(m&&m.action==='recebimento'&&m.et&&typeof ETQ!=='undefined'&&ETQ[m.et]);}catch(e){return false;}}
+function trkNumNF(m){try{
+  if(m&&m.req)return m.req;
+  if(!(m&&m.et&&typeof ETQ!=='undefined'&&ETQ[m.et]))return '';
+  var k=ETQ[m.et].nf;if(!k||k==='__vaga__')return '';
+  var d=(typeof NFS!=='undefined'&&NFS[k])||null;if(d&&d.nNF)return 'NF '+d.nNF;
+  var r=(typeof ROMS!=='undefined'&&ROMS[k])||null;if(r&&r.nRomaneio)return 'Rom. '+r.nRomaneio;
+  return '';}catch(e){return '';}}
 const ALAB={entrada:['Entrada','in'],saida:['Saída','out'],producao:['Produção','muted'],transf:['Transferência','muted'],recebimento:['Recebimento','in'],armazenar:['Armazenado','in'],req_saida:['Saída p/ requisição','out'],interm_saida:['Saída intermediário','out']};
 function trkRows(){const q=norm((document.getElementById('trkSearch')||{}).value||'');const tp=((document.getElementById('trkType')||{}).value)||'';const f=((document.getElementById('trkFrom')||{}).value)||'';const t=((document.getElementById('trkTo')||{}).value)||'';const wf=((document.getElementById('trkWh')||{}).value)||'';
  let rows=MV.slice();
  if(wf)rows=rows.filter(m=>(m.w||'70')===wf);
- if(tp)rows=rows.filter(m=>m.action===tp);
+ if(tp==='nf')rows=rows.filter(m=>trkEhNF(m));else if(tp)rows=rows.filter(m=>m.action===tp);
  if(q)rows=rows.filter(m=>(m.code||'').toUpperCase().includes(q)||(m.pr||'').toUpperCase().includes(q)||(m.et||'').toUpperCase().includes(q)||norm(descOf(m.pr)).includes(q));
  if(f){const ff=new Date(f+'T00:00:00').getTime();rows=rows.filter(m=>new Date(m.at).getTime()>=ff);}
  if(t){const tt=new Date(t+'T23:59:59').getTime();rows=rows.filter(m=>new Date(m.at).getTime()<=tt);}
  return rows;}
 function renderTrackTable(){const rows=trkRows();$('#trkCount').textContent=rows.length+' movimentos';
- const ent=rows.filter(m=>m.action==='entrada').reduce((s,m)=>s+(+m.q||0),0);
- const sai=rows.filter(m=>m.action==='saida').reduce((s,m)=>s+(+m.q||0),0);
+ /* BUG corrigido: os cards só somavam action==='entrada'/'saida' — 866 recebimentos
+    apareciam como "Entradas +0 kg". Agora soma pela DIREÇÃO que o próprio ALAB declara:
+    'in' (entrada, recebimento, armazenado) e 'out' (saída, req., interm.). Produção
+    segue em card próprio, fora do 'out' (no ALAB ela é 'muted'). */
+ const _dir=m=>(ALAB[m.action]||[])[1]||'';
+ const ent=rows.filter(m=>_dir(m)==='in').reduce((s,m)=>s+(+m.q||0),0);
+ const sai=rows.filter(m=>_dir(m)==='out').reduce((s,m)=>s+(+m.q||0),0);
  const prd=rows.filter(m=>m.action==='producao').reduce((s,m)=>s+(+m.q||0),0);
  const sm=document.getElementById('trkSum');if(sm)sm.innerHTML='<div class="sc"><span>Movimentos</span><b>'+rows.length+'</b></div><div class="sc"><span>Entradas</span><b style="color:#16a34a">+'+fmt(ent)+' <i>KG</i></b></div><div class="sc"><span>Saídas</span><b style="color:#dc2626">−'+fmt(sai)+' <i>KG</i></b></div><div class="sc"><span>Produção</span><b>'+fmt(prd)+' <i>KG</i></b></div>';
  const cap=rows.slice(0,300);
  $('#trkTable').innerHTML='<thead><tr><th>Data/hora</th><th>Tipo</th><th>Etiqueta</th><th>Produto</th><th>Descrição</th><th>Endereço</th><th class="num">Qtd</th><th class="num">Antes → Depois</th><th>Operador</th></tr></thead><tbody>'+
-  (cap.length?cap.map(m=>{const a=ALAB[m.action]||[m.action,'muted'];var _u=(m.u||(typeof unitOf==='function'?unitOf(m.pr):'KG')).toLowerCase();return '<tr><td style="color:var(--muted);white-space:nowrap">'+new Date(m.at).toLocaleString('pt-BR')+'</td><td><span class="pill '+a[1]+'">'+a[0]+'</span></td><td class="mono">'+(m.et||'—')+'</td><td class="mono">'+(m.pr||'—')+'</td><td style="color:var(--muted);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(descOf(m.pr)||'').replace(/"/g,'&quot;')+'">'+(descOf(m.pr)||'—')+'</td><td class="mono">'+(m.code||'—')+'</td><td class="num">'+fmt(m.q)+' '+_u+'</td><td class="num" style="color:var(--muted)">'+fmt(m.before)+' → '+fmt(m.after)+'</td><td style="color:var(--muted)">'+(m.by||'—')+'</td></tr>';}).join('')
+  (cap.length?cap.map(m=>{let a=ALAB[m.action]||[m.action,'muted'];if(trkEhNF(m))a=['Entrada NF','in'];/* origem NF: marca nova OU dedução retroativa pelo ETQ */var _u=(m.u||(typeof unitOf==='function'?unitOf(m.pr):'KG')).toLowerCase();return '<tr><td style="color:var(--muted);white-space:nowrap">'+new Date(m.at).toLocaleString('pt-BR')+'</td><td><span class="pill '+a[1]+'">'+a[0]+'</span>'+(function(){var nn=trkNumNF(m);return nn?'<div style="font-size:.66rem;color:var(--muted);font-weight:700;margin-top:2px">'+nn+'</div>':'';})()+'</td><td class="mono">'+(m.et||'—')+'</td><td class="mono">'+(m.pr||'—')+'</td><td style="color:var(--muted);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(descOf(m.pr)||'').replace(/"/g,'&quot;')+'">'+(descOf(m.pr)||'—')+'</td><td class="mono">'+(m.code||'—')+'</td><td class="num">'+fmt(m.q)+' '+_u+'</td><td class="num" style="color:var(--muted)">'+fmt(m.before)+' → '+fmt(m.after)+'</td><td style="color:var(--muted)">'+(m.by||'—')+'</td></tr>';}).join('')
   :'<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--muted)">Nenhum movimento encontrado</td></tr>')+'</tbody>';
  if(rows.length>2000)$('#trkCount').textContent=rows.length+' movimentos · 2000 mostrados';}
 function renderTrack(){const v=$('#v-track');if(!v)return;
@@ -7122,7 +7155,7 @@ function renderTrack(){const v=$('#v-track');if(!v)return;
   v.innerHTML='<div class="ph-head"><div><p class="eb">Operação · rastreador</p><h1>Movimentações</h1></div><button class="btn ghost" id="trkExport">'+ICONS.down+' Exportar CSV</button></div>'
    +'<div class="filters" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">'
    +'<div class="search" style="flex:1;min-width:240px"><span class="si" data-ic="search"></span><input id="trkSearch" placeholder="buscar produto, etiqueta ou endereço"></div>'
-   +'<select class="input" id="trkType"><option value="">Todos os tipos</option><option value="entrada">Entrada</option><option value="saida">Saída</option><option value="recebimento">Recebimento (intermediário)</option><option value="producao">Produção</option><option value="transf">Transferência</option></select>'
+   +'<select class="input" id="trkType"><option value="">Todos os tipos</option><option value="entrada">Entrada</option><option value="saida">Saída</option><option value="recebimento">Recebimento (intermediário)</option><option value="nf">Entrada NF</option><option value="producao">Produção</option><option value="transf">Transferência</option></select>'
    +'<select class="input" id="trkWh"><option value="">Todos os depósitos</option><option value="70">Dep 70</option><option value="novo">Novo</option><option value="chao">Chão</option></select>'
    +'<input class="input" id="trkFrom" type="date" style="max-width:160px" title="De">'
    +'<input class="input" id="trkTo" type="date" style="max-width:160px" title="Até">'
@@ -8079,6 +8112,13 @@ function rastUnit(e,desc){
  return /^ALCA|^CADARC/.test(d)?'m':'kg';
 }
 function rastQRPayload(e){
+ /* ===== QR DE LINHA ÚNICA =====
+    O formato antigo usava \n entre os campos. Leitor de código de barras é um
+    teclado: cada \n vira um ENTER — e foi exatamente isso que causou o bug da
+    tela de impressão pipocando após o confirmar do mapa (o "rabo" do QR vazava
+    como teclas soltas). Uma linha com separador | elimina a classe inteira de
+    bugs de leitor, pra sempre. cleanScanCode/parseBobina leem os DOIS formatos,
+    então as etiquetas antigas continuam bipando normalmente. */
  var desc=e.xProd||nfDescByCode(e.cProd)||'';
  var unit=rastUnit(e,desc);
  var d=desc.length>48?desc.slice(0,48):desc;
@@ -8088,7 +8128,7 @@ function rastQRPayload(e){
  if(e.kg>0)L.push(fmt(e.kg)+' '+unit);
  if(e.addr)L.push('Vaga: '+e.addr); else if(e.nNF)L.push('NF: '+e.nNF);
  if(e.lote)L.push('Lote: '+e.lote);
- return L.join('\n');
+ return L.join(' | ');
 }
 /* ---- card único para etiquetas de rastreio/romaneio (100x100, QR grande em cima) ---- */
 function zEtqCard(e,dim,H,u,kind){
@@ -8207,7 +8247,7 @@ function printZebraEtq(arr,dim,kind){
 function printZebraRast(arr,dim,orient){var d=dim||(typeof ZSIZES!=='undefined'?ZSIZES.z100:{w:100,h:100,n:'100×100'});if(orient==='paisagem'){d={w:d.h,h:d.w,n:(d.n||'')+' (deitada)'};}return printZebraEtq(arr,d,'rast');}
 function printZebraRom(arr,dim){return printZebraEtq(arr,dim,'rom');}
 function romQRPayload(e){
- var L=[e.id||e.bobina]; /* PRIMEIRA linha = id único (é o que a bipagem lê e casa) */
+ var L=[e.id||e.bobina]; /* PRIMEIRO token = id único (é o que a bipagem lê e casa) */
  if(e.cProd||e.bobina)L.push('Cod: '+(e.cProd||e.bobina));
  if(e.nRomaneio)L.push('Romaneio: '+e.nRomaneio);
  if(e.op)L.push('OP: '+e.op);
@@ -8215,7 +8255,7 @@ function romQRPayload(e){
  var desc=e.xProd||e.gramatura||''; if(desc)L.push(desc);
  if(e.kg>0)L.push(fmt(e.kg)+' kg liq.');
  if(e.pesoBruto>0)L.push(fmt(e.pesoBruto)+' kg bruto');
- return L.join('\n');
+ return L.join(' | '); /* linha única — ver comentário em rastQRPayload */
 }
 printBobLabel=function(et){var o=BOB[et];if(!o){toast('Etiqueta não encontrada',false);return;}
  var _bd=((typeof window.convDescByCod==='function'&&window.convDescByCod(o.pr))||o.desc||'');
@@ -10179,7 +10219,12 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
         if(spA){var bq=Number(spA.q)||0;spA.q=Math.max(0,Math.round((bq-(Number(it.pl)||0))*1000)/1000);if(spA.q<=0){spA.q=0;spA.o=false;spA.pr='';}spA.upd=(typeof nowISO==='function'?nowISO():new Date().toISOString());spA.by=(typeof session!=='undefined'&&session?session.u:'');
           try{if(typeof syncSpace==='function')syncSpace(spA);}catch(e){}}
       }
-      if(typeof LOC!=='undefined')LOC[it.et]=cd;
+      /* LOC é endereço de PRATELEIRA. Contagem de CHÃO não grava LOC — era isso
+         que criava etiquetas apontando pra "vaga" CHÃO 70 inexistente na Saúde. */
+      if(typeof LOC!=='undefined'){
+        if(sp._chao){if(LOC[it.et]){delete LOC[it.et];try{if(typeof syncDelLoc==='function')syncDelLoc(it.et);}catch(e){}}}
+        else LOC[it.et]=cd;
+      }
     });
     try{if(typeof saveLOC==='function')saveLOC();}catch(e){}
     /* 2) grava a vaga com o que foi bipado (a realidade) */
@@ -12543,6 +12588,213 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
   var teto=function(){try{if(typeof MV!=='undefined'&&Array.isArray(MV)&&MV.length>5000){MV.length=5000;try{persist();}catch(e){}}}catch(e){}};
   teto();setInterval(teto,60000);
 })();
+
+/* ============================================================
+   2) VALIDAÇÃO NA PORTA DE ENTRADA
+   Os códigos-lixo ("1","123") que poluíam os relatórios entravam pelo bipe sem
+   ninguém perceber. O filtro na exibição limpava a tela, mas o dado sujo
+   continuava entrando. Agora a validação é na PORTA: produto sem cadastro no
+   catálogo pede confirmação explícita antes de entrar na prateleira ou no
+   Chão 70. Um "ok" consciente ainda passa (tem material legítimo recém-chegado
+   sem cadastro), mas lixo de leitor não entra mais sozinho. */
+(function(){
+  function temCadastro(pr){
+    try{
+      pr=String(pr||'').trim().toUpperCase();if(!pr)return false;
+      if(typeof VL!=='undefined'&&Array.isArray(VL)&&VL.some(function(v){return String(v.codigo||'').toUpperCase()===pr;}))return true;
+      if(typeof descOf==='function'&&descOf(pr))return true;
+      if(/^0\d{6,}$/.test(pr))return true; /* formato Packem: aceito mesmo sem descrição */
+      return false;
+    }catch(e){return true;} /* na dúvida, não bloqueia operação */
+  }
+  window.prodTemCadastro=temCadastro;
+  /* porta 1: entrada na prateleira (cobre mapa, movimentação e armazenar do intermediário) */
+  try{
+    var _pb=placeBobina;
+    placeBobina=function(et,pr,pl,c){
+      if(!temCadastro(pr)){
+        if(!confirm('O código "'+pr+'" NÃO está no catálogo de produtos.\n\nIsso costuma ser erro de leitura ou etiqueta errada.\nRegistrar a entrada mesmo assim?'))return false;
+      }
+      return _pb(et,pr,pl,c);
+    };
+    window.placeBobina=placeBobina;
+  }catch(e){}
+  /* porta 2: entrada direta no Chão 70 */
+  try{
+    if(typeof window.floor70Add==='function'){
+      var _fa=window.floor70Add;
+      window.floor70Add=async function(v){
+        try{
+          var b=(typeof parseBobina==='function')?parseBobina(v):null;
+          var pr=b&&b.pr?String((typeof cleanProd==='function')?cleanProd(b.pr):b.pr):'';
+          if(pr&&pr!==String(v).trim().toUpperCase()&&!temCadastro(pr)){
+            if(!confirm('O código "'+pr+'" NÃO está no catálogo.\nContar no Chão 70 mesmo assim?'))return;
+          }
+        }catch(e){}
+        return _fa(v);
+      };
+    }
+  }catch(e){}
+})();
+
+/* ============================================================
+   3) SAÚDE DO SISTEMA — invariantes sobre os DADOS REAIS
+   A auditoria estática confere o código; esta tela confere o que o código não
+   enxerga: os dados. Cada regra abaixo é algo que NUNCA deveria acontecer num
+   armazém saudável — quando acontece, é sintoma de bug de sync ou operação
+   errada, e é melhor descobrir aqui do que no inventário. Aba só de admin. */
+(function(){
+  function _fk(n){try{return (typeof fmt==='function')?fmt(n):n;}catch(e){return n;}}
+  function verificar(){
+    var problemas=[]; /* {regra, gravidade, itens:[{ref,det}]} */
+    var add=function(regra,grav,itens){if(itens.length)problemas.push({regra:regra,grav:grav,itens:itens});};
+    var SS=(typeof S!=='undefined'&&Array.isArray(S))?S:[];
+    var byCode={};SS.forEach(function(x){try{byCode[code(x)]=x;}catch(e){}});
+    /* I1/I2/I3: etiquetas armazenadas (LOC) coerentes com as vagas */
+    var i1=[],i2=[],i3=[],i9=[],i8=[];
+    if(typeof LOC!=='undefined'){
+      Object.keys(LOC).forEach(function(et){
+        var addr=LOC[et],sp=byCode[addr];
+        if(!sp){i1.push({ref:et,det:'aponta para vaga inexistente '+addr});return;}
+        if(!sp.o||(Number(sp.q)||0)<=0)i2.push({ref:et,det:'aponta para '+addr+' que está vazia'});
+        var bpr=(typeof BOB!=='undefined'&&BOB[et]&&BOB[et].pr)?BOB[et].pr:null;
+        if(bpr&&sp.pr&&bpr!==sp.pr)i3.push({ref:et,det:'produto da etiqueta ('+bpr+') difere do da vaga '+addr+' ('+sp.pr+')'});
+        try{if(typeof window.f70HasEt==='function'&&window.f70HasEt(et))i9.push({ref:et,det:'na prateleira ('+addr+') E no Chão 70 ao mesmo tempo'});}catch(e){}
+        try{if(typeof STAGE!=='undefined'&&STAGE.some(function(x){return x.et===et;}))i8.push({ref:et,det:'armazenada em '+addr+' mas ainda listada no intermediário'});}catch(e){}
+      });
+    }
+    add('Etiqueta aponta para vaga que não existe','alta',i1);
+    add('Etiqueta aponta para vaga vazia','alta',i2);
+    add('Produto da etiqueta difere do produto da vaga','alta',i3);
+    add('Bobina na prateleira e no Chão 70 ao mesmo tempo','media',i9);
+    add('Bobina armazenada mas ainda no intermediário','media',i8);
+    /* I4/I5/I6: vagas internamente coerentes */
+    var i4=[],i5=[],i6=[];
+    SS.forEach(function(x){
+      var q=Number(x.q)||0;
+      if(x.o&&!x.pr)i4.push({ref:code(x),det:'ocupada sem produto'});
+      if(q<0)i5.push({ref:code(x),det:'saldo NEGATIVO: '+_fk(q)+' kg'});
+      if(!x.o&&q>0.001)i6.push({ref:code(x),det:'marcada livre com '+_fk(q)+' kg dentro'});
+    });
+    add('Vaga ocupada sem produto','media',i4);
+    add('Saldo negativo','alta',i5);
+    add('Vaga "livre" com peso dentro','media',i6);
+    /* I7: soma das etiquetas ≠ saldo da vaga (só quando TODAS as etiquetas têm peso) */
+    var i7=[];
+    if(typeof LOC!=='undefined'&&typeof BOB!=='undefined'){
+      var porVaga={};
+      Object.keys(LOC).forEach(function(et){(porVaga[LOC[et]]=porVaga[LOC[et]]||[]).push(et);});
+      Object.keys(porVaga).forEach(function(addr){
+        var sp=byCode[addr];if(!sp||!sp.o)return;
+        var ets=porVaga[addr];var soma=0,completo=true;
+        ets.forEach(function(et){var b=BOB[et];if(!b||b.pl==null){completo=false;return;}soma+=Number(b.pl)||0;});
+        if(completo&&Math.abs(soma-(Number(sp.q)||0))>0.5)
+          i7.push({ref:addr,det:'etiquetas somam '+_fk(soma)+' kg, vaga registra '+_fk(sp.q)+' kg ('+ets.length+' etq.)'});
+      });
+    }
+    add('Soma das etiquetas difere do saldo da vaga','media',i7);
+    /* I10: movimentos malformados no log recente */
+    var i10=[];
+    try{(MV||[]).slice(0,500).forEach(function(m){
+      if(!m)return;
+      if(!(Number(m.q)>0))i10.push({ref:(m.pr||'?')+' @ '+(m.code||m.at||''),det:'movimento com quantidade inválida ('+m.q+')'});
+      else if(!m.pr)i10.push({ref:m.code||m.at||'?',det:'movimento sem produto'});
+    });}catch(e){}
+    add('Movimentos malformados (últimos 500)','baixa',i10.slice(0,50));
+    return problemas;
+  }
+  window.saudeVerificar=verificar;
+
+  /* ===== CORREÇÃO AUTOMÁTICA (só o que é seguro decidir sozinho) =====
+     · etiqueta → vaga inexistente/vazia: solta a etiqueta (ela não está na prateleira;
+       se estiver no Chão 70, continua lá — o chão não usa LOC)
+     · armazenada mas no intermediário: sai do intermediário (a prateleira é a verdade)
+     · prateleira + Chão 70 ao mesmo tempo: sai do chão (regra da casa: entrou na
+       prateleira, saiu do chão)
+     O que exige OLHO HUMANO fica de fora de propósito: produto divergente, soma que
+     não bate e saldo negativo são sintoma de contagem — corrige recontando a vaga
+     no Inventário, não com um botão. */
+  window.saudeCorrigir=function(){
+    var n1=0,n2=0,n3=0;
+    try{
+      var byCode={};(S||[]).forEach(function(x){try{byCode[code(x)]=x;}catch(e){}});
+      if(typeof LOC!=='undefined'){
+        Object.keys(LOC).slice().forEach(function(et){
+          var sp=byCode[LOC[et]];
+          if(!sp||!sp.o||(Number(sp.q)||0)<=0){
+            delete LOC[et];if(typeof BOB!=='undefined'&&BOB[et])BOB[et].rem=0;
+            try{if(typeof syncDelLoc==='function')syncDelLoc(et);}catch(e){}
+            n1++;return;
+          }
+          try{if(typeof STAGE!=='undefined'&&STAGE.some(function(x){return x.et===et;})){
+            STAGE=STAGE.filter(function(x){return x.et!==et;});
+            try{if(typeof syncDelStage==='function')syncDelStage(et);}catch(e){}
+            n2++;
+          }}catch(e){}
+          try{if(typeof window.f70HasEt==='function'&&window.f70HasEt(et)&&typeof window.f70Saida==='function'){
+            window.f70Saida(et);n3++;
+          }}catch(e){}
+        });
+        try{saveLOC();}catch(e){}
+        try{if(typeof saveStage==='function')saveStage();}catch(e){}
+        try{if(typeof updateStageBadge==='function')updateStageBadge();}catch(e){}
+        try{persist();}catch(e){}
+      }
+    }catch(e){}
+    try{toast('Corrigido: '+n1+' etiqueta(s) solta(s), '+n2+' fora do intermediário, '+n3+' fora do Chão 70');}catch(e){}
+    return n1+n2+n3;
+  };
+
+  var GRAV={alta:{c:'#dc2626',t:'Crítico'},media:{c:'#d97706',t:'Atenção'},baixa:{c:'#6b7280',t:'Info'}};
+  function render(){
+    var v=document.getElementById('v-saude');if(!v)return;
+    var probs=verificar();
+    var tot=probs.reduce(function(a,p){return a+p.itens.length;},0);
+    var head='<div class="ph-head"><div><p class="eb">Diagnóstico · dados reais</p><h1>Saúde do sistema</h1></div>'+
+      '<div style="display:flex;gap:10px"><button class="btn brand" id="sdFix" style="padding:8px 16px">Corrigir automaticamente</button><button class="gbtn" id="sdRefresh" style="padding:8px 16px">Verificar de novo</button></div></div>'+
+      '<div style="background:var(--card);border:1px solid var(--line);border-left:5px solid '+(tot?'#dc2626':'#15803d')+';border-radius:14px;padding:16px 20px;margin-bottom:18px">'+
+        (tot?('<b style="color:#dc2626;font-size:1.05rem">'+tot+' inconsistência(s) encontrada(s)</b><div style="font-size:.82rem;color:var(--muted);margin-top:4px">Cada uma é algo que não deveria existir num armazém saudável — normalmente sintoma de sync entre aparelhos ou operação fora do fluxo. Corrija pelo Inventário (recontar a vaga) ou pelo Estoque.</div>')
+            :('<b style="color:#15803d;font-size:1.05rem">Tudo coerente.</b><div style="font-size:.82rem;color:var(--muted);margin-top:4px">Etiquetas, vagas, saldos e log de movimentos passaram em todas as verificações.</div>'))+
+      '</div>';
+    var corpo=probs.map(function(p){
+      var g=GRAV[p.grav]||GRAV.baixa;
+      return '<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:12px;overflow:hidden">'+
+        '<div style="padding:12px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px">'+
+          '<b style="font-size:.9rem">'+p.regra+'</b>'+
+          '<span style="background:'+g.c+'1a;color:'+g.c+';border-radius:99px;padding:2px 12px;font-size:.72rem;font-weight:800">'+g.t+' · '+p.itens.length+'</span></div>'+
+        '<div style="padding:6px 18px 12px">'+p.itens.slice(0,20).map(function(it){
+          return '<div style="display:flex;gap:12px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:.82rem"><b class="mono" style="flex:none;min-width:110px">'+it.ref+'</b><span style="color:var(--muted)">'+it.det+'</span></div>';
+        }).join('')+(p.itens.length>20?'<div style="padding:8px 0;font-size:.74rem;color:var(--muted)">+'+(p.itens.length-20)+' — use o Exportar</div>':'')+'</div></div>';
+    }).join('');
+    var exp=tot?'<button class="gbtn" id="sdExport" style="padding:8px 16px;margin-top:4px">Exportar CSV</button>':'';
+    v.innerHTML=head+corpo+exp;
+    var rf=document.getElementById('sdRefresh');if(rf)rf.onclick=render;
+    var fx=document.getElementById('sdFix');if(fx)fx.onclick=function(){
+      if(!confirm('Corrigir automaticamente?\n\n· Etiquetas apontando pra vaga inexistente/vazia serão SOLTAS (se estiverem no Chão 70, continuam lá)\n· Bobinas armazenadas saem do intermediário\n· Bobinas na prateleira saem do Chão 70\n\nProduto divergente, soma que não bate e saldo negativo NÃO são tocados — esses se corrigem recontando a vaga no Inventário.'))return;
+      window.saudeCorrigir();render();
+    };
+    var ex=document.getElementById('sdExport');if(ex)ex.onclick=function(){
+      var rows=[['Regra','Gravidade','Referencia','Detalhe']];
+      verificar().forEach(function(p){p.itens.forEach(function(it){rows.push([p.regra,p.grav,it.ref,it.det]);});});
+      try{dl('saude_sistema_'+new Date().toISOString().slice(0,10)+'.csv',csv(rows));toast('Diagnóstico exportado');}catch(e){}
+    };
+  }
+  window.renderSaude=render;
+  /* injeta a aba (admin) */
+  try{
+    var ref=[].slice.call(document.querySelectorAll('.nav')).find(function(n){return n.dataset.view==='v-amrp';})
+        ||[].slice.call(document.querySelectorAll('.nav')).find(function(n){return n.dataset.view==='v-abc';});
+    var nv=document.createElement('div');nv.className='nav adminOnly';nv.dataset.view='v-saude';
+    nv.innerHTML='<span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>Saúde do sistema';
+    if(ref&&ref.parentNode)ref.after(nv);else{var sn=document.querySelector('.sb-nav');if(sn)sn.appendChild(nv);}
+    nv.onclick=function(){go('v-saude');};
+    var sec=document.createElement('section');sec.className='view';sec.id='v-saude';
+    var mn=document.querySelector('main');if(mn)mn.appendChild(sec);
+    if(typeof TITLES!=='undefined')TITLES['v-saude']='Saúde do sistema';
+  }catch(e){}
+})();
+/* roteador da Saúde (fora da IIFE p/ enxergar o render global) */
+(function(){try{var _r=render;render=function(id){if(id==='v-saude')return window.renderSaude();return _r(id);};}catch(e){}})();
 </script>
 </body>
 </html>

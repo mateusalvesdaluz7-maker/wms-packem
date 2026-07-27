@@ -2152,9 +2152,15 @@ $('#genBobStock').onclick=()=>{const sel=$('#lblStreet').value;let rows=occSpace
   // auto-preenche descrição ao digitar o código (puxa do cadastro existente)
   var ci=document.getElementById('rastProd'),di=document.getElementById('rastDesc');
   if(ci&&di){
-    var fill=function(){var d=(typeof nfDescByCode==='function')?nfDescByCode(norm(ci.value)):'';if(d&&(!di.value||di.dataset.auto==='1')){di.value=d;di.dataset.auto='1';}};
+    var fill=function(){
+      var codeNow=norm(ci.value);
+      // se o código mudou desde o último preenchimento, destrava e volta a auto-preencher
+      if(di.dataset.forCode!==codeNow){di.dataset.auto='1';di.dataset.forCode=codeNow;}
+      var d=(typeof nfDescByCode==='function')?nfDescByCode(codeNow):'';
+      if(d&&(!di.value||di.dataset.auto==='1')){di.value=d;di.dataset.auto='1';}
+    };
     ci.addEventListener('input',fill);ci.addEventListener('blur',fill);ci.addEventListener('change',fill);
-    di.addEventListener('input',function(){di.dataset.auto='';}); // se digitar manual, para de auto-preencher
+    di.addEventListener('input',function(){di.dataset.auto='';di.dataset.forCode=norm(ci.value);}); // manual: trava só pra ESTE código
   }
   gr.onclick=function(){
   var pr=norm(($('#rastProd').value)||''),qt=Number($('#rastQtd').value)||0,d=(($('#rastDesc').value)||'').trim(),un=(($('#rastUn').value)||'KG'),lote=(($('#rastLote').value)||'').trim(),cp=Math.max(1,Number($('#rastCopies').value)||1);

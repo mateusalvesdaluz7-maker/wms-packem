@@ -2901,11 +2901,13 @@ function renderRecv(){const adm=isAdmin();
  '<div class="two">'+
   '<div class="panel"><div class="ph"><span class="pdot"></span>Bipar etiqueta para receber</div>'+
    '<label class="fld"><span class="lab">Etiqueta (T…)</span><input class="input code" id="recvScan" placeholder="ex: T40364663" '+(adm?'':'disabled')+'></label>'+
-   '<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">A bobina cai aqui como <b>pendente</b>. Depois você decide: <b>armazenar</b> num endereço ou <b>mandar para produção</b>.</p><label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvAutoLbl"'+(autoLabelOn()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Imprimir etiqueta na Zebra ao bipar (receber)</label><label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvStation"'+(isPrintStation()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Esta máquina imprime na Zebra (estação do PC)</label><div style="margin-top:12px"><button class="gbtn" id="recvSetFmt" style="width:100%;justify-content:center">'+(ICONS.tag||'')+' Escolher modelo da etiqueta</button><div style="font-size:.72rem;color:var(--muted);margin-top:6px" id="recvFmtLbl"></div></div></div>'+
+   '<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">A bobina cai aqui como <b>pendente</b>. Depois você decide: <b>armazenar</b> num endereço ou <b>mandar para produção</b>.</p><label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvAutoLbl"'+(autoLabelOn()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Imprimir etiqueta automaticamente ao bipar</label><label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvStation"'+(isPrintStation()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Esta máquina imprime na Zebra (estação do PC)</label><div style="margin-top:12px"><button class="gbtn" id="recvSetFmt" style="width:100%;justify-content:center">'+(ICONS.tag||'')+' Escolher modelo da etiqueta</button><div style="font-size:.72rem;color:var(--muted);margin-top:6px" id="recvFmtLbl"></div></div></div>'+
   '<div class="panel" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><div style="font-family:var(--disp);font-size:3rem;font-weight:800;line-height:1">'+STAGE.length+'</div><div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px">bobinas aguardando</div>'+(STAGE.length?'<div style="font-family:var(--mono);font-size:.85rem;color:var(--muted);margin-top:8px">'+fmt(STAGE.reduce((a,b)=>a+(b.pl||0),0))+' kg pendentes</div>':'')+(STAGE.length&&adm?'<button class="gbtn" id="recvBf70" style="margin-top:14px;font-size:.76rem;padding:8px 12px">↳ Jogar pendentes no Chão 70</button>':'')+'</div>'+
  '</div><h3 class="sub">Pendentes</h3><div id="stageList"></div>';
  const sc=$('#recvScan');if(sc){sc.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();recvAdd(sc.value);sc.value='';}});if(!sc.disabled){sc.placeholder=isSuper()?'bipe ou digite a etiqueta':'toque para bipar';scanLock(sc);}}
- const al=document.getElementById('recvAutoLbl');if(al)al.onchange=function(){try{localStorage.setItem('wmsx_autoLabel',al.checked?'1':'0');}catch(e){}};
+ const al=document.getElementById('recvAutoLbl');if(al)al.onchange=function(){try{localStorage.setItem('wmsx_autoLabel',al.checked?'1':'0');}catch(e){}
+   if(al.checked){try{toast('Vai abrir a impressão a cada bipe. Só ligue se a Zebra for a impressora padrão desta máquina.');}catch(e){}}
+   else{try{toast('Impressão automática desligada. Você ainda pode gerar a etiqueta manualmente pelo item.');}catch(e){}}};
  const ps=document.getElementById('recvStation');if(ps)ps.onchange=function(){try{localStorage.setItem('wmsx_printStation',ps.checked?'1':'0');}catch(e){}toast(ps.checked?'Esta máquina vai imprimir as etiquetas na Zebra':'Estação de impressão desligada nesta máquina');};
  var _fmtLbl=document.getElementById('recvFmtLbl');function _showFmt(){if(!_fmtLbl)return;var f=(typeof expLabelFmt==='function')?expLabelFmt():null;if(f&&f.dim)_fmtLbl.textContent='Modelo atual: '+f.dim.w+'×'+f.dim.h+'mm · '+(f.orient==='paisagem'?'deitada':'em pé');}_showFmt();
  var _bf=document.getElementById('recvBf70');if(_bf)_bf.onclick=function(){if(typeof window.recvBackfill70==='function')window.recvBackfill70(false);};
@@ -5277,8 +5279,17 @@ updateStageBadge();
                    +'</span>';
                }).join('')
               +(locs.length>8?('<span class="rql-vaga more">+'+(locs.length-8)+' vagas</span>'):'')
+              +chaoLocs.map(function(cl){
+                 return '<span class="rql-vaga" style="border-style:dashed" title="Material contado no chão — sem vaga de prateleira">'
+                   +'<b>'+cl.nome+'</b>'
+                   +'<span class="rql-vaga-q">'+fmt(cl.kg)+cl.un.toLowerCase()+'</span>'
+                   +'</span>';
+               }).join('')
               +'</div>'
-              +'<div class="rql-vagas-tot">'+locs.length+' vaga(s) · total '+fmt(totKg)+_un0.toLowerCase()+'</div>';
+              +'<div class="rql-vagas-tot">'+(locs.length?(locs.length+' vaga(s)'):'')
+              +(locs.length&&chaoLocs.length?' + ':'')
+              +(chaoLocs.length?chaoLocs.map(function(c){return c.nome;}).join(' + '):'')
+              +' · total '+fmt(totKg)+_un0.toLowerCase()+'</div>';
           }else{
             locHTML='<div class="rql-loc none">⚠ Sem esse produto localizado no armazém</div>';
           }
@@ -8290,7 +8301,11 @@ printGuide=function(o){var rows=(o.rows||[]).map(function(a,i){return '<tr><td>'
 
 
 /* ===== ETIQUETA AUTOMÁTICA AO ARMAZENAR (Zebra) ===== */
-function autoLabelOn(){try{var v=localStorage.getItem('wmsx_autoLabel');return v===null?true:v==='1';}catch(e){return true;}}
+function autoLabelOn(){try{var v=localStorage.getItem('wmsx_autoLabel');return v===null?false:v==='1';}catch(e){return false;}}
+/* PADRÃO DESLIGADO: antes vinha ligado e, sem Zebra conectada por Browser Print, cada
+   bipe abria o diálogo de impressão do navegador (o "Salvar como PDF" que pipocava a
+   cada etiqueta). Agora imprimir ao bipar é uma escolha consciente — liga quem tem a
+   Zebra configurada como impressora padrão da máquina. */
 function shortDesc(desc){desc=String(desc||'').toUpperCase();
  var mat=(desc.match(/\b(PET|PEAD|PEBD|PEBDL|BOPP|PP|PE|PA6|PA|PVC|NYLON|RAFIA)\b/)||[])[0]||'';
  var nums=(desc.match(/\d{2,4}/g)||[]).slice(0,2);
@@ -12795,6 +12810,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
 })();
 /* roteador da Saúde (fora da IIFE p/ enxergar o render global) */
 (function(){try{var _r=render;render=function(id){if(id==='v-saude')return window.renderSaude();return _r(id);};}catch(e){}})();
+
 </script>
 </body>
 </html>

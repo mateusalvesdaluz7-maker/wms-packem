@@ -1371,7 +1371,13 @@ function curRole(){if(!session)return null;if(isOperatorUser(session.u))return '
 const isAdmin=()=>{const r=curRole();return r==='admin'||r==='operador';};
 const isSuper=()=>curRole()==='admin';
 /* admin pode digitar manual em qualquer campo de bipagem; operador segue só-câmera */
-function scanLock(el){if(!el)return;el.style.cursor='pointer';if(isSuper()){el.readOnly=false;el.removeAttribute('inputmode');el.style.cursor='text';el.title='Digite ou toque no botão da câmera';return;}el.readOnly=true;el.setAttribute('inputmode','none');el.title='Toque para bipar com a câmera';el.addEventListener('focus',function(){setTimeout(function(){el.blur();},0);});el.addEventListener('click',function(){var w=el.parentNode;var b=w&&w.querySelector('.cambtn');if(b)b.click();});}
+function scanLock(el){if(!el)return;
+  // re-avalia o cargo SEMPRE (o super pode ter logado depois do scanLock ter rodado)
+  var apply=function(){if(isSuper()){el.readOnly=false;el.removeAttribute('inputmode');el.style.cursor='text';el.title='Digite ou toque no botão da câmera';return true;}el.readOnly=true;el.setAttribute('inputmode','none');el.style.cursor='pointer';el.title='Toque para bipar com a câmera';return false;};
+  apply();
+  if(el._scanLocked)return;el._scanLocked=true;
+  el.addEventListener('focus',function(){if(apply())return;setTimeout(function(){el.blur();},0);});
+  el.addEventListener('click',function(){if(isSuper())return;var w=el.parentNode;var b=w&&w.querySelector('.cambtn');if(b)b.click();});}
 /* Inventário liberado para TODOS os papéis: o operador precisa ver a contagem que o admin
    atribuiu a ele. O que ele NÃO pode é escolher o que contar — só executa o que foi atribuído.
    Essa trava mora no renderInv (cards de início escondidos p/ não-admin), não aqui. */
@@ -6229,7 +6235,9 @@ async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
      if(_agora-_t<90000){_cloudSt.unshift(s);try{if(typeof syncStage==='function')syncStage(s);}catch(e){}}
    });
    STAGE=_cloudSt;saveStage();}
-  const vl=await pgAll('valores');if(vl.length&&!guard){var _vlmap={};VL.forEach(function(v){_vlmap[String(v.codigo).toUpperCase()]=v;});vl.forEach(function(r){_vlmap[String(r.codigo).toUpperCase()]={codigo:r.codigo,valor:Number(r.valor)||0,descricao:r.descricao||'',un:(r.un||'')};});VL=Object.keys(_vlmap).map(function(k){return _vlmap[k];});DB.saveValues(VL);}
+  const vl=await pgAll('valores');if(vl.length&&!guard){var _vlmap={};VL.forEach(function(v){_vlmap[String(v.codigo).toUpperCase()]=v;});vl.forEach(function(r){_vlmap[String(r.codigo).toUpperCase()]={codigo:r.codigo,valor:Number(r.valor)||0,descricao:r.descricao||'',un:(r.un||'')};});VL=Object.keys(_vlmap).map(function(k){return _vlmap[k];});DB.saveValues(VL);
+    /* a nuvem chegou depois da tela — redesenha Produtos/Valores se estiver aberta */
+    try{var _vv=document.getElementById('v-values');if(_vv&&_vv.classList.contains('active')&&typeof renderValues==='function')renderValues();}catch(e){}}
   const us=await pgAll('usuarios');if(us.length&&!guard){US=us.map(r=>({u:r.u,p:r.p,role:r.role,active:r.active!==false}));DB.saveUsers(US);}
   const mv=await supa.from('movimentos').select('*').order('at',{ascending:false}).limit(5000);
   if(mv.data&&mv.data.length){

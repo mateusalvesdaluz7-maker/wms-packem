@@ -875,7 +875,7 @@ body.cam-open{overflow:hidden}#v-exped .cam-ov{position:fixed;inset:0;z-index:10
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v113</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v114</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -1234,7 +1234,7 @@ body.cam-open{overflow:hidden}#v-exped .cam-ov{position:fixed;inset:0;z-index:10
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v113</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v114</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -1643,6 +1643,7 @@ function renderBoard(){
         <span><i style="background:#f59e0b"></i>+20d</span>
         <span><i style="background:#7f1d1d"></i>+40d</span>
       </div>
+      ${(typeof isSuper==='function'&&isSuper())?`<button class="bd-zerar adminOnly" id="bdZerar" title="Esvaziar todas as vagas deste armazém — só admin, pede senha">⌫ Zerar mapa</button>`:''}
     </div>
 
     <div class="board" id="boardBox"></div>
@@ -1690,6 +1691,10 @@ function renderBoard(){
       #v-board .bd-leg{margin-left:auto;display:flex;gap:14px;flex-wrap:wrap}
       #v-board .bd-leg span{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--faint);font-weight:600}
       #v-board .bd-leg i{width:11px;height:11px;border-radius:3px;flex:none}
+      #v-board .bd-zerar{margin-left:8px;flex:none;background:transparent;border:1px solid rgba(239,68,68,.5);color:#ef4444;
+        border-radius:10px;padding:8px 14px;font-size:.8rem;font-weight:800;cursor:pointer;transition:.15s;white-space:nowrap}
+      #v-board .bd-zerar:hover{background:#ef4444;color:#fff;border-color:#ef4444}
+      #v-board .bd-zerar:active{transform:scale(.97)}
       @media(max-width:760px){#v-board .bd-leg{margin-left:0;flex-basis:100%}#v-board .bd-occ{text-align:left}}
       /* ===== MOBILE (≤600px): impede o form de estourar e o botão de cortar ===== */
       @media(max-width:600px){
@@ -1713,6 +1718,7 @@ function renderBoard(){
   /* rua e nível viraram <select> (eram 27 botões): menos ruído, mesma função */
   var _br=$('#bdRua'); if(_br)_br.onchange=function(){boardStreet=_br.value||null;renderBoard();};
   var _bl=$('#bdLvl'); if(_bl)_bl.onchange=function(){boardLevel=Number(_bl.value);renderBoard();};
+  var _bz=$('#bdZerar'); if(_bz)_bz.onclick=boardZerarMapa;
   /* bipagem rápida entrada/saída no mapa */
   $$('#v-board .bd-mode [data-qm]').forEach(function(b){b.onclick=function(){boardQMode=b.getAttribute('data-qm');renderBoard();};});
   (function(){
@@ -1777,6 +1783,45 @@ function boardDescOf(pr){
   return '';
 }
 function boardCompact(s){return String(s||'').toUpperCase().replace(/\s+/g,'');}
+/* ===== ZERAR MAPA (só admin, confirma com senha) — esvazia todas as vagas do armazém atual ===== */
+function boardZerarMapa(){
+  if(typeof isSuper==='function' && !isSuper()){toast('Só o admin pode zerar o mapa',false);return;}
+  var wh=(typeof boardWH!=='undefined'&&boardWH)||(typeof cfg!=='undefined'&&cfg&&cfg.warehouse)||'70';
+  var alvo=(Array.isArray(S)?S:[]).filter(function(x){return x&&x.w===wh&&(x.o||x.pr||Number(x.q)>0);});
+  var lbl=(typeof whLabel==='function')?whLabel(wh):wh;
+  if(!alvo.length){toast('O mapa de '+lbl+' já está vazio',false);return;}
+  openDrawer('Zerar mapa · '+lbl,
+    '<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.32);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:.86rem;line-height:1.5">'
+    +'<b style="color:#ef4444">Ação irreversível.</b> Isto esvazia <b>'+alvo.length+'</b> vaga(s) ocupada(s) de <b>'+lbl+'</b>. Todas ficam vagas (verdes); o produto e o saldo de cada posição são apagados — aqui e na nuvem.'
+    +'</div>'
+    +'<label class="fld" style="margin-bottom:12px;display:block"><span class="lab" style="display:block;font-size:.66rem;letter-spacing:.6px;text-transform:uppercase;color:var(--faint);font-weight:800;margin-bottom:5px">Confirme a senha do admin</span><input class="input" id="bzPw" type="password" autocomplete="off" placeholder="senha" style="width:100%;height:44px"></label>'
+    +'<button class="btn" id="bzGo" style="width:100%;height:48px;background:#ef4444;color:#fff;border:0;font-weight:800">Zerar '+alvo.length+' vaga(s)</button>'
+    +'<button class="btn" id="bzCancel" style="width:100%;justify-content:center;margin-top:8px">Cancelar</button>');
+  var pw=document.getElementById('bzPw');if(pw){pw.focus();pw.onkeydown=function(e){if(e.key==='Enter'){var g=document.getElementById('bzGo');if(g)g.click();}};}
+  var cancel=document.getElementById('bzCancel');if(cancel)cancel.onclick=closeDrawer;
+  var go=document.getElementById('bzGo');if(go)go.onclick=function(){
+    var typed=((document.getElementById('bzPw')||{}).value||'');
+    var me=(Array.isArray(US)?US:[]).find(function(u){return u&&u.u===(typeof session!=='undefined'&&session?session.u:'');});
+    var okPw = me ? (String(me.p)===String(typed)) : (typed==='020502');
+    if(!okPw){toast('Senha incorreta',false);return;}
+    var n=0;
+    alvo.forEach(function(sp){
+      try{
+        var cd=code(sp);
+        sp.pr='';sp.q=0;sp.o=false;sp.src='';sp.u='KG';sp.upd=nowISO();sp.by=(typeof session!=='undefined'&&session?session.u:'');
+        if(typeof LOC!=='undefined'&&LOC){Object.keys(LOC).forEach(function(et){if(norm(LOC[et])===norm(cd)){delete LOC[et];if(typeof BOB!=='undefined'&&BOB[et])BOB[et].rem=0;}});}
+        if(typeof syncSpace==='function')syncSpace(sp);
+        n++;
+      }catch(e){}
+    });
+    try{if(typeof saveLOC==='function')saveLOC();if(typeof saveBOB==='function')saveBOB();}catch(e){}
+    try{persist();}catch(e){}
+    try{logAct('ajuste','zerou o mapa de '+lbl+' ('+n+' vaga(s))');}catch(e){}
+    closeDrawer();
+    try{renderBoard();}catch(e){}
+    toast(n+' vaga(s) zerada(s) em '+lbl);
+  };
+}
 function boardSearchGo(q,viaVoice){
   q=norm(q); if(!q)return;
   var qc=boardCompact(q);

@@ -875,7 +875,7 @@ body.cam-open{overflow:hidden}#v-exped .cam-ov{position:fixed;inset:0;z-index:10
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v112</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v113</span></div></div>
     <nav class="sb-nav" id="sbNav">
       <div class="sb-grp">Visão geral</div>
       <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Dashboard</div>
@@ -1234,7 +1234,7 @@ body.cam-open{overflow:hidden}#v-exped .cam-ov{position:fixed;inset:0;z-index:10
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v112</div>
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v113</div>
   <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
@@ -1691,6 +1691,23 @@ function renderBoard(){
       #v-board .bd-leg span{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--faint);font-weight:600}
       #v-board .bd-leg i{width:11px;height:11px;border-radius:3px;flex:none}
       @media(max-width:760px){#v-board .bd-leg{margin-left:0;flex-basis:100%}#v-board .bd-occ{text-align:left}}
+      /* ===== MOBILE (≤600px): impede o form de estourar e o botão de cortar ===== */
+      @media(max-width:600px){
+        #v-board .ph-head{gap:8px}
+        #v-board .bd-occ{min-width:0;flex-basis:100%;text-align:left}
+        #v-board .bd-occ-n{font-size:1.9rem}
+        #v-board .bd-act{padding:14px;gap:12px;position:relative;z-index:1}
+        #v-board .bd-mode{width:100%}
+        #v-board .bd-mode button{flex:1;padding:11px 0}
+        #v-board .bd-inputs{width:100%;min-width:0;flex-wrap:wrap;align-items:stretch;gap:10px}
+        #v-board .bd-f{flex:1 1 calc(50% - 21px);min-width:0}
+        #v-board .bd-arrow{display:none}            /* a seta some no mobile pra os campos caberem lado a lado */
+        #v-board .bd-ok{order:9;flex:1 1 100%;width:100%;align-self:stretch}  /* Confirmar vai pra linha inteira embaixo */
+        #v-board .bd-filters{gap:8px}
+        #v-board .bd-sel{flex:1 1 auto}
+        #v-board .board{padding:10px;-webkit-overflow-scrolling:touch;max-width:100%}  /* rolagem horizontal suave */
+        #v-board .cellx{width:26px;height:26px}
+      }
     </style>`;
   $$('#v-board .whpick button').forEach(b=>b.onclick=()=>{cfg.warehouse=b.dataset.wh;try{DB.saveCfg(cfg);}catch(e){}boardWH=null;boardStreet=null;boardLevel=null;renderBoard();});
   /* rua e nível viraram <select> (eram 27 botões): menos ruído, mesma função */

@@ -202,7 +202,7 @@
   .scrim{position:fixed;inset:0;background:rgba(15,27,46,.32);backdrop-filter:blur(2px);z-index:115;display:none;}
   .scrim.show{display:block;}
 
-  #toast{position:fixed;right:26px;bottom:26px;background:var(--navy);color:#fff;font-weight:600;padding:14px 18px;border-radius:12px;box-shadow:0 14px 40px rgba(15,27,46,.3);opacity:0;pointer-events:none;transform:translateY(16px);transition:.25s;z-index:140;display:flex;align-items:center;gap:10px;font-size:.9rem;}
+  #toast{position:fixed;right:26px;bottom:92px;background:var(--navy);color:#fff;font-weight:600;padding:14px 18px;border-radius:12px;box-shadow:0 14px 40px rgba(15,27,46,.3);opacity:0;pointer-events:none;transform:translateY(16px);transition:.25s;z-index:10020;display:flex;align-items:center;gap:10px;font-size:.9rem;max-width:min(430px,calc(100vw - 32px));}
   #toast.show{opacity:1;transform:none;}
   #toast .tdot{width:9px;height:9px;border-radius:50%;flex:none;}
   #toast.ok .tdot{background:#34d399;}#toast.err .tdot{background:#f87171;}
@@ -459,8 +459,6 @@ button,.btn,.gbtn{transition:background .15s ease,border-color .15s ease,box-sha
 #v-exped>.shell>.appbar{display:none}
 #v-exped .pad{padding:0}
 #v-exped .sh-brand{box-shadow:0 8px 22px rgba(234,90,12,.30)}
-
-
 
 /* ==== RESPONSIVO WMS: celular e tablet ==== */
 .mainwrap,main,.view,.panel,.nfDoc,.nfDocMain,.nfScanField,.camfield{min-width:0;max-width:100%}

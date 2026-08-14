@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#0A0C10" />
-<title>Packem WMS Â· Controle de PÃ¡tio</title>
+<title>Packem WMS · Controle de Pátio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
 <script src="wms-security.js"></script>
@@ -20,35 +20,35 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS Â· PÃ¡tio Â· v115</span></div></div>
+    <div class="sb-brand"><span class="mk" id="mk1"></span><div class="wm">PACK<span>EM</span><span class="eb">WMS · Pátio · v115</span></div></div>
     <nav class="sb-nav" id="sbNav">
-      <div class="sb-grp">VisÃ£o geral</div>
-      <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>VisÃ£o Geral</div>
+      <div class="sb-grp">Visão geral</div>
+      <div class="nav active" data-view="v-home" data-ic="home"><span class="ni"></span>Visão Geral</div>
       <div class="nav" data-view="v-board" data-ic="grid"><span class="ni"></span>Mapa Operacional - 70</div>
-      <div class="sb-grp">OperaÃ§Ã£o</div>
-      <div class="nav" data-view="v-mov" data-ic="scan" data-writer="1"><span class="ni"></span>MovimentaÃ§Ã£o</div>
-      <div class="nav" data-view="v-stock" data-ic="box"><span class="ni"></span>GestÃ£o de Estoque</div>
+      <div class="sb-grp">Operação</div>
+      <div class="nav" data-view="v-mov" data-ic="scan" data-writer="1"><span class="ni"></span>Movimentação</div>
+      <div class="nav" data-view="v-stock" data-ic="box"><span class="ni"></span>Gestão de Estoque</div>
       <div class="nav" data-view="v-recic" data-ic="reload"><span class="ni"></span>Recicladora - 91</div>
       <div class="nav adminOnly" data-view="v-protheus" data-ic="transfer"><span class="ni"></span>Baixa Protheus</div>
-      <div class="nav" data-view="v-transf" data-ic="transfer"><span class="ni"></span>TransferÃªncias</div>
-      <div class="nav" data-view="v-labels" data-ic="tag"><span class="ni"></span>GestÃ£o de Etiquetas</div>
-      <div class="sb-grp">AnÃ¡lise</div>
-      <div class="nav" data-view="v-abc" data-ic="chart"><span class="ni"></span>AnÃ¡lise ABC</div>
+      <div class="nav" data-view="v-transf" data-ic="transfer"><span class="ni"></span>Transferências</div>
+      <div class="nav" data-view="v-labels" data-ic="tag"><span class="ni"></span>Gestão de Etiquetas</div>
+      <div class="sb-grp">Análise</div>
+      <div class="nav" data-view="v-abc" data-ic="chart"><span class="ni"></span>Análise ABC</div>
       <div class="sb-grp">Cadastros</div>
       <div class="nav" data-view="v-values" data-ic="money"><span class="ni"></span>Cadastro de Materiais</div>
-      <div class="nav adminOnly" data-view="v-users" data-ic="users"><span class="ni"></span>GestÃ£o de UsuÃ¡rios</div>
+      <div class="nav adminOnly" data-view="v-users" data-ic="users"><span class="ni"></span>Gestão de Usuários</div>
       <div class="nav" data-view="v-act" data-ic="list"><span class="ni"></span>Log de Atividades</div>
     </nav>
-    <div class="sb-foot"><button class="gbtn danger" id="logoutBtn" style="width:100%;justify-content:center">Encerrar SessÃ£o</button></div>
+    <div class="sb-foot"><button class="gbtn danger" id="logoutBtn" style="width:100%;justify-content:center">Encerrar Sessão</button></div>
   </aside>
 
   <div class="mainwrap">
     <div class="topbar">
-      <div class="tb-search"><span class="si" data-ic="search"></span><input id="globalSearch" placeholder="Buscar endereÃ§o ou produtoâ€¦" autocomplete="off"></div>
+      <div class="tb-search"><span class="si" data-ic="search"></span><input id="globalSearch" placeholder="Buscar endereço ou produto…" autocomplete="off"></div>
       <div class="tb-spacer"></div>
       <div class="tb-cmd" id="cmdkBtn"><span data-ic="search"><span></span></span> Buscar / comandos <span class="kbd">Ctrl K</span></div>
-      <div class="seg-wh" id="whSeg"><button data-wh="70" class="on">Dep 70</button><button data-wh="novo" class="adminOnly" style="display:none">Novo</button><button data-wh="chao" class="adminOnly" style="display:none">ChÃ£o</button></div>
-      <div class="uchip" id="userBtn"><span class="uav"></span><div style="line-height:1.2"><div id="uName">â€”</div><div class="ur" id="uRole"></div></div></div>
+      <div class="seg-wh" id="whSeg"><button data-wh="70" class="on">Dep 70</button><button data-wh="novo" class="adminOnly" style="display:none">Novo</button><button data-wh="chao" class="adminOnly" style="display:none">Chão</button></div>
+      <div class="uchip" id="userBtn"><span class="uav"></span><div style="line-height:1.2"><div id="uName">—</div><div class="ur" id="uRole"></div></div></div>
     </div>
 
     <main>
@@ -59,13 +59,13 @@
   <header class="appbar">
     <svg class="appbar-mk" viewBox="0 0 48 46" fill="currentColor" aria-hidden="true"><polygon points="16,11 31,11 41,22 26,22"/><polygon points="9,24 24,24 34,35 19,35"/></svg>
     <div class="brand"><svg class="mk" viewBox="0 0 48 46" fill="currentColor" aria-hidden="true"><polygon points="16,11 31,11 41,22 26,22"/><polygon points="9,24 24,24 34,35 19,35"/></svg><span class="word">packem</span></div>
-    <span class="appbar-tag" id="expBtn" role="button" tabindex="0">ExpediÃ§Ã£o</span>
+    <span class="appbar-tag" id="expBtn" role="button" tabindex="0">Expedição</span>
   </header>
   <div class="pad">
 
   <section id="screen-upload" class="fade">
-    <div class="expHeader"><p class="eb">OperaÃ§Ã£o Â· ExpediÃ§Ã£o</p><h1>Carregar romaneio</h1></div>
-    <button class="btn ghost block hidden" type="button" id="backWork" style="margin-bottom:14px">â† Voltar aos lotes abertos</button>
+    <div class="expHeader"><p class="eb">Operação · Expedição</p><h1>Carregar romaneio</h1></div>
+    <button class="btn ghost block hidden" type="button" id="backWork" style="margin-bottom:14px">← Voltar aos lotes abertos</button>
     <div class="drop" id="drop">
       <div class="ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/></svg></div>
       <h2>Jogue o PDF do romaneio</h2>
@@ -75,20 +75,20 @@
     </div>
     <div id="parseStatus" class="hidden" style="margin-top:22px;text-align:center">
       <div class="spinner"></div>
-      <p style="color:#fff;font-size:14px;margin-top:14px;text-shadow:0 1px 4px rgba(0,40,18,.45)">Lendo etiquetas do romaneioâ€¦</p>
+      <p style="color:#fff;font-size:14px;margin-top:14px;text-shadow:0 1px 4px rgba(0,40,18,.45)">Lendo etiquetas do romaneio…</p>
     </div>
     <div id="parseError" class="err-box hidden"></div>
-    <p class="hint">O sistema lÃª a coluna <b>Etiqueta</b> do romaneio.<br>Itens <b>em produÃ§Ã£o</b> (sem etiqueta) tambÃ©m aparecem â€” a etiqueta entra depois, manual ou ao atualizar.</p>
+    <p class="hint">O sistema lê a coluna <b>Etiqueta</b> do romaneio.<br>Itens <b>em produção</b> (sem etiqueta) também aparecem — a etiqueta entra depois, manual ou ao atualizar.</p>
   </section>
 
   <section id="screen-lotes" class="hidden fade">
-    <div class="expHeader"><p class="eb">OperaÃ§Ã£o Â· ExpediÃ§Ã£o</p><h1>RequisiÃ§Ãµes abertas</h1></div>
+    <div class="expHeader"><p class="eb">Operação · Expedição</p><h1>Requisições abertas</h1></div>
     <div class="lote-search">
       <input id="loteSearch" type="text" placeholder="Buscar por lote, destino..." autocomplete="off" oninput="EXP.onLoteSearch(this.value)">
-      <button type="button" class="ls-clear" id="loteSearchClear" style="display:none" onclick="EXP.onLoteSearch('');document.getElementById('loteSearch').value=''" aria-label="Limpar">âœ•</button>
+      <button type="button" class="ls-clear" id="loteSearchClear" style="display:none" onclick="EXP.onLoteSearch('');document.getElementById('loteSearch').value=''" aria-label="Limpar">✕</button>
     </div>
     <div id="lotesList"></div>
-    <button class="btn block" type="button" id="addLoteBtn" style="margin-top:6px">ï¼‹ Carregar romaneio</button>
+    <button class="btn block" type="button" id="addLoteBtn" style="margin-top:6px">＋ Carregar romaneio</button>
   </section>
 
   <section id="screen-work" class="hidden">
@@ -107,7 +107,7 @@
       <div class="cmd-top">
         <div>
           <div class="cmd-label">Lote</div>
-          <div class="cmd-lote disp" id="loteNum">â€”</div>
+          <div class="cmd-lote disp" id="loteNum">—</div>
           <div class="cmd-dest" id="loteDest"></div>
         </div>
         <div class="ring">
@@ -132,8 +132,8 @@
     </div>
 
     <div class="banner" id="banner">
-      <div class="bic" id="bIc">ðŸ“·</div>
-      <div><div class="btitle" id="bTitle">Pronto para escanear</div><div class="bsub" id="bSub">Aponte a cÃ¢mera para a etiqueta</div></div>
+      <div class="bic" id="bIc">📷</div>
+      <div><div class="btitle" id="bTitle">Pronto para escanear</div><div class="bsub" id="bSub">Aponte a câmera para a etiqueta</div></div>
     </div>
 
     <button class="btn block scanbtn" type="button" id="openCamBtn">
@@ -152,7 +152,7 @@
     </div>
 
     <div id="updateSummary" class="upd-card hidden"></div>
-    <div id="doneCard" class="done-card hidden"><div class="ic">âœ…</div><h2>Romaneio conferido</h2><p>Todas as etiquetas foram separadas e conferidas.</p></div>
+    <div id="doneCard" class="done-card hidden"><div class="ic">✅</div><h2>Romaneio conferido</h2><p>Todas as etiquetas foram separadas e conferidas.</p></div>
 
     <div class="lh"><h3>Itens do romaneio</h3><div class="note" id="prodNote"></div></div>
     <div id="itemList"></div>
@@ -163,7 +163,7 @@
       <button class="btn ghost block" type="button" id="resetBtn">Novo lote</button>
     </div>
     <input type="file" id="updateInput" accept="application/pdf" style="display:none">
-    <p class="hint" style="margin-top:14px">Atualizar mantÃ©m o que jÃ¡ foi separado/conferido nas etiquetas que continuam.</p>
+    <p class="hint" style="margin-top:14px">Atualizar mantém o que já foi separado/conferido nas etiquetas que continuam.</p>
   </section>
   </div>
 </div>
@@ -177,7 +177,7 @@
       <button id="camModeConf" class="cmode" type="button">Conferir</button>
     </div>
     <div id="camCount" class="cam-count">0/0</div>
-    <button id="camClose" class="cam-close" type="button" aria-label="Fechar">âœ•</button>
+    <button id="camClose" class="cam-close" type="button" aria-label="Fechar">✕</button>
   </div>
   <div id="camModeLabel" class="cam-modelabel"></div>
   <div class="cam-target hidden" id="camTargetBar">
@@ -186,7 +186,7 @@
   </div>
   <div class="cam-status" id="camStatus"></div>
   <div class="cam-qty hidden" id="camQty">
-    <div class="cq-tag" id="cqTag">Tâ€”</div>
+    <div class="cq-tag" id="cqTag">T—</div>
     <div class="cq-sub">Quantidade desta etiqueta</div>
     <div class="cq-row">
       <input class="cq-input" id="cqInput" inputmode="decimal" autocomplete="off" placeholder="0,00">
@@ -194,7 +194,7 @@
     </div>
     <button class="cq-skip" type="button" id="cqSkip">Cancelar leitura</button>
   </div>
-  <button class="cam-finish hidden" type="button" id="camFinish">âœ… Concluir item</button>
+  <button class="cam-finish hidden" type="button" id="camFinish">✅ Concluir item</button>
   <div class="cam-hint">Aponte para o QR code da etiqueta</div>
 </div>
 <div id="uiModal" class="adm-modal hidden">
@@ -210,8 +210,8 @@
 </div>
 <div id="admModal" class="adm-modal hidden">
   <div class="adm-box">
-    <h3>Acesso da ExpediÃ§Ã£o</h3>
-    <p>Digite a senha para liberar ediÃ§Ã£o e exclusÃ£o.</p>
+    <h3>Acesso da Expedição</h3>
+    <p>Digite a senha para liberar edição e exclusão.</p>
     <input type="password" id="admPass" placeholder="Senha" autocomplete="off">
     <div class="adm-err hidden" id="admErr">Senha incorreta</div>
     <div class="adm-btns">
@@ -222,8 +222,8 @@
 </div>
 <div id="fotosModal" class="fotos-modal hidden">
   <div class="fotos-bar">
-    <button id="fotosClose" class="cam-close" type="button" aria-label="Fechar">âœ•</button>
-    <div class="fotos-title">Fotos da carga Â· Lote <span id="fotosLote">â€”</span></div>
+    <button id="fotosClose" class="cam-close" type="button" aria-label="Fechar">✕</button>
+    <div class="fotos-title">Fotos da carga · Lote <span id="fotosLote">—</span></div>
     <div style="width:44px"></div>
   </div>
   <div id="fotosGrid" class="fotos-grid"></div>
@@ -239,19 +239,19 @@
 </section>
 
       <section class="view" id="v-mov">
-        <div class="ph-head"><div><p class="eb">OperaÃ§Ã£o</p><h1>MovimentaÃ§Ã£o</h1></div>
-          <div class="sw" id="modeSeg"><button data-mode="entrada" class="act-in">Entrada</button><button data-mode="saida">SaÃ­da</button></div></div>
+        <div class="ph-head"><div><p class="eb">Operação</p><h1>Movimentação</h1></div>
+          <div class="sw" id="modeSeg"><button data-mode="entrada" class="act-in">Entrada</button><button data-mode="saida">Saída</button></div></div>
         <div class="two">
           <div class="panel">
             <div class="ph"><span class="pdot"></span><span id="movFormTitle">Registrar entrada</span></div>
-            <label class="fld"><span class="lab">1 Â· EndereÃ§o</span><input class="input code" id="mLoc" placeholder="S-340-1" autocomplete="off" enterkeyhint="next"></label>
+            <label class="fld"><span class="lab">1 · Endereço</span><input class="input code" id="mLoc" placeholder="S-340-1" autocomplete="off" enterkeyhint="next"></label>
             <div id="mLocPv" style="margin:-6px 0 14px;display:none"></div>
-            <label class="fld"><span class="lab">2 Â· Etiqueta da bobina (produto Â· peso)</span><input class="input code" id="mBob" placeholder="0303450165$325" autocomplete="off" enterkeyhint="next"></label>
+            <label class="fld"><span class="lab">2 · Etiqueta da bobina (produto · peso)</span><input class="input code" id="mBob" placeholder="0303450165$325" autocomplete="off" enterkeyhint="next"></label>
             <div id="mBobPv" style="margin:-6px 0 14px;display:none"></div>
             <div id="movAssist"></div>
-            <label class="fld"><span class="lab">3 Â· Peso (KG)</span><input class="input" id="mQty" type="number" inputmode="decimal" placeholder="0" enterkeyhint="done"></label>
+            <label class="fld"><span class="lab">3 · Peso (KG)</span><input class="input" id="mQty" type="number" inputmode="decimal" placeholder="0" enterkeyhint="done"></label>
             <button class="btn in" id="confirmBtn" style="width:100%;height:50px">Confirmar entrada</button>
-            <p style="color:var(--muted);font-size:.78rem;margin-top:12px;line-height:1.5">A etiqueta da bobina traz produto + peso num bip sÃ³. Gere em <b style="color:var(--text)">Etiquetas</b>.</p>
+            <p style="color:var(--muted);font-size:.78rem;margin-top:12px;line-height:1.5">A etiqueta da bobina traz produto + peso num bip só. Gere em <b style="color:var(--text)">Etiquetas</b>.</p>
           </div>
           <div class="panel" style="padding:0;overflow:hidden">
             <div class="ph" style="padding:18px 18px 0"><span class="pdot"></span>Movimentos recentes</div>
@@ -261,13 +261,13 @@
       </section>
 
       <section class="view" id="v-stock">
-        <div class="ph-head"><div><p class="eb">OperaÃ§Ã£o</p><h1>Estoque</h1></div>
-          <div class="actions"><button class="gbtn" id="stFixWeights" data-ic="alert" style="display:none">Corrigir pesos invÃ¡lidos</button><button class="gbtn" id="stExportSum" data-ic="down"><span></span>Resumo por produto</button><button class="gbtn" id="stExport" data-ic="down"><span></span>Exportar CSV</button></div></div>
+        <div class="ph-head"><div><p class="eb">Operação</p><h1>Estoque</h1></div>
+          <div class="actions"><button class="gbtn" id="stFixWeights" data-ic="alert" style="display:none">Corrigir pesos inválidos</button><button class="gbtn" id="stExportSum" data-ic="down"><span></span>Resumo por produto</button><button class="gbtn" id="stExport" data-ic="down"><span></span>Exportar CSV</button></div></div>
         <div id="stChaoCard"></div>
         <div id="stChaoDetail"></div>
         <div id="stMainView">
         <div class="toolbar">
-          <div class="search"><span class="si" data-ic="search"></span><input id="stSearch" placeholder="buscar produto ou endereÃ§o"></div>
+          <div class="search"><span class="si" data-ic="search"></span><input id="stSearch" placeholder="buscar produto ou endereço"></div>
           <select class="input" id="stStreet"><option value="">Todas as ruas</option></select>
           <select class="input" id="stStatus"><option value="">Com saldo</option><option value="all">Todos</option><option value="zero">Zerados</option><option value="sem_etq">Sem etiqueta</option></select>
           <span class="count" id="stCount"></span>
@@ -279,50 +279,50 @@
       <section class="view" id="v-recic"></section>
 
       <section class="view" id="v-transf">
-        <div class="ph-head"><div><p class="eb">LogÃ­stica</p><h1>TransferÃªncias</h1></div>
-          <div class="actions"><button class="btn brand" id="newTransfBtn" data-ic="transfer"><span></span>Nova transferÃªncia</button></div></div>
+        <div class="ph-head"><div><p class="eb">Logística</p><h1>Transferências</h1></div>
+          <div class="actions"><button class="btn brand" id="newTransfBtn" data-ic="transfer"><span></span>Nova transferência</button></div></div>
         <div class="tbl-wrap"><table class="tbl" id="trTable"></table></div>
       </section>
 
       <section class="view" id="v-labels">
-        <div class="ph-head"><div><p class="eb">ImpressÃ£o</p><h1>Etiquetas</h1></div>
+        <div class="ph-head"><div><p class="eb">Impressão</p><h1>Etiquetas</h1></div>
           <div class="actions"><button class="gbtn" id="printLabels" style="display:none" data-ic="print"><span></span>Imprimir</button></div></div>
-        <div class="tabs" id="lblTabs"><button data-t="end" class="on">EndereÃ§os</button><button data-t="bob">Bobinas</button><button data-t="rast">RastreÃ¡vel</button></div>
+        <div class="tabs" id="lblTabs"><button data-t="end" class="on">Endereços</button><button data-t="bob">Bobinas</button><button data-t="rast">Rastreável</button></div>
         <div class="panel" style="max-width:640px">
           <div id="lblEnd">
             <div class="two" style="grid-template-columns:1fr 1fr">
-              <label class="fld"><span class="lab">ConteÃºdo</span><select class="input" id="lblScope"><option value="rua">Todos da rua</option><option value="ocupados">SÃ³ ocupados</option></select></label>
+              <label class="fld"><span class="lab">Conteúdo</span><select class="input" id="lblScope"><option value="rua">Todos da rua</option><option value="ocupados">Só ocupados</option></select></label>
               <label class="fld"><span class="lab">Rua</span><select class="input" id="lblStreet"></select></label>
             </div>
-            <button class="btn brand" id="genEnd">Gerar etiquetas de endereÃ§o</button>
+            <button class="btn brand" id="genEnd">Gerar etiquetas de endereço</button>
           </div>
           <div id="lblBob" style="display:none">
             <div class="two" style="grid-template-columns:1fr 1fr">
-              <label class="fld"><span class="lab">CÃ³digo do produto</span><input class="input code" id="bobProd" placeholder="0303450165"></label>
+              <label class="fld"><span class="lab">Código do produto</span><input class="input code" id="bobProd" placeholder="0303450165"></label>
               <label class="fld"><span class="lab">Peso (KG)</span><input class="input" id="bobPeso" type="number" placeholder="325"></label>
             </div>
             <div class="two" style="grid-template-columns:1fr 2fr">
-              <label class="fld"><span class="lab">CÃ³pias</span><input class="input" id="bobCopies" type="number" value="1" min="1"></label>
-              <label class="fld"><span class="lab">DescriÃ§Ã£o</span><input class="input" id="bobDesc" placeholder="opcional"></label>
+              <label class="fld"><span class="lab">Cópias</span><input class="input" id="bobCopies" type="number" value="1" min="1"></label>
+              <label class="fld"><span class="lab">Descrição</span><input class="input" id="bobDesc" placeholder="opcional"></label>
             </div>
             <button class="btn brand" id="genBob">Gerar etiqueta de bobina</button>
-            <button class="gbtn" id="genBobStock" style="margin-left:10px">Das posiÃ§Ãµes ocupadas (rua)</button>
+            <button class="gbtn" id="genBobStock" style="margin-left:10px">Das posições ocupadas (rua)</button>
           </div>
           <div id="lblRast" style="display:none">
-            <p style="color:var(--muted);font-size:.82rem;line-height:1.5;margin:0 0 14px">Gera uma etiqueta Ãºnica com <b style="color:var(--text)">QR de rastreio</b>. Cada etiqueta ganha um cÃ³digo prÃ³prio e passa a ser rastreada no sistema: guardar em vaga, entrada, saÃ­da e requisiÃ§Ã£o.</p>
+            <p style="color:var(--muted);font-size:.82rem;line-height:1.5;margin:0 0 14px">Gera uma etiqueta única com <b style="color:var(--text)">QR de rastreio</b>. Cada etiqueta ganha um código próprio e passa a ser rastreada no sistema: guardar em vaga, entrada, saída e requisição.</p>
             <div class="two" style="grid-template-columns:1fr 1fr">
-              <label class="fld"><span class="lab">CÃ³digo do produto</span><input class="input code" id="rastProd" placeholder="0303450165"></label>
+              <label class="fld"><span class="lab">Código do produto</span><input class="input code" id="rastProd" placeholder="0303450165"></label>
               <label class="fld"><span class="lab">Peso / Metros</span><input class="input" id="rastQtd" type="number" placeholder="325"></label>
             </div>
             <div class="two" style="grid-template-columns:2fr 1fr">
-              <label class="fld"><span class="lab">DescriÃ§Ã£o</span><input class="input" id="rastDesc" placeholder="TEC.TUBULAR PET 70G..."></label>
+              <label class="fld"><span class="lab">Descrição</span><input class="input" id="rastDesc" placeholder="TEC.TUBULAR PET 70G..."></label>
               <label class="fld"><span class="lab">Unidade</span><select class="input" id="rastUn"><option value="KG">KG</option><option value="MT">MT (metros)</option><option value="UN">UN (unidades)</option></select></label>
             </div>
             <div class="two" style="grid-template-columns:1fr 1fr">
               <label class="fld"><span class="lab">Lote (opcional)</span><input class="input" id="rastLote" placeholder="opcional"></label>
-              <label class="fld"><span class="lab">CÃ³pias</span><input class="input" id="rastCopies" type="number" value="1" min="1"></label>
+              <label class="fld"><span class="lab">Cópias</span><input class="input" id="rastCopies" type="number" value="1" min="1"></label>
             </div>
-            <button class="btn brand" id="genRast" style="width:100%;height:48px">Gerar etiqueta rastreÃ¡vel</button>
+            <button class="btn brand" id="genRast" style="width:100%;height:48px">Gerar etiqueta rastreável</button>
             <div id="rastLast" style="margin-top:12px"></div>
           </div>
         </div>
@@ -330,7 +330,7 @@
       </section>
 
       <section class="view" id="v-abc">
-        <div class="ph-head"><div><p class="eb">AnÃ¡lise</p><h1>Curva ABC</h1></div>
+        <div class="ph-head"><div><p class="eb">Análise</p><h1>Curva ABC</h1></div>
           <div class="sw" id="abcSeg"><button data-metric="peso" class="act-b">Por peso</button><button data-metric="valor">Por valor</button></div></div>
         <div class="two" style="margin-bottom:16px">
           <div class="panel"><div class="ph"><span class="pdot"></span>Pareto (top 15)</div><div id="paretoBox"></div></div>
@@ -342,24 +342,24 @@
       <section class="view" id="v-values">
         <div class="ph-head"><div><p class="eb">Cadastro</p><h1>Produtos / Valores</h1></div>
           <div class="actions"><button class="gbtn" id="importValBtn" style="margin-right:8px">Importar do estoque</button><button class="btn brand" id="addValBtn">+ Produto</button></div></div>
-        <div class="toolbar"><div class="search"><span class="si" data-ic="search"></span><input id="valSearch" placeholder="buscar cÃ³digo ou descriÃ§Ã£o"></div><span class="count" id="valCount"></span></div>
+        <div class="toolbar"><div class="search"><span class="si" data-ic="search"></span><input id="valSearch" placeholder="buscar código ou descrição"></div><span class="count" id="valCount"></span></div>
         <div class="tbl-wrap"><table class="tbl" id="valTable"></table></div>
       </section>
 
       <section class="view" id="v-users">
-        <div class="ph-head"><div><p class="eb">Cadastro</p><h1>UsuÃ¡rios</h1></div>
-          <div class="actions"><button class="btn brand" id="addUserBtn">+ UsuÃ¡rio</button></div></div>
+        <div class="ph-head"><div><p class="eb">Cadastro</p><h1>Usuários</h1></div>
+          <div class="actions"><button class="btn brand" id="addUserBtn">+ Usuário</button></div></div>
         <div class="tbl-wrap"><table class="tbl" id="userTable"></table></div>
         <div class="panel" id="dangerZone" style="max-width:560px;margin-top:24px;border:1px solid #f1c9c9">
           <div class="ph"><span class="pdot" style="background:var(--out)"></span>Zona de perigo</div>
-          <p style="color:var(--muted);font-size:.85rem;line-height:1.5;margin:10px 0 14px">Esvazia <b>todas as posiÃ§Ãµes</b> do armazÃ©m para comeÃ§ar a bipar as entradas do zero. O <b>catÃ¡logo de bobinas</b>, os <b>usuÃ¡rios</b> e o <b>histÃ³rico</b> NÃƒO sÃ£o apagados.</p>
-          <button class="gbtn danger" id="wipeStockBtn" onclick="confirmWipeStock()" style="width:100%;justify-content:center">Zerar estoque Â· esvaziar todas as posiÃ§Ãµes</button>
+          <p style="color:var(--muted);font-size:.85rem;line-height:1.5;margin:10px 0 14px">Esvazia <b>todas as posições</b> do armazém para começar a bipar as entradas do zero. O <b>catálogo de bobinas</b>, os <b>usuários</b> e o <b>histórico</b> NÃO são apagados.</p>
+          <button class="gbtn danger" id="wipeStockBtn" onclick="confirmWipeStock()" style="width:100%;justify-content:center">Zerar estoque · esvaziar todas as posições</button>
         </div>
       </section>
 
       <section class="view" id="v-act">
-        <div class="ph-head"><div><p class="eb">Registro de acesso</p><h1>UsuÃ¡rios que entraram</h1></div>
-          <div class="actions"><button class="gbtn" id="mBackup" data-ic="save"><span></span>Backup / Restaurar</button><button class="gbtn adminOnly" id="mReseed" data-ic="reload"><span></span>Recarregar endereÃ§os</button></div></div>
+        <div class="ph-head"><div><p class="eb">Registro de acesso</p><h1>Usuários que entraram</h1></div>
+          <div class="actions"><button class="gbtn" id="mBackup" data-ic="save"><span></span>Backup / Restaurar</button><button class="gbtn adminOnly" id="mReseed" data-ic="reload"><span></span>Recarregar endereços</button></div></div>
         <div class="tbl-wrap"><table class="tbl" id="actTable"></table></div>
       </section>
       <section class="view" id="v-protheus"></section>
@@ -369,13 +369,13 @@
 
 <div class="scrim" id="scrim"></div>
 <div class="drawer" id="drawer"><div class="dh" id="drawerTitle"></div><div class="db" id="drawerBody"></div></div>
-<div class="cmdk" id="cmdk"><div class="box"><div class="cin"><span class="ci" data-ic="search"><span></span></span><input id="cmdkInput" placeholder="Buscar endereÃ§o, produto ou comandoâ€¦" autocomplete="off"></div><div class="res" id="cmdkRes"></div></div></div>
+<div class="cmdk" id="cmdk"><div class="box"><div class="cin"><span class="ci" data-ic="search"><span></span></span><input id="cmdkInput" placeholder="Buscar endereço, produto ou comando…" autocomplete="off"></div><div class="res" id="cmdkRes"></div></div></div>
 <div id="toast"><span class="tdot"></span><span id="toastMsg"></span></div>
 
 <div id="login"><div class="box">
   <span class="mk" id="mk2"></span>
-  <h2>PACK<span>EM</span></h2><div class="sub">WMS Â· Controle de PÃ¡tio Â· v115</div>
-  <input class="input" id="logUser" placeholder="usuÃ¡rio" autocomplete="off">
+  <h2>PACK<span>EM</span></h2><div class="sub">WMS · Controle de Pátio · v115</div>
+  <input class="input" id="logUser" placeholder="usuário" autocomplete="off">
   <input class="input" id="logPass" type="password" placeholder="senha" autocomplete="off">
   <button class="btn brand" id="logBtn" style="width:100%;height:50px">Entrar</button>
   <div class="hint" id="logHint"></div>
@@ -385,9 +385,9 @@
   <div style="width:70px;height:70px;border-radius:50%;background:rgba(255,107,107,.14);display:flex;align-items:center;justify-content:center;margin-bottom:22px">
     <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#ff6b6b" stroke-width="2.2" stroke-linecap="round"><path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0119 12.55"/><path d="M5 12.55a10.94 10.94 0 015.17-2.39"/><path d="M10.71 5.05A16 16 0 0122.58 9"/><path d="M1.42 9a15.91 15.91 0 014.7-2.88"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
   </div>
-  <div style="color:#fff;font-family:var(--disp,sans-serif);font-size:1.4rem;font-weight:800;margin-bottom:8px">Sem conexÃ£o com a internet</div>
-  <div style="color:#9fb0c8;font-size:.92rem;max-width:340px;line-height:1.5">O sistema estÃ¡ pausado para nÃ£o perder nenhum dado. Assim que a internet voltar, ele volta a funcionar sozinho.</div>
-  <div id="netBlockDot" style="color:#7e90a8;font-size:.8rem;margin-top:22px;font-family:var(--mono,monospace)">tentando reconectarâ€¦</div>
+  <div style="color:#fff;font-family:var(--disp,sans-serif);font-size:1.4rem;font-weight:800;margin-bottom:8px">Sem conexão com a internet</div>
+  <div style="color:#9fb0c8;font-size:.92rem;max-width:340px;line-height:1.5">O sistema está pausado para não perder nenhum dado. Assim que a internet voltar, ele volta a funcionar sozinho.</div>
+  <div id="netBlockDot" style="color:#7e90a8;font-size:.8rem;margin-top:22px;font-family:var(--mono,monospace)">tentando reconectar…</div>
 </div>
 
 <script src="wms-app.js?v=20260814-1510"></script>

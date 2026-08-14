@@ -4705,13 +4705,13 @@ updateStageBadge();
     if(RQL.loading)return;
     if(!force&&RQL.at&&Date.now()-RQL.at<4000){rqlDraw();return;}
     RQL.loading=true;rqlDraw();
-    fetch('/api/requisicoes').then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,status:r.status,d:d};});}).then(function(res){
+    fetch('/api/wms-requests').then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,status:r.status,d:d};});}).then(function(res){
       RQL.loading=false;RQL.at=Date.now();
       if(res.ok&&res.d&&res.d.ok){RQL.data=res.d.requisicoes||[];RQL.err='';}
       else if(location.protocol==='file:'){RQL.data=rqlDemoLocal();RQL.err='';}
-      else{RQL.err=(res.d&&res.d.error)||('Erro HTTP '+res.status+' — a function /api/requisicoes respondeu, mas sem dados. Confira BASE44_API_KEY no Vercel.');}
+      else{RQL.err=(res.d&&res.d.error)||('Erro HTTP '+res.status+' — a conexão com as requisições respondeu, mas sem dados. Confira BASE44_API_KEY no Vercel.');}
       rqlDraw();
-    }).catch(function(){RQL.loading=false;if(location.protocol==='file:'){RQL.data=rqlDemoLocal();RQL.err='';RQL.at=Date.now();}else{RQL.err='Sem conexão com /api/requisicoes — confira se o arquivo requisicoes.js foi publicado dentro da pasta api/.';}rqlDraw();});
+    }).catch(function(){RQL.loading=false;if(location.protocol==='file:'){RQL.data=rqlDemoLocal();RQL.err='';RQL.at=Date.now();}else{RQL.err='Não foi possível conectar às requisições. Verifique a função wms-requests no servidor.';}rqlDraw();});
   }
   /* Atualiza os locais da requisição sempre que qualquer estoque mudar. */
   var _rqlEstoqueAss='';

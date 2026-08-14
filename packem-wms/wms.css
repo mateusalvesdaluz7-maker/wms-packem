@@ -460,3 +460,69 @@ button,.btn,.gbtn{transition:background .15s ease,border-color .15s ease,box-sha
 #v-exped .pad{padding:0}
 #v-exped .sh-brand{box-shadow:0 8px 22px rgba(234,90,12,.30)}
 
+
+
+/* ==== RESPONSIVO WMS: celular e tablet ==== */
+.mainwrap,main,.view,.panel,.nfDoc,.nfDocMain,.nfScanField,.camfield{min-width:0;max-width:100%}
+.nfDocActs{display:flex;align-items:center;gap:8px;flex:none}
+.nfDocActs .btn{width:42px;height:42px;min-width:42px;padding:0;background:#fff;color:var(--muted);border:1px solid var(--line-2);box-shadow:none}
+.nfDocActs .btn:hover{color:var(--brand);border-color:rgba(234,90,12,.45);background:var(--brand-dim)}
+.tblwrap,.tableWrap,[class*="table-wrap"]{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+@media(max-width:900px){
+  .topbar{min-width:0;padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right))}
+  .topbar>*{flex-shrink:0}
+  .tb-spacer{min-width:0;flex:1 1 auto}
+  .uchip{max-width:116px;padding:7px 9px}
+  .uchip>div{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  main{min-width:0;padding:16px 14px calc(86px + env(safe-area-inset-bottom))}
+  .view.active{min-width:0;width:100%}
+  .panel{width:100%;padding:16px}
+  #v-nf .nfHero{padding:20px;border-radius:18px}
+  #v-nf .nfHeroTitle h1{font-size:1.55rem}
+  #v-nf .nfHeroStats{gap:16px}
+  #v-nf .nfHeroStat b{font-size:1.45rem}
+  #v-nf .nfDrop{padding:15px;gap:12px}
+  #v-nf .nfDropIco{width:46px;height:46px}
+  #v-nf .nfScanField,#v-nf .camfield{width:100%;min-width:0}
+  #v-nf .nfScanField .input{width:100%;min-width:0;height:54px;padding-left:36px;padding-right:54px;font-size:16px!important;letter-spacing:.02em;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+  #v-nf .nfScanField::before{left:13px}
+  #v-nf .nfDoc{display:grid;grid-template-columns:52px minmax(0,1fr);align-items:start;gap:10px 12px;padding:14px;cursor:default}
+  #v-nf .nfRing{grid-column:1;grid-row:1;width:52px;height:52px}
+  #v-nf .nfDocMain{grid-column:2;grid-row:1;align-self:center;width:100%;overflow:hidden}
+  #v-nf .nfDocMain .t{font-size:.96rem;line-height:1.35;gap:6px;overflow-wrap:anywhere}
+  #v-nf .nfDocMain .s{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4;overflow-wrap:anywhere}
+  #v-nf .nfDocMain .m{line-height:1.5;overflow-wrap:break-word}
+  #v-nf .nfDocActs{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;gap:8px}
+  #v-nf .nfDocActs .btn{width:100%;min-width:0;height:44px}
+}
+
+@media(max-width:600px){
+  :root{--tbh:58px}
+  .topbar{gap:7px}
+  #burger{width:40px;height:40px}
+  #netChip{font-size:.72rem;white-space:nowrap}
+  .uchip{max-width:92px;font-size:.76rem}
+  main{padding:12px 10px calc(82px + env(safe-area-inset-bottom))}
+  .panel{padding:14px;border-radius:14px}
+  .ph-head{margin-bottom:16px}
+  #v-nf .nfHero{padding:17px 16px;margin-bottom:14px}
+  #v-nf .nfHeroTop{gap:12px}
+  #v-nf .nfHeroTitle h1{font-size:1.35rem}
+  #v-nf .nfHeroTitle p{font-size:.8rem;line-height:1.45}
+  #v-nf .nfHeroStats{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  #v-nf .nfImportCard{min-height:0}
+  #v-nf .nfDrop{padding:13px}
+  #v-nf .nfDropTxt b{font-size:.92rem}
+  #v-nf .nfDropTxt span{font-size:.72rem}
+  #v-nf .nfScanPanel .ph{margin-bottom:12px}
+  #v-nf .nfDoc{grid-template-columns:46px minmax(0,1fr);padding:12px;gap:10px}
+  #v-nf .nfRing{width:46px;height:46px}
+  #v-nf .nfRing .nfRingPct{font-size:.62rem}
+  #v-nf .nfDocMain .t{font-size:.9rem}
+  #v-nf .nfDocMain .s,#v-nf .nfDocMain .m{font-size:.7rem}
+  #v-nf .nfDocActs{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  #v-nf .nfDocActs .btn{height:42px}
+  .wmsAiBtn{right:10px!important;bottom:calc(10px + env(safe-area-inset-bottom))!important;height:46px!important;padding:0 13px 0 8px!important}
+  .wmsAiBtn .wmsAiLogo{width:30px!important;height:30px!important}
+}

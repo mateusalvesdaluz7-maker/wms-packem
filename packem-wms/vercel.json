@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/wms-data/requests",
+      "destination": "/api/requisicoes"
+    },
+    {
+      "source": "/wms-data/request-update",
+      "destination": "/api/req-baixa"
+    },
+    {
+      "source": "/wms-data/assistant",
+      "destination": "/api/ask"
+    }
+  ]
+}

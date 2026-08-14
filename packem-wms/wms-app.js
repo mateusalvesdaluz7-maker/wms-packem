@@ -2003,7 +2003,7 @@ function vpBuildContext(){
 function vpAskAI(question,history,_retry){
   var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
   var timer=setTimeout(function(){if(ctrl)ctrl.abort();},28000);
-  return fetch('/api/ask',{
+  return fetch('/wms-data/assistant',{
     method:'POST',
     headers:{'content-type':'application/json'},
     body:JSON.stringify({question:question,context:vpBuildContext(),history:Array.isArray(history)?history.slice(-10):[]}),
@@ -4627,7 +4627,7 @@ updateStageBadge();
     try{var _av=document.querySelector('.view.active');if(_av&&_av.id==='v-track'&&typeof renderTrackTable==='function')renderTrackTable();}catch(e){}
     toast('Baixa: '+fmt(take)+unReq+' de '+ondeMsg+' · enviando…');
     RQL.baixando=true;
-    fetch('/api/req-baixa',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({item_id:itemId,requisicao_id:reqId,kg:qtdReq,un:unReq,modo:'somar',endereco:ondeMsg,usuario:(session?session.u:'WMS')})})
+    fetch('/wms-data/request-update',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({item_id:itemId,requisicao_id:reqId,kg:qtdReq,un:unReq,modo:'somar',endereco:ondeMsg,usuario:(session?session.u:'WMS')})})
       .then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,d:d};});})
       .then(function(res){
         RQL.baixando=false;
@@ -4682,7 +4682,7 @@ updateStageBadge();
     }catch(err){}
     try{var _av2=document.querySelector('.view.active');if(_av2&&_av2.id==='v-track'&&typeof renderTrackTable==='function')renderTrackTable();}catch(e){}
     toast('Marcando '+fmt(qtd)+' '+(it.un||'')+' como separado…');
-    fetch('/api/req-baixa',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({item_id:itemId,requisicao_id:reqId,kg:qtd,endereco:'(sem vaga)',usuario:(session?session.u:'WMS')})})
+    fetch('/wms-data/request-update',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({item_id:itemId,requisicao_id:reqId,kg:qtd,endereco:'(sem vaga)',usuario:(session?session.u:'WMS')})})
       .then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,d:d};});})
       .then(function(res){
         RQL.baixando=false;
@@ -4705,7 +4705,7 @@ updateStageBadge();
     if(RQL.loading)return;
     if(!force&&RQL.at&&Date.now()-RQL.at<4000){rqlDraw();return;}
     RQL.loading=true;rqlDraw();
-    fetch('/api/wms-requests').then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,status:r.status,d:d};});}).then(function(res){
+    fetch('/wms-data/requests').then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,status:r.status,d:d};});}).then(function(res){
       RQL.loading=false;RQL.at=Date.now();
       if(res.ok&&res.d&&res.d.ok){RQL.data=res.d.requisicoes||[];RQL.err='';}
       else if(location.protocol==='file:'){RQL.data=rqlDemoLocal();RQL.err='';}

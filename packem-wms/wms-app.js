@@ -293,6 +293,28 @@ window.recicClear=function(){if(!(typeof isSuper==='function'&&isSuper())){toast
 window._recScanMode=window._recScanMode||'add';
 function _recEt(s){return String(s==null?'':s).trim().toUpperCase();}
 function _recEtList(g){return (g.ets||[]).map(function(x){var et=(typeof x==='string')?_recEt(x):_recEt(x.et);var plg=(typeof x==='string')?0:x.pl;return {et:et,pl:(typeof window.chaoPlReal==='function'?window.chaoPlReal(et,plg):(Number(plg)||0))};});}
+/* O saldo da Recicladora é reconstruído pelo último movimento de cada etiqueta.
+   Assim todos os aparelhos mostram o mesmo estoque, usando a tabela movimentos
+   que já é sincronizada em tempo real, sem criar uma segunda fonte de verdade. */
+function _recSyncFromMovs(){
+  try{
+    if(!Array.isArray(MV)||!MV.length)return false;
+    var vistos={},novo={};
+    MV.slice().sort(function(a,b){return String(b.at||'').localeCompare(String(a.at||''));}).forEach(function(m){
+      var et=_recEt(m&&m.et);if(!et||vistos[et])return;vistos[et]=1;
+      if(String(m.code||'').trim().toUpperCase()!=='RECICLADORA'||String(m.action||'').trim().toLowerCase()!=='entrada')return;
+      var b=(typeof BOB!=='undefined'&&BOB[et])||null,pr=m.pr||(b&&b.pr)||'SEM CODIGO';
+      var pl=Number(m.q)||Number(b&&b.pl)||0,g=novo[pr];
+      if(!g)g=novo[pr]={pr:pr,desc:(b&&b.desc)||(typeof descOf==='function'?descOf(pr):'')||'',qtd:0,kg:0,ets:[],at:m.at||'',by:m.by||''};
+      g.ets.push({et:et,pl:pl});g.qtd++;g.kg+=pl;
+      if(String(m.at||'')>String(g.at||'')){g.at=m.at||g.at;g.by=m.by||g.by;}
+    });
+    var antes=JSON.stringify(RECIC),depois=JSON.stringify(novo);
+    if(antes!==depois){RECIC=novo;_recSave();return true;}
+  }catch(e){}
+  return false;
+}
+window.recicSyncFromMovs=_recSyncFromMovs;
 function _recTotals(){
   var st=(typeof window.recicGetState==='function')?window.recicGetState():{};var q=0,kg=0,codes=0;
   Object.values(st||{}).forEach(function(g){q+=g.qtd||0;kg+=_recEtList(g).reduce(function(s,x){return s+(Number(x.pl)||0);},0);codes++;});
@@ -300,6 +322,7 @@ function _recTotals(){
 }
 function renderRecic(){
   var v=document.getElementById('v-recic');if(!v)return;
+  _recSyncFromMovs();
   var t=_recTotals();
   var sup=(typeof isSuper==='function'&&isSuper());
   v.innerHTML='<div class="ph-head"><div><p class="eb">Operação · contagem</p><h1>Recicladora - 91</h1></div>'
@@ -5475,6 +5498,7 @@ async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
     _merged.sort(function(a,b){return (b.at||'')<(a.at||'')?-1:((b.at||'')>(a.at||'')?1:0);});
     if(_merged.length>20000)_merged.length=20000;
     MV=_merged;DB.saveMovs(MV);
+    try{if(typeof window.recicSyncFromMovs==='function')window.recicSyncFromMovs();}catch(e){}
   }
   try{await pullNF();}catch(e){}
   try{
@@ -5523,7 +5547,7 @@ function applyRealtime(p){const t=p.table,n=p.new,o=p.old,ev=p.eventType;
  else if(t==='bobinas'){if(ev==='DELETE'&&o){delete BOB[o.etiqueta];}else if(n){BOB[n.etiqueta]={pr:n.pr,desc:n.descricao||'',pl:Number(n.pl)||0};}persistDebounced('bob');}
  else if(t==='locais'){if(ev==='DELETE'&&o){delete LOC[o.etiqueta];}else if(n){LOC[n.etiqueta]=n.code;}persistDebounced('loc');}
  else if(t==='stage'){if(ev==='DELETE'&&o){STAGE=STAGE.filter(s=>s.et!==o.etiqueta);}else if(n){const i=STAGE.findIndex(s=>s.et===n.etiqueta);const it={et:n.etiqueta,pr:n.pr,desc:n.descricao||'',pl:Number(n.pl)||0,at:n.at,by:n.by_user||''};if(i>=0){STAGE[i]=it;}else{STAGE.unshift(it);try{stationPrint(it);}catch(e){}}}persistDebounced('stage');}
- else if(t==='movimentos'&&n&&ev==='INSERT'){if(!MV.some(m=>m.id===n.id)){MV.unshift({id:n.id,action:n.action,w:n.w,code:n.code,pr:n.pr,q:Number(n.q)||0,u:n.u,et:n.et||'',before:Number(n.before_q)||0,after:Number(n.after_q)||0,at:n.at,by:n.by_user||''}); /* log local enxuto: o histórico completo fica na nuvem */persistDebounced('mv');}}
+ else if(t==='movimentos'&&n&&ev==='INSERT'){if(!MV.some(m=>m.id===n.id)){MV.unshift({id:n.id,action:n.action,w:n.w,code:n.code,pr:n.pr,q:Number(n.q)||0,u:n.u,et:n.et||'',before:Number(n.before_q)||0,after:Number(n.after_q)||0,at:n.at,by:n.by_user||''}); /* log local enxuto: o histórico completo fica na nuvem */persistDebounced('mv');try{if(typeof window.recicSyncFromMovs==='function')window.recicSyncFromMovs();}catch(e){}}}
  else if(t==='valores'&&n){const i=VL.findIndex(v=>v.codigo===n.codigo);const row={codigo:n.codigo,valor:Number(n.valor)||0,descricao:n.descricao||'',un:(n.un||'')};if(i>=0)VL[i]=row;else VL.push(row);persistDebounced('vl');}
  else if(t==='usuarios'&&n){const i=US.findIndex(u=>u.u===n.u);const row=window.wmsDecodeUserRole({u:n.u,p:n.p,role:n.role,active:n.active!==false});if(i>=0)US[i]=row;else US.push(row);persistDebounced('us');try{if(session&&String(session.u).toLowerCase()===String(row.u).toLowerCase())applyPerms();}catch(e){}}
  else if((t==='etiquetas'||t==='notas_fiscais'||t==='romaneios')&&typeof window.nfApplyRealtimeRow==='function'){window.nfApplyRealtimeRow(t,ev,n,o);}
@@ -8639,7 +8663,7 @@ function process(scanned){
   if(mode==='sep'){
     if(it.status==='pendente'){
       it.status='separado'; beep('sep'); vibrate('sep');
-      banner('sep','��','Separado',`<span class="mono">${it.etiqueta}</span> · ${it.descricao||''}`);
+      banner('sep','📦','Separado',`<span class="mono">${it.etiqueta}</span> · ${it.descricao||''}`);
     } else if(it.status==='separado'){
       beep('err');
       banner('warn','↺','Já separado · falta CONFERIR',`Toque em <b>CONFERIR</b> (verde) no topo e bipe de novo`);

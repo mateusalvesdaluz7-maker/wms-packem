@@ -12349,7 +12349,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
  function grava(m){try{localStorage.setItem(KEY,JSON.stringify(m));}catch(e){}}
  function padrao(role){if(role==='recepcao')return ['visualizar','cadastrar','editar'];if(role==='viewer')return ['visualizar','exportar'];return ['visualizar','cadastrar','editar','exportar'];}
  window.canAction=function(a){if(typeof isSuper==='function'&&isSuper())return true;var nome=session&&session.u||'',m=mapa(),u=(US||[]).find(function(x){return String(x.u||'').toLowerCase()===String(nome).toLowerCase();}),arr=u&&Array.isArray(u.actions)?u.actions:(Array.isArray(m[nome])?m[nome]:padrao(u&&u.role));return arr.indexOf(a)>=0;};
- function injetaAcoes(){var save=document.getElementById('uSave'),role=document.getElementById('uR'),user=document.getElementById('uU');if(!save||document.getElementById('uaPermBox'))return;var nome=user.value.trim(),u=(US||[]).find(function(x){return x.u===nome;}),m=mapa(),sel=Array.isArray(m[nome])?m[nome]:padrao((u&&u.role)||role.value),adm=role.value==='admin';var box=document.createElement('div');box.id='uaPermBox';box.innerHTML='<div class="uv-head"><b>Permissões por ação</b></div><div class="uv-group"><div class="uv-list">'+ACOES.map(function(a){return '<label class="uv-item"><input type="checkbox" data-ua="'+a[0]+'" '+(adm||sel.indexOf(a[0])>=0?'checked':'')+' '+(adm?'disabled':'')+'><span>'+a[1]+'</span></label>';}).join('')+'</div></div>';save.parentNode.insertBefore(box,save);var oldChange=role.onchange;role.onchange=function(e){if(oldChange)oldChange.call(this,e);var isAdm=this.value==='admin';document.querySelectorAll('[data-ua]').forEach(function(c){c.disabled=isAdm;if(isAdm)c.checked=true;});};var oldSave=save.onclick;save.onclick=function(e){var nomeNovo=user.value.trim(),r=role.value,selA=[].slice.call(document.querySelectorAll('[data-ua]:checked')).map(function(c){return c.dataset.ua;});if(r!=='admin'&&selA.indexOf('visualizar')<0){toast('O usuário precisa da permissão Visualizar',false);return;}var mm=mapa();if(nome&&nome!==nomeNovo)delete mm[nome];if(r==='admin')delete mm[nomeNovo];else mm[nomeNovo]=selA;grava(mm);return oldSave.call(this,e);};}
+ function injetaAcoes(){var save=document.getElementById('uSave'),role=document.getElementById('uR'),user=document.getElementById('uU');if(!save||document.getElementById('uaPermBox'))return;var nome=user.value.trim(),u=(US||[]).find(function(x){return x.u===nome;}),m=mapa(),sel=Array.isArray(m[nome])?m[nome]:padrao((u&&u.role)||role.value),adm=role.value==='admin';var box=document.createElement('div');box.id='uaPermBox';box.innerHTML='<div class="uv-head"><b>Permissões por ação</b></div><div class="uv-group"><div class="uv-list">'+ACOES.map(function(a){return '<label class="uv-item"><input type="checkbox" data-ua="'+a[0]+'" '+(adm||sel.indexOf(a[0])>=0?'checked':'')+' '+(adm?'disabled':'')+'><span>'+a[1]+'</span></label>';}).join('')+'</div></div>';save.parentNode.insertBefore(box,save);var oldChange=role.onchange;role.onchange=function(e){if(oldChange)oldChange.call(this,e);var isAdm=this.value==='admin';document.querySelectorAll('[data-ua]').forEach(function(c){c.disabled=isAdm;if(isAdm)c.checked=true;});};var oldSave=save.onclick;save.onclick=function(e){var nomeNovo=user.value.trim(),r=role.value,selA=[].slice.call(document.querySelectorAll('[data-ua]:checked')).map(function(c){return c.dataset.ua;});if(r!=='admin'&&selA.indexOf('visualizar')<0){selA.unshift('visualizar');var vis=document.querySelector('[data-ua="visualizar"]');if(vis)vis.checked=true;}var mm=mapa();if(nome&&nome!==nomeNovo)delete mm[nome];if(r==='admin')delete mm[nomeNovo];else mm[nomeNovo]=selA;grava(mm);return oldSave.call(this,e);};}
  var oldEdit=editUser;editUser=function(i){oldEdit(i);injetaAcoes();};window.editUser=editUser;
  function acaoDo(el){var t=String(el.innerText||el.textContent||'').toLowerCase();if(/exportar|baixar|csv|excel|pdf/.test(t))return 'exportar';if(/excluir|remover|apagar|limpar|zerar/.test(t))return 'excluir';if(/editar|alterar|corrigir|ajustar/.test(t))return 'editar';if(/salvar|cadastrar|adicionar|novo|nova|criar|importar|lançar|receber|confirmar/.test(t))return 'cadastrar';return '';}
  function critica(el){var t=String(el.innerText||el.textContent||'').toLowerCase(),view=(el.closest('.view')||{}).id||'',drawer=!!el.closest('#drawer');if(/limpar|zerar/.test(t)&&(/estoque|chão|chao|recicladora/.test(t)||/v-stock|v-floor|v-floor70|v-recic/.test(view)))return 'limpar estoque/chão';if(/excluir|apagar/.test(t)&&(view==='v-nf'||drawer&&/nota|nf/.test((document.getElementById('drawerTitle')||{}).innerText||'')))return 'excluir Nota Fiscal';if(/finalizar|encerrar/.test(t)&&/invent[aá]rio/.test(t+' '+((document.getElementById('drawerTitle')||{}).innerText||'')))return 'finalizar inventário';return '';}
@@ -12371,8 +12371,13 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
   salvar.onclick=async function(e){
    var digitada=campo.value;
    if(i==null&&!digitada){toast('Informe a senha do novo usuario',false);return;}
-   try{campo.value=digitada?await WMSSecurity.protect(digitada):senhaAtual;return salvarOriginal.call(this,e);}
+   try{
+    var protegida=digitada?await WMSSecurity.protect(digitada):senhaAtual;
+    campo.value=protegida;
+    return await salvarOriginal.call(this,e);
+   }
    catch(err){toast('Nao foi possivel proteger a senha neste navegador',false);}
+   finally{if(campo&&campo.isConnected)campo.value='';}
   };
  };
  window.editUser=editUser;
@@ -12873,6 +12878,8 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
    var nome=String(login.value||'').trim(),nomeLower=nome.toLowerCase();
    var abas=[].slice.call(document.querySelectorAll('[data-uv]:checked')).map(function(c){return c.dataset.uv;});
    var acoes=[].slice.call(document.querySelectorAll('[data-ua]:checked')).map(function(c){return c.dataset.ua;});
+   var perfilAtual=String((document.getElementById('uR')||{}).value||'');
+   if(perfilAtual!=='admin'&&acoes.indexOf('visualizar')<0)acoes.unshift('visualizar');
    if(nome&&(US||[]).some(function(x,n){return n!==i&&String(x.u||'').trim().toLowerCase()===nomeLower;})){
     toast('Ja existe um usuario com esse login',false);return;
    }

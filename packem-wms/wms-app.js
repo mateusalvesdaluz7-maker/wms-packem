@@ -127,14 +127,22 @@ function curRole(){if(!session)return null;if(isOperatorUser(session.u))return '
 const isAdmin=()=>{const r=curRole();return r==='admin'||r==='operador';};
 const isStrictAdmin=()=>curRole()==='admin';
 const isSuper=()=>curRole()==='admin';
-/* admin pode digitar manual em qualquer campo de bipagem; operador segue só-câmera */
+/* Digitação manual em campos de bipagem depende da permissão individual do usuário. */
+function canTypeScan(){
+  if(isSuper())return true;
+  try{
+    if(typeof window.canAction==='function')return window.canAction('digitar_etiqueta');
+    var nome=session&&session.u||'',u=(US||[]).find(function(x){return String(x.u||'').toLowerCase()===String(nome).toLowerCase();});
+    return !!(u&&Array.isArray(u.actions)&&u.actions.indexOf('digitar_etiqueta')>=0);
+  }catch(e){return false;}
+}
 function scanLock(el){if(!el)return;
-  // re-avalia o cargo SEMPRE (o super pode ter logado depois do scanLock ter rodado)
-  var apply=function(){if(isSuper()){el.readOnly=false;el.removeAttribute('inputmode');el.style.cursor='text';el.title='Digite ou toque no botão da câmera';return true;}el.readOnly=true;el.setAttribute('inputmode','none');el.style.cursor='pointer';el.title='Toque para bipar com a câmera';return false;};
+  // reavalia a permissão sempre, inclusive depois de editar os acessos do usuário.
+  var apply=function(){if(canTypeScan()){el.readOnly=false;el.removeAttribute('inputmode');el.style.cursor='text';el.title='Digite, use o leitor ou toque na câmera';return true;}el.readOnly=true;el.setAttribute('inputmode','none');el.style.cursor='pointer';el.title='Toque para bipar com a câmera';return false;};
   apply();
   if(el._scanLocked)return;el._scanLocked=true;
   el.addEventListener('focus',function(){if(apply())return;setTimeout(function(){el.blur();},0);});
-  el.addEventListener('click',function(){if(isSuper())return;var w=el.parentNode;var b=w&&w.querySelector('.cambtn');if(b)b.click();});}
+  el.addEventListener('click',function(){if(canTypeScan())return;var w=el.parentNode;var b=w&&w.querySelector('.cambtn');if(b)b.click();});}
 /* Inventário liberado para TODOS os papéis: o operador precisa ver a contagem que o admin
    atribuiu a ele. O que ele NÃO pode é escolher o que contar — só executa o que foi atribuído.
    Essa trava mora no renderInv (cards de início escondidos p/ não-admin), não aqui. */
@@ -4457,7 +4465,7 @@ updateStageBadge();
              // fluxo com bipagem: endereço (se tem vaga) + etiqueta — SEMPRE bipar, campo vem vazio
              var botaoLabel=temVaga?'Separar':(temInter?'Bipar do intermediário':'Bipar na área operacional');
              var botaoStyle=temVaga?'':'background:#f5f3ff;color:#7c3aed;border-color:#ddd6fe';
-             var _admin=(typeof isAdmin==='function'&&isAdmin());
+             var _admin=(typeof canTypeScan==='function'&&canTypeScan());
              var _ro=_admin?'':'readonly';
              var _phAddr=_admin?'digite ou bipe o endereço':'toque na câmera para bipar';
              var _phEt=_admin?'digite ou bipe a etiqueta':'toque na câmera para bipar';
@@ -5112,7 +5120,7 @@ window.cleanScanCode=function(v,kind){
  function close(){active=false;modal.classList.remove('show');lastV='';if(h5){const x=h5;h5=null;try{x.stop().then(()=>{try{x.clear();}catch(e){}}).catch(()=>{try{x.clear();}catch(e){}});}catch(e){}}}
  document.getElementById('scanX').onclick=close;
  window.scanInto=function(inputId,opts){O=Object.assign({inputId},opts||{});document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};
- window.addCam=function(inputId,opts){const el=document.getElementById(inputId);if(!el||el.type==='hidden'||el.dataset.cam)return;el.dataset.cam='1';const w=document.createElement('div');w.className='camfield';w.style.position='relative';w.style.width='100%';el.parentNode.insertBefore(w,el);w.appendChild(el);el.style.width='100%';el.style.boxSizing='border-box';el.style.paddingRight='54px';const b=document.createElement('button');b.type='button';b.className='cambtn';b.innerHTML=ICONS.cam;b.title='Escanear com câmera';b.onclick=()=>scanInto(inputId,opts||{});w.appendChild(b);};
+ window.addCam=function(inputId,opts){const el=document.getElementById(inputId);if(!el||el.type==='hidden'||el.dataset.cam)return;el.dataset.cam='1';const w=document.createElement('div');w.className='camfield';w.style.position='relative';w.style.width='100%';el.parentNode.insertBefore(w,el);w.appendChild(el);el.style.width='100%';el.style.boxSizing='border-box';el.style.paddingRight='54px';const b=document.createElement('button');b.type='button';b.className='cambtn';b.innerHTML=ICONS.cam;b.title='Escanear com câmera';b.onclick=()=>scanInto(inputId,opts||{});w.appendChild(b);try{scanLock(el);}catch(e){} };
  addCam('mBob',{enter:true,title:'Escanear bobina'});addCam('mLoc',{enter:true,title:'Escanear endereço',scanKind:'addr'});
  const _rrv=renderRecv;renderRecv=function(){_rrv();addCam('recvScan',{continuous:true,onResult:recvAdd,title:'Escanear bobinas'});};
  const _saz=stageArmazenar;stageArmazenar=function(et){_saz(et);setTimeout(()=>addCam('azLoc',{enter:false,title:'Escanear endereço',scanKind:'addr'}),60);};
@@ -8631,7 +8639,7 @@ function process(scanned){
   if(mode==='sep'){
     if(it.status==='pendente'){
       it.status='separado'; beep('sep'); vibrate('sep');
-      banner('sep','📦','Separado',`<span class="mono">${it.etiqueta}</span> · ${it.descricao||''}`);
+      banner('sep','��','Separado',`<span class="mono">${it.etiqueta}</span> · ${it.descricao||''}`);
     } else if(it.status==='separado'){
       beep('err');
       banner('warn','↺','Já separado · falta CONFERIR',`Toque em <b>CONFERIR</b> (verde) no topo e bipe de novo`);
@@ -12344,7 +12352,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
 
 /* ===== PERMISSÕES POR AÇÃO + SENHA EM OPERAÇÕES CRÍTICAS ===== */
 (function(){
- var KEY='wmsx_user_actions_v1',ACOES=[['visualizar','Visualizar'],['cadastrar','Cadastrar'],['editar','Editar'],['excluir','Excluir'],['exportar','Exportar']];
+ var KEY='wmsx_user_actions_v1',ACOES=[['visualizar','Visualizar'],['cadastrar','Cadastrar'],['editar','Editar'],['excluir','Excluir'],['exportar','Exportar'],['digitar_etiqueta','Digitar etiqueta manualmente']];
  function mapa(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){return {};}}
  function grava(m){try{localStorage.setItem(KEY,JSON.stringify(m));}catch(e){}}
  function padrao(role){if(role==='recepcao')return ['visualizar','cadastrar','editar'];if(role==='viewer')return ['visualizar','exportar'];return ['visualizar','cadastrar','editar','exportar'];}

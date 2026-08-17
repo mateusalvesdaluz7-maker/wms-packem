@@ -914,7 +914,22 @@ body.admin #v-exped .lote-card .lc-x{display: inline-block;}
 #v-exped .audit-row p{margin:3px 0;color:#425248;font-size:12px;line-height:1.45}
 #v-exped .audit-row small{color:#748279;font-size:10px;font-weight:700}
 #v-exped .audit-empty{padding:35px;text-align:center;color:#748279;font-size:13px}
+#v-exped .audit-pair{margin:12px 0;padding:13px;border:1px solid #d8e4dc;border-radius:13px;background:#fff;box-shadow:var(--sh-sm)}
+#v-exped .audit-pair-title{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+#v-exped .audit-pair-title b{color:#102019;font-size:12px}
+#v-exped .audit-pair-title span{color:#52645a;font:700 11px 'JetBrains Mono',monospace}
+#v-exped .audit-pair-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+#v-exped .audit-step{padding:11px 12px;border:1px solid;border-radius:10px}
+#v-exped .audit-step.sep{border-color:#fed7aa;background:#fff7ed}
+#v-exped .audit-step.conf{border-color:#bbf7d0;background:#f0fdf4}
+#v-exped .audit-step>span{display:block;font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+#v-exped .audit-step b{display:block;margin-top:4px;font-size:12px}
+#v-exped .audit-step.sep b{color:#c65f00}
+#v-exped .audit-step.conf b{color:#15803d}
+#v-exped .audit-step b.pending{color:#8a98a0}
+#v-exped .audit-step small{display:block;margin-top:4px;color:#66756c;font-size:9.5px}
 @media(max-width:700px){#v-exped .lc-details{grid-template-columns:1fr 1fr}#v-exped .audit-btn{margin-left:0;width:100%;justify-content:center}#v-exped .work-top{flex-wrap:wrap}}
+@media(max-width:540px){#v-exped .audit-pair-grid{grid-template-columns:1fr}}
 #v-exped .lote-card .lc-ring{position:relative;width:58px;height:58px;display:grid;place-items:center;flex:none}
 #v-exped .lote-card .lc-ring svg{position:absolute;inset:3px;width:52px;height:52px;display:block}
 #v-exped .lote-card .lc-ringpct{position:absolute;inset:0;z-index:1;display:grid;place-items:center;text-align:center;font-family:'Sora',sans-serif;font-size:13px;line-height:1;font-weight:800;color:var(--brand-dark);font-variant-numeric:tabular-nums;pointer-events:none}

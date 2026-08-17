@@ -8,25 +8,25 @@
 // Opcional: { requisicao_id, concluir_requisicao: true }
 
 const APP_ID = '69f21c3bf6750842cd0ab83c'; // REQUISIÇÃO PACKEM
+const { secure, body: readBody, text: cleanText } = require('./_security');
+
 const BASE = 'https://app.base44.com/api/apps/' + APP_ID + '/entities/';
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+  if (!secure(req, res, { name: 'req-baixa', limit: 30, windowMs: 60000, methods: 'POST, OPTIONS' })) return;
   if (req.method !== 'POST') { res.status(405).json({ error: 'Método não permitido' }); return; }
 
   const key = (process.env.BASE44_API_KEY || '').trim();
   if (!key) { res.status(500).json({ error: 'BASE44_API_KEY não configurada no servidor' }); return; }
 
-  let body = req.body;
-  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }
-  const itemId = body && body.item_id;
-  const kg = Number(body && body.kg) || 0;
-  const endereco = (body && body.endereco) ? String(body.endereco) : '';
-  const usuario = (body && body.usuario) ? String(body.usuario) : 'WMS';
-  if (!itemId) { res.status(400).json({ error: 'Faltou item_id' }); return; }
+  let body;
+  try { body = readBody(req, 8192); } catch (e) { res.status(400).json({ error: 'Requisição inválida ou muito grande' }); return; }
+  const itemId = cleanText(body && body.item_id, 100);
+  const kg = Number(body && body.kg);
+  const endereco = cleanText(body && body.endereco, 80);
+  const usuario = cleanText(body && body.usuario, 80) || 'WMS';
+  if (!itemId || !/^[A-Za-z0-9_-]{1,100}$/.test(itemId)) { res.status(400).json({ error: 'item_id inválido' }); return; }
+  if (!Number.isFinite(kg) || kg <= 0 || kg > 10000000) { res.status(400).json({ error: 'Quantidade inválida' }); return; }
 
   async function b44(method, path, payload) {
     const r = await fetch(BASE + path, {

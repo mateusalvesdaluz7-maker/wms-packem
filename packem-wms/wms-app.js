@@ -11833,19 +11833,17 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
 
 
 /* ===== TELAS OCULTAS DA NAVEGAÇÃO =====
-   Expedição, Movimentação, Separação, Baixa Protheus e Transferências saem do
+   Movimentação, Separação, Baixa Protheus e Transferências saem do
    menu a pedido. As telas e o código continuam no sistema (nada foi apagado) —
    pra reativar qualquer uma, é só tirar a view da lista abaixo. Uso .remove()
    em vez de display:none porque o applyPerms() reexibe navs permitidas ao logar,
    o que desfaria um esconder por estilo. */
 (function(){
   try{
-    var ocultas=['v-exped','v-mov','v-pick','v-protheus','v-transf'];
+    var ocultas=['v-mov','v-pick','v-protheus','v-transf'];
     ocultas.forEach(function(v){
       document.querySelectorAll('.nav[data-view="'+v+'"]').forEach(function(n){n.remove();});
     });
-    /* atalho "Expedição" da barra superior acompanha */
-    var eb=document.getElementById('expBtn');if(eb)eb.style.display='none';
     /* Ctrl+K monta a lista pela NAVITEMS — sem esta limpeza, as telas ocultas
        continuariam acessíveis pela busca de comandos */
     try{if(typeof NAVITEMS!=='undefined'&&Array.isArray(NAVITEMS)){

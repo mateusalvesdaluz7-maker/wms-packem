@@ -969,3 +969,28 @@ body.admin #v-exped .lote-card .lc-x{display: inline-block;}
 #v-requisicao:has(.rqRefPage) .rqRefMain{min-height:calc(100vh - 165px)}
 @media(max-width:900px){#v-requisicao:has(.rqRefPage){padding:16px 14px 70px}#v-requisicao:has(.rqRefPage) .rqRefPage{grid-template-columns:1fr}}
 
+/* Cadastro de requisição em página inteira */
+#v-requisicao:has(.rqNewShell){padding:24px 28px 70px;background:#f2f6fb}
+#v-requisicao .rqNewShell{width:min(100%,980px);margin:0 auto}
+#v-requisicao .rqNewHead{display:flex;align-items:center;gap:15px;margin-bottom:22px}
+#v-requisicao .rqNewHead button{width:34px;height:34px;border:0;background:transparent;font-size:20px;cursor:pointer}
+#v-requisicao .rqNewHead h1{margin:0;color:#111827;font:900 25px Inter,sans-serif}
+#v-requisicao .rqNewHead p{margin:4px 0 0;color:#64748b;font-size:13px}
+#v-requisicao .rqNewCard{margin-bottom:18px;padding:24px;border:1px solid #d6dee8;border-radius:15px;background:#fff;box-shadow:0 2px 6px rgba(15,23,42,.04)}
+#v-requisicao .rqNewCard h3{margin:0 0 22px;color:#475569;font-size:14px;letter-spacing:.04em;text-transform:uppercase}
+#v-requisicao .rqNewGeneral{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+#v-requisicao .rqNewGeneral label,#v-requisicao .rqObs{display:flex;flex-direction:column;gap:7px;color:#475569;font-size:12px;font-weight:700}
+#v-requisicao .rqNewGeneral input,#v-requisicao .rqNewGeneral select,#v-requisicao .rqObs textarea,#v-requisicao .rqNewRow input,#v-requisicao .rqNewRow select{width:100%;box-sizing:border-box;border:1px solid #d4dce6;border-radius:10px;background:#fff;padding:10px 12px;color:#172033;font:600 13px Inter}
+#v-requisicao .rqNewGeneral .rqOp{grid-column:1/3}
+#v-requisicao .rqPrioLabel{margin:19px 0 9px;color:#475569;font-size:12px;font-weight:700}
+#v-requisicao .rqPriorityPick{display:flex;gap:12px}
+#v-requisicao .rqPriorityPick button{min-width:125px;padding:10px 14px;border:2px solid #dbe3ec;border-radius:11px;background:#fff;text-align:left}
+#v-requisicao .rqPriorityPick button:nth-child(1).on{border-color:#60a5fa;background:#eff6ff}#v-requisicao .rqPriorityPick button:nth-child(2).on{border-color:#fbbf24;background:#fffbeb}#v-requisicao .rqPriorityPick button:nth-child(3).on{border-color:#fca5a5;background:#fff1f2}
+#v-requisicao .rqPriorityPick b,#v-requisicao .rqPriorityPick small{display:block}#v-requisicao .rqPriorityPick small{margin-top:3px;color:#64748b;font-size:10px}
+#v-requisicao .rqObs{margin-top:19px}#v-requisicao .rqItemsHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}#v-requisicao .rqItemsHead h3{margin:0 0 3px}#v-requisicao .rqItemsHead small{color:#64748b}
+#v-requisicao .rqItemsHead button{border:1px solid #d5dde7;border-radius:10px;background:#fff;padding:9px 13px;font-weight:800}
+#v-requisicao .rqItemsLabels,#v-requisicao .rqNewRow{display:grid;grid-template-columns:1fr 1.4fr 1fr 36px;gap:9px;align-items:center}#v-requisicao .rqItemsLabels{padding:8px 11px;border-radius:9px;background:#f2f4f7;color:#64748b;font-size:10px;font-weight:900;text-transform:uppercase}
+#v-requisicao .rqNewRow{margin-top:8px;padding:8px;border:1px solid #e2e8f0;border-radius:11px;background:#fbfcfd}#v-requisicao .rqQty{display:grid;grid-template-columns:1fr 72px;gap:6px}#v-requisicao .rqRowDel{height:38px;border:0;border-radius:8px;background:#fee2e2;color:#b91c1c;font-weight:900}
+#v-requisicao .rqNewActions{display:flex;justify-content:flex-end;gap:10px}#v-requisicao .rqNewActions button{border:1px solid #d7dee8;border-radius:11px;background:#fff;padding:11px 18px;font-weight:800}#v-requisicao .rqNewActions .send{border-color:#2563eb;background:#2563eb;color:#fff;box-shadow:0 7px 18px rgba(37,99,235,.2)}
+@media(max-width:760px){#v-requisicao:has(.rqNewShell){padding:17px 12px 70px}#v-requisicao .rqNewCard{padding:17px}#v-requisicao .rqNewGeneral{grid-template-columns:1fr 1fr}#v-requisicao .rqNewGeneral .rqOp{grid-column:1/-1}#v-requisicao .rqItemsLabels{display:none}#v-requisicao .rqNewRow{grid-template-columns:1fr}#v-requisicao .rqQty{grid-template-columns:1fr 80px}#v-requisicao .rqPriorityPick{flex-direction:column}#v-requisicao .rqPriorityPick button{width:100%}}
+

@@ -886,11 +886,11 @@ body.admin #v-exped .lote-card .lc-x{display: inline-block;}
 
 /* Progresso visual dos cartões de romaneio */
 #v-exped .lote-card{position:relative;overflow:hidden;isolation:isolate;background:#fff;transition:border-color .25s ease}
-#v-exped .lote-card::before{content:"";position:absolute;z-index:0;inset:0 auto 0 0;width:var(--lote-progress,0%);background:repeating-linear-gradient(110deg,#22c55e 0 36px,#4ade80 36px 72px,#16a34a 72px 108px);background-size:108px 100%;animation:loteVerdeMovendo 1.8s linear infinite;transition:width .55s cubic-bezier(.4,0,.2,1)}
+#v-exped .lote-card::before{content:"";position:absolute;z-index:0;inset:0 auto 0 0;width:var(--lote-progress,0%);background-image:linear-gradient(to bottom,rgba(255,255,255,.32) 0%,rgba(255,255,255,.08) 42%,rgba(4,120,55,.22) 100%),repeating-linear-gradient(100deg,#15803d 0,#16a34a 70px,#22c55e 108px,#a7f3d0 120px,#22c55e 132px,#16a34a 170px,#15803d 240px);background-size:100% 100%,240px 100%;background-position:0 0,0 0;box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset -10px 0 18px rgba(5,110,50,.18);animation:loteVerdeMovendo 3.2s linear infinite;transition:width .55s cubic-bezier(.4,0,.2,1)}
 #v-exped .lote-card>*{position:relative;z-index:1}
 #v-exped .lote-card.done{background:#fff;border-color:#16a34a}
-#v-exped .lote-card.done::before{width:100%;background:repeating-linear-gradient(110deg,#16a34a 0 36px,#4ade80 36px 72px,#15803d 72px 108px);background-size:108px 100%}
-@keyframes loteVerdeMovendo{from{background-position:0 0}to{background-position:108px 0}}
+#v-exped .lote-card.done::before{width:100%;background-image:linear-gradient(to bottom,rgba(255,255,255,.28) 0%,rgba(255,255,255,.06) 42%,rgba(3,95,43,.24) 100%),repeating-linear-gradient(100deg,#166534 0,#15803d 70px,#22c55e 108px,#bbf7d0 120px,#22c55e 132px,#15803d 170px,#166534 240px);background-size:100% 100%,240px 100%}
+@keyframes loteVerdeMovendo{from{background-position:0 0,0 0}to{background-position:0 0,240px 0}}
 #v-exped .lote-card .lc-ring{position:relative;width:58px;height:58px;display:grid;place-items:center;flex:none}
 #v-exped .lote-card .lc-ring svg{position:absolute;inset:3px;width:52px;height:52px;display:block}
 #v-exped .lote-card .lc-ringpct{position:absolute;inset:0;z-index:1;display:grid;place-items:center;text-align:center;font-family:'Sora',sans-serif;font-size:13px;line-height:1;font-weight:800;color:var(--brand-dark);font-variant-numeric:tabular-nums;pointer-events:none}

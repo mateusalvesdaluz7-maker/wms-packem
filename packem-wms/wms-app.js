@@ -12174,6 +12174,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
       ['v-floor','Expedição - 71']
     ]},
     {grupo:'Operação',itens:[
+      ['v-exped','Expedição de Romaneios'],
       ['v-reqlive','Requisições'],
       ['v-track','Movimentação'],
       ['v-inv','Inventário']

@@ -739,6 +739,8 @@ body.cam-open #v-exped{overflow: hidden;}
 #v-exped .appbar-tag.on{letter-spacing: 0.06em; background: rgb(255, 217, 120) !important; color: rgb(90, 61, 0) !important; border-color: rgb(255, 217, 120) !important;}
 #v-exped .adm-actions{display: none; flex-wrap: wrap; gap: 7px; margin-top: 13px; padding-top: 12px; border-top: 1px dashed var(--line2);}
 body.admin #v-exped .adm-actions{display: flex;}
+#v-exped .exp-admin-only{display:none}
+body.admin #v-exped .exp-admin-only{display:inline-flex}
 #v-exped .adm-b{background: var(--surface2); border: 1.5px solid var(--line); color: var(--ink); border-radius: 9px; padding: 8px 11px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: Inter;}
 #v-exped .adm-b.del{color: var(--red); border-color: rgb(243, 192, 186); background: rgb(253, 238, 236);}
 #v-exped .adm-b:active{transform: scale(0.96);}

@@ -9,6 +9,7 @@
 
 const APP_ID = '69f21c3bf6750842cd0ab83c'; // REQUISIÇÃO PACKEM
 const { secure, body: readBody, text: cleanText } = require('./_security');
+const { rpc } = require('./_supabase-admin');
 
 const BASE = 'https://app.base44.com/api/apps/' + APP_ID + '/entities/';
 
@@ -22,10 +23,12 @@ module.exports = async function handler(req, res) {
   let body;
   try { body = readBody(req, 8192); } catch (e) { res.status(400).json({ error: 'Requisição inválida ou muito grande' }); return; }
   const itemId = cleanText(body && body.item_id, 100);
+  const operationId = cleanText(body && body.operation_id, 120);
   const kg = Number(body && body.kg);
   const endereco = cleanText(body && body.endereco, 80);
   const usuario = cleanText(body && body.usuario, 80) || 'WMS';
   if (!itemId || !/^[A-Za-z0-9_-]{1,100}$/.test(itemId)) { res.status(400).json({ error: 'item_id inválido' }); return; }
+  if (!operationId || !/^[A-Za-z0-9:_-]{12,120}$/.test(operationId)) { res.status(400).json({ error: 'operation_id inválido' }); return; }
   if (!Number.isFinite(kg) || kg <= 0 || kg > 10000000) { res.status(400).json({ error: 'Quantidade inválida' }); return; }
 
   async function b44(method, path, payload) {
@@ -43,6 +46,14 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    const claim = await rpc('wms_begin_request_operation', {
+      p_operation_id: operationId,
+      p_item_id: itemId,
+      p_payload: { item_id: itemId, requisicao_id: cleanText(body && body.requisicao_id, 100), kg, endereco, usuario }
+    });
+    if (claim && claim.state === 'completed') { res.status(200).json(claim.result); return; }
+    if (!claim || claim.state !== 'claimed') { res.status(409).json({ error: 'Outra baixa deste item está sendo processada. Tente novamente em instantes.' }); return; }
+
     // 1) lê o item atual pra somar em cima do que já tinha
     const item = await b44('GET', 'ItemRequisicao/' + itemId);
     if (!item || !item.id) { res.status(404).json({ error: 'Item não encontrado no Base44' }); return; }
@@ -101,15 +112,19 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    res.status(200).json({
+    const result = {
       ok: true,
+      operation_id: operationId,
       item_id: itemId,
       quantidade_separada: novoSep,
       separado: completo,
       requisicao_status: requisicao_status
-    });
+    };
+    await rpc('wms_complete_request_operation', { p_operation_id: operationId, p_result: result });
+    res.status(200).json(result);
   } catch (e) {
+    try { await rpc('wms_fail_request_operation', { p_operation_id: operationId, p_error: (e && e.message) || String(e) }); } catch (_) {}
     console.error('[api/req-baixa] erro:', e);
-    res.status(500).json({ error: (e && e.message) || 'Erro ao escrever no Base44' });
+    res.status(e && e.status === 409 ? 409 : 500).json({ error: (e && e.message) || 'Erro ao escrever no Base44' });
   }
 };

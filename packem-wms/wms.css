@@ -884,3 +884,11 @@ body.admin #v-exped .lote-card .lc-x{display: inline-block;}
 #v-exped .exp-wms-exit:hover{border-color:var(--brand);color:var(--brand-dark)}
 @media(max-width:900px){#v-exped>.shell>.pad{padding:0 10px 48px!important}#v-exped .exp-wms-exit{top:4px}}
 
+/* Progresso visual dos cartões de romaneio */
+#v-exped .lote-card{background:linear-gradient(90deg,#dcf6e6 0%,#dcf6e6 var(--lote-progress,0%),#fff var(--lote-progress,0%),#fff 100%);transition:background .35s ease,border-color .25s ease}
+#v-exped .lote-card.done{background:#bbf7d0;border-color:#22c55e}
+#v-exped .lote-card .lc-ring{position:relative;width:58px;height:58px;display:grid;place-items:center;flex:none}
+#v-exped .lote-card .lc-ring svg{position:absolute;inset:3px;width:52px;height:52px;display:block}
+#v-exped .lote-card .lc-ringpct{position:absolute;inset:0;z-index:1;display:grid;place-items:center;text-align:center;font-family:'Sora',sans-serif;font-size:13px;line-height:1;font-weight:800;color:var(--brand-dark);font-variant-numeric:tabular-nums;pointer-events:none}
+#v-exped .lote-card.done .lc-ringpct{color:#067336}
+

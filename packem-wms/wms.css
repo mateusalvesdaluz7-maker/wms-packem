@@ -885,8 +885,12 @@ body.admin #v-exped .lote-card .lc-x{display: inline-block;}
 @media(max-width:900px){#v-exped>.shell>.pad{padding:0 10px 48px!important}#v-exped .exp-wms-exit{top:4px}}
 
 /* Progresso visual dos cartões de romaneio */
-#v-exped .lote-card{background:linear-gradient(90deg,#dcf6e6 0%,#dcf6e6 var(--lote-progress,0%),#fff var(--lote-progress,0%),#fff 100%);transition:background .35s ease,border-color .25s ease}
-#v-exped .lote-card.done{background:#bbf7d0;border-color:#22c55e}
+#v-exped .lote-card{position:relative;overflow:hidden;isolation:isolate;background:#fff;transition:border-color .25s ease}
+#v-exped .lote-card::before{content:"";position:absolute;z-index:0;inset:0 auto 0 0;width:var(--lote-progress,0%);background:linear-gradient(110deg,#86efac 0%,#22c55e 35%,#bbf7d0 52%,#16a34a 70%,#86efac 100%);background-size:220% 100%;animation:loteVerdeMovendo 2s linear infinite;transition:width .55s cubic-bezier(.4,0,.2,1)}
+#v-exped .lote-card>*{position:relative;z-index:1}
+#v-exped .lote-card.done{background:#fff;border-color:#16a34a}
+#v-exped .lote-card.done::before{width:100%;background:linear-gradient(110deg,#4ade80 0%,#16a34a 35%,#86efac 52%,#15803d 70%,#4ade80 100%);background-size:220% 100%}
+@keyframes loteVerdeMovendo{from{background-position:100% 0}to{background-position:-120% 0}}
 #v-exped .lote-card .lc-ring{position:relative;width:58px;height:58px;display:grid;place-items:center;flex:none}
 #v-exped .lote-card .lc-ring svg{position:absolute;inset:3px;width:52px;height:52px;display:block}
 #v-exped .lote-card .lc-ringpct{position:absolute;inset:0;z-index:1;display:grid;place-items:center;text-align:center;font-family:'Sora',sans-serif;font-size:13px;line-height:1;font-weight:800;color:var(--brand-dark);font-variant-numeric:tabular-nums;pointer-events:none}

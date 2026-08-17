@@ -1,0 +1,5 @@
+#v-requisicao .rqNewHead button{display:grid;place-items:center;width:36px;height:36px;border:1px solid #d6dee8;border-radius:10px;background:#fff;font-size:18px;cursor:pointer}
+#v-requisicao .rqNewGeneral input,#v-requisicao .rqNewGeneral select,#v-requisicao .rqObs textarea,#v-requisicao .rqNewRow input,#v-requisicao .rqNewRow select{min-height:42px}
+#v-requisicao .rqQty{grid-template-columns:minmax(90px,1fr) 76px}
+#v-requisicao .rqRowDel{height:42px}
+

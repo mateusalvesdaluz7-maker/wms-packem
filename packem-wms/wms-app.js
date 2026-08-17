@@ -122,6 +122,11 @@ const fmt=n=>{const v=Number(n)||0;return Number.isInteger(v)?v.toLocaleString('
 const money=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const nowISO=()=>new Date().toISOString();
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function requestOperationId(itemId,qty){
+ try{var k='wmsx_reqop_'+String(itemId),old=JSON.parse(localStorage.getItem(k)||'null');if(old&&old.id&&Number(old.qty)===Number(qty))return old.id;
+ var id='req:'+Date.now().toString(36)+':'+Math.random().toString(36).slice(2,12);localStorage.setItem(k,JSON.stringify({id:id,qty:Number(qty),at:Date.now()}));return id;}catch(e){return 'req:'+Date.now().toString(36)+':'+Math.random().toString(36).slice(2,12);}
+}
+function clearRequestOperation(itemId,id){try{var k='wmsx_reqop_'+String(itemId),old=JSON.parse(localStorage.getItem(k)||'null');if(old&&old.id===id)localStorage.removeItem(k);}catch(e){}}
 function isOperatorUser(n){try{n=(n||'').toLowerCase();return (typeof OPERADORES!=='undefined'&&OPERADORES?OPERADORES:[]).some(function(o){return o[0].toLowerCase()===n;});}catch(e){return false;}}
 function curRole(){if(!session)return null;if(isOperatorUser(session.u))return 'operador';if(session.role)return session.role;try{var u=US.find(function(x){return (x.u||'').toLowerCase()===(session.u||'').toLowerCase();});return u?u.role:null;}catch(e){return session.role||null;}}
 const isAdmin=()=>{const r=curRole();return r==='admin'||r==='operador';};
@@ -4664,11 +4669,13 @@ updateStageBadge();
     try{var _av=document.querySelector('.view.active');if(_av&&_av.id==='v-track'&&typeof renderTrackTable==='function')renderTrackTable();}catch(e){}
     toast('Baixa: '+fmt(take)+unReq+' de '+ondeMsg+' · enviando…');
     RQL.baixando=true;
-    fetch('/wms-data/request-update',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({item_id:itemId,requisicao_id:reqId,kg:qtdReq,un:unReq,modo:'somar',endereco:ondeMsg,usuario:(session?session.u:'WMS')})})
+    var _reqOp=requestOperationId(itemId,qtdReq);
+    fetch('/wms-data/request-update',{method:'POST',headers:{'content-type':'application/json','X-WMS-Request':_reqOp},body:JSON.stringify({operation_id:_reqOp,item_id:itemId,requisicao_id:reqId,kg:qtdReq,un:unReq,modo:'somar',endereco:ondeMsg,usuario:(session?session.u:'WMS')})})
       .then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,d:d};});})
       .then(function(res){
         RQL.baixando=false;
         if(res.ok&&res.d&&res.d.ok){
+          clearRequestOperation(itemId,_reqOp);
           it.qtd_separada=res.d.quantidade_separada;it.separado=res.d.separado;
           if(res.d.requisicao_status==='entregue'){req.status='entregue';toast('✓ Requisição '+(req.numero||'')+' concluída e entregue!');RQL.aberta=null;}
           else{toast('✓ Item baixado na requisição'+(res.d.separado?' (completo)':' (parcial)'));}
@@ -4719,7 +4726,8 @@ updateStageBadge();
     }catch(err){}
     try{var _av2=document.querySelector('.view.active');if(_av2&&_av2.id==='v-track'&&typeof renderTrackTable==='function')renderTrackTable();}catch(e){}
     toast('Marcando '+fmt(qtd)+' '+(it.un||'')+' como separado…');
-    fetch('/wms-data/request-update',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({item_id:itemId,requisicao_id:reqId,kg:qtd,endereco:'(sem vaga)',usuario:(session?session.u:'WMS')})})
+    var _reqOp=requestOperationId(itemId,qtd);
+    fetch('/wms-data/request-update',{method:'POST',headers:{'content-type':'application/json','X-WMS-Request':_reqOp},body:JSON.stringify({operation_id:_reqOp,item_id:itemId,requisicao_id:reqId,kg:qtd,endereco:'(sem vaga)',usuario:(session?session.u:'WMS')})})
       .then(function(r){return r.json().catch(function(){return null;}).then(function(d){return {ok:r.ok,d:d};});})
       .then(function(res){
         RQL.baixando=false;

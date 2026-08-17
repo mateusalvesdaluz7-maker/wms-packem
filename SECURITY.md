@@ -19,8 +19,19 @@ Mantenha apenas na Vercel:
 - `GEMINI_API_KEY`
 - `BASE44_API_KEY`
 - `WMS_ALLOWED_ORIGINS`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY` (somente nas funções do servidor)
 
 Nunca grave senhas administrativas ou chaves privadas no JavaScript do navegador.
+
+## Preparação do banco de homologação
+
+Use um projeto Supabase separado do banco em produção. Aplique, nessa ordem:
+
+1. `supabase/migrations/202608170001_wms_atomic_security.sql`
+2. `supabase/migrations/202608170002_request_idempotency.sql`
+
+A chave `SUPABASE_SERVICE_ROLE_KEY` nunca pode aparecer no navegador ou no repositório.
 
 ## Antes de publicar
 
@@ -39,6 +50,6 @@ Depois valide em homologação:
 5. envio em lote;
 6. backup e zeragem apenas em ambiente de teste.
 
-## Limite desta etapa
+## Estado desta base de teste
 
-Este pacote não implementa transação única de estoque, controle de concorrência da baixa de requisições nem um novo identificador de movimentação.
+A branch contém a fundação de banco para movimentação atômica, bloqueio serializado das baixas e identificadores idempotentes. Ela deve ser validada em um Supabase de homologação antes de qualquer integração com a base ativa.

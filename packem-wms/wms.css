@@ -891,6 +891,30 @@ body.admin #v-exped .lote-card .lc-x{display: inline-block;}
 #v-exped .lote-card.done{background:#fff;border-color:#16a34a}
 #v-exped .lote-card.done::before{width:100%;background-image:linear-gradient(to bottom,rgba(255,255,255,.28) 0%,rgba(255,255,255,.06) 42%,rgba(3,95,43,.24) 100%),repeating-linear-gradient(100deg,#166534 0,#15803d 70px,#22c55e 108px,#bbf7d0 120px,#22c55e 132px,#15803d 170px,#166534 240px);background-size:100% 100%,240px 100%}
 @keyframes loteVerdeMovendo{from{background-position:0 0,0 0}to{background-position:0 0,240px 0}}
+
+/* Informações, divergências e auditoria dos romaneios */
+#v-exped .lc-details{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:13px}
+#v-exped .lc-details>span{min-width:0;padding:8px 10px;border:1px solid rgba(15,70,40,.12);border-radius:9px;background:rgba(255,255,255,.64)}
+#v-exped .lc-details small{display:block;margin-bottom:3px;color:#5f7467;font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+#v-exped .lc-details b{display:block;overflow:hidden;color:#102019;font-size:11px;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
+#v-exped .lc-divergence{display:inline-flex;align-items:center;margin-top:9px;padding:5px 9px;border:1px solid #f4c56e;border-radius:999px;background:#fff4d6;color:#8a5100;font-size:10px;font-weight:800}
+#v-exped .divergence-panel{margin-bottom:14px;padding:14px 16px;border:1px solid #f2bd57;border-left:5px solid #e28a00;border-radius:13px;background:#fff8e6;box-shadow:var(--sh-sm)}
+#v-exped .divergence-panel .div-title{margin-bottom:7px;color:#8a4f00;font-size:13px;font-weight:900}
+#v-exped .divergence-panel .div-row{padding:5px 0;border-top:1px solid rgba(194,120,0,.16);color:#634519;font-size:12px;font-weight:600}
+#v-exped .audit-btn{margin-left:auto}
+#v-exped .audit-box{width:min(720px,calc(100vw - 28px));max-width:720px;max-height:min(760px,88vh);padding:0;overflow:hidden}
+#v-exped .audit-head{display:flex;align-items:flex-start;gap:15px;padding:18px 20px;border-bottom:1px solid var(--line);background:#fff}
+#v-exped .audit-head h3{margin:0;color:#102019;font:800 19px 'Sora',sans-serif}
+#v-exped .audit-head p{margin:4px 0 0;color:var(--ink3);font-size:12px}
+#v-exped .audit-head button{margin-left:auto;width:34px;height:34px;border:1px solid var(--line);border-radius:10px;background:#f6f8f7;color:#425248;font-size:17px;font-weight:800}
+#v-exped .audit-list{max-height:calc(88vh - 82px);padding:6px 20px 18px;overflow-y:auto;background:#f7faf8}
+#v-exped .audit-row{display:grid;grid-template-columns:12px 1fr;gap:11px;padding:13px 0;border-bottom:1px solid #dde6e0}
+#v-exped .audit-dot{width:9px;height:9px;margin-top:5px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 4px rgba(22,163,74,.12)}
+#v-exped .audit-row b{color:#13241a;font-size:12px;text-transform:capitalize}
+#v-exped .audit-row p{margin:3px 0;color:#425248;font-size:12px;line-height:1.45}
+#v-exped .audit-row small{color:#748279;font-size:10px;font-weight:700}
+#v-exped .audit-empty{padding:35px;text-align:center;color:#748279;font-size:13px}
+@media(max-width:700px){#v-exped .lc-details{grid-template-columns:1fr 1fr}#v-exped .audit-btn{margin-left:0;width:100%;justify-content:center}#v-exped .work-top{flex-wrap:wrap}}
 #v-exped .lote-card .lc-ring{position:relative;width:58px;height:58px;display:grid;place-items:center;flex:none}
 #v-exped .lote-card .lc-ring svg{position:absolute;inset:3px;width:52px;height:52px;display:block}
 #v-exped .lote-card .lc-ringpct{position:absolute;inset:0;z-index:1;display:grid;place-items:center;text-align:center;font-family:'Sora',sans-serif;font-size:13px;line-height:1;font-weight:800;color:var(--brand-dark);font-variant-numeric:tabular-nums;pointer-events:none}

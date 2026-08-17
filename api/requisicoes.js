@@ -4,13 +4,11 @@
 // Como obter a chave: no Base44, abre o app REQUISIÇÃO PACKEM > Settings/Configurações > API Keys > cria uma chave.
 
 const APP_ID = '69f21c3bf6750842cd0ab83c'; // REQUISIÇÃO PACKEM
+const { secure, body: readBody, text: cleanText } = require('./_security');
+
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30');
-  if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+  if (!secure(req, res, { name: 'requisicoes', limit: 60, windowMs: 60000, methods: 'GET, OPTIONS', cache: 'private, max-age=0' })) return;
   if (req.method !== 'GET') { res.status(405).json({ error: 'Método não permitido' }); return; }
 
   const key = (process.env.BASE44_API_KEY || '').trim();

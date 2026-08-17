@@ -5359,11 +5359,16 @@ window.resyncTudoNF=function(){
 };
 function syncBobAll(){if(!supa)return;const rows=Object.keys(BOB).map(et=>({etiqueta:et,pr:BOB[et].pr,descricao:BOB[et].desc||'',pl:Number(BOB[et].pl)||0}));chunkUp('bobinas',rows);toast('Sincronizando catálogo na nuvem…');}
 function syncBobDelta(list){if(!supa||!list||!list.length)return;const rows=list.map(et=>BOB[et]?({etiqueta:et,pr:BOB[et].pr,descricao:BOB[et].desc||'',pl:Number(BOB[et].pl)||0}):null).filter(Boolean);if(!rows.length)return;chunkUp('bobinas',rows);toast('Enviando '+rows.length+' etiqueta(s) nova(s)/alterada(s) à nuvem…');}
-async function chunkUp(table,rows){if(!supa)return;
- /* upload em massa (import de 40 mil): marca a flag pro autoSync não brigar por rede ao mesmo tempo */
+async function chunkUp(table,rows){if(!supa)throw new Error('Sem conexão com a nuvem');
+ /* upload em massa: cada bloco precisa ser confirmado; falhas não podem virar sucesso visual */
  window._bulkUp=(window._bulkUp||0)+1;
- try{for(let i=0;i<rows.length;i+=400){try{await supa.from(table).upsert(rows.slice(i,i+400));}catch(e){}}}
- finally{window._bulkUp=Math.max(0,(window._bulkUp||1)-1);}}
+ try{
+  for(let i=0;i<rows.length;i+=400){
+   var r=await supa.from(table).upsert(rows.slice(i,i+400));
+   if(r&&r.error)throw new Error(table+': '+(r.error.message||r.error.code||'falha ao gravar'));
+  }
+  return true;
+ }finally{window._bulkUp=Math.max(0,(window._bulkUp||1)-1);}}
 async function pushAll(btn){if(!supa){toast('Sem conexão com a nuvem',false);return;}if(btn){btn.disabled=true;btn.textContent='Enviando…';}setNet('sync');
  try{
   await chunkUp('espacos',S.map(spRow));
@@ -5373,8 +5378,8 @@ async function pushAll(btn){if(!supa){toast('Sem conexão com a nuvem',false);re
   await chunkUp('valores',VL.map(v=>({codigo:v.codigo,valor:Number(v.valor)||0,descricao:v.descricao||'',un:(v.un||'KG')})));
   await chunkUp('usuarios',US.map(u=>({u:u.u,p:u.p,role:window.wmsEncodeUserRole(u),active:u.active!==false})));
   await chunkUp('movimentos',MV.slice(0,5000).map(m=>({id:m.id,action:m.action,w:m.w,code:m.code,pr:m.pr,q:Number(m.q)||0,u:m.u,et:m.et||'',before_q:Number(m.before)||0,after_q:Number(m.after)||0,at:m.at,by_user:m.by||''})));
-  toast('Tudo enviado para a nuvem ✓');setNet('on');
- }catch(e){toast('Erro ao enviar',false);setNet('on');}
+  toast('Tudo enviado e confirmado na nuvem ✓');setNet('on');
+ }catch(e){console.error('pushAll',e);toast('Envio incompleto: '+String((e&&e.message)||e),false);setNet('off');}
  if(btn){btn.disabled=false;btn.textContent='↥ Enviar p/ nuvem';}}
 /* ===== DIAGNÓSTICO DE CONEXÃO (clique no chip de status pra abrir) ===== */
 window._DIAG={pgErr:{},pgOk:{},rt:'—',lightMs:0,lightOk:null,lightErr:'',ticks:0,fullAt:'—'};
@@ -7768,26 +7773,27 @@ function printIntakeLabel(it){if(!it)return;
 
 
 /* ===== ZERAR ESTOQUE (admin) ===== */
-function wipeStock(){
- if(!isSuper()){toast('Somente admin',false);return;}
- try{criticalBackup('estoque',{espacos:S,locais:typeof LOC!=='undefined'?LOC:{},stage:typeof STAGE!=='undefined'?STAGE:[]});}catch(e){}
- try{S.forEach(function(sp){sp.q=0;sp.o=false;sp.pr='';sp.src='';sp.upd=nowISO();sp.by=session.u;});DB.saveSpaces(S);}catch(e){}
- try{if(typeof LOC!=='undefined'){Object.keys(LOC).forEach(function(et){if(BOB[et])BOB[et].rem=0;});LOC={};saveLOC();saveBOB();}}catch(e){}
- try{STAGE=[];saveStage();}catch(e){}
- try{if(typeof supa!=='undefined'&&supa){
-   if(typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',S.map(spRow));
-   supa.from('locais').delete().neq('etiqueta','').then(function(){},function(){});
-   supa.from('stage').delete().neq('etiqueta','').then(function(){},function(){});
- }}catch(e){}
- try{updateStageBadge();}catch(e){}
- try{var av=document.querySelector('.view.active');if(av)render(av.id);}catch(e){}
- toast('Estoque zerado — pode começar a bipar as entradas');
+async function wipeStock(){
+ if(!isSuper()){toast('Somente admin',false);return false;}
+ if(typeof supa==='undefined'||!supa){toast('Sem conexão: o estoque não foi zerado',false);return false;}
+ try{
+  criticalBackup('estoque',{espacos:S,locais:typeof LOC!=='undefined'?LOC:{},stage:typeof STAGE!=='undefined'?STAGE:[]});
+  var novos=S.map(function(sp){return Object.assign({},sp,{q:0,o:false,pr:'',src:'',upd:nowISO(),by:session.u});});
+  await chunkUp('espacos',novos.map(spRow));
+  var dl=await supa.from('locais').delete().neq('etiqueta','');if(dl&&dl.error)throw dl.error;
+  var ds=await supa.from('stage').delete().neq('etiqueta','');if(ds&&ds.error)throw ds.error;
+  S=novos;DB.saveSpaces(S);
+  if(typeof LOC!=='undefined'){Object.keys(LOC).forEach(function(et){if(BOB[et])BOB[et].rem=0;});LOC={};saveLOC();saveBOB();}
+  STAGE=[];saveStage();updateStageBadge();
+  var av=document.querySelector('.view.active');if(av)render(av.id);
+  toast('Estoque zerado e confirmado na nuvem');return true;
+ }catch(e){console.error('wipeStock',e);toast('Não foi possível zerar: nada foi confirmado localmente',false);setNet('off');return false;}
 }
 function confirmWipeStock(){
  if(!isSuper()){toast('Somente admin',false);return;}
  openDrawer('Zerar estoque','<p style="color:var(--muted);font-size:.9rem;line-height:1.5">Isso vai <b>esvaziar todas as posições</b> e remover todas as bobinas guardadas (local e na nuvem). O <b>catálogo</b>, os <b>usuários</b> e o <b>histórico</b> continuam. <b>Não tem como desfazer.</b></p><label class="fld" style="margin-top:14px"><span class="lab">Digite ZERAR para confirmar</span><input class="input" id="wipeWord" autocomplete="off" placeholder="ZERAR" style="text-transform:uppercase"></label><button class="gbtn danger" id="wipeGo" style="width:100%;justify-content:center;height:48px;margin-top:6px">Zerar estoque agora</button>');
  setTimeout(function(){var i=document.getElementById('wipeWord');if(i)i.focus();},80);
- var go=document.getElementById('wipeGo');if(go)go.onclick=function(){var w=((document.getElementById('wipeWord')||{}).value||'').trim().toUpperCase();if(w!=='ZERAR'){toast('Digite ZERAR para confirmar',false);return;}wipeStock();closeDrawer();};
+ var go=document.getElementById('wipeGo');if(go)go.onclick=async function(){var w=((document.getElementById('wipeWord')||{}).value||'').trim().toUpperCase();if(w!=='ZERAR'){toast('Digite ZERAR para confirmar',false);return;}go.disabled=true;go.textContent='Confirmando na nuvem…';var ok=await wipeStock();if(ok)closeDrawer();else{go.disabled=false;go.textContent='Tentar novamente';}};
 }
 
 
@@ -7848,7 +7854,7 @@ let camTarget = null;    // item alvo quando a camera abre por um item sem etiqu
 let awaitingQty = false; // esperando digitar a quantidade da etiqueta lida
 let pendingTag = null;
 let adminMode = false;
-const ADM_PASS = "adm123";
+/* Administração da expedição usa a sessão normal do WMS; não existe senha fixa no cliente. */
 let mode = 'sep';        // 'sep' | 'conf'
 let html5Qr = null;
 let scanning = false;
@@ -8552,9 +8558,8 @@ function openAdmModal(){
 }
 function closeAdmModal(){ const m=document.getElementById('admModal'); if(m) m.classList.add('hidden'); }
 function tryAdmin(){
-  const v=(document.getElementById('admPass').value||'').trim();
-  if(v===ADM_PASS){ adminMode=true; document.body.classList.add('admin'); closeAdmModal(); updateAdminUI(); banner('ok','','Acesso liberado','Você já pode editar e excluir'); }
-  else { document.getElementById('admErr').classList.remove('hidden'); }
+  if(typeof isSuper==='function'&&isSuper()){ adminMode=true; document.body.classList.add('admin'); closeAdmModal(); updateAdminUI(); banner('ok','','Acesso liberado','Sessão de administrador confirmada'); }
+  else { document.getElementById('admErr').classList.remove('hidden'); banner('warn','','Acesso restrito','Entre com uma conta administradora do WMS'); }
 }
 function toggleAdmin(){
   if(adminMode){ adminMode=false; document.body.classList.remove('admin'); updateAdminUI(); banner('warn','','Bloqueado','Edição e exclusão desativadas'); }

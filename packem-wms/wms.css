@@ -946,7 +946,8 @@ body.admin #v-exped .lote-card .lc-x{display: inline-block;}
 #v-exped .lc-details>span{padding:6px 9px;border-radius:8px}
 #v-exped .lc-details small{margin-bottom:2px;font-size:8px}
 #v-exped .lc-details b{font-size:10px}
-#v-exped .lote-card .lc-ring{width:52px;height:52px}
-#v-exped .lote-card .lc-ring svg{inset:3px;width:46px;height:46px}
-#v-exped .lote-card .lc-ringpct{font-size:12px}
+#v-exped .lote-card .lc-r{width:62px;align-self:center;justify-content:center}
+#v-exped .lote-card .lc-ring{width:58px;height:58px}
+#v-exped .lote-card .lc-ring svg{inset:3px;width:52px;height:52px}
+#v-exped .lote-card .lc-ringpct{font-size:13px}
 

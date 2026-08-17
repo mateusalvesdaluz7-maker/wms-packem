@@ -911,6 +911,8 @@ body.admin #v-exped .lote-card .lc-x{display: inline-block;}
 #v-exped .audit-row{display:grid;grid-template-columns:12px 1fr;gap:11px;padding:13px 0;border-bottom:1px solid #dde6e0}
 #v-exped .audit-dot{width:9px;height:9px;margin-top:5px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 4px rgba(22,163,74,.12)}
 #v-exped .audit-row b{color:#13241a;font-size:12px;text-transform:capitalize}
+#v-exped .audit-single-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#v-exped .audit-single-title span{display:inline-flex;padding:3px 7px;border:1px solid #b9ddc8;border-radius:999px;background:#ecfdf3;color:#08783d;font:800 10px 'JetBrains Mono',monospace}
 #v-exped .audit-row p{margin:3px 0;color:#425248;font-size:12px;line-height:1.45}
 #v-exped .audit-row small{color:#748279;font-size:10px;font-weight:700}
 #v-exped .audit-empty{padding:35px;text-align:center;color:#748279;font-size:13px}

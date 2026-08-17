@@ -961,3 +961,11 @@ body.admin #v-exped .lote-card .lc-x{display: inline-block;}
 #v-exped .lote-card .lc-ring svg{inset:3px;width:52px;height:52px}
 #v-exped .lote-card .lc-ringpct{font-size:13px}
 
+/* Requisição em tela cheia e central sem sobreposição */
+#v-requisicao .rnEmpty{flex-direction:column;gap:2px;text-align:center}
+#v-requisicao:has(.rqRefPage){padding:22px 26px 70px}
+#v-requisicao:has(.rqRefPage) .rqRefBack{display:inline-flex;margin-bottom:16px}
+#v-requisicao:has(.rqRefPage) .rqRefPage{width:100%;max-width:none;grid-template-columns:minmax(0,1fr) 290px;align-items:start}
+#v-requisicao:has(.rqRefPage) .rqRefMain{min-height:calc(100vh - 165px)}
+@media(max-width:900px){#v-requisicao:has(.rqRefPage){padding:16px 14px 70px}#v-requisicao:has(.rqRefPage) .rqRefPage{grid-template-columns:1fr}}
+

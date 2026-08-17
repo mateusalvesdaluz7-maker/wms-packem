@@ -741,6 +741,14 @@ body.cam-open #v-exped{overflow: hidden;}
 body.admin #v-exped .adm-actions{display: flex;}
 #v-exped .exp-admin-only{display:none}
 body.admin #v-exped .exp-admin-only{display:inline-flex}
+#v-exped .lote-card.cancelled{border-color:#f0a3a3;background:#fff7f7}
+#v-exped .lote-card.cancelled::before{width:100%;background:linear-gradient(90deg,rgba(220,38,38,.12),rgba(255,255,255,.15));animation:none}
+#v-exped .lote-card .cancel-tag{background:#b91c1c}
+#v-exped .lc-cancel-reason{margin-top:8px;padding:7px 9px;border:1px solid #fecaca;border-radius:8px;background:rgba(254,226,226,.8);color:#991b1b;font-size:10.5px}
+#v-exped .lote-tab.cancelled-tab.on{border-color:#dc2626;background:#dc2626;color:#fff}
+#v-exped .cancel-panel{border-color:#ef4444;border-left-color:#b91c1c;background:#fff1f2}
+#v-exped .cancel-panel .div-title{color:#991b1b}
+#v-exped #screen-work.exp-cancelled .modes,#v-exped #screen-work.exp-cancelled #openCamBtn,#v-exped #screen-work.exp-cancelled .manualbar,#v-exped #screen-work.exp-cancelled .scanitem,#v-exped #screen-work.exp-cancelled .icam,#v-exped #screen-work.exp-cancelled .adm-actions,#v-exped #screen-work.exp-cancelled .op-actions,#v-exped #screen-work.exp-cancelled .saldo-wrap,#v-exped #screen-work.exp-cancelled .exp-admin-only{display:none!important}
 #v-exped .adm-b{background: var(--surface2); border: 1.5px solid var(--line); color: var(--ink); border-radius: 9px; padding: 8px 11px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: Inter;}
 #v-exped .adm-b.del{color: var(--red); border-color: rgb(243, 192, 186); background: rgb(253, 238, 236);}
 #v-exped .adm-b:active{transform: scale(0.96);}

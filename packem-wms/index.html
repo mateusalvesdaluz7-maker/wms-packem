@@ -8,7 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
 <script src="wms-security.js"></script>
-<link rel="stylesheet" href="wms.css?v=20260814-1615">
+<link rel="stylesheet" href="wms.css?v=20260817-requisicao11">
+<link rel="stylesheet" href="wms-requisicao-fix.css?v=20260817-requisicao11">
 <meta name="theme-color" content="#0f1830">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -27,6 +28,7 @@
       <div class="nav" data-view="v-board" data-ic="grid"><span class="ni"></span>Mapa Operacional - 70</div>
       <div class="sb-grp">Operação</div>
       <div class="nav" data-view="v-mov" data-ic="scan" data-writer="1"><span class="ni"></span>Movimentação</div>
+      <div class="nav" data-view="v-requisicao" data-ic="list"><span class="ni"></span>Requisição</div>
       <div class="nav" data-view="v-stock" data-ic="box"><span class="ni"></span>Gestão de Estoque</div>
       <div class="nav" data-view="v-recic" data-ic="reload"><span class="ni"></span>Recicladora - 91</div>
       <div class="nav adminOnly" data-view="v-protheus" data-ic="transfer"><span class="ni"></span>Baixa Protheus</div>
@@ -54,6 +56,7 @@
     <main>
       <section class="view active" id="v-home"></section>
       <section class="view" id="v-board"></section>
+      <section class="view" id="v-requisicao"></section>
 <section class="view" id="v-exped">
 <div class="shell">
   <header class="appbar">
@@ -101,7 +104,11 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.2"/></svg>
         Fotos da carga<span class="ph-count" id="phCount"></span>
       </button>
+      <button class="backbar audit-btn" type="button" id="auditBtn">☷ Histórico do lote</button>
+      <button class="backbar exp-admin-only" type="button" id="editLoteBtn">✎ Editar lote/destino</button>
     </div>
+
+    <div id="divergencePanel" class="divergence-panel hidden"></div>
     <div class="cmd">
       <svg class="cmd-mk" viewBox="0 0 48 46" fill="currentColor" aria-hidden="true"><polygon points="16,11 31,11 41,22 26,22"/><polygon points="9,24 24,24 34,35 19,35"/></svg>
       <div class="cmd-top">
@@ -234,6 +241,12 @@
       <button class="btn block" type="button" id="fotosExtract">Extrair (.zip)</button>
       <button class="btn ghost block" type="button" id="fotosShare">Compartilhar</button>
     </div>
+  </div>
+</div>
+<div id="auditModal" class="adm-modal hidden">
+  <div class="adm-box audit-box">
+    <div class="audit-head"><div><h3>Histórico do lote</h3><p id="auditSubtitle"></p></div><button type="button" id="auditClose" aria-label="Fechar">✕</button></div>
+    <div id="auditList" class="audit-list"></div>
   </div>
 </div>
 </section>
@@ -390,6 +403,8 @@
   <div id="netBlockDot" style="color:#7e90a8;font-size:.8rem;margin-top:22px;font-family:var(--mono,monospace)">tentando reconectar…</div>
 </div>
 
-<script src="wms-app.js?v=20260814-1740"></script>
+<script src="wms-app.js?v=20260817-requisicao11"></script>
+<script src="wms-requisicao.js?v=20260817-requisicao11"></script>
 </body>
 </html>
+

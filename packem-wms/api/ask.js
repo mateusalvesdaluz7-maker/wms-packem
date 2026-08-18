@@ -2,11 +2,10 @@
 // Recebe a pergunta por voz + um resumo do estoque atual, chama a IA do Google Gemini (plano gratuito)
 // com a chave guardada em segredo (variável de ambiente GEMINI_API_KEY) e devolve a resposta.
 
+const { secure, body: readBody, text: cleanText } = require('./_security');
+
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+  if (!secure(req, res, { name: 'assistant', limit: 20, windowMs: 60000, methods: 'POST, GET, OPTIONS' })) return;
 
   // Diagnóstico: abra /api/ask no navegador (GET) pra ver na hora se a chave chegou no servidor.
   if (req.method === 'GET') {
@@ -14,7 +13,7 @@ module.exports = async function handler(req, res) {
     res.status(200).json({
       ok: true,
       gemini_key_configured: !!k,
-      key_preview: k ? (k.slice(0, 4) + '...' + k.slice(-4) + ' (' + k.length + ' caracteres)') : null,
+      key_preview: null,
       dica: k ? 'Chave encontrada no servidor. Se ainda der erro no chat, o problema é outro (veja Vercel > Logs).' : 'Chave NÃO encontrada. Confira Vercel > Settings > Environment Variables do PROJETO (não do Time) e faça um novo deploy.'
     });
     return;
@@ -29,10 +28,10 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    let body = req.body;
-    if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }
-    const question = (body && body.question) ? String(body.question).slice(0, 500) : '';
-    const context = (body && body.context) ? body.context : {};
+    let body;
+    try { body = readBody(req, 18000); } catch (e) { res.status(400).json({ error: 'Requisição inválida ou muito grande' }); return; }
+    const question = cleanText(body && body.question, 500);
+    const context = (body && body.context && typeof body.context === 'object') ? body.context : {};
     const history = Array.isArray(body && body.history) ? body.history.slice(-10) : [];
     if (!question.trim()) { res.status(400).json({ error: 'Faltou a pergunta' }); return; }
 

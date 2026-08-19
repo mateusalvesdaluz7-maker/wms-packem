@@ -9316,7 +9316,23 @@ function abrirOcrExpedicao(itemNum){
   expedOcrTarget='expedOcr_'+itemNum;
   const target=document.getElementById(expedOcrTarget);
   if(target){target.classList.add('hidden');target.innerHTML='';}
-  const picker=document.getElementById('expedOcrInput'); if(picker) picker.click();
+  // No iPhone, campos de arquivo ocultos previamente na página podem não abrir.
+  // Criamos o seletor no instante do toque para abrir a câmera/galeria corretamente.
+  const picker=document.createElement('input');
+  picker.type='file';
+  picker.accept='image/jpeg,image/png,image/webp';
+  picker.setAttribute('capture','environment');
+  picker.setAttribute('aria-hidden','true');
+  picker.style.cssText='position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+  picker.addEventListener('change', e=>{
+    const file=e.target.files&&e.target.files[0];
+    const targetId=expedOcrTarget;
+    expedOcrTarget='';
+    picker.remove();
+    if(file) lerEtiquetaPorFoto(file,targetId);
+  },{once:true});
+  document.body.appendChild(picker);
+  picker.click();
 }
 const expedOcrInputEl=document.getElementById('expedOcrInput'); if(expedOcrInputEl) expedOcrInputEl.addEventListener('change', e=>{const target=expedOcrTarget;expedOcrTarget='';lerEtiquetaPorFoto(e.target.files&&e.target.files[0],target);e.target.value='';});
 const fotosExtractEl=document.getElementById('fotosExtract'); if(fotosExtractEl) fotosExtractEl.addEventListener('click', fotosExtract);

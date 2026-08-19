@@ -8453,11 +8453,10 @@ function renderItems(){
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.4"/></svg>
             ${scanTxt}
           </button>
-          <label class="scanitem photo" for="expedOcrInput_${it.num}" onclick="EXP.prepararOcr('${it.num}')" aria-label="Ler dados da etiqueta por foto">
+          <button type="button" class="scanitem photo" onclick="EXP.openOcrLive('${it.num}')" aria-label="Abrir câmera para ler a etiqueta">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.4"/></svg>
             Ler por foto
-          </label>
-          <input class="exped-ocr-picker" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" id="expedOcrInput_${it.num}" onchange="EXP.receberOcr(event,'${it.num}')">
+          </button>
           </div>
           <div class="etiqueta-ocr-result exped-ocr-result hidden" id="expedOcr_${it.num}" aria-live="polite"></div>
           ${admBar}
@@ -9313,6 +9312,43 @@ const fotosInputEl=document.getElementById('fotosInput'); if(fotosInputEl) fotos
 const etiquetaOcrBtnEl=document.getElementById('etiquetaOcrBtn'); if(etiquetaOcrBtnEl) etiquetaOcrBtnEl.addEventListener('click', ()=>document.getElementById('etiquetaOcrInput').click());
 const etiquetaOcrInputEl=document.getElementById('etiquetaOcrInput'); if(etiquetaOcrInputEl) etiquetaOcrInputEl.addEventListener('change', e=>{ lerEtiquetaPorFoto(e.target.files&&e.target.files[0]); e.target.value=''; });
 let expedOcrTarget='';
+let ocrLiveStream=null;
+function fecharOcrAoVivo(){
+  const overlay=document.getElementById('ocrLiveOverlay');
+  const video=document.getElementById('ocrLiveVideo');
+  if(ocrLiveStream){ ocrLiveStream.getTracks().forEach(t=>t.stop()); ocrLiveStream=null; }
+  if(video) video.srcObject=null;
+  if(overlay) overlay.classList.add('hidden');
+}
+async function abrirOcrAoVivo(itemNum){
+  prepararOcrExpedicao(itemNum);
+  const overlay=document.getElementById('ocrLiveOverlay');
+  const video=document.getElementById('ocrLiveVideo');
+  const status=document.getElementById('ocrLiveStatus');
+  if(!overlay||!video) return;
+  overlay.classList.remove('hidden');
+  if(status) status.textContent='Abrindo câmera traseira…';
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) throw new Error('Câmera não disponível neste navegador.');
+    ocrLiveStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
+    video.srcObject=ocrLiveStream;
+    await video.play();
+    if(status) status.textContent='Centralize a etiqueta e toque em Capturar e ler';
+  }catch(err){
+    if(status) status.textContent='Não foi possível abrir a câmera. Verifique a permissão de câmera do navegador.';
+  }
+}
+function capturarOcrAoVivo(){
+  const video=document.getElementById('ocrLiveVideo');
+  const status=document.getElementById('ocrLiveStatus');
+  if(!video||!video.videoWidth){ if(status) status.textContent='A câmera ainda está carregando.'; return; }
+  const canvas=document.createElement('canvas');
+  canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+  canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
+  const target=expedOcrTarget;
+  if(status) status.textContent='Lendo os dados da etiqueta…';
+  canvas.toBlob(blob=>{ fecharOcrAoVivo(); if(blob) lerEtiquetaPorFoto(new File([blob],'etiqueta.jpg',{type:'image/jpeg'}),target); },'image/jpeg',.9);
+}
 function prepararOcrExpedicao(itemNum){
   expedOcrTarget='expedOcr_'+itemNum;
   const target=document.getElementById(expedOcrTarget);
@@ -9398,7 +9434,7 @@ try{window.EXP.delFoto=delFoto;}catch(e){}
 try{window.EXP.gotoLotes=gotoLotes;}catch(e){}
 try{window.EXP.markStatus=markStatus;}catch(e){}
 try{window.EXP.openCam=openCam;}catch(e){}
-try{window.EXP.ocrEtiqueta=abrirOcrExpedicao;window.EXP.prepararOcr=prepararOcrExpedicao;window.EXP.receberOcr=receberOcrExpedicao;}catch(e){}
+try{window.EXP.ocrEtiqueta=abrirOcrExpedicao;window.EXP.prepararOcr=prepararOcrExpedicao;window.EXP.receberOcr=receberOcrExpedicao;window.EXP.openOcrLive=abrirOcrAoVivo;window.EXP.closeOcrLive=fecharOcrAoVivo;window.EXP.captureOcrLive=capturarOcrAoVivo;}catch(e){}
 try{window.EXP.openLote=openLote;}catch(e){}
 try{window.EXP.cancelLote=closeLote;}catch(e){}
 try{window.EXP.removeQtyTag=removeQtyTag;}catch(e){}

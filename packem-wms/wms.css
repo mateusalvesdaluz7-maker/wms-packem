@@ -743,6 +743,14 @@ html.cam-open,body.cam-open{overflow:hidden!important;overscroll-behavior:none!i
 #v-exped .scanitem.photo:hover{background:#effcf4}
 #v-exped label.scanitem.photo{cursor:pointer}
 #v-exped .exped-ocr-picker{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+.ocr-live{position:fixed;inset:0;z-index:2000;background:#08140f;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ocr-live.hidden{display:none}
+.ocr-live video{width:100%;height:100%;object-fit:cover}
+.ocr-live-top{position:absolute;top:0;left:0;right:0;z-index:2;padding:18px 16px;display:flex;justify-content:space-between;align-items:center;color:#fff;background:linear-gradient(#000a,transparent);font:800 16px Inter,sans-serif}
+.ocr-live-top button{width:44px;height:44px;border:0;border-radius:50%;color:#fff;background:#182a21cc;font-size:24px;cursor:pointer}
+.ocr-live-frame{position:absolute;left:8%;right:8%;top:25%;height:44%;z-index:1;border:3px solid #f1b56b;border-radius:18px;box-shadow:0 0 0 100vmax rgba(0,0,0,.35);pointer-events:none}
+.ocr-live-frame i{position:absolute;width:26px;height:26px;border-color:#fff;border-style:solid}.ocr-live-frame i:nth-child(1){left:-3px;top:-3px;border-width:5px 0 0 5px}.ocr-live-frame i:nth-child(2){right:-3px;top:-3px;border-width:5px 5px 0 0}.ocr-live-frame i:nth-child(3){left:-3px;bottom:-3px;border-width:0 0 5px 5px}.ocr-live-frame i:nth-child(4){right:-3px;bottom:-3px;border-width:0 5px 5px 0}
+.ocr-live-bottom{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:16px;background:linear-gradient(transparent,#000e);color:#fff;text-align:center;font:600 14px/1.35 Inter,sans-serif}.ocr-live-bottom p{margin:0 0 12px}.ocr-live-bottom button{width:min(420px,100%);min-height:52px;border:0;border-radius:14px;background:#00a651;color:#fff;font:800 16px Inter,sans-serif;box-shadow:0 5px 18px #0008}
 #v-exped .exped-ocr-result{margin-top:10px}
 @media(max-width:560px){#v-exped .scanitem-row{gap:8px}#v-exped .scanitem-row .scanitem{padding:13px 9px;font-size:13px}#v-exped .scanitem-row .scanitem svg{width:18px;height:18px}}
 #v-exped .appbar-tag.on{letter-spacing: 0.06em; background: rgb(255, 217, 120) !important; color: rgb(90, 61, 0) !important; border-color: rgb(255, 217, 120) !important;}

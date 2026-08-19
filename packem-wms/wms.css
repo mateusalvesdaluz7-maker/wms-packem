@@ -648,7 +648,8 @@ button,.btn,.gbtn{transition:background .15s ease,border-color .15s ease,box-sha
 #v-exped .icam:active{transform: scale(0.93);}
 #v-exped .item.separado .icam{background: var(--amber); box-shadow: rgba(239, 138, 0, 0.32) 0px 8px 20px;}
 body.cam-open #v-exped{overflow: hidden;}
-#v-exped .cam-ov{position: fixed; inset: 0px; z-index: 100; background: rgb(4, 7, 10); display: block;}
+html.cam-open,body.cam-open{overflow:hidden!important;overscroll-behavior:none!important;}
+#v-exped .cam-ov{position: fixed; inset: 0px; z-index: 2147483000; width:100vw; height:100dvh; min-height:100svh; background: rgb(4, 7, 10); display: block;}
 #v-exped .cam-ov.hidden{display: none;}
 #v-exped .cam-reader{width: 100%; height: 100%;}
 #v-exped .cam-reader video{object-fit: cover; width: 100% !important; height: 100% !important;}
@@ -993,3 +994,17 @@ body.admin #v-exped .lote-card .lc-x,body.exp-editor #v-exped .lote-card .lc-x{d
 #v-requisicao .rqNewRow{margin-top:8px;padding:8px;border:1px solid #e2e8f0;border-radius:11px;background:#fbfcfd}#v-requisicao .rqQty{display:grid;grid-template-columns:minmax(90px,1fr) 76px;gap:6px}#v-requisicao .rqRowDel{height:42px;border:0;border-radius:8px;background:#fee2e2;color:#b91c1c;font-weight:900}
 #v-requisicao .rqNewActions{display:flex;justify-content:flex-end;gap:10px}#v-requisicao .rqNewActions button{border:1px solid #d7dee8;border-radius:11px;background:#fff;padding:11px 18px;font-weight:800}#v-requisicao .rqNewActions .send{border-color:#2563eb;background:#2563eb;color:#fff;box-shadow:0 7px 18px rgba(37,99,235,.2)}
 @media(max-width:760px){#v-requisicao:has(.rqNewShell){padding:17px 12px 70px}#v-requisicao .rqNewCard{padding:17px}#v-requisicao .rqNewGeneral{grid-template-columns:1fr 1fr}#v-requisicao .rqNewGeneral .rqOp{grid-column:1/-1}#v-requisicao .rqItemsLabels{display:none}#v-requisicao .rqNewRow{grid-template-columns:1fr}#v-requisicao .rqQty{grid-template-columns:1fr 80px}#v-requisicao .rqPriorityPick{flex-direction:column}#v-requisicao .rqPriorityPick button{width:100%}}
+
+/* Leitor de etiquetas: a câmera precisa ficar acima de toda a interface no celular. */
+@media(max-width:760px){
+  #v-exped .cam-ov{height:100dvh!important;min-height:100svh!important}
+  #v-exped .cam-top{padding:max(14px,env(safe-area-inset-top)) 14px 14px}
+  #v-exped .cam-modelabel{top:calc(73px + env(safe-area-inset-top));font-size:17px}
+  #v-exped .cam-frame i.tl,#v-exped .cam-frame i.tr{top:22%;width:38px;height:38px}
+  #v-exped .cam-frame i.bl,#v-exped .cam-frame i.br{bottom:25%;width:38px;height:38px}
+  #v-exped .cam-frame i.tl,#v-exped .cam-frame i.bl{left:7%}
+  #v-exped .cam-frame i.tr,#v-exped .cam-frame i.br{right:7%}
+  #v-exped .cam-frame b{left:7%;right:7%}
+  #v-exped .cam-hint{bottom:calc(18px + env(safe-area-inset-bottom));padding:0 24px;font-size:14px}
+  #v-exped .cam-status{bottom:calc(70px + env(safe-area-inset-bottom));left:12px;right:12px}
+}

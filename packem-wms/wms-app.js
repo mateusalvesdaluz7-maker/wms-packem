@@ -251,10 +251,22 @@ $('#logBtn').onclick=async()=>{try{
   const reqPins={laminadora:'4827',extrusora:'7391',tecelagem:'1028','aimee.rafaela':'1001','beatriz.martendal':'1002','karin.rosario':'1003',valerio:'1004','luciana.inacio':'2001','eduardo.vitoria':'2002','luana.oliveira':'2003','rubens.silva':'3001','ana.cecilia':'4001','mara.rubia':'4001'},reqPin=reqPins[u.toLowerCase()];
   const reqAdmins={'ana.cecilia':1,'mara.rubia':1},reqTurnos={'aimee.rafaela':'1º Turno','beatriz.martendal':'1º Turno','karin.rosario':'1º Turno',valerio:'1º Turno','luciana.inacio':'2º Turno','eduardo.vitoria':'2º Turno','luana.oliveira':'2º Turno','rubens.silva':'3º Turno','ana.cecilia':'Comercial','mara.rubia':'Comercial'};
   if(reqPin&&p===reqPin&&!US.some(x=>x&&String(x.u||'').toLowerCase()===u.toLowerCase())){let chaveU=u.toLowerCase(),perfilU=reqAdmins[chaveU]?'admin':'requisitante';US.push({u:u,p:p,role:perfilU,turno:reqTurnos[chaveU]||'',active:true,_bootstrap:true});DB.saveUsers(US);}
-  if(!US.length){const hash=await WMSSecurity.protect(p),novo={u:u,p:hash,role:'admin',active:true,_userUpdated:Date.now()};US=[novo];DB.saveUsers(US);try{if(typeof supa!=='undefined'&&supa)await supa.from('usuarios').upsert({u:u,p:hash,role:window.wmsEncodeUserRole(novo),active:true});}catch(_bootSync){}}
+  if(!US.length){
+    /* Em alguns navegadores abertos pelo arquivo local a proteção criptográfica
+       pode não estar disponível. Isso não pode impedir o primeiro acesso. */
+    let hash=p;
+    try{if(typeof WMSSecurity!=='undefined'&&WMSSecurity.protect)hash=await WMSSecurity.protect(p);}catch(_bootProtection){console.warn('Proteção de senha indisponível neste navegador; o acesso continuará funcionando.',_bootProtection);}
+    const novo={u:u,p:hash,role:'admin',active:true,_userUpdated:Date.now()};US=[novo];DB.saveUsers(US);try{if(typeof supa!=='undefined'&&supa)await supa.from('usuarios').upsert({u:u,p:hash,role:window.wmsEncodeUserRole(novo),active:true});}catch(_bootSync){}
+  }
   const f=US.find(x=>x&&(x.u||'').toLowerCase()===u.toLowerCase()&&x.active!==false);
   const senhaOk=f?await WMSSecurity.verify(f.p,p):false;
-  if(f&&senhaOk&&!WMSSecurity.isProtected(f.p)){f.p=await WMSSecurity.protect(p);DB.saveUsers(US);if(!f._bootstrap){f._userUpdated=Date.now();try{if(typeof supa!=='undefined'&&supa)await supa.from('usuarios').upsert({u:f.u,p:f.p,role:window.wmsEncodeUserRole(f),active:f.active!==false});}catch(_migrateSync){}}}
+  if(f&&senhaOk&&typeof WMSSecurity!=='undefined'&&!WMSSecurity.isProtected(f.p)){
+    /* Atualizar a proteção é desejável, mas jamais pode bloquear o login. */
+    try{
+      f.p=await WMSSecurity.protect(p);DB.saveUsers(US);
+      if(!f._bootstrap){f._userUpdated=Date.now();try{if(typeof supa!=='undefined'&&supa)await supa.from('usuarios').upsert({u:f.u,p:f.p,role:window.wmsEncodeUserRole(f),active:f.active!==false});}catch(_migrateSync){}}
+    }catch(_migrateProtection){console.warn('Senha mantida no formato atual neste navegador.',_migrateProtection);}
+  }
   if(!senhaOk){logErr('Usuario ou senha incorretos');$('#logPass').value='';$('#logPass').focus();return;}
   if(!f){logErr('Usuário ou senha incorretos — tente de novo');$('#logPass').value='';$('#logPass').focus();return;}
   $('#logHint').textContent='';$('#logHint').style.color='';
@@ -8438,10 +8450,17 @@ function renderItems(){
           <div class="desc">${it.descricao||'—'}</div>
           ${prog}
           ${tagsHtml?`<div class="qtags">${tagsHtml}</div>`:''}
+          <div class="scanitem-row">
           <button type="button" class="scanitem ${sep?'more':''}" onclick="EXP.openCam('${it.num}')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.4"/></svg>
             ${scanTxt}
           </button>
+          <button type="button" class="scanitem photo" onclick="EXP.ocrEtiqueta('${it.num}')" aria-label="Ler dados da etiqueta por foto">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.4"/></svg>
+            Ler por foto
+          </button>
+          </div>
+          <div class="etiqueta-ocr-result exped-ocr-result hidden" id="expedOcr_${it.num}" aria-live="polite"></div>
           ${admBar}
           ${sep?'':`<div class="addtag manual-fields hidden" id="mf_${it.num}">
             <input class="ti" id="ti_${it.num}" placeholder="Etiqueta (T...)" autocomplete="off" autocapitalize="characters">
@@ -8719,6 +8738,30 @@ async function handleFotos(files){
   await renderFotos();
   if(n&&online===n) banner('ok','📷','Foto registrada', n+' foto(s) salva(s) e compartilhada(s)');
   else if(n) banner('warn','📷','Foto salva neste aparelho', 'Sincronização pendente: '+(n-online)+' foto(s) ainda não chegaram à nuvem');
+}
+function escOcr(v){ return String(v==null?'—':v).replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m])); }
+function showEtiquetaOcr(data,targetId){
+  const box=document.getElementById(targetId||'etiquetaOcrResult'); if(!box) return;
+  box.innerHTML=`<div class="ocr-title">Dados lidos da etiqueta <span>Confira antes de usar</span></div>
+    <div class="ocr-grid"><label>Identificador da bobina<input value="${escOcr(data.identificador_bobina)}" readonly></label><label>Descrição<input value="${escOcr(data.descricao)}" readonly></label><label>Peso líquido (kg)<input value="${escOcr(data.peso_liquido_kg)}" readonly></label><label>Peso bruto (kg)<input value="${escOcr(data.peso_bruto_kg)}" readonly></label></div>
+    <p>Leitura apenas para conferência: nada foi alterado no estoque, na etiqueta ou no romaneio.</p>`;
+  box.classList.remove('hidden');
+}
+async function lerEtiquetaPorFoto(file,targetId){
+  if(!file || !file.type.startsWith('image/')) return;
+  const btn=targetId?null:document.getElementById('etiquetaOcrBtn'); const box=document.getElementById(targetId||'etiquetaOcrResult');
+  try{
+    if(btn){ btn.disabled=true; btn.textContent='Lendo etiqueta…'; }
+    if(box){ box.classList.remove('hidden'); box.innerHTML='<div class="ocr-loading">Analisando a foto da etiqueta…</div>'; }
+    const dataUrl=await compressImg(file,1600,.78);
+    if(!dataUrl) throw new Error('Não foi possível preparar a foto.');
+    const resp=await fetch('/api/ocr-etiqueta',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({imageDataUrl:dataUrl})});
+    const out=await resp.json().catch(()=>({}));
+    if(!resp.ok) throw new Error(out.error||'Não foi possível ler a etiqueta.');
+    showEtiquetaOcr(out,targetId);
+  }catch(err){
+    if(box){ box.classList.remove('hidden'); box.innerHTML='<div class="ocr-error">'+escOcr(err.message||'Falha ao ler a etiqueta.')+'</div>'; }
+  }finally{ if(btn){ btn.disabled=false; btn.textContent='Ler dados da etiqueta por foto'; } }
 }
 function b64ToBlob(d){ const [h,b]=d.split(','); const mime=(h.match(/:(.*?);/)||[])[1]||'image/jpeg'; const bin=atob(b); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i); return new Blob([u8],{type:mime}); }
 function dlBlob(blob,name){ const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),2000); }
@@ -9268,6 +9311,16 @@ const fotosCloseEl=document.getElementById('fotosClose'); if(fotosCloseEl) fotos
 const fotosBackMobileEl=document.getElementById('fotosBackMobile'); if(fotosBackMobileEl) fotosBackMobileEl.addEventListener('click', ()=>closeFotos());
 const fotosAddEl=document.getElementById('fotosAdd'); if(fotosAddEl) fotosAddEl.addEventListener('click', ()=>document.getElementById('fotosInput').click());
 const fotosInputEl=document.getElementById('fotosInput'); if(fotosInputEl) fotosInputEl.addEventListener('change', e=>{ handleFotos(e.target.files); e.target.value=''; });
+const etiquetaOcrBtnEl=document.getElementById('etiquetaOcrBtn'); if(etiquetaOcrBtnEl) etiquetaOcrBtnEl.addEventListener('click', ()=>document.getElementById('etiquetaOcrInput').click());
+const etiquetaOcrInputEl=document.getElementById('etiquetaOcrInput'); if(etiquetaOcrInputEl) etiquetaOcrInputEl.addEventListener('change', e=>{ lerEtiquetaPorFoto(e.target.files&&e.target.files[0]); e.target.value=''; });
+let expedOcrTarget='';
+function abrirOcrExpedicao(itemNum){
+  expedOcrTarget='expedOcr_'+itemNum;
+  const target=document.getElementById(expedOcrTarget);
+  if(target){target.classList.add('hidden');target.innerHTML='';}
+  const picker=document.getElementById('expedOcrInput'); if(picker) picker.click();
+}
+const expedOcrInputEl=document.getElementById('expedOcrInput'); if(expedOcrInputEl) expedOcrInputEl.addEventListener('change', e=>{const target=expedOcrTarget;expedOcrTarget='';lerEtiquetaPorFoto(e.target.files&&e.target.files[0],target);e.target.value='';});
 const fotosExtractEl=document.getElementById('fotosExtract'); if(fotosExtractEl) fotosExtractEl.addEventListener('click', fotosExtract);
 const fotosShareEl=document.getElementById('fotosShare'); if(fotosShareEl) fotosShareEl.addEventListener('click', fotosShare);
 const exportBtn=document.getElementById('exportBtn'); if(exportBtn) exportBtn.addEventListener('click', exportRomaneio);
@@ -9321,6 +9374,7 @@ try{window.EXP.delFoto=delFoto;}catch(e){}
 try{window.EXP.gotoLotes=gotoLotes;}catch(e){}
 try{window.EXP.markStatus=markStatus;}catch(e){}
 try{window.EXP.openCam=openCam;}catch(e){}
+try{window.EXP.ocrEtiqueta=abrirOcrExpedicao;}catch(e){}
 try{window.EXP.openLote=openLote;}catch(e){}
 try{window.EXP.cancelLote=closeLote;}catch(e){}
 try{window.EXP.removeQtyTag=removeQtyTag;}catch(e){}

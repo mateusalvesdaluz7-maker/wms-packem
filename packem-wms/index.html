@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
 <script src="wms-security.js"></script>
-<link rel="stylesheet" href="wms.css?v=20260819-mobile-layout5">
+<link rel="stylesheet" href="wms.css?v=20260819-etiqueta-ocr2">
 <link rel="stylesheet" href="wms-requisicao-fix.css?v=20260818-permissoes1">
 <meta name="theme-color" content="#0f1830">
 <meta name="mobile-web-app-capable" content="yes">
@@ -237,7 +237,11 @@
   <div id="fotosGrid" class="fotos-grid"></div>
   <div class="fotos-foot">
     <input type="file" accept="image/*" capture="environment" id="fotosInput" multiple style="display:none">
+    <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" id="etiquetaOcrInput" style="display:none">
+    <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" id="expedOcrInput" style="display:none">
     <button class="btn block" type="button" id="fotosAdd">Tirar / adicionar foto</button>
+    <button class="btn ghost block fotos-ocr-btn" type="button" id="etiquetaOcrBtn">Ler dados da etiqueta por foto</button>
+    <div id="etiquetaOcrResult" class="etiqueta-ocr-result hidden" aria-live="polite"></div>
   <div class="fotos-foot-row">
     <button class="btn block" type="button" id="fotosExtract">Extrair (.zip)</button>
     <button class="btn ghost block" type="button" id="fotosShare">Compartilhar</button>
@@ -405,7 +409,7 @@
   <div id="netBlockDot" style="color:#7e90a8;font-size:.8rem;margin-top:22px;font-family:var(--mono,monospace)">tentando reconectar…</div>
 </div>
 
-<script src="wms-app.js?v=20260819-fotos-voltar4"></script>
+<script src="wms-app.js?v=20260819-etiqueta-ocr2"></script>
 <script src="wms-requisicao-catalogo.js?v=20260817-requisicao25"></script>
 <script src="wms-requisicao.js?v=20260818-supabase1"></script>
 </body>

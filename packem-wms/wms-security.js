@@ -10,4 +10,3 @@
   async function verify(stored,password){stored=String(stored||'');if(!isProtected(stored))return equal(stored,String(password||''));var p=stored.split('$'),it=Number(p[1]);if(p.length!==4||!it||it<100000)return false;return equal(await derive(password,bytes(p[2]),it),p[3]);}
   global.WMSSecurity={protect:protect,verify:verify,isProtected:isProtected};
 })(window);
-

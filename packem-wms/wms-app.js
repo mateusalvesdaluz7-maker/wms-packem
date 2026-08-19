@@ -8244,10 +8244,8 @@ function loteCardHtml(r){
         </div>
         ${divs.length?`<div class="lc-divergence">⚠ ${divs.length} divergência${divs.length>1?'s':''}</div>`:''}
       </div>
-      <div class="lc-r">
-        ${_ring}
-        ${cancelled?'':`<span class="lc-x" role="button" tabindex="0" onclick="event.preventDefault();event.stopPropagation();EXP.cancelLote('${r.id}')" aria-label="Cancelar lote" title="Cancelar lote">✕</span>`}
-      </div>
+      <div class="lc-r">${_ring}</div>
+      ${cancelled?'':`<span class="lc-x" role="button" tabindex="0" onclick="event.preventDefault();event.stopPropagation();EXP.cancelLote('${r.id}')" aria-label="Cancelar lote" title="Cancelar lote">✕</span>`}
     </button>`;
 }
 function renderLotes(){

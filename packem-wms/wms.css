@@ -590,7 +590,7 @@ button,.btn,.gbtn{transition:background .15s ease,border-color .15s ease,box-sha
 #v-exped .lote-card .lc-r{flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 10px;}
 #v-exped .lote-card .lc-pct{width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; font-family: Sora; font-weight: 800; font-size: 16px; color: var(--brand-dark); background: var(--green-bg); border: 2px solid rgb(159, 221, 184);}
 #v-exped .lote-card.done .lc-pct{background: var(--green); color: rgb(255, 255, 255); border-color: var(--green);}
-#v-exped .lote-card .lc-x{color: var(--ink3); font-size: 15px; font-weight: 700; padding: 3px 7px; border-radius: 8px;}
+#v-exped .lote-card .lc-x{position:absolute;right:16px;bottom:14px;z-index:3;color:#52657b;font-size:16px;font-weight:700;padding:5px 9px;border:1px solid #d5e1da;border-radius:9px;background:#fff;line-height:1;box-shadow:0 2px 6px rgba(15,40,27,.08)}
 #v-exped .backbar{display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.95); border: 1.5px solid var(--line); border-radius: 999px; padding: 9px 16px 9px 12px; font-family: Inter; font-weight: 700; font-size: 14px; color: var(--brand-dark); cursor: pointer; margin-bottom: 14px; box-shadow: var(--sh-sm);}
 #v-exped .backbar svg{width: 18px; height: 18px;}
 #v-exped .backbar:active{transform: scale(0.97);}
@@ -1069,13 +1069,16 @@ body > #fotosModal .fotos-back-mobile{display:none}
 #v-exped .lc-divergence{display:none!important}
 @media(max-width:700px){
   #v-exped .lote-card{display:grid;grid-template-columns:minmax(0,1fr) 58px;gap:10px;padding:16px 14px;background:#fff}
-  #v-exped .lote-card::before{display:none}
-  #v-exped .lote-card::after{content:"";position:absolute;left:0;right:auto;bottom:0;z-index:1;width:var(--lote-progress,0%);height:5px;border-radius:0 999px 999px 0;background:#00a651;transition:width .35s ease}
+#v-exped .lote-card::before{display:none}
+#v-exped .lote-card::after{content:"";position:absolute;left:14px;right:14px;bottom:10px;z-index:1;width:auto;height:8px;border-radius:999px;background:linear-gradient(90deg,#00a651 0,#00a651 var(--lote-progress,0%),#e2ece5 var(--lote-progress,0%),#e2ece5 100%);box-shadow:inset 0 0 0 1px rgba(0,130,70,.08);transition:background .35s ease}
   #v-exped .lote-card .lc-l{min-width:0}
   #v-exped .lote-card .lc-r{grid-column:2;grid-row:1;width:58px;align-self:start}
   #v-exped .lote-card .lc-num{font-size:27px}
   #v-exped .lote-card .lc-sub{font-size:12.5px;line-height:1.3;overflow-wrap:anywhere}
   #v-exped .lote-card .lc-mini{gap:5px 12px;font-size:11.5px}
   #v-exped .lc-details{grid-template-columns:1fr 1fr;margin-top:10px;padding-bottom:8px}
-  #v-exped .lote-card .lc-x{position:absolute;right:13px;bottom:14px;z-index:2}
+  #v-exped .lote-card .lc-x{right:14px;bottom:27px;z-index:3}
 }
+
+/* iPhone/Safari não abre seletor de câmera em campo file com display:none. */
+#expedOcrInput{position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:.01}

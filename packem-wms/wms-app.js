@@ -8038,7 +8038,7 @@ function loadStore(){
 function syncActive(){ const r=romaneios.find(x=>x.id===currentId); if(r){ r.items=items; r.meta=currentMeta; r._upd=Date.now(); } saveStore(); }
 
 /* ============ SINCRONIZAÇÃO ONLINE (Supabase) ============ */
-const APP_VER='v20';
+const APP_VER='v21';
 const SUPA_URL='https://aekqhtutrfwjoebsebeq.supabase.co';
 const SUPA_KEY='sb_publishable_fx7cQutj5eGGFFrPGA7yBA_GtFkaVXN';
 const SUPA_REST=SUPA_URL+'/rest/v1/wms_expedicao_romaneios';
@@ -8679,8 +8679,19 @@ function compressImg(file,maxDim,q){
 }
 function loteLabel(){ return (currentMeta&&currentMeta.loteMain)||'sem-lote'; }
 async function updatePhCount(){ const el=document.getElementById('phCount'); if(!el){return;} if(!currentId){ el.classList.remove('on'); return; } try{ const n=(await fotoList(currentId)).length; el.textContent=n; el.classList.toggle('on', n>0); }catch(e){} }
-async function openFotos(){ if(!currentId) return; document.getElementById('fotosLote').textContent=loteLabel(); document.getElementById('fotosModal').classList.remove('hidden'); document.body.classList.add("cam-open"); await renderFotos(); fotoSyncLote(currentId).then(()=>renderFotos()); }
-function closeFotos(){ document.getElementById('fotosModal').classList.add('hidden'); document.body.classList.remove('cam-open'); }
+let fotoLiveT=null;
+function stopFotosLive(){ if(fotoLiveT){ clearInterval(fotoLiveT); fotoLiveT=null; } }
+function startFotosLive(){
+  stopFotosLive();
+  // Mantém a galeria aberta atualizada quando outra pessoa registra a foto no celular.
+  fotoLiveT=setInterval(async()=>{
+    const modal=document.getElementById('fotosModal');
+    if(!modal || modal.classList.contains('hidden') || !currentId || document.hidden) return;
+    await fotoSyncLote(currentId); await renderFotos();
+  },2500);
+}
+async function openFotos(){ if(!currentId) return; document.getElementById('fotosLote').textContent=loteLabel(); document.getElementById('fotosModal').classList.remove('hidden'); document.body.classList.add("cam-open"); await renderFotos(); await fotoSyncLote(currentId); await renderFotos(); startFotosLive(); }
+function closeFotos(){ stopFotosLive(); document.getElementById('fotosModal').classList.add('hidden'); document.body.classList.remove('cam-open'); }
 async function renderFotos(){
   const grid=document.getElementById('fotosGrid'); if(!grid) return;
   const fotos=await fotoList(currentId);
@@ -9006,6 +9017,9 @@ function openCam(num){
   camTarget = (num!==undefined && num!==null && num!=='') ? String(num) : null;
   awaitingQty=false; pendingTag=null;
   const ov=document.getElementById('camOverlay'); if(!ov) return;
+  // O leitor precisa ficar diretamente no body: em celulares o painel da expedição
+  // pode criar uma camada própria e impedir que o botão de fechar receba o toque.
+  if(ov.parentElement!==document.body) document.body.appendChild(ov);
   ov.classList.remove('hidden'); document.body.classList.add('cam-open'); document.documentElement.classList.add('cam-open');
   const cs=document.getElementById('camStatus'); if(cs) cs.classList.remove('show');
   document.getElementById('camQty').classList.add('hidden');
@@ -9223,6 +9237,7 @@ drop.addEventListener('drop', e=>{ if(e.dataTransfer.files[0]) handleFile(e.data
 
 document.getElementById('openCamBtn').addEventListener('click', openCam);
 document.getElementById('camClose').addEventListener('click', closeCam);
+const camCloseMobile=document.getElementById('camCloseMobile'); if(camCloseMobile) camCloseMobile.addEventListener('click', closeCam);
 const cmS=document.getElementById('camModeSep'); if(cmS) cmS.addEventListener('click', ()=>setMode('sep'));
 const cmC=document.getElementById('camModeConf'); if(cmC) cmC.addEventListener('click', ()=>setMode('conf'));
 document.getElementById('cqAdd').addEventListener('click', camAddQty);

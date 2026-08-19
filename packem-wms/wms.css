@@ -810,8 +810,8 @@ body.admin #v-exped .lote-card .lc-x,body.exp-editor #v-exped .lote-card .lc-x{d
 #v-exped .cam-modelabel{position: absolute; top: 70px; left: 0px; right: 0px; z-index: 3; text-align: center; font-family: Sora; font-weight: 800; font-size: 19px; letter-spacing: 0.1em; text-shadow: rgba(0, 0, 0, 0.7) 0px 2px 10px; pointer-events: none;}
 #v-exped .cam-ov.m-sep .cam-modelabel{color: rgb(255, 192, 116);}
 #v-exped .cam-ov.m-conf .cam-modelabel{color: rgb(123, 230, 166);}
-#v-exped .cam-ov.m-sep #camModeLabel::before{content: "📦 SEPARANDO";}
-#v-exped .cam-ov.m-conf #camModeLabel::before{content: "✓ CONFERINDO";}
+#v-exped .cam-ov.m-sep #camModeLabel::before{content: "SEPARANDO";}
+#v-exped .cam-ov.m-conf #camModeLabel::before{content: "CONFERINDO";}
 #v-exped #camModeSep.on{background: var(--amber);}
 #v-exped #camModeConf.on{background: var(--green);}
 #v-exped .manualbar{display: flex; gap: 10px; margin-bottom: 22px;}
@@ -1007,4 +1007,22 @@ body.admin #v-exped .lote-card .lc-x,body.exp-editor #v-exped .lote-card .lc-x{d
   #v-exped .cam-frame b{left:7%;right:7%}
   #v-exped .cam-hint{bottom:calc(18px + env(safe-area-inset-bottom));padding:0 24px;font-size:14px}
   #v-exped .cam-status{bottom:calc(70px + env(safe-area-inset-bottom));left:12px;right:12px}
+}
+
+/* Leitor em camada própria: não fica preso dentro da tela nem atrás do cabeçalho. */
+body > #camOverlay.cam-ov{position:fixed;inset:0;z-index:2147483647;width:100vw;height:100dvh;min-height:100svh;background:#04070a;display:block}
+body > #camOverlay.cam-ov.hidden{display:none}
+body > #camOverlay .cam-reader,body > #camOverlay .cam-reader video{width:100%!important;height:100%!important;object-fit:cover}
+body > #camOverlay .cam-frame{position:absolute;inset:0;z-index:2;pointer-events:none}
+body > #camOverlay .cam-top{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:max(14px,env(safe-area-inset-top)) 14px 14px;background:linear-gradient(rgba(0,0,0,.72),transparent)}
+body > #camOverlay .cam-close{width:48px;height:48px;border:1px solid rgba(255,255,255,.65);border-radius:50%;background:rgba(0,0,0,.65);color:#fff;font-size:25px;font-weight:700}
+body > #camOverlay .cam-modelabel{position:absolute;top:calc(82px + env(safe-area-inset-top));left:0;right:0;z-index:4;text-align:center;font-family:Sora,Inter,sans-serif;font-weight:800;font-size:17px;letter-spacing:.1em;text-shadow:0 2px 10px rgba(0,0,0,.8);pointer-events:none}
+body > #camOverlay.m-sep #camModeLabel::before{content:"SEPARANDO"}
+body > #camOverlay.m-conf #camModeLabel::before{content:"CONFERINDO"}
+body > #camOverlay.m-sep .cam-modelabel{color:#FFC074}body > #camOverlay.m-conf .cam-modelabel{color:#7BE6A6}
+body > #camOverlay .cam-hint{position:absolute;bottom:calc(82px + env(safe-area-inset-bottom));left:0;right:0;z-index:4;padding:0 24px;text-align:center;color:#fff;font-size:14px;font-weight:700;text-shadow:0 2px 8px #000}
+body > #camOverlay .cam-close-mobile{display:none}
+@media(max-width:760px){
+  body > #camOverlay .cam-close-mobile{display:block;position:absolute;z-index:6;bottom:calc(19px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);min-width:210px;min-height:48px;border:1px solid rgba(255,255,255,.7);border-radius:14px;background:rgba(10,20,34,.92);box-shadow:0 8px 30px rgba(0,0,0,.45);color:#fff;font:800 16px Inter,sans-serif}
+  body > #camOverlay .cam-hint{bottom:calc(81px + env(safe-area-inset-bottom))}
 }

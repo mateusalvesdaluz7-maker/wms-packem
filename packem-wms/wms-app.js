@@ -8903,6 +8903,56 @@ function extractTag(s){
   const m = String(s).match(/T\s*\d{5,12}/i);   // ETIQUETA dentro do QR (ex: T40364663)
   return m ? m[0].replace(/\s+/g,'').toUpperCase() : '';
 }
+
+/* Etiquetas fisicas do estoque tambem podem substituir a etiqueta prevista no PDF,
+   desde que o CODIGO do material seja exatamente o mesmo. A descricao e exibida ao
+   operador, mas nunca e usada sozinha para autorizar uma baixa. */
+function expStockTag(scanned){
+  let raw=String(scanned||'').trim();
+  try{if(typeof window.cleanScanCode==='function')raw=window.cleanScanCode(raw);}catch(e){}
+  const et=norm(raw);if(!et)return null;
+  let info=null;
+  function take(pr,desc,local,endereco,q){
+    if(info)return;const b=(typeof BOB!=='undefined'&&BOB&&BOB[et])||{};
+    info={et:et,pr:String(pr||b.pr||''),desc:String(desc||b.desc||''),local:local,endereco:endereco||'',q:Number(q)||Number(b.rem)||Number(b.pl)||0};
+  }
+  try{
+    if(typeof LOC!=='undefined'&&LOC&&LOC[et]){
+      const addr=LOC[et],sp=(typeof findSpace==='function'?findSpace(addr):null),b=(typeof BOB!=='undefined'&&BOB&&BOB[et])||{};
+      take((sp&&sp.pr)||b.pr,(sp&&sp.desc)||b.desc,'Prateleira - 70',addr,(sp&&sp.q)||b.rem||b.pl);
+    }
+  }catch(e){}
+  function inState(state,local){
+    try{Object.values(state||{}).some(function(g){
+      const x=(g.ets||[]).map(function(v){return typeof v==='string'?{et:v,pl:0}:v;}).find(function(v){return norm(v&&v.et)===et;});
+      if(!x)return false;take(g.pr,g.desc,local,'',x.pl);return true;
+    });}catch(e){}
+  }
+  if(!info)inState(typeof window.floor70GetState==='function'?window.floor70GetState():{},'Chão de Fábrica - 70');
+  if(!info)inState(typeof window.recicGetState==='function'?window.recicGetState():{},'Recicladora - 91');
+  if(!info)inState(typeof window.floorGetState==='function'?window.floorGetState():{},'Expedição - 71');
+  return info;
+}
+function expItemProduct(it){
+  const direct=String((it&&(it.codigo||it.produto||it.pr))||'').trim();if(direct)return norm(direct);
+  const m=String((it&&it.descricao)||'').match(/\b\d{6,14}\b/);return m?norm(m[0]):'';
+}
+function expStockItem(info){
+  if(!info||!info.pr)return null;const pr=norm(info.pr);
+  return items.find(function(i){return i.status==='pendente'&&expItemProduct(i)===pr;})
+    ||items.find(function(i){return i.status==='separado'&&expItemProduct(i)===pr&&norm(i.etiqueta)===info.et;})
+    ||null;
+}
+function expRemoveStock(info){
+  if(!info)return false;
+  try{
+    if(info.local==='Prateleira - 70'&&typeof freeStored==='function')return !!freeStored(info.et);
+    if(info.local==='Chão de Fábrica - 70'&&typeof window.f70Saida==='function')return window.f70Saida(info.et)!==false;
+    if(info.local==='Recicladora - 91'&&typeof window.recicSaida==='function')return window.recicSaida(info.et)!==false;
+    if(info.local==='Expedição - 71'&&typeof window.floorSaida==='function')return window.floorSaida(info.et)!==false;
+  }catch(e){return false;}
+  return false;
+}
 function matchItem(scanned){
   if(!scanned) return null;
   const ns = norm(scanned);
@@ -8953,7 +9003,9 @@ function process(scanned){
     camTarget=null;
   }
 
-  const it=matchItem(scanned);
+  const stock=expStockTag(scanned);
+  let it=matchItem(scanned);
+  if(!it&&stock)it=expStockItem(stock);
   if(!it){
     beep('err'); vibrate('err');
     const shown = extractTag(scanned) || (scanned||'').slice(0,26);
@@ -8964,9 +9016,16 @@ function process(scanned){
 
   if(mode==='sep'){
     if(it.status==='pendente'){
+      if(stock){
+        const esperado=expItemProduct(it),recebido=norm(stock.pr);
+        if(!esperado||esperado!==recebido){beep('err');vibrate('err');banner('err','⛔','Material diferente',`Etiqueta <span class="mono">${stock.et}</span> é do produto <b>${stock.pr||'não identificado'}</b> e não pode ser usada neste item`);return;}
+        if(!expRemoveStock(stock)){beep('err');vibrate('err');banner('err','⛔','Baixa não realizada',`A etiqueta <span class="mono">${stock.et}</span> não pôde ser retirada de ${stock.local}`);return;}
+        if(norm(it.etiqueta)!==stock.et){it.etiquetaOriginal=it.etiqueta||'';it.etiqueta=stock.et;}
+        it.origemEstoque=stock.local+(stock.endereco?' · '+stock.endereco:'');
+      }
       it.status='separado'; beep('sep'); vibrate('sep');
-      auditEvent('bip_separacao','Item #'+it.num+' · '+it.etiqueta+'.');
-      banner('sep','📦','Separado',`<span class="mono">${it.etiqueta}</span> · ${it.descricao||''}`);
+      auditEvent('bip_separacao','Item #'+it.num+' · '+it.etiqueta+(stock?' · baixa em '+it.origemEstoque:'')+'.');
+      banner('sep','📦','Separado',`<span class="mono">${it.etiqueta}</span> · ${it.descricao||''}${stock?'<br><small>Baixa: '+it.origemEstoque+'</small>':''}`);
     } else if(it.status==='separado'){
       beep('err');
       banner('warn','↺','Já separado · falta CONFERIR',`Toque em <b>CONFERIR</b> (verde) no topo e bipe de novo`);

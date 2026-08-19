@@ -1030,13 +1030,35 @@ body > #camOverlay .cam-close-mobile{display:none}
 /* Galeria de fotos também fica fora da camada da Expedição e ganha saída visível no celular. */
 body > #fotosModal.fotos-modal{position:fixed;inset:0;z-index:2147483646;display:flex;flex-direction:column;background:var(--bg,#f3f6fa);width:100vw;height:100dvh;min-height:100svh}
 body > #fotosModal.fotos-modal.hidden{display:none}
-body > #fotosModal .fotos-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:max(14px,env(safe-area-inset-top)) 16px 14px;background:linear-gradient(125deg,var(--brand-deep),var(--brand));color:#fff;box-shadow:0 6px 18px rgba(0,92,46,.25)}
+body > #fotosModal .fotos-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:max(14px,env(safe-area-inset-top)) 16px 14px;background:linear-gradient(125deg,#0b2545,#007f48);color:#fff;box-shadow:0 6px 18px rgba(0,92,46,.25)}
 body > #fotosModal .fotos-bar .cam-close{width:48px;height:48px;border:1px solid rgba(255,255,255,.6);border-radius:50%;background:rgba(0,0,0,.25);color:#fff;font-size:25px}
 body > #fotosModal .fotos-title{font-family:Sora,Inter,sans-serif;font-weight:800;font-size:15.5px;text-align:center;flex:1}
 body > #fotosModal .fotos-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:16px;align-content:start}
-body > #fotosModal .fotos-foot{padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:var(--surface,#fff);border-top:1px solid var(--line,#dbe3ec)}
+body > #fotosModal .fotos-foot{padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #dbe3ec}
 body > #fotosModal .fotos-foot-row{display:flex;gap:10px;margin-top:10px}
+body > #fotosModal .foto-card{position:relative;overflow:hidden;aspect-ratio:3/4;border:2px solid #d6e0ec;border-radius:14px;background:#0b1220;box-shadow:0 5px 14px rgba(15,31,53,.12)}
+body > #fotosModal .foto-card img{display:block;width:100%;height:100%;object-fit:cover}
+body > #fotosModal .foto-card .foto-del{position:absolute;top:7px;right:7px;width:32px;height:32px;border:0;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;font-size:17px}
+body > #fotosModal .foto-card .foto-n{position:absolute;left:7px;bottom:7px;padding:3px 8px;border-radius:7px;background:rgba(0,0,0,.65);color:#fff;font:700 11px 'JetBrains Mono',monospace}
+body > #fotosModal .btn{min-height:46px;border:1px solid #0a8f52;border-radius:12px;background:#00a651;color:#fff;font:800 14px Inter,sans-serif;padding:10px 13px}
+body > #fotosModal .btn.ghost{background:#fff;border-color:#b8c8d8;color:#17324d}
+body > #fotosModal .btn.block{width:100%}
 body > #fotosModal .fotos-back-mobile{display:none}
 @media(max-width:760px){
   body > #fotosModal .fotos-back-mobile{display:block;width:100%;min-height:48px;margin-top:10px;border:1px solid #9bb1c9;border-radius:12px;background:#fff;color:#12233b;font:800 15px Inter,sans-serif}
+}
+
+/* Romaneios no celular: cartão limpo, sem faixa verde invadindo os textos. */
+#v-exped .lc-divergence{display:none!important}
+@media(max-width:700px){
+  #v-exped .lote-card{display:grid;grid-template-columns:minmax(0,1fr) 58px;gap:10px;padding:16px 14px;background:#fff}
+  #v-exped .lote-card::before{display:none}
+  #v-exped .lote-card::after{content:"";position:absolute;left:0;right:auto;bottom:0;z-index:1;width:var(--lote-progress,0%);height:5px;border-radius:0 999px 999px 0;background:#00a651;transition:width .35s ease}
+  #v-exped .lote-card .lc-l{min-width:0}
+  #v-exped .lote-card .lc-r{grid-column:2;grid-row:1;width:58px;align-self:start}
+  #v-exped .lote-card .lc-num{font-size:27px}
+  #v-exped .lote-card .lc-sub{font-size:12.5px;line-height:1.3;overflow-wrap:anywhere}
+  #v-exped .lote-card .lc-mini{gap:5px 12px;font-size:11.5px}
+  #v-exped .lc-details{grid-template-columns:1fr 1fr;margin-top:10px;padding-bottom:8px}
+  #v-exped .lote-card .lc-x{position:absolute;right:13px;bottom:14px;z-index:2}
 }

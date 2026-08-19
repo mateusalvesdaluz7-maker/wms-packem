@@ -8453,10 +8453,11 @@ function renderItems(){
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.4"/></svg>
             ${scanTxt}
           </button>
-          <button type="button" class="scanitem photo" onclick="EXP.ocrEtiqueta('${it.num}')" aria-label="Ler dados da etiqueta por foto">
+          <label class="scanitem photo" for="expedOcrInput_${it.num}" onclick="EXP.prepararOcr('${it.num}')" aria-label="Ler dados da etiqueta por foto">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.4"/></svg>
             Ler por foto
-          </button>
+          </label>
+          <input class="exped-ocr-picker" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" id="expedOcrInput_${it.num}" onchange="EXP.receberOcr(event,'${it.num}')">
           </div>
           <div class="etiqueta-ocr-result exped-ocr-result hidden" id="expedOcr_${it.num}" aria-live="polite"></div>
           ${admBar}
@@ -9312,10 +9313,19 @@ const fotosInputEl=document.getElementById('fotosInput'); if(fotosInputEl) fotos
 const etiquetaOcrBtnEl=document.getElementById('etiquetaOcrBtn'); if(etiquetaOcrBtnEl) etiquetaOcrBtnEl.addEventListener('click', ()=>document.getElementById('etiquetaOcrInput').click());
 const etiquetaOcrInputEl=document.getElementById('etiquetaOcrInput'); if(etiquetaOcrInputEl) etiquetaOcrInputEl.addEventListener('change', e=>{ lerEtiquetaPorFoto(e.target.files&&e.target.files[0]); e.target.value=''; });
 let expedOcrTarget='';
-function abrirOcrExpedicao(itemNum){
+function prepararOcrExpedicao(itemNum){
   expedOcrTarget='expedOcr_'+itemNum;
   const target=document.getElementById(expedOcrTarget);
   if(target){target.classList.add('hidden');target.innerHTML='';}
+}
+function receberOcrExpedicao(event,itemNum){
+  const file=event.target.files&&event.target.files[0];
+  const targetId='expedOcr_'+itemNum;
+  event.target.value='';
+  if(file) lerEtiquetaPorFoto(file,targetId);
+}
+function abrirOcrExpedicao(itemNum){
+  prepararOcrExpedicao(itemNum);
   // No iPhone, campos de arquivo ocultos previamente na página podem não abrir.
   // Criamos o seletor no instante do toque para abrir a câmera/galeria corretamente.
   const picker=document.createElement('input');
@@ -9388,7 +9398,7 @@ try{window.EXP.delFoto=delFoto;}catch(e){}
 try{window.EXP.gotoLotes=gotoLotes;}catch(e){}
 try{window.EXP.markStatus=markStatus;}catch(e){}
 try{window.EXP.openCam=openCam;}catch(e){}
-try{window.EXP.ocrEtiqueta=abrirOcrExpedicao;}catch(e){}
+try{window.EXP.ocrEtiqueta=abrirOcrExpedicao;window.EXP.prepararOcr=prepararOcrExpedicao;window.EXP.receberOcr=receberOcrExpedicao;}catch(e){}
 try{window.EXP.openLote=openLote;}catch(e){}
 try{window.EXP.cancelLote=closeLote;}catch(e){}
 try{window.EXP.removeQtyTag=removeQtyTag;}catch(e){}

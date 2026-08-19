@@ -741,6 +741,8 @@ html.cam-open,body.cam-open{overflow:hidden!important;overscroll-behavior:none!i
 #v-exped .scanitem-row .scanitem{margin-top:0;flex:1;min-width:0}
 #v-exped .scanitem.photo{background:#fff;color:#0b6141;border:2px solid #0aa85a;box-shadow:none;font-size:14px}
 #v-exped .scanitem.photo:hover{background:#effcf4}
+#v-exped label.scanitem.photo{cursor:pointer}
+#v-exped .exped-ocr-picker{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 #v-exped .exped-ocr-result{margin-top:10px}
 @media(max-width:560px){#v-exped .scanitem-row{gap:8px}#v-exped .scanitem-row .scanitem{padding:13px 9px;font-size:13px}#v-exped .scanitem-row .scanitem svg{width:18px;height:18px}}
 #v-exped .appbar-tag.on{letter-spacing: 0.06em; background: rgb(255, 217, 120) !important; color: rgb(90, 61, 0) !important; border-color: rgb(255, 217, 120) !important;}
@@ -1070,7 +1072,7 @@ body > #fotosModal .fotos-back-mobile{display:none}
 @media(max-width:700px){
   #v-exped .lote-card{display:grid;grid-template-columns:minmax(0,1fr) 58px;gap:10px;padding:16px 14px;background:#fff}
 #v-exped .lote-card::before{display:none}
-#v-exped .lote-card::after{content:"";position:absolute;left:14px;right:14px;bottom:10px;z-index:1;width:auto;height:10px;border-radius:999px;background:linear-gradient(90deg,#00a651 0,#00a651 var(--lote-progress,0%),#e2ece5 var(--lote-progress,0%),#e2ece5 100%);box-shadow:inset 0 0 0 1px rgba(0,130,70,.12),0 1px 3px rgba(0,130,70,.12);transition:background .35s ease}
+#v-exped .lote-card::after{content:"";position:absolute;left:0;right:0;bottom:0;z-index:1;width:auto;height:12px;border-radius:0 0 17px 17px;background:linear-gradient(90deg,#00a651 0,#00a651 var(--lote-progress,0%),#e2ece5 var(--lote-progress,0%),#e2ece5 100%);box-shadow:inset 0 1px 0 rgba(0,130,70,.16);transition:background .35s ease}
   #v-exped .lote-card .lc-l{min-width:0}
   #v-exped .lote-card .lc-r{grid-column:2;grid-row:1;width:58px;align-self:start}
   #v-exped .lote-card .lc-num{font-size:27px}

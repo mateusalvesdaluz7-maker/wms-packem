@@ -8453,7 +8453,7 @@ function renderItems(){
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.4"/></svg>
             ${scanTxt}
           </button>
-          <button type="button" class="scanitem photo" onclick="EXP.openOcrLive('${it.num}')" aria-label="Abrir câmera para ler a etiqueta">
+          <button type="button" class="scanitem photo" data-exped-ocr-live="${it.num}" aria-label="Abrir câmera para ler a etiqueta">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.4"/></svg>
             Ler por foto
           </button>
@@ -9275,6 +9275,78 @@ function renderUpdateSummary(c){
 /* ---------------- EVENTS ---------------- */
 const drop=document.getElementById('drop'), fileInput=document.getElementById('fileInput');
 
+/* Câmera OCR do romaneio. Estas funções precisam permanecer no escopo do módulo:
+   os botões da tela são criados dinamicamente depois que o romaneio é aberto. */
+let expedOcrTarget='';
+let ocrLiveStream=null;
+function fecharOcrAoVivo(){
+  const overlay=document.getElementById('ocrLiveOverlay');
+  const video=document.getElementById('ocrLiveVideo');
+  if(ocrLiveStream){ ocrLiveStream.getTracks().forEach(t=>t.stop()); ocrLiveStream=null; }
+  if(video) video.srcObject=null;
+  if(overlay) overlay.classList.add('hidden');
+}
+async function abrirOcrAoVivo(itemNum){
+  prepararOcrExpedicao(itemNum);
+  const overlay=document.getElementById('ocrLiveOverlay');
+  const video=document.getElementById('ocrLiveVideo');
+  const status=document.getElementById('ocrLiveStatus');
+  if(!overlay||!video){ toast('Tela da câmera não foi encontrada.',false); return; }
+  overlay.classList.remove('hidden');
+  if(status) status.textContent='Abrindo câmera traseira…';
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) throw new Error('Câmera não disponível neste navegador.');
+    if(ocrLiveStream) ocrLiveStream.getTracks().forEach(t=>t.stop());
+    ocrLiveStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
+    video.srcObject=ocrLiveStream;
+    await video.play();
+    if(status) status.textContent='Centralize a etiqueta e toque em Capturar e ler';
+  }catch(err){
+    console.error('Falha ao abrir câmera OCR:',err);
+    if(status) status.textContent='Não foi possível abrir a câmera. Libere a permissão de câmera para este site.';
+  }
+}
+function capturarOcrAoVivo(){
+  const video=document.getElementById('ocrLiveVideo');
+  const status=document.getElementById('ocrLiveStatus');
+  if(!video||!video.videoWidth){ if(status) status.textContent='A câmera ainda está carregando.'; return; }
+  const canvas=document.createElement('canvas');
+  canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+  canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
+  const target=expedOcrTarget;
+  if(status) status.textContent='Lendo os dados da etiqueta…';
+  canvas.toBlob(blob=>{ fecharOcrAoVivo(); if(blob) lerEtiquetaPorFoto(new File([blob],'etiqueta.jpg',{type:'image/jpeg'}),target); },'image/jpeg',.9);
+}
+function prepararOcrExpedicao(itemNum){
+  expedOcrTarget='expedOcr_'+itemNum;
+  const target=document.getElementById(expedOcrTarget);
+  if(target){target.classList.add('hidden');target.innerHTML='';}
+}
+function receberOcrExpedicao(event,itemNum){
+  const file=event.target.files&&event.target.files[0];
+  const targetId='expedOcr_'+itemNum;
+  event.target.value='';
+  if(file) lerEtiquetaPorFoto(file,targetId);
+}
+function abrirOcrExpedicao(itemNum){
+  prepararOcrExpedicao(itemNum);
+  const picker=document.createElement('input');
+  picker.type='file';
+  picker.accept='image/jpeg,image/png,image/webp';
+  picker.setAttribute('capture','environment');
+  picker.setAttribute('aria-hidden','true');
+  picker.style.cssText='position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+  picker.addEventListener('change',e=>{
+    const file=e.target.files&&e.target.files[0];
+    const targetId=expedOcrTarget;
+    expedOcrTarget='';
+    picker.remove();
+    if(file) lerEtiquetaPorFoto(file,targetId);
+  },{once:true});
+  document.body.appendChild(picker);
+  picker.click();
+}
+
 /* ==== EXP.init: só executa wires e sync quando a aba Expedição abre (uma vez) ==== */
 var _expBooted=false;
 window.EXP=window.EXP||{};
@@ -9311,75 +9383,16 @@ const fotosAddEl=document.getElementById('fotosAdd'); if(fotosAddEl) fotosAddEl.
 const fotosInputEl=document.getElementById('fotosInput'); if(fotosInputEl) fotosInputEl.addEventListener('change', e=>{ handleFotos(e.target.files); e.target.value=''; });
 const etiquetaOcrBtnEl=document.getElementById('etiquetaOcrBtn'); if(etiquetaOcrBtnEl) etiquetaOcrBtnEl.addEventListener('click', ()=>document.getElementById('etiquetaOcrInput').click());
 const etiquetaOcrInputEl=document.getElementById('etiquetaOcrInput'); if(etiquetaOcrInputEl) etiquetaOcrInputEl.addEventListener('change', e=>{ lerEtiquetaPorFoto(e.target.files&&e.target.files[0]); e.target.value=''; });
-let expedOcrTarget='';
-let ocrLiveStream=null;
-function fecharOcrAoVivo(){
-  const overlay=document.getElementById('ocrLiveOverlay');
-  const video=document.getElementById('ocrLiveVideo');
-  if(ocrLiveStream){ ocrLiveStream.getTracks().forEach(t=>t.stop()); ocrLiveStream=null; }
-  if(video) video.srcObject=null;
-  if(overlay) overlay.classList.add('hidden');
-}
-async function abrirOcrAoVivo(itemNum){
-  prepararOcrExpedicao(itemNum);
-  const overlay=document.getElementById('ocrLiveOverlay');
-  const video=document.getElementById('ocrLiveVideo');
-  const status=document.getElementById('ocrLiveStatus');
-  if(!overlay||!video) return;
-  overlay.classList.remove('hidden');
-  if(status) status.textContent='Abrindo câmera traseira…';
-  try{
-    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) throw new Error('Câmera não disponível neste navegador.');
-    ocrLiveStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
-    video.srcObject=ocrLiveStream;
-    await video.play();
-    if(status) status.textContent='Centralize a etiqueta e toque em Capturar e ler';
-  }catch(err){
-    if(status) status.textContent='Não foi possível abrir a câmera. Verifique a permissão de câmera do navegador.';
-  }
-}
-function capturarOcrAoVivo(){
-  const video=document.getElementById('ocrLiveVideo');
-  const status=document.getElementById('ocrLiveStatus');
-  if(!video||!video.videoWidth){ if(status) status.textContent='A câmera ainda está carregando.'; return; }
-  const canvas=document.createElement('canvas');
-  canvas.width=video.videoWidth; canvas.height=video.videoHeight;
-  canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
-  const target=expedOcrTarget;
-  if(status) status.textContent='Lendo os dados da etiqueta…';
-  canvas.toBlob(blob=>{ fecharOcrAoVivo(); if(blob) lerEtiquetaPorFoto(new File([blob],'etiqueta.jpg',{type:'image/jpeg'}),target); },'image/jpeg',.9);
-}
-function prepararOcrExpedicao(itemNum){
-  expedOcrTarget='expedOcr_'+itemNum;
-  const target=document.getElementById(expedOcrTarget);
-  if(target){target.classList.add('hidden');target.innerHTML='';}
-}
-function receberOcrExpedicao(event,itemNum){
-  const file=event.target.files&&event.target.files[0];
-  const targetId='expedOcr_'+itemNum;
-  event.target.value='';
-  if(file) lerEtiquetaPorFoto(file,targetId);
-}
-function abrirOcrExpedicao(itemNum){
-  prepararOcrExpedicao(itemNum);
-  // No iPhone, campos de arquivo ocultos previamente na página podem não abrir.
-  // Criamos o seletor no instante do toque para abrir a câmera/galeria corretamente.
-  const picker=document.createElement('input');
-  picker.type='file';
-  picker.accept='image/jpeg,image/png,image/webp';
-  picker.setAttribute('capture','environment');
-  picker.setAttribute('aria-hidden','true');
-  picker.style.cssText='position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
-  picker.addEventListener('change', e=>{
-    const file=e.target.files&&e.target.files[0];
-    const targetId=expedOcrTarget;
-    expedOcrTarget='';
-    picker.remove();
-    if(file) lerEtiquetaPorFoto(file,targetId);
-  },{once:true});
-  document.body.appendChild(picker);
-  picker.click();
-}
+const itemListOcrEl=document.getElementById('itemList');
+if(itemListOcrEl) itemListOcrEl.addEventListener('click',e=>{
+  const btn=e.target.closest('[data-exped-ocr-live]');
+  if(!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  abrirOcrAoVivo(btn.getAttribute('data-exped-ocr-live'));
+});
+const ocrLiveCloseEl=document.getElementById('ocrLiveClose'); if(ocrLiveCloseEl) ocrLiveCloseEl.addEventListener('click',fecharOcrAoVivo);
+const ocrLiveCaptureEl=document.getElementById('ocrLiveCapture'); if(ocrLiveCaptureEl) ocrLiveCaptureEl.addEventListener('click',capturarOcrAoVivo);
 const expedOcrInputEl=document.getElementById('expedOcrInput'); if(expedOcrInputEl) expedOcrInputEl.addEventListener('change', e=>{const target=expedOcrTarget;expedOcrTarget='';lerEtiquetaPorFoto(e.target.files&&e.target.files[0],target);e.target.value='';});
 const fotosExtractEl=document.getElementById('fotosExtract'); if(fotosExtractEl) fotosExtractEl.addEventListener('click', fotosExtract);
 const fotosShareEl=document.getElementById('fotosShare'); if(fotosShareEl) fotosShareEl.addEventListener('click', fotosShare);

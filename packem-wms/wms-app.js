@@ -8100,7 +8100,8 @@ async function supaMarkDeleted(id){
   }catch(e){ setSupaStatus(false); }
 }
 function statusRank(s){ return s==='conferido'?2:(s==='separado'?1:0); }
-function mergeItem(a,b){
+function mergeItem(a,b,preferRemote){
+  if(preferRemote) return Object.assign({},a,b);
   const out=Object.assign({}, a);
   if(a.etiqueta || b.etiqueta){
     out.etiqueta = a.etiqueta || b.etiqueta;
@@ -8119,17 +8120,25 @@ function mergeItem(a,b){
 }
 function mergeRemoteRomaneio(L,R){
   const out=Object.assign({}, L);
-  /* Dados locais vencem. O banco só completa campos ausentes e acrescenta progresso. */
-  out.meta = Object.assign({},R.meta||{},L.meta||{});
+  const remoteMaisNovo=(R._upd||0)>(L._upd||0);
+  out.meta = remoteMaisNovo ? Object.assign({},L.meta||{},R.meta||{}) : Object.assign({},R.meta||{},L.meta||{});
   const rmap={}; (R.items||[]).forEach(it=>rmap[it.num]=it);
   const seen={};
-  const items=(L.items||[]).map(it=>{ seen[it.num]=1; const r=rmap[it.num]; return r?mergeItem(it,r):it; });
+  const items=(L.items||[]).map(it=>{ seen[it.num]=1; const r=rmap[it.num]; return r?mergeItem(it,r,remoteMaisNovo):it; });
   /* Item que existe apenas no banco não é injetado automaticamente em lote local. */
   out.items=items; out._upd=Math.max(L._upd||0, R._upd||0); out._synced=true;
   if(R.cancelado&&!L.cancelado){out.cancelado=true;out.canceladoMotivo=R.canceladoMotivo||'';out.canceladoPor=R.canceladoPor||'';out.canceladoEm=R.canceladoEm||'';}
   return out;
 }
-function romSig(r){ return (r.cancelado?'C:'+String(r.canceladoMotivo||'')+'|':'')+(r.items||[]).map(it=> it.etiqueta ? (it.num+':'+(it.status||'')+':'+(it.saldo||0)) : (it.num+'#'+(it.tags||[]).map(t=>t.tag+(t.conf?'*':'')).join(',')+(it.forceDone?':F':'')) ).join('|'); }
+function romSig(r){
+  const m=r.meta||{};
+  const cab=[m.loteMain||'',m.destMain||'',m.resp||'',m.dataRom||'',m.dataEmb||''].join('~');
+  const linhas=(r.items||[]).map(it=>[
+    it.num||'',it.etiqueta||'',it.qtdNum||0,it.qtd||'',it.lote||'',it.destino||'',it.descricao||'',it.status||'',it.saldo||0,
+    (it.tags||[]).map(t=>(t.tag||'')+':'+(t.q||0)+(t.conf?'*':'')).join(','),it.forceDone?'F':''
+  ].join(':')).join('|');
+  return (r.cancelado?'C:'+String(r.canceladoMotivo||'')+'|':'')+cab+'|'+linhas;
+}
 async function supaPull(full){
   if(supaPulling) return; supaPulling=true;
   try{
@@ -9071,15 +9080,21 @@ async function handleFile(file){
     }
     currentMeta = {loteMain:parsed.loteMain, destMain:parsed.destMain, resp:parsed.resp, dataRom:parsed.dataRom, dataEmb:parsed.dataEmb};
     items = parsed.items;
-    const id = romHash(currentMeta, items);
+    const baseId = romHash(currentMeta, items);
+    let id = baseId;
     // carregar de propósito "revive" o romaneio: remove qualquer bloqueio de exclusão antigo
     delete supaDeleted[String(id)];
-    let existing = romaneios.find(r=>String(r.id)===String(id));
+    let existing = romaneios.find(r=>String(r.id)===String(baseId));
     if(!existing){
       try{
-        const res=await fetch(SUPA_REST+'?select=dados&id=eq.'+encodeURIComponent(id),{headers:supaHeaders()});
+        const res=await fetch(SUPA_REST+'?select=dados&id=eq.'+encodeURIComponent(baseId),{headers:supaHeaders()});
         if(res.ok){ const rows=await res.json(); if(rows[0] && rows[0].dados && !rows[0].dados._del && validRomaneio(rows[0].dados)){ existing=rows[0].dados; existing._synced=true; } }
       }catch(e){}
+    }
+    if(existing&&existing.cancelado){
+      id=baseId+'-novo-'+Date.now().toString(36);
+      existing=null;
+      delete supaDeleted[String(id)];
     }
     if(existing){
       /* O PDF é a fonte dos itens. A cópia existente só pode acrescentar progresso; nunca zerar ou esvaziar. */

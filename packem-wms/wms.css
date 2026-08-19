@@ -1026,3 +1026,17 @@ body > #camOverlay .cam-close-mobile{display:none}
   body > #camOverlay .cam-close-mobile{display:block;position:absolute;z-index:6;bottom:calc(19px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);min-width:210px;min-height:48px;border:1px solid rgba(255,255,255,.7);border-radius:14px;background:rgba(10,20,34,.92);box-shadow:0 8px 30px rgba(0,0,0,.45);color:#fff;font:800 16px Inter,sans-serif}
   body > #camOverlay .cam-hint{bottom:calc(81px + env(safe-area-inset-bottom))}
 }
+
+/* Galeria de fotos também fica fora da camada da Expedição e ganha saída visível no celular. */
+body > #fotosModal.fotos-modal{position:fixed;inset:0;z-index:2147483646;display:flex;flex-direction:column;background:var(--bg,#f3f6fa);width:100vw;height:100dvh;min-height:100svh}
+body > #fotosModal.fotos-modal.hidden{display:none}
+body > #fotosModal .fotos-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:max(14px,env(safe-area-inset-top)) 16px 14px;background:linear-gradient(125deg,var(--brand-deep),var(--brand));color:#fff;box-shadow:0 6px 18px rgba(0,92,46,.25)}
+body > #fotosModal .fotos-bar .cam-close{width:48px;height:48px;border:1px solid rgba(255,255,255,.6);border-radius:50%;background:rgba(0,0,0,.25);color:#fff;font-size:25px}
+body > #fotosModal .fotos-title{font-family:Sora,Inter,sans-serif;font-weight:800;font-size:15.5px;text-align:center;flex:1}
+body > #fotosModal .fotos-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:16px;align-content:start}
+body > #fotosModal .fotos-foot{padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:var(--surface,#fff);border-top:1px solid var(--line,#dbe3ec)}
+body > #fotosModal .fotos-foot-row{display:flex;gap:10px;margin-top:10px}
+body > #fotosModal .fotos-back-mobile{display:none}
+@media(max-width:760px){
+  body > #fotosModal .fotos-back-mobile{display:block;width:100%;min-height:48px;margin-top:10px;border:1px solid #9bb1c9;border-radius:12px;background:#fff;color:#12233b;font:800 15px Inter,sans-serif}
+}

@@ -8679,7 +8679,7 @@ function compressImg(file,maxDim,q){
 }
 function loteLabel(){ return (currentMeta&&currentMeta.loteMain)||'sem-lote'; }
 async function updatePhCount(){ const el=document.getElementById('phCount'); if(!el){return;} if(!currentId){ el.classList.remove('on'); return; } try{ const n=(await fotoList(currentId)).length; el.textContent=n; el.classList.toggle('on', n>0); }catch(e){} }
-let fotoLiveT=null;
+let fotoLiveT=null, fotosHistoryOpen=false;
 function stopFotosLive(){ if(fotoLiveT){ clearInterval(fotoLiveT); fotoLiveT=null; } }
 function startFotosLive(){
   stopFotosLive();
@@ -8690,8 +8690,20 @@ function startFotosLive(){
     await fotoSyncLote(currentId); await renderFotos();
   },2500);
 }
-async function openFotos(){ if(!currentId) return; document.getElementById('fotosLote').textContent=loteLabel(); document.getElementById('fotosModal').classList.remove('hidden'); document.body.classList.add("cam-open"); await renderFotos(); await fotoSyncLote(currentId); await renderFotos(); startFotosLive(); }
-function closeFotos(){ stopFotosLive(); document.getElementById('fotosModal').classList.add('hidden'); document.body.classList.remove('cam-open'); }
+async function openFotos(){
+  if(!currentId) return;
+  const modal=document.getElementById('fotosModal'); if(!modal) return;
+  // Fora do painel da Expedição para ocupar a tela inteira em iPhone/Android.
+  if(modal.parentElement!==document.body) document.body.appendChild(modal);
+  document.getElementById('fotosLote').textContent=loteLabel(); modal.classList.remove('hidden'); document.body.classList.add("cam-open");
+  if(!fotosHistoryOpen){ try{ history.pushState({wmsFotos:true},'',location.href); fotosHistoryOpen=true; }catch(e){} }
+  await renderFotos(); await fotoSyncLote(currentId); await renderFotos(); startFotosLive();
+}
+function closeFotos(fromBack){
+  stopFotosLive(); const modal=document.getElementById('fotosModal'); if(modal) modal.classList.add('hidden'); document.body.classList.remove('cam-open');
+  if(fotosHistoryOpen && !fromBack){ fotosHistoryOpen=false; try{ history.back(); }catch(e){} } else fotosHistoryOpen=false;
+}
+window.addEventListener('popstate',()=>{ const modal=document.getElementById('fotosModal'); if(modal && !modal.classList.contains('hidden')) closeFotos(true); });
 async function renderFotos(){
   const grid=document.getElementById('fotosGrid'); if(!grid) return;
   const fotos=await fotoList(currentId);
@@ -9252,7 +9264,8 @@ const uiOkEl=document.getElementById('uiOk'); if(uiOkEl) uiOkEl.addEventListener
 const uiCancelEl=document.getElementById('uiCancel'); if(uiCancelEl) uiCancelEl.addEventListener('click', hideUi);
 const uiInputEl=document.getElementById('uiInput'); if(uiInputEl) uiInputEl.addEventListener('keydown', e=>{ if(e.key==='Enter'){ const cb=_uiCb; hideUi(); if(cb) cb(true); } });
 const fotosBtnEl=document.getElementById('fotosBtn'); if(fotosBtnEl) fotosBtnEl.addEventListener('click', openFotos);
-const fotosCloseEl=document.getElementById('fotosClose'); if(fotosCloseEl) fotosCloseEl.addEventListener('click', closeFotos);
+const fotosCloseEl=document.getElementById('fotosClose'); if(fotosCloseEl) fotosCloseEl.addEventListener('click', ()=>closeFotos());
+const fotosBackMobileEl=document.getElementById('fotosBackMobile'); if(fotosBackMobileEl) fotosBackMobileEl.addEventListener('click', ()=>closeFotos());
 const fotosAddEl=document.getElementById('fotosAdd'); if(fotosAddEl) fotosAddEl.addEventListener('click', ()=>document.getElementById('fotosInput').click());
 const fotosInputEl=document.getElementById('fotosInput'); if(fotosInputEl) fotosInputEl.addEventListener('change', e=>{ handleFotos(e.target.files); e.target.value=''; });
 const fotosExtractEl=document.getElementById('fotosExtract'); if(fotosExtractEl) fotosExtractEl.addEventListener('click', fotosExtract);

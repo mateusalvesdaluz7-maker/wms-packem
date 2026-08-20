@@ -8766,6 +8766,23 @@ async function lerEtiquetaPorFoto(file,targetId){
       const dados=ocrLocalExtraiCampos(texto);
       textos.push(texto); out=ocrLocalMescla(out,dados);
     }
+    // Segunda etapa somente quando necessário: imagem binária e texto esparso.
+    // É mais cuidadosa, porém não deixa toda leitura lenta quando a primeira já resolveu.
+    if(ocrLocalPontua(out)<4){
+      await worker.setParameters({tessedit_pageseg_mode:'11',preserve_interword_spaces:'1'});
+      for(const angulo of [0,90,270]){
+        if(ocrLocalPontua(out)>=4) break;
+        const imagem=ocrLocalBinariza(ocrLocalGira(source,angulo));
+        window._ocrLocalBox=box;
+        const result=await worker.recognize(imagem,{rotateAuto:false});
+        const texto=(result&&result.data&&result.data.text)||'';
+        textos.push(texto); out=ocrLocalMescla(out,ocrLocalExtraiCampos(texto));
+      }
+      await worker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});
+    }
+    // Uma última extração sobre o texto combinado encontra campos que ficaram
+    // separados em leituras diferentes.
+    out=ocrLocalMescla(out,ocrLocalExtraiCampos(textos.join('\n')));
     if(!out || ocrLocalPontua(out)<1) throw new Error('Não consegui reconhecer a etiqueta. Aproxime a câmera, evite reflexos e capture novamente.');
     out._ocr_local=true; out._texto=textos.join('\n---\n');
     showEtiquetaOcr(out,targetId);
@@ -8871,12 +8888,21 @@ function ocrLocalPreparaImagem(file){
     img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Não foi possível preparar a imagem.'));}; img.src=url;
   });
 }
-
 function ocrLocalGira(src,graus){
   if(!graus) return src;
   const c=document.createElement('canvas'); c.width=src.height;c.height=src.width;
   const x=c.getContext('2d'); x.translate(c.width/2,c.height/2);x.rotate(graus*Math.PI/180);x.drawImage(src,-src.width/2,-src.height/2);return c;
 }
+function ocrLocalBinariza(src){
+  const c=document.createElement('canvas');c.width=src.width;c.height=src.height;
+  const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(src,0,0);
+  const px=x.getImageData(0,0,c.width,c.height),a=px.data;
+  let soma=0;for(let i=0;i<a.length;i+=4)soma+=a[i];
+  const media=soma/(a.length/4),limiar=Math.max(105,Math.min(205,media*.92));
+  for(let i=0;i<a.length;i+=4){const v=a[i]<limiar?0:255;a[i]=a[i+1]=a[i+2]=v;}
+  x.putImageData(px,0,0);return c;
+}
+
 function b64ToBlob(d){ const [h,b]=d.split(','); const mime=(h.match(/:(.*?);/)||[])[1]||'image/jpeg'; const bin=atob(b); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i); return new Blob([u8],{type:mime}); }
 function dlBlob(blob,name){ const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),2000); }
 function csvCell(v){ v=(v==null?'':String(v)); return /[";\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }

@@ -8750,16 +8750,92 @@ async function lerEtiquetaPorFoto(file,targetId){
   const btn=targetId?null:document.getElementById('etiquetaOcrBtn'); const box=document.getElementById(targetId||'etiquetaOcrResult');
   try{
     if(btn){ btn.disabled=true; btn.textContent='Lendo etiqueta…'; }
-    if(box){ box.classList.remove('hidden'); box.innerHTML='<div class="ocr-loading">Analisando a foto da etiqueta…</div>'; }
-    const dataUrl=await compressImg(file,1600,.78);
-    if(!dataUrl) throw new Error('Não foi possível preparar a foto.');
-    const resp=await fetch('/api/ocr-etiqueta',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({imageDataUrl:dataUrl})});
-    const out=await resp.json().catch(()=>({}));
-    if(!resp.ok) throw new Error(out.error||'Não foi possível ler a etiqueta.');
+    if(!window.Tesseract) throw new Error('O leitor gratuito ainda não carregou. Verifique a internet e tente novamente.');
+    if(box){ box.classList.remove('hidden'); box.innerHTML='<div class="ocr-loading">Preparando o leitor gratuito no aparelho…</div>'; }
+    const source=await ocrLocalPreparaImagem(file);
+    let out=null, melhorTexto='', melhorPontos=-1;
+    // A etiqueta costuma chegar em pé ou deitada. Tentamos a posição original e,
+    // somente se necessário, as duas rotações laterais.
+    for(const angulo of [0,90,270]){
+      if(angulo && melhorPontos>=4) break;
+      const imagem=ocrLocalGira(source,angulo);
+      const result=await Tesseract.recognize(imagem,'por',{logger:m=>{
+        if(!box || m.status!=='recognizing text') return;
+        const pct=Math.max(1,Math.round((m.progress||0)*100));
+        box.innerHTML='<div class="ocr-loading">Lendo no próprio aparelho… '+pct+'%</div>';
+      }});
+      const texto=(result&&result.data&&result.data.text)||'';
+      const dados=ocrLocalExtraiCampos(texto);
+      const pontos=ocrLocalPontua(dados);
+      if(pontos>melhorPontos){ melhorPontos=pontos; melhorTexto=texto; out=dados; }
+    }
+    if(!out || melhorPontos<1) throw new Error('Não consegui reconhecer a etiqueta. Aproxime a câmera, evite reflexos e capture novamente.');
+    out._ocr_local=true; out._texto=melhorTexto;
     showEtiquetaOcr(out,targetId);
   }catch(err){
     if(box){ box.classList.remove('hidden'); box.innerHTML='<div class="ocr-error">'+escOcr(err.message||'Falha ao ler a etiqueta.')+'</div>'; }
   }finally{ if(btn){ btn.disabled=false; btn.textContent='Ler dados da etiqueta por foto'; } }
+}
+
+function ocrLocalNormaliza(txt){
+  return String(txt||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase()
+    .replace(/[|]/g,'I').replace(/\s+/g,' ').trim();
+}
+function ocrLocalNumero(v){
+  const m=String(v||'').match(/\d{1,5}(?:[.,]\d{1,2})?/); return m?m[0].replace('.',','):'';
+}
+function ocrLocalExtraiCampos(texto){
+  const t=ocrLocalNormaliza(texto);
+  const linhas=String(texto||'').split(/\r?\n/).map(ocrLocalNormaliza).filter(Boolean);
+  let identificador='',bobina='',bruto='',liquido='';
+  // Identificador industrial: exatamente 10 dígitos. Espaços ocasionais do OCR são tolerados.
+  const compact=t.replace(/(?<=\d)\s+(?=\d)/g,'');
+  const ids=compact.match(/(?:^|\D)(\d{10})(?!\d)/g)||[];
+  if(ids.length) identificador=(ids[0].match(/\d{10}/)||[])[0]||'';
+  // Medida impressa, por exemplo 167GM² 180CM ou 167 x 180.
+  let dm=t.match(/\b(\d{2,3})\s*(?:G\s*\/??\s*M(?:2|²)?|GM(?:2|²))?\s*[X×]\s*(\d{2,3})\s*CM\b/);
+  if(!dm) dm=t.match(/\b(\d{2,3})\s*(?:G\s*\/??\s*M(?:2|²)?|GM(?:2|²))\s+(\d{2,3})\s*CM\b/);
+  if(dm) bobina=dm[1]+' x '+dm[2];
+  const achaPeso=(rotulo)=>{
+    const re=new RegExp(rotulo+'(?:\\s*\\(?KG\\)?)?[^0-9]{0,18}(\\d{2,5}(?:[.,]\\d{1,2})?)');
+    const m=t.match(re); if(m) return ocrLocalNumero(m[1]);
+    for(let i=0;i<linhas.length;i++) if(new RegExp(rotulo).test(linhas[i])){
+      const perto=(linhas[i]+' '+(linhas[i+1]||'')).match(/\d{2,5}(?:[.,]\d{1,2})?/);
+      if(perto) return ocrLocalNumero(perto[0]);
+    }
+    return '';
+  };
+  bruto=achaPeso('PESO\\s*BRUTO');
+  liquido=achaPeso('PESO\\s*LIQUIDO');
+  return {identificador_bobina:identificador||'Não identificado',bobina:bobina||'Não identificada',peso_bruto_kg:bruto||'Não identificado',peso_liquido_kg:liquido||'Não identificado'};
+}
+function ocrLocalPontua(d){
+  if(!d) return 0; let n=0;
+  if(/^\d{10}$/.test(d.identificador_bobina)) n++;
+  if(/^\d{2,3} x \d{2,3}$/.test(d.bobina)) n++;
+  if(/^\d/.test(d.peso_bruto_kg)) n++;
+  if(/^\d/.test(d.peso_liquido_kg)) n++;
+  return n;
+}
+function ocrLocalPreparaImagem(file){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file),img=new Image();
+    img.onload=()=>{
+      const max=1800,k=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+      const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.naturalWidth*k)); c.height=Math.max(1,Math.round(img.naturalHeight*k));
+      const x=c.getContext('2d',{willReadFrequently:true}); x.drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url);
+      const px=x.getImageData(0,0,c.width,c.height),a=px.data;
+      // Tons de cinza e contraste alto ajudam nas etiquetas impressas sobre ráfia.
+      for(let i=0;i<a.length;i+=4){ let g=.299*a[i]+.587*a[i+1]+.114*a[i+2]; g=Math.max(0,Math.min(255,(g-128)*1.45+142)); a[i]=a[i+1]=a[i+2]=g; }
+      x.putImageData(px,0,0); resolve(c);
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Não foi possível preparar a imagem.'));}; img.src=url;
+  });
+}
+function ocrLocalGira(src,graus){
+  if(!graus) return src;
+  const c=document.createElement('canvas'); c.width=src.height;c.height=src.width;
+  const x=c.getContext('2d'); x.translate(c.width/2,c.height/2);x.rotate(graus*Math.PI/180);x.drawImage(src,-src.width/2,-src.height/2);return c;
 }
 function b64ToBlob(d){ const [h,b]=d.split(','); const mime=(h.match(/:(.*?);/)||[])[1]||'image/jpeg'; const bin=atob(b); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i); return new Blob([u8],{type:mime}); }
 function dlBlob(blob,name){ const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),2000); }

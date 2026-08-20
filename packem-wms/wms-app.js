@@ -8756,10 +8756,10 @@ async function lerEtiquetaPorFoto(file,targetId){
     let out=null, melhorTexto='', melhorPontos=-1;
     // A etiqueta costuma chegar em pé ou deitada. Tentamos a posição original e,
     // somente se necessário, as duas rotações laterais.
-    for(const angulo of [0,90,270]){
+    for(const angulo of [0,90,270,180]){
       if(angulo && melhorPontos>=4) break;
       const imagem=ocrLocalGira(source,angulo);
-      const result=await Tesseract.recognize(imagem,'por',{logger:m=>{
+      const result=await Tesseract.recognize(imagem,'por',{rotateAuto:true,preserve_interword_spaces:'1',logger:m=>{
         if(!box || m.status!=='recognizing text') return;
         const pct=Math.max(1,Math.round((m.progress||0)*100));
         box.innerHTML='<div class="ocr-loading">Lendo no próprio aparelho… '+pct+'%</div>';
@@ -8788,25 +8788,42 @@ function ocrLocalExtraiCampos(texto){
   const t=ocrLocalNormaliza(texto);
   const linhas=String(texto||'').split(/\r?\n/).map(ocrLocalNormaliza).filter(Boolean);
   let identificador='',bobina='',bruto='',liquido='';
-  // Identificador industrial: exatamente 10 dígitos. Espaços ocasionais do OCR são tolerados.
-  const compact=t.replace(/(?<=\d)\s+(?=\d)/g,'');
-  const ids=compact.match(/(?:^|\D)(\d{10})(?!\d)/g)||[];
+  // Identificador industrial: exatamente 10 dígitos. O OCR confunde 0 com O/Q.
+  const compact=t.replace(/(?<=\d)\s+(?=[\dOQ])/g,'').replace(/(?<=[\dOQ])\s+(?=\d)/g,'');
+  const soNumeros=compact.replace(/O|Q/g,'0');
+  const ids=soNumeros.match(/(?:^|\D)(\d{10})(?!\d)/g)||[];
   if(ids.length) identificador=(ids[0].match(/\d{10}/)||[])[0]||'';
   // Medida impressa, por exemplo 167GM² 180CM ou 167 x 180.
-  let dm=t.match(/\b(\d{2,3})\s*(?:G\s*\/??\s*M(?:2|²)?|GM(?:2|²))?\s*[X×]\s*(\d{2,3})\s*CM\b/);
-  if(!dm) dm=t.match(/\b(\d{2,3})\s*(?:G\s*\/??\s*M(?:2|²)?|GM(?:2|²))\s+(\d{2,3})\s*CM\b/);
+  let dm=t.match(/\b(\d{2,3})\s*(?:G\s*\/?\s*M(?:2|²)?|GM(?:2|²))?\s*[X×]\s*(\d{2,3})\s*C?M\b/);
+  if(!dm) dm=t.match(/\b(\d{2,3})\s*(?:G\s*\/?\s*M(?:2|²)?|GM(?:2|²))\s+(\d{2,3})\s*C?M\b/);
   if(dm) bobina=dm[1]+' x '+dm[2];
   const achaPeso=(rotulo)=>{
-    const re=new RegExp(rotulo+'(?:\\s*\\(?KG\\)?)?[^0-9]{0,18}(\\d{2,5}(?:[.,]\\d{1,2})?)');
-    const m=t.match(re); if(m) return ocrLocalNumero(m[1]);
+    // Não atravessa outros campos: isso evita interpretar 01/07/26 como peso.
+    const re=new RegExp(rotulo+'(?:\\s*\\(?KG\\)?)?[^0-9\\n]{0,12}(\\d{2,4}[.,]\\d{2})');
+    const m=t.match(re); if(m && Number(m[1].replace(',','.'))>=20) return ocrLocalNumero(m[1]);
     for(let i=0;i<linhas.length;i++) if(new RegExp(rotulo).test(linhas[i])){
-      const perto=(linhas[i]+' '+(linhas[i+1]||'')).match(/\d{2,5}(?:[.,]\d{1,2})?/);
-      if(perto) return ocrLocalNumero(perto[0]);
+      const perto=(linhas[i]+' '+(linhas[i+1]||'')).match(/\b\d{2,4}[.,]\d{2}\b/);
+      if(perto && Number(perto[0].replace(',','.'))>=20) return ocrLocalNumero(perto[0]);
     }
     return '';
   };
   bruto=achaPeso('PESO\\s*BRUTO');
   liquido=achaPeso('PESO\\s*LIQUIDO');
+  // Reserva para etiquetas inclinadas: os dois decimais próximos são os pesos.
+  // Datas (três blocos), volume 1,00 e códigos inteiros ficam de fora.
+  if(!bruto || !liquido){
+    const vals=[];
+    (t.match(/\b\d{2,4}[.,]\d{2}\b/g)||[]).forEach(s=>{
+      const n=Number(s.replace(',','.'));
+      if(n>=20 && n<=5000 && !vals.some(x=>Math.abs(x.n-n)<.001)) vals.push({n,s:ocrLocalNumero(s)});
+    });
+    let par=null,dist=Infinity;
+    for(let i=0;i<vals.length;i++) for(let j=i+1;j<vals.length;j++){
+      const maior=Math.max(vals[i].n,vals[j].n),menor=Math.min(vals[i].n,vals[j].n),d=maior-menor;
+      if(d<=Math.max(30,maior*.15) && d<dist){ par=[maior,menor];dist=d; }
+    }
+    if(par){ if(!bruto) bruto=String(par[0].toFixed(2)).replace('.',','); if(!liquido) liquido=String(par[1].toFixed(2)).replace('.',','); }
+  }
   return {identificador_bobina:identificador||'Não identificado',bobina:bobina||'Não identificada',peso_bruto_kg:bruto||'Não identificado',peso_liquido_kg:liquido||'Não identificado'};
 }
 function ocrLocalPontua(d){
@@ -8821,7 +8838,7 @@ function ocrLocalPreparaImagem(file){
   return new Promise((resolve,reject)=>{
     const url=URL.createObjectURL(file),img=new Image();
     img.onload=()=>{
-      const max=1800,k=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+      const max=2400,k=Math.min(2,max/Math.max(img.naturalWidth,img.naturalHeight));
       const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.naturalWidth*k)); c.height=Math.max(1,Math.round(img.naturalHeight*k));
       const x=c.getContext('2d',{willReadFrequently:true}); x.drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url);
       const px=x.getImageData(0,0,c.width,c.height),a=px.data;

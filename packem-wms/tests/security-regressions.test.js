@@ -7,6 +7,7 @@ const test = require('node:test');
 
 const root = path.resolve(__dirname, '..');
 const app = fs.readFileSync(path.join(root, 'wms-app.js'), 'utf8');
+const requisicao = fs.readFileSync(path.join(root, 'wms-requisicao.js'), 'utf8');
 const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
 
 test('não recria usuários ou senhas fixas no navegador', function () {
@@ -31,3 +32,10 @@ test('requisição completa é finalizada automaticamente por bip ou quantidade'
   assert.match(requestApi, /status: 'entregue'/);
   assert.match(requestApi, /requestStatus = 'entregue'/);
 });
+
+test('criação e alterações locais de requisição disparam sincronização com a nuvem', function () {
+  assert.match(requisicao, /REQS\.unshift\(r\);try\{reqPersist\(\);window\.wmsReqCloudPush\(\);\}/);
+  assert.match(requisicao, /reqLocalSig\(\)!==reqLastLocalSig\)window\.wmsReqCloudPush\(\)/);
+  assert.match(requisicao, /reqLastLocalSig=reqLocalSig\(\)/);
+});
+

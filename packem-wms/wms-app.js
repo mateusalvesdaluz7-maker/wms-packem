@@ -8741,7 +8741,7 @@ function escOcr(v){ return String(v==null?'—':v).replace(/[&<>\"]/g,m=>({'&':'
 function showEtiquetaOcr(data,targetId){
   const box=document.getElementById(targetId||'etiquetaOcrResult'); if(!box) return;
   box.innerHTML=`<div class="ocr-title">Dados lidos da etiqueta <span>Confira antes de usar</span></div>
-    <div class="ocr-grid"><label>Identificador da bobina<input value="${escOcr(data.identificador_bobina)}" readonly></label><label>Descrição<input value="${escOcr(data.descricao)}" readonly></label><label>Peso líquido (kg)<input value="${escOcr(data.peso_liquido_kg)}" readonly></label><label>Peso bruto (kg)<input value="${escOcr(data.peso_bruto_kg)}" readonly></label></div>
+    <div class="ocr-grid"><label>Número de identificação<input value="${escOcr(data.identificador_bobina)}" readonly></label><label>Bobina<input value="${escOcr(data.bobina)}" readonly></label><label>Peso bruto (kg)<input value="${escOcr(data.peso_bruto_kg)}" readonly></label><label>Peso líquido (kg)<input value="${escOcr(data.peso_liquido_kg)}" readonly></label></div>
     <p>Leitura apenas para conferência: nada foi alterado no estoque, na etiqueta ou no romaneio.</p>`;
   box.classList.remove('hidden');
 }

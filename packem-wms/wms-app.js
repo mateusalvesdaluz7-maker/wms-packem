@@ -8436,16 +8436,16 @@ function expStockOptions(it){
   try{addState(typeof window.floor70GetState==='function'?window.floor70GetState():{});}catch(e){}
   try{addState(typeof window.recicGetState==='function'?window.recicGetState():{});}catch(e){}
   try{addState(typeof window.floorGetState==='function'?window.floorGetState():{});}catch(e){}
-  return etiquetas.map(expStockTag).filter(info=>info&&norm(info.pr)===produto&&info.q>0).slice(0,5);
+  return etiquetas.map(expStockTag).filter(info=>info&&norm(info.pr)===produto&&info.q>0).slice(0,1);
 }
 function expStockOptionsHtml(it){
   const opcoes=expStockOptions(it); if(!opcoes.length) return '';
   return `<div class="exp-stock-options">
-    <div class="exp-stock-title"><b>Etiquetas disponíveis deste material</b><span>Até 5 opções</span></div>
+    <div class="exp-stock-title"><b>Próxima etiqueta deste material</b><span>Ordem de retirada</span></div>
     ${opcoes.map((o,ix)=>`<div class="exp-stock-option ${ix===0?'recommended':''}">
       <span>${ix===0?'Recomendada':'Opção'}</span><b>${escOcr(o.et)}</b><strong>${fmtNum(o.q)}</strong><small>${escOcr(o.local+(o.endereco?' · '+o.endereco:''))}</small>
     </div>`).join('')}
-    <div class="exp-stock-help">Vá até a vaga e bipe qualquer etiqueta exibida acima. A baixa será feita somente no local indicado.</div>
+    <div class="exp-stock-help">Vá até a vaga e bipe esta etiqueta. Depois da baixa, a próxima aparecerá automaticamente.</div>
   </div>`;
 }
 
@@ -8490,7 +8490,7 @@ function renderItems(){
           <div class="etiqueta-ocr-result exped-ocr-result hidden" id="expedOcr_${it.num}" aria-live="polite"></div>
           ${admBar}
           ${sep?'':`<div class="addtag manual-fields hidden" id="mf_${it.num}">
-            <input class="ti" id="ti_${it.num}" placeholder="Etiqueta (T...)" autocomplete="off" autocapitalize="characters">
+            <input class="ti" id="ti_${it.num}" placeholder="Digite a etiqueta do estoque" autocomplete="off" autocapitalize="characters">
             <input class="tq" id="tq_${it.num}" placeholder="Qtd" inputmode="decimal" autocomplete="off" onkeydown="if(event.key==='Enter')addQtyTag('${it.num}')">
             <button class="qadd" type="button" onclick="EXP.addQtyTag('${it.num}')" aria-label="Adicionar">＋</button>
           </div>`}
@@ -8593,7 +8593,25 @@ function addQtyTag(num){
   const it=items.find(i=>String(i.num)===String(num)); if(!it) return;
   const tagInp=document.getElementById('ti_'+num), qInp=document.getElementById('tq_'+num);
   if(!tagInp||!qInp) return;
-  let tag=(tagInp.value||'').trim().toUpperCase();
+  const digitado=(tagInp.value||'').trim().toUpperCase();
+  const stock=expStockTag(digitado);
+  if(stock){
+    const esperado=expItemProduct(it),recebido=norm(stock.pr);
+    if(!esperado||esperado!==recebido){beep('err');vibrate('err');banner('err','⛔','Material diferente',`Etiqueta <span class="mono">${stock.et}</span> não pertence a este item`);return;}
+    it.tags=it.tags||[];
+    if(it.tags.some(t=>norm(t.tag)===stock.et)||items.some(i=>i!==it&&((i.etiqueta&&norm(i.etiqueta)===stock.et)||(i.tags||[]).some(t=>norm(t.tag)===stock.et)))){
+      beep('err');banner('warn','↺','Etiqueta já utilizada',`<span class="mono">${stock.et}</span> já foi lançada`);return;
+    }
+    if(!expRemoveStock(stock)){beep('err');vibrate('err');banner('err','⛔','Baixa não realizada',`A etiqueta não pôde ser retirada de ${stock.local}`);return;}
+    it.tags.push({tag:stock.et,q:stock.q,origemEstoque:stock.local+(stock.endereco?' · '+stock.endereco:'')});
+    recalcItem(it);tagInp.value='';qInp.value='';
+    auditEvent('etiqueta_digitada_estoque','Item #'+num+' · '+stock.et+' · '+stock.q+' · baixa em '+stock.local+(stock.endereco?' · '+stock.endereco:'')+'.');
+    syncActive();renderItems();updateProgress();
+    const done=itemSep(it);beep(done?'conf':'sep');vibrate(done?'conf':'sep');
+    banner(done?'ok':'sep',done?'✅':'⌨️',done?'Quantidade atingida':'Etiqueta digitada e retirada',`<span class="mono">${stock.et}</span> · ${fmtNum(stock.q)}<br><small>Baixa: ${stock.local}${stock.endereco?' · '+stock.endereco:''}</small>`);
+    return;
+  }
+  let tag=digitado;
   const m=tag.match(/T\s*\d{4,12}/i); if(m) tag=m[0].replace(/\s+/g,'');
   const q=parseNum(qInp.value);
   if(!/^T\d{4,12}$/i.test(tag)){ beep('err'); vibrate('err'); banner('err','⛔','Etiqueta inválida','A etiqueta começa com T (ex: T40364663)'); tagInp.focus(); return; }

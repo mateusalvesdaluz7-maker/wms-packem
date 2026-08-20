@@ -8753,29 +8753,49 @@ async function lerEtiquetaPorFoto(file,targetId){
     if(!window.Tesseract) throw new Error('O leitor gratuito ainda não carregou. Verifique a internet e tente novamente.');
     if(box){ box.classList.remove('hidden'); box.innerHTML='<div class="ocr-loading">Preparando o leitor gratuito no aparelho…</div>'; }
     const source=await ocrLocalPreparaImagem(file);
-    let out=null, melhorTexto='', melhorPontos=-1;
+    let out=null, textos=[];
+    const worker=await ocrLocalWorker(box);
     // A etiqueta costuma chegar em pé ou deitada. Tentamos a posição original e,
     // somente se necessário, as duas rotações laterais.
-    for(const angulo of [0,90,270,180]){
-      if(angulo && melhorPontos>=4) break;
+    for(const angulo of [0,90,270]){
+      if(angulo && ocrLocalPontua(out)>=4) break;
       const imagem=ocrLocalGira(source,angulo);
-      const result=await Tesseract.recognize(imagem,'por',{rotateAuto:true,preserve_interword_spaces:'1',logger:m=>{
-        if(!box || m.status!=='recognizing text') return;
-        const pct=Math.max(1,Math.round((m.progress||0)*100));
-        box.innerHTML='<div class="ocr-loading">Lendo no próprio aparelho… '+pct+'%</div>';
-      }});
+      window._ocrLocalBox=box;
+      const result=await worker.recognize(imagem,{rotateAuto:true});
       const texto=(result&&result.data&&result.data.text)||'';
       const dados=ocrLocalExtraiCampos(texto);
-      const pontos=ocrLocalPontua(dados);
-      if(pontos>melhorPontos){ melhorPontos=pontos; melhorTexto=texto; out=dados; }
+      textos.push(texto); out=ocrLocalMescla(out,dados);
     }
-    if(!out || melhorPontos<1) throw new Error('Não consegui reconhecer a etiqueta. Aproxime a câmera, evite reflexos e capture novamente.');
-    out._ocr_local=true; out._texto=melhorTexto;
+    if(!out || ocrLocalPontua(out)<1) throw new Error('Não consegui reconhecer a etiqueta. Aproxime a câmera, evite reflexos e capture novamente.');
+    out._ocr_local=true; out._texto=textos.join('\n---\n');
     showEtiquetaOcr(out,targetId);
   }catch(err){
     if(box){ box.classList.remove('hidden'); box.innerHTML='<div class="ocr-error">'+escOcr(err.message||'Falha ao ler a etiqueta.')+'</div>'; }
   }finally{ if(btn){ btn.disabled=false; btn.textContent='Ler dados da etiqueta por foto'; } }
 }
+
+let _ocrLocalWorkerPromise=null;
+function ocrLocalWorker(box){
+  window._ocrLocalBox=box;
+  if(!_ocrLocalWorkerPromise){
+    _ocrLocalWorkerPromise=Tesseract.createWorker('por',1,{logger:m=>{
+      const b=window._ocrLocalBox;
+      if(!b || m.status!=='recognizing text') return;
+      b.innerHTML='<div class="ocr-loading">Lendo no aparelho… '+Math.max(1,Math.round((m.progress||0)*100))+'%</div>';
+    }}).then(async w=>{ await w.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'}); return w; });
+  }
+  return _ocrLocalWorkerPromise;
+}
+function ocrLocalMescla(a,b){
+  if(!a) return b;
+  const ok=v=>/^\d/.test(String(v||''));
+  if(!ok(a.identificador_bobina)&&ok(b.identificador_bobina))a.identificador_bobina=b.identificador_bobina;
+  if(!ok(a.bobina)&&ok(b.bobina))a.bobina=b.bobina;
+  if(!ok(a.peso_bruto_kg)&&ok(b.peso_bruto_kg))a.peso_bruto_kg=b.peso_bruto_kg;
+  if(!ok(a.peso_liquido_kg)&&ok(b.peso_liquido_kg))a.peso_liquido_kg=b.peso_liquido_kg;
+  return a;
+}
+
 
 function ocrLocalNormaliza(txt){
   return String(txt||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase()
@@ -8796,6 +8816,7 @@ function ocrLocalExtraiCampos(texto){
   // Medida impressa, por exemplo 167GM² 180CM ou 167 x 180.
   let dm=t.match(/\b(\d{2,3})\s*(?:G\s*\/?\s*M(?:2|²)?|GM(?:2|²))?\s*[X×]\s*(\d{2,3})\s*C?M\b/);
   if(!dm) dm=t.match(/\b(\d{2,3})\s*(?:G\s*\/?\s*M(?:2|²)?|GM(?:2|²))\s+(\d{2,3})\s*C?M\b/);
+  if(!dm) dm=t.match(/\b(\d{2,3})\s*G[^0-9]{0,5}M(?:2|²)?[^0-9]{0,18}(\d{2,3})\s*C[^0-9]{0,3}M\b/);
   if(dm) bobina=dm[1]+' x '+dm[2];
   const achaPeso=(rotulo)=>{
     // Não atravessa outros campos: isso evita interpretar 01/07/26 como peso.
@@ -8826,6 +8847,7 @@ function ocrLocalExtraiCampos(texto){
   }
   return {identificador_bobina:identificador||'Não identificado',bobina:bobina||'Não identificada',peso_bruto_kg:bruto||'Não identificado',peso_liquido_kg:liquido||'Não identificado'};
 }
+
 function ocrLocalPontua(d){
   if(!d) return 0; let n=0;
   if(/^\d{10}$/.test(d.identificador_bobina)) n++;
@@ -8838,7 +8860,7 @@ function ocrLocalPreparaImagem(file){
   return new Promise((resolve,reject)=>{
     const url=URL.createObjectURL(file),img=new Image();
     img.onload=()=>{
-      const max=2400,k=Math.min(2,max/Math.max(img.naturalWidth,img.naturalHeight));
+      const max=1800,k=Math.min(1.5,max/Math.max(img.naturalWidth,img.naturalHeight));
       const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.naturalWidth*k)); c.height=Math.max(1,Math.round(img.naturalHeight*k));
       const x=c.getContext('2d',{willReadFrequently:true}); x.drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url);
       const px=x.getImageData(0,0,c.width,c.height),a=px.data;
@@ -8849,6 +8871,7 @@ function ocrLocalPreparaImagem(file){
     img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Não foi possível preparar a imagem.'));}; img.src=url;
   });
 }
+
 function ocrLocalGira(src,graus){
   if(!graus) return src;
   const c=document.createElement('canvas'); c.width=src.height;c.height=src.width;

@@ -8422,6 +8422,33 @@ function renderHeader(meta){
   document.getElementById('prodNote').textContent = waiting ? `${waiting} a separar` : '';
 }
 
+function expStockOptions(it){
+  const produto=expItemProduct(it); if(!produto) return [];
+  const etiquetas=[]; const vistas={};
+  function add(v){
+    const et=norm(typeof v==='string'?v:(v&&v.et));
+    if(et&&!vistas[et]){vistas[et]=true;etiquetas.push(et);}
+  }
+  try{Object.keys(typeof LOC!=='undefined'&&LOC?LOC:{}).forEach(add);}catch(e){}
+  function addState(state){
+    try{Object.values(state||{}).forEach(g=>(g.ets||[]).forEach(add));}catch(e){}
+  }
+  try{addState(typeof window.floor70GetState==='function'?window.floor70GetState():{});}catch(e){}
+  try{addState(typeof window.recicGetState==='function'?window.recicGetState():{});}catch(e){}
+  try{addState(typeof window.floorGetState==='function'?window.floorGetState():{});}catch(e){}
+  return etiquetas.map(expStockTag).filter(info=>info&&norm(info.pr)===produto&&info.q>0).slice(0,5);
+}
+function expStockOptionsHtml(it){
+  const opcoes=expStockOptions(it); if(!opcoes.length) return '';
+  return `<div class="exp-stock-options">
+    <div class="exp-stock-title"><b>Etiquetas disponíveis deste material</b><span>Até 5 opções</span></div>
+    ${opcoes.map((o,ix)=>`<div class="exp-stock-option ${ix===0?'recommended':''}">
+      <span>${ix===0?'Recomendada':'Opção'}</span><b>${escOcr(o.et)}</b><strong>${fmtNum(o.q)}</strong><small>${escOcr(o.local+(o.endereco?' · '+o.endereco:''))}</small>
+    </div>`).join('')}
+    <div class="exp-stock-help">Vá até a vaga e bipe qualquer etiqueta exibida acima. A baixa será feita somente no local indicado.</div>
+  </div>`;
+}
+
 function renderItems(){
   const el = document.getElementById('itemList');
   el.innerHTML = items.map(it=>{
@@ -8440,6 +8467,7 @@ function renderItems(){
         : (sep ? `<span class="manual sep-chip">Conferir ${confCount}/${tagsArr.length}</span>` : '');
       const tagsHtml=tagsArr.map((t,ix)=>`<div class="qtag ${t.conf?'ok':''}"><span class="qt-t">${t.tag}</span><span class="qt-q">${fmtNum(t.q)}</span>${t.conf?'<span class="qt-ck">✓</span>':`<button class="qt-x" type="button" onclick="EXP.removeQtyTag('${it.num}',${ix})" aria-label="Remover">✕</button>`}</div>`).join('');
       const prog = meta ? `<div class="qprog"><div class="qbar ${sep?'full':''}"><i style="width:${pct}%"></i></div><div class="qlabel">Feito <b>${fmtNum(feito)}</b> / ${it.qtd||fmtNum(meta)} <span>(${pct}%)</span></div></div>` : '';
+      const stockOptions = !sep ? expStockOptionsHtml(it) : '';
       const scanTxt = sep ? ((mode==='conf' && !confAll) ? 'Conferir etiquetas' : 'Escanear mais') : 'Escanear etiqueta';
       return `<div class="item ${cls}">
         <div class="stat">${confAll?'✓':(sep?'●':(feito>0?'◐':'⧖'))}</div>
@@ -8448,6 +8476,7 @@ function renderItems(){
           <div class="desc">${it.descricao||'—'}</div>
           ${prog}
           ${tagsHtml?`<div class="qtags">${tagsHtml}</div>`:''}
+          ${stockOptions}
           <div class="scanitem-row">
           <button type="button" class="scanitem ${sep?'more':''}" onclick="EXP.openCam('${it.num}')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.4"/></svg>
@@ -8813,7 +8842,6 @@ function ocrLocalMescla(a,b){
   return a;
 }
 
-
 function ocrLocalNormaliza(txt){
   return String(txt||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase()
     .replace(/[|]/g,'I').replace(/\s+/g,' ').trim();
@@ -8825,11 +8853,37 @@ function ocrLocalExtraiCampos(texto){
   const t=ocrLocalNormaliza(texto);
   const linhas=String(texto||'').split(/\r?\n/).map(ocrLocalNormaliza).filter(Boolean);
   let identificador='',bobina='',bruto='',liquido='';
-  // Identificador industrial: exatamente 10 dígitos. O OCR confunde 0 com O/Q.
-  const compact=t.replace(/(?<=\d)\s+(?=[\dOQ])/g,'').replace(/(?<=[\dOQ])\s+(?=\d)/g,'');
-  const soNumeros=compact.replace(/O|Q/g,'0');
-  const ids=soNumeros.match(/(?:^|\D)(\d{10})(?!\d)/g)||[];
-  if(ids.length) identificador=(ids[0].match(/\d{10}/)||[])[0]||'';
+  // Identificador industrial: 10 dígitos grandes (ex.: 2600256665).
+  // Em fotos reais o OCR costuma trocar 0/O/Q, 1/I/L, 2/Z, 5/S, 6/G e 8/B,
+  // além de inserir espaços entre os algarismos. Repara somente candidatos com
+  // 10 posições para não confundir data, código do produto ou os pesos.
+  const corrigeId=s=>String(s||'').toUpperCase()
+    .replace(/[^0-9OQILZSGBA]/g,'')
+    .replace(/[OQA]/g,'0').replace(/[IL]/g,'1').replace(/Z/g,'2')
+    .replace(/S/g,'5').replace(/G/g,'6').replace(/B/g,'8');
+  const candidatosId=[];
+  linhas.forEach((linha,idx)=>{
+    const partes=linha.match(/[0-9OQILZSGBA](?:[\s.:-]*[0-9OQILZSGBA]){8,11}/g)||[];
+    partes.forEach(parte=>{
+      const id=corrigeId(parte);
+      if(id.length===10){
+        let pontos=0;
+        if(/^2\d{9}$/.test(id)) pontos+=8;
+        if(/^26\d{8}$/.test(id)) pontos+=5;
+        if(/IDENT|BOBINA|NUMERO|N[°º]/.test(linha)) pontos+=3;
+        if(corrigeId(linha)===id) pontos+=2;
+        candidatosId.push({id,pontos,idx});
+      }
+    });
+  });
+  // Segunda chance: o número pode ter sido quebrado em várias linhas/blocos.
+  const compact=t.replace(/(?<=[0-9OQILZSGBA])[\s.:-]+(?=[0-9OQILZSGBA])/g,'');
+  (compact.match(/[0-9OQILZSGBA]{10}/g)||[]).forEach(parte=>{
+    const id=corrigeId(parte);
+    if(id.length===10)candidatosId.push({id,pontos:(/^26/.test(id)?10:/^2/.test(id)?7:0),idx:999});
+  });
+  candidatosId.sort((a,b)=>b.pontos-a.pontos||a.idx-b.idx);
+  if(candidatosId.length && candidatosId[0].pontos>=7) identificador=candidatosId[0].id;
   // Medida impressa, por exemplo 167GM² 180CM ou 167 x 180.
   let dm=t.match(/\b(\d{2,3})\s*(?:G\s*\/?\s*M(?:2|²)?|GM(?:2|²))?\s*[X×]\s*(\d{2,3})\s*C?M\b/);
   if(!dm) dm=t.match(/\b(\d{2,3})\s*(?:G\s*\/?\s*M(?:2|²)?|GM(?:2|²))\s+(\d{2,3})\s*C?M\b/);
@@ -8864,7 +8918,6 @@ function ocrLocalExtraiCampos(texto){
   }
   return {identificador_bobina:identificador||'Não identificado',bobina:bobina||'Não identificada',peso_bruto_kg:bruto||'Não identificado',peso_liquido_kg:liquido||'Não identificado'};
 }
-
 function ocrLocalPontua(d){
   if(!d) return 0; let n=0;
   if(/^\d{10}$/.test(d.identificador_bobina)) n++;
@@ -8902,7 +8955,6 @@ function ocrLocalBinariza(src){
   for(let i=0;i<a.length;i+=4){const v=a[i]<limiar?0:255;a[i]=a[i+1]=a[i+2]=v;}
   x.putImageData(px,0,0);return c;
 }
-
 function b64ToBlob(d){ const [h,b]=d.split(','); const mime=(h.match(/:(.*?);/)||[])[1]||'image/jpeg'; const bin=atob(b); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i); return new Blob([u8],{type:mime}); }
 function dlBlob(blob,name){ const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),2000); }
 function csvCell(v){ v=(v==null?'':String(v)); return /[";\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
@@ -9118,6 +9170,36 @@ function process(scanned){
   if(camTarget!==null){
     const target=items.find(i=>String(i.num)===camTarget);
     if(target && !target.etiqueta){
+      const stock=expStockTag(scanned);
+      if(mode==='sep' && stock){
+        const esperado=expItemProduct(target), recebido=norm(stock.pr);
+        if(!esperado||esperado!==recebido){
+          beep('err'); vibrate('err');
+          banner('err','⛔','Material diferente',`Etiqueta <span class="mono">${stock.et}</span> é do produto <b>${stock.pr||'não identificado'}</b> e não pode alimentar este item`);
+          return;
+        }
+        target.tags=target.tags||[];
+        if(target.tags.some(t=>norm(t.tag)===stock.et)){
+          beep('err'); banner('warn','↺','Etiqueta já utilizada',`<span class="mono">${stock.et}</span> já foi lançada neste item`); return;
+        }
+        if(items.some(i=>i!==target&&((i.etiqueta&&norm(i.etiqueta)===stock.et)||(i.tags||[]).some(t=>norm(t.tag)===stock.et)))){
+          beep('err'); banner('warn','↺','Etiqueta já utilizada',`<span class="mono">${stock.et}</span> já foi usada em outro item do romaneio`); return;
+        }
+        if(!expRemoveStock(stock)){
+          beep('err'); vibrate('err');
+          banner('err','⛔','Baixa não realizada',`A etiqueta <span class="mono">${stock.et}</span> não pôde ser retirada de ${stock.local}`);
+          return;
+        }
+        target.tags.push({tag:stock.et,q:stock.q,origemEstoque:stock.local+(stock.endereco?' · '+stock.endereco:'')});
+        recalcItem(target);
+        auditEvent('bip_estoque_romaneio','Item #'+target.num+' · '+stock.et+' · '+stock.q+' · baixa em '+stock.local+(stock.endereco?' · '+stock.endereco:'')+'.');
+        syncActive(); renderItems(); updateProgress(); syncTargetBar();
+        const completo=itemSep(target);
+        beep(completo?'conf':'sep'); vibrate(completo?'conf':'sep');
+        banner(completo?'ok':'sep',completo?'✅':'📦',completo?'Quantidade atingida':'Etiqueta retirada do estoque',
+          `<span class="mono">${stock.et}</span> · ${fmtNum(stock.q)}<br><small>Baixa: ${stock.local}${stock.endereco?' · '+stock.endereco:''}</small>`);
+        return;
+      }
       const tag=extractTag(scanned);
       if(!tag){ beep('err'); vibrate('err'); banner('err','⛔','Etiqueta inválida','A etiqueta começa com T (ex: T40364663)'); return; }
       const ex=(target.tags||[]).find(t=>t.tag===tag);

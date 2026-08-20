@@ -2,20 +2,31 @@
 // Recebe a pergunta por voz + um resumo do estoque atual, chama a IA do Google Gemini (plano gratuito)
 // com a chave guardada em segredo (variável de ambiente GEMINI_API_KEY) e devolve a resposta.
 
+function allowedOrigin(req) {
+  const origin = String((req.headers && req.headers.origin) || '');
+  const configured = String(process.env.WMS_ALLOWED_ORIGINS || '')
+    .split(',').map(function (v) { return v.trim(); }).filter(Boolean);
+  const defaults = ['https://wms-packem.vercel.app'];
+  const allowed = configured.length ? configured : defaults;
+  if (!origin) return '';
+  if (allowed.indexOf(origin) >= 0 || /^https:\/\/wms-packem-[a-z0-9-]+\.vercel\.app$/i.test(origin)) return origin;
+  return null;
+}
+
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = allowedOrigin(req);
+  if (origin === null) { res.status(403).json({ error: 'Origem não autorizada' }); return; }
+  if (origin) { res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin'); }
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
-  // Diagnóstico: abra /api/ask no navegador (GET) pra ver na hora se a chave chegou no servidor.
   if (req.method === 'GET') {
     const k = (process.env.GEMINI_API_KEY || '').trim();
     res.status(200).json({
       ok: true,
-      gemini_key_configured: !!k,
-      key_preview: k ? (k.slice(0, 4) + '...' + k.slice(-4) + ' (' + k.length + ' caracteres)') : null,
-      dica: k ? 'Chave encontrada no servidor. Se ainda der erro no chat, o problema é outro (veja Vercel > Logs).' : 'Chave NÃO encontrada. Confira Vercel > Settings > Environment Variables do PROJETO (não do Time) e faça um novo deploy.'
+      service: 'LogiAssist',
+      configured: !!k
     });
     return;
   }
@@ -30,6 +41,8 @@ module.exports = async function handler(req, res) {
     }
 
     let body = req.body;
+    const rawSize = typeof body === 'string' ? Buffer.byteLength(body, 'utf8') : Buffer.byteLength(JSON.stringify(body || {}), 'utf8');
+    if (rawSize > 16000) { res.status(413).json({ error: 'Dados enviados excedem o limite permitido' }); return; }
     if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }
     const question = (body && body.question) ? String(body.question).slice(0, 500) : '';
     const context = (body && body.context) ? body.context : {};

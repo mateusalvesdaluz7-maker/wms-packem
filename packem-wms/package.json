@@ -1,0 +1,12 @@
+{
+  "name": "packem-wms",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node --check wms-app.js && node --check wms-requisicao.js && node --check api/stock-operation.js && node --check api/req-baixa.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

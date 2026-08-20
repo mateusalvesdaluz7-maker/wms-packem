@@ -5,11 +5,24 @@
 
 const APP_ID = '69f21c3bf6750842cd0ab83c'; // REQUISIÇÃO PACKEM
 
+function allowedOrigin(req) {
+  const origin = String((req.headers && req.headers.origin) || '');
+  const configured = String(process.env.WMS_ALLOWED_ORIGINS || '')
+    .split(',').map(function (v) { return v.trim(); }).filter(Boolean);
+  const defaults = ['https://wms-packem.vercel.app'];
+  const allowed = configured.length ? configured : defaults;
+  if (!origin) return '';
+  if (allowed.indexOf(origin) >= 0 || /^https:\/\/wms-packem-[a-z0-9-]+\.vercel\.app$/i.test(origin)) return origin;
+  return null;
+}
+
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = allowedOrigin(req);
+  if (origin === null) { res.status(403).json({ error: 'Origem não autorizada' }); return; }
+  if (origin) { res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin'); }
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30');
+  res.setHeader('Cache-Control', 'private, no-store');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
   if (req.method !== 'GET') { res.status(405).json({ error: 'Método não permitido' }); return; }
 

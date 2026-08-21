@@ -305,6 +305,9 @@ window.recicAdd=async function(v){
   if(!g)g=RECIC[pr]={pr:pr,desc:b.desc||'',qtd:0,kg:0,ets:[],at:nowISO(),by:session?session.u:''};
   g.ets=_recEtList(g);g.ets.unshift({et:et,pl:pl});g.qtd=g.ets.length;g.kg=g.ets.reduce(function(s,x){return s+(Number(x.pl)||0);},0);g.at=nowISO();g.by=session?session.u:'';_recSave();
   try{var m={id:uid(),action:'entrada',w:cfg.warehouse,code:'RECICLADORA',pr:pr,q:pl,u:(typeof unitOf==='function'?unitOf(pr):'KG'),et:et,before:0,after:pl,at:g.at,by:session?session.u:''};MV.unshift(m);if(typeof syncMov==='function')syncMov(m);if(typeof persistDebounced==='function')persistDebounced('mv');}catch(e){}
+  /* O recebimento é só uma fila pendente. A pendência termina apenas depois que a
+     entrada física no destino foi salva com sucesso. */
+  try{if(typeof STAGE!=='undefined'&&STAGE.some(function(s){return _recEt(s.et)===et;})){STAGE=STAGE.filter(function(s){return _recEt(s.et)!==et;});saveStage();if(typeof syncDelStage==='function')syncDelStage(et);if(typeof updateStageBadge==='function')updateStageBadge();}}catch(e){}
   try{if(typeof logAct==='function')logAct('recicladora',et+' · '+pr+' · entrada');}catch(e){}toast('+1 na Recicladora - 91 · '+pr);return true;
 };
 window.recicSaida=function(v){
@@ -823,6 +826,10 @@ function drawBoardStreet(){
   $$('#boardBox .cellx[data-id]').forEach(c=>c.onclick=()=>openSpace(c.dataset.id));
 }
 function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdmin();
+  /* Mantem a identidade da etiqueta lida. Antes o leitor substituia o campo pelo
+     codigo do produto e o Salvar criava uma etiqueta R... nova. Assim a etiqueta
+     original continuava no Chao 70 e o mesmo peso era somado na prateleira. */
+  let spScannedEt='';
   openDrawer(`${ICONS.map=ICONS.grid} <span class="mono">${code(x)}</span>`,`
     <div style="display:flex;gap:10px;margin-bottom:18px"><span class="pill muted">${whLabel(x.w)}</span><span class="pill ${x.o?(x.q>0?'in':'b'):'muted'}">${x.o?(x.q>0?'ocupado':'ocupado · 0'):'livre'}</span></div>
     ${adm?`<label class="fld"><span class="lab">Produto</span><input class="input code" id="spProd" value="${x.pr||''}"></label>
@@ -849,8 +856,8 @@ function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdm
         return '<div style="margin-top:16px"><div style="font-size:.66rem;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:2px">Bobinas nesta posição ('+here.length+')</div>'+rows+'</div>';
       }catch(e){return '';}
     })()}`);
-  if(adm){var _peK=document.getElementById('spProd');if(_peK){_peK.addEventListener('keydown',function(e){if(e.key!=='Enter'||!_peK.value.trim())return;e.preventDefault();var v=_peK.value;var _q=document.getElementById('spQty');var _fill=function(p){if(p&&p.pr)_peK.value=p.pr;if(_q&&p&&p.peso!=null&&!isNaN(p.peso))_q.value=p.peso;if(_q)_q.focus();};var p=parseBobina(v);var _cn=norm(typeof window.cleanScanCode==='function'?window.cleanScanCode(v):v);if(p.peso==null&&typeof norm==='function'&&(p.pr===_cn||!p.pr)&&_cn&&typeof window.bobFetch==='function'){toast('buscando etiqueta na nuvem…');window.bobFetch(_cn).then(function(){_fill(parseBobina(v));},function(){_fill(p);});}else{_fill(p);}});}}
-  if(adm){if(window.addCam){var _pe=document.getElementById('spProd');if(_pe)window.addCam('spProd',{title:'Bipe a bobina',onResult:function(v){var _fill=function(p){if(p&&p.pr)_pe.value=p.pr;var _q=document.getElementById('spQty');if(_q&&p&&p.peso!=null&&!isNaN(p.peso))_q.value=p.peso;toast('Etiqueta '+(p&&(p.et||p.pr)||v)+' lida · confira e Salvar');};var p=parseBobina(v);var _cn=norm(typeof window.cleanScanCode==='function'?window.cleanScanCode(v):v);if(p.peso==null&&typeof norm==='function'&&(p.pr===_cn||!p.pr)&&_cn&&typeof window.bobFetch==='function'){toast('buscando etiqueta na nuvem…');window.bobFetch(_cn).then(function(){_fill(parseBobina(v));},function(){_fill(p);});}else{_fill(p);}}});}
+  if(adm){var _peK=document.getElementById('spProd');if(_peK){_peK.addEventListener('keydown',function(e){if(e.key!=='Enter'||!_peK.value.trim())return;e.preventDefault();var v=_peK.value;var _q=document.getElementById('spQty');var _fill=function(p){if(p&&p.et)spScannedEt=norm(p.et);if(p&&p.pr)_peK.value=p.pr;if(_q&&p&&p.peso!=null&&!isNaN(p.peso))_q.value=p.peso;if(_q)_q.focus();};var p=parseBobina(v);var _cn=norm(typeof window.cleanScanCode==='function'?window.cleanScanCode(v):v);if(p.peso==null&&typeof norm==='function'&&(p.pr===_cn||!p.pr)&&_cn&&typeof window.bobFetch==='function'){toast('buscando etiqueta na nuvem…');window.bobFetch(_cn).then(function(){_fill(parseBobina(v));},function(){_fill(p);});}else{_fill(p);}});}}
+  if(adm){if(window.addCam){var _pe=document.getElementById('spProd');if(_pe)window.addCam('spProd',{title:'Bipe a bobina',onResult:function(v){var _fill=function(p){if(p&&p.et)spScannedEt=norm(p.et);var _rawEt=norm(typeof window.cleanScanCode==='function'?window.cleanScanCode(v):v);if(!spScannedEt&&_rawEt&&typeof BOB!=='undefined'&&BOB[_rawEt])spScannedEt=_rawEt;if(p&&p.pr)_pe.value=p.pr;var _q=document.getElementById('spQty');if(_q&&p&&p.peso!=null&&!isNaN(p.peso))_q.value=p.peso;toast('Etiqueta '+(spScannedEt||p&&(p.et||p.pr)||v)+' lida · confira e Salvar');};var p=parseBobina(v);var _cn=norm(typeof window.cleanScanCode==='function'?window.cleanScanCode(v):v);if(p.peso==null&&typeof norm==='function'&&(p.pr===_cn||!p.pr)&&_cn&&typeof window.bobFetch==='function'){toast('buscando etiqueta na nuvem…');window.bobFetch(_cn).then(function(){_fill(parseBobina(v));},function(){_fill(p);});}else{_fill(p);}}});}
   $('#spSave').onclick=()=>{
     const before=Number(x.q)||0,oldProd=norm(x.pr||''),addr=code(x);
     const prod=(typeof cleanProd==='function')?cleanProd($('#spProd').value):norm($('#spProd').value);
@@ -859,6 +866,16 @@ function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdm
     if(after<=0){toast('Informe uma quantidade maior que zero',false);return;}
     if(before>0&&oldProd&&oldProd!==prod){toast('A vaga já contém '+oldProd+'. Faça a saída antes de trocar o produto.',false);return;}
     if(delta<0){toast('Não é permitido reduzir o saldo pelo botão Salvar. Use Movimentação → Saída para registrar etiqueta, usuário e histórico.',false);return;}
+    /* Etiqueta lida nunca vira entrada manual. Ela passa pela validacao unica de
+       local e so entra depois de sair fisicamente do Chao/Recicladora/Expedicao. */
+    if(delta>0&&spScannedEt){
+      var onde=(typeof window.wmsLocalDaEtiqueta==='function')?window.wmsLocalDaEtiqueta(spScannedEt):null;
+      if(onde){var det=onde.detalhe?' ('+onde.detalhe+')':'';toast('Etiqueta '+spScannedEt+' já está em '+onde.local+det+'. Faça a SAÍDA nesse local antes de dar ENTRADA em Prateleira - 70 ('+addr+').',false);return;}
+      if(typeof placeBobina!=='function'||!placeBobina(spScannedEt,prod,delta,addr))return;
+      x.src=norm($('#spSrc').value);x.upd=ts;x.by=user;
+      try{if(typeof syncSpace==='function')syncSpace(x);}catch(e){}
+      closeDrawer();try{renderBoard();}catch(e){}toast('Entrada confirmada: '+spScannedEt+' em '+addr);return;
+    }
     x.pr=prod;x.q=after;x.src=norm($('#spSrc').value);x.o=true;x.upd=ts;x.by=user;
     if(delta>0){
       var seq=0,et,base='R'+Date.now().toString(36).toUpperCase().slice(-6)+Math.random().toString(36).toUpperCase().slice(2,5);
@@ -1711,17 +1728,30 @@ function saveBOB(){
   }).catch(function(){window._bobReady=true;});
  }catch(e){window._bobReady=true;}
 })();
-/* busca UMA etiqueta na nuvem quando o aparelho não tem o catálogo local (busca sob demanda) */
+/* Busca sob demanda somente depois de esgotar os dados locais. As duas fontes da
+   nuvem rodam em paralelo para a bipagem da vaga não ficar bloqueada por vários segundos. */
+var _bobFetchPending={};
 async function bobFetch(et){
-  try{
-    if(!supa||!et)return null;et=String(et).trim().toUpperCase();
-    var r=await Promise.race([supa.from('bobinas').select('*').eq('etiqueta',et).limit(1),new Promise(function(res){setTimeout(function(){res({data:null});},9000);})]);
-    if(r&&r.data&&r.data.length){var row=r.data[0];var o={pr:row.pr,desc:row.descricao||'',pl:Number(row.pl)||0};BOB[et]=o;return o;}
-    /* não achou no catálogo: procura nas ETIQUETAS rastreáveis (NF/romaneio) */
-    var r2=await Promise.race([supa.from('etiquetas').select('*').eq('id',et).limit(1),new Promise(function(res){setTimeout(function(){res({data:null});},9000);})]);
-    if(r2&&r2.data&&r2.data.length){var e=r2.data[0];var pr2=(e.c_prod||e.bobina||e.n_romaneio||'');var desc2=(e.gramatura||'');var pl2=Number(e.kg)||0;if(pr2){var o2={pr:String(pr2),desc:String(desc2),pl:pl2};BOB[et]=o2;return o2;}}
-  }catch(e){}
-  return null;
+  if(!et)return null;et=String(et).trim().toUpperCase();
+  try{if(BOB[et]&&BOB[et].pr)return BOB[et];}catch(e){}
+  try{if(typeof window.etqLookup==='function'){var le=window.etqLookup(et);if(le&&le.pr){var lo={pr:le.pr,desc:le.desc||'',pl:Number(le.pl)||0};BOB[et]=lo;return lo;}}}catch(e){}
+  try{if(typeof STAGE!=='undefined'){var st=STAGE.find(function(s){return String(s.et||'').trim().toUpperCase()===et;});if(st&&st.pr){var so={pr:st.pr,desc:st.desc||'',pl:Number(st.pl)||0};BOB[et]=so;return so;}}}catch(e){}
+  if(!supa)return null;
+  if(_bobFetchPending[et])return _bobFetchPending[et];
+  _bobFetchPending[et]=(async function(){
+    try{
+      var limite=new Promise(function(res){setTimeout(function(){res([null,null]);},3500);});
+      var consultas=Promise.all([
+        supa.from('bobinas').select('etiqueta,pr,descricao,pl').eq('etiqueta',et).limit(1),
+        supa.from('etiquetas').select('id,c_prod,bobina,n_romaneio,gramatura,kg').eq('id',et).limit(1)
+      ]);
+      var rr=await Promise.race([consultas,limite]),r=rr&&rr[0],r2=rr&&rr[1];
+      if(r&&r.data&&r.data.length){var row=r.data[0],o={pr:row.pr,desc:row.descricao||'',pl:Number(row.pl)||0};BOB[et]=o;try{saveBOB();}catch(e){}return o;}
+      if(r2&&r2.data&&r2.data.length){var e=r2.data[0],pr2=(e.c_prod||e.bobina||e.n_romaneio||''),desc2=(e.gramatura||''),pl2=Number(e.kg)||0;if(pr2){var o2={pr:String(pr2),desc:String(desc2),pl:pl2};BOB[et]=o2;try{saveBOB();}catch(e){}return o2;}}
+    }catch(e){}
+    return null;
+  })();
+  try{return await _bobFetchPending[et];}finally{delete _bobFetchPending[et];}
 }
 window.bobFetch=bobFetch;
 /* Registra uma etiqueta RASTREÁVEL (gerada na Nota Fiscal/Romaneio/Vaga) dentro do catálogo BOB,
@@ -1743,6 +1773,8 @@ function brNum(v){if(typeof v==='number')return v;if(v==null)return 0;let s=Stri
 parseBobina=function(v){if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);v=norm(v);if(BOB[v]){const rem=(BOB[v].rem!=null?BOB[v].rem:BOB[v].pl);return{et:v,pr:BOB[v].pr,desc:BOB[v].desc||'',peso:rem,pl:BOB[v].pl,rem:rem};}
   /* etiqueta rastreável (QR guarda o ID): resolve pelo cadastro da NF/romaneio → puxa o PRODUTO real, nunca o id */
   if(typeof window.etqLookup==='function'){var _le=window.etqLookup(v);if(_le){return{et:v,pr:_le.pr||'',desc:_le.desc||'',peso:_le.pl,pl:_le.pl,rem:_le.pl};}}
+  /* Recebimento pendente já contém produto e peso: não consulta a nuvem novamente. */
+  if(typeof STAGE!=='undefined'){var _st=STAGE.find(function(s){return norm(s.et)===v;});if(_st&&_st.pr)return{et:v,pr:_st.pr,desc:_st.desc||'',peso:Number(_st.pl)||0,pl:Number(_st.pl)||0,rem:Number(_st.pl)||0};}
   const i=v.indexOf('$');if(i>0){const pr=v.slice(0,i),pe=parseFloat(v.slice(i+1).replace(',','.'));if(pr&&!isNaN(pe))return{et:'',pr,desc:'',peso:pe,pl:pe,rem:pe};}
   /* se tem CARA de id de etiqueta mas não achamos cadastro: NÃO usa o id como produto (deixa vazio) */
   var _ehId=/^\d+-\d+(-\d+)?-[0-9A-Z]{5,}$/.test(v)||/^R[0-9A-Z]{8,}$/.test(v);
@@ -1902,26 +1934,28 @@ function placeBobina(et,pr,pl,c){c=norm(c);if(typeof cleanProd==='function')pr=c
  }
  if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}const before=Number(sp.q)||0;sp.pr=pr;sp.q=before+(Number(pl)||0);sp.o=true;sp.u='KG';sp.upd=nowISO();sp.by=session.u;if(et){LOC[et]=c;saveLOC();}MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:'KG',et:et||'',before,after:sp.q,at:nowISO(),by:session.u}); /* log local enxuto: o histórico completo fica na nuvem */persist();if(typeof syncSpace==='function')syncSpace(sp);logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}
  /* armazenou na prateleira → tira do chão (não pode ficar em dois lugares; a prateleira é a entrada mais recente) */
- if(et){
-   try{if(typeof window.f70HasEt==='function'&&window.f70HasEt(et)&&typeof window.f70Saida==='function'){window.f70Saida(et);toast('Saiu do Chão 70 · '+et);}}catch(e){}
-   try{if(typeof window.floorHasEt==='function'&&window.floorHasEt(et)&&typeof window.floorSaida==='function'){window.floorSaida(et);toast('Saiu do Chão expedição · '+et);}}catch(e){}
- }
+  if(et){
+    try{if(typeof window.f70HasEt==='function'&&window.f70HasEt(et)&&typeof window.f70Saida==='function'){window.f70Saida(et);toast('Saiu do Chão 70 · '+et);}}catch(e){}
+    try{if(typeof window.floorHasEt==='function'&&window.floorHasEt(et)&&typeof window.floorSaida==='function'){window.floorSaida(et);toast('Saiu do Chão expedição · '+et);}}catch(e){}
+    /* A pendência só termina depois que a entrada física na vaga foi concluída. Isso
+       também cobre a bipagem feita diretamente pelo mapa da Prateleira. */
+    try{
+      var _pet=norm(et);
+      if(typeof STAGE!=='undefined'&&STAGE.some(function(s){return norm(s.et)===_pet;})){
+        STAGE=STAGE.filter(function(s){return norm(s.et)!==_pet;});
+        saveStage();
+        if(typeof syncDelStage==='function')syncDelStage(et);
+        if(typeof updateStageBadge==='function')updateStageBadge();
+      }
+    }catch(e){}
+  }
  return true;}
-async function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){b=await bobFetch(et);}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}if(LOC[et]){const old=freeStored(et);toast('Bobina '+et+' retornou de '+old+' — liberada p/ recebimento');}
-  /* Chão de EXPEDIÇÃO é outro lugar físico: se a bobina voltou pro recebimento, sai de lá.
-     Chão 70 NÃO — ver o bloco logo abaixo, onde ela ENTRA no Chão 70. */
-  try{if(typeof window.floorHasEt==='function'&&window.floorHasEt(et)&&typeof window.floorSaida==='function'){window.floorSaida(et);toast('Saiu do Chão expedição · '+et);}}catch(e){}
+async function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){b=await bobFetch(et);}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
   if(STAGE.some(s=>s.et===et)){toast('Etiqueta já no intermediário',false);return;}
   var _it={et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u};
   STAGE.unshift(_it);saveStage();
-  /* ===== RECEBEU = ESTÁ NO CHÃO 70 =====
-     Antes, receber TIRAVA a bobina do Chão 70 pela regra "uma etiqueta, um lugar". Só que
-     intermediário e Chão 70 não são dois lugares concorrentes: intermediário é um ESTADO
-     (recebida, ainda sem endereço) e Chão 70 é o LUGAR FÍSICO onde ela fica parada enquanto
-     isso. Quem for contar o Chão 70 precisa enxergar essa bobina — ela está lá, no chão.
-     Ela só sai do Chão 70 quando sai do chão de verdade: guardada na prateleira
-     (placeBobina) ou mandada pra produção (commitProducao). */
-  try{if(typeof window.f70Entrada==='function')window.f70Entrada(_it,true);}catch(e){}
+  /* Recebimento não é depósito físico. A etiqueta fica somente pendente e nenhum saldo
+     de Prateleira, Chão 70, Expedição ou Recicladora é alterado neste momento. */
   /* TRAVA ANTI-CORRIDA: sem isso o pullLight (que roda a cada 2,5s) sobrescrevia STAGE com a
      versão da nuvem ANTES do syncStage chegar lá — e o bipe sumia do estoque intermediário. */
   try{markLocalWrite();}catch(e){}
@@ -1932,8 +1966,8 @@ function renderRecv(){const adm=isAdmin();
  '<div class="two">'+
   '<div class="panel"><div class="ph"><span class="pdot"></span>Bipar etiqueta para receber</div>'+
    '<label class="fld"><span class="lab">Etiqueta (T…)</span><input class="input code" id="recvScan" placeholder="ex: T40364663" '+(adm?'':'disabled')+'></label>'+
-   '<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">A bobina cai aqui como <b>pendente</b>. Depois você decide: <b>armazenar</b> num endereço ou <b>mandar para produção</b>.</p><label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvAutoLbl"'+(autoLabelOn()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Imprimir etiqueta automaticamente ao bipar</label><label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvStation"'+(isPrintStation()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Esta máquina imprime na Zebra (estação do PC)</label><div style="margin-top:12px"><button class="gbtn" id="recvSetFmt" style="width:100%;justify-content:center">'+(ICONS.tag||'')+' Escolher modelo da etiqueta</button><div style="font-size:.72rem;color:var(--muted);margin-top:6px" id="recvFmtLbl"></div></div></div>'+
-  '<div class="panel" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><div style="font-family:var(--disp);font-size:3rem;font-weight:800;line-height:1">'+STAGE.length+'</div><div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px">bobinas aguardando</div>'+(STAGE.length?'<div style="font-family:var(--mono);font-size:.85rem;color:var(--muted);margin-top:8px">'+fmt(STAGE.reduce((a,b)=>a+(b.pl||0),0))+' kg pendentes</div>':'')+(STAGE.length&&adm?'<button class="gbtn" id="recvBf70" style="margin-top:14px;font-size:.76rem;padding:8px 12px">↳ Jogar pendentes no Chão 70</button>':'')+'</div>'+
+   '<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">A bobina fica <b>somente pendente</b>, sem saldo em depósito. Depois bipe a etiqueta no destino: <b>Prateleira, Chão de Fábrica, Expedição, Recicladora</b> ou <b>Produção</b>.</p><label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvAutoLbl"'+(autoLabelOn()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Imprimir etiqueta automaticamente ao bipar</label><label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvStation"'+(isPrintStation()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Esta máquina imprime na Zebra (estação do PC)</label><div style="margin-top:12px"><button class="gbtn" id="recvSetFmt" style="width:100%;justify-content:center">'+(ICONS.tag||'')+' Escolher modelo da etiqueta</button><div style="font-size:.72rem;color:var(--muted);margin-top:6px" id="recvFmtLbl"></div></div></div>'+
+  '<div class="panel" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><div style="font-family:var(--disp);font-size:3rem;font-weight:800;line-height:1">'+STAGE.length+'</div><div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px">bobinas aguardando destino</div>'+(STAGE.length?'<div style="font-family:var(--mono);font-size:.85rem;color:var(--muted);margin-top:8px">'+fmt(STAGE.reduce((a,b)=>a+(b.pl||0),0))+' kg pendentes</div>':'')+(STAGE.length&&adm?'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px"><button class="btn brand" id="recvPrintAll" style="font-size:.76rem;padding:9px 13px">'+(ICONS.print||'')+' Imprimir todas ('+STAGE.length+')</button></div>':'')+'</div>'+
  '</div><h3 class="sub">Pendentes</h3><div id="stageList"></div>';
  const sc=$('#recvScan');if(sc){sc.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();recvAdd(sc.value);sc.value='';}});if(!sc.disabled){sc.placeholder=isSuper()?'bipe ou digite a etiqueta':'toque para bipar';scanLock(sc);}}
  const al=document.getElementById('recvAutoLbl');if(al)al.onchange=function(){try{localStorage.setItem('wmsx_autoLabel',al.checked?'1':'0');}catch(e){}
@@ -1941,51 +1975,15 @@ function renderRecv(){const adm=isAdmin();
    else{try{toast('Impressão automática desligada. Você ainda pode gerar a etiqueta manualmente pelo item.');}catch(e){}}};
  const ps=document.getElementById('recvStation');if(ps)ps.onchange=function(){try{localStorage.setItem('wmsx_printStation',ps.checked?'1':'0');}catch(e){}toast(ps.checked?'Esta máquina vai imprimir as etiquetas na Zebra':'Estação de impressão desligada nesta máquina');};
  var _fmtLbl=document.getElementById('recvFmtLbl');function _showFmt(){if(!_fmtLbl)return;var f=(typeof expLabelFmt==='function')?expLabelFmt():null;if(f&&f.dim)_fmtLbl.textContent='Modelo atual: '+f.dim.w+'×'+f.dim.h+'mm · '+(f.orient==='paisagem'?'deitada':'em pé');}_showFmt();
- var _bf=document.getElementById('recvBf70');if(_bf)_bf.onclick=function(){if(typeof window.recvBackfill70==='function')window.recvBackfill70(false);};
+ var _pa=document.getElementById('recvPrintAll');if(_pa)_pa.onclick=function(){if(typeof printAllIntakeLabels==='function')printAllIntakeLabels();};
  var sf=document.getElementById('recvSetFmt');if(sf)sf.onclick=function(){if(typeof askLabelFormat==='function')askLabelFormat('Modelo da etiqueta de recebimento',function(opt){if(typeof setExpLabelFmt==='function')setExpLabelFmt(opt);_showFmt();toast('Modelo salvo · '+opt.dim.w+'×'+opt.dim.h+'mm');});};
  renderStageList();}
-/* ===== BACKFILL: intermediário → Chão 70 =====
-   As bobinas bipadas ANTES desta mudança entraram só no intermediário — o Chão 70 nem
-   soube delas. Só que elas estão fisicamente no chão do mesmo jeito, então a contagem do
-   Chão 70 fecharia a menos. Esta função varre o intermediário e coloca no Chão 70 tudo
-   que ainda não está lá. É idempotente: rodar de novo não duplica nada, porque
-   f70Entrada ignora etiqueta que já existe. */
-window.recvBackfill70=function(silencioso){
-  var n=0;
-  try{
-    if(typeof STAGE==='undefined'||!STAGE||!STAGE.length)return 0;
-    if(typeof window.f70Entrada!=='function')return 0;
-    STAGE.slice().forEach(function(s){
-      try{if(window.f70Entrada({et:s.et,pr:s.pr,desc:s.desc,pl:s.pl},true))n++;}catch(e){}
-    });
-  }catch(e){}
-  if(!silencioso){
-    try{toast(n?('Chão 70 atualizado · '+n+' bobina(s) do intermediário adicionada(s)')
-                :'Tudo do intermediário já estava no Chão 70');}catch(e){}
-  }
-  return n;
-};
-/* roda UMA vez por aparelho, no primeiro carregamento depois da mudança */
-(function(){
-  try{
-    if(localStorage.getItem('wmsx_bf70')==='1')return;
-    setTimeout(function(){
-      try{
-        if(typeof STAGE==='undefined'||!STAGE||!STAGE.length)return;
-        var n=window.recvBackfill70(true);
-        localStorage.setItem('wmsx_bf70','1');
-        if(n)try{toast(n+' bobina(s) do intermediário entraram no Chão 70');}catch(e){}
-      }catch(e){}
-    },6000); /* espera o sync trazer o intermediário da nuvem antes de varrer */
-  }catch(e){}
-})();
 function renderStageList(){const el=$('#stageList');if(!el)return;const adm=isAdmin();
  if(!STAGE.length){el.innerHTML='<div class="empty"><div class="ei">'+ICONS.inbox+'</div><b>Nada pendente</b><div class="es">Bipe uma etiqueta para receber.</div></div>';return;}
  el.innerHTML=STAGE.map(s=>'<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--sh-sm);margin-bottom:12px"><div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:200px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="mono" style="font-weight:800;font-size:1.05rem">'+s.pr+'</span><span class="pill muted">'+s.et+'</span></div><div style="color:var(--ink);font-size:.9rem;margin-top:6px;font-weight:500">'+(s.desc||'—')+'</div><div style="color:var(--faint);font-size:.72rem;margin-top:5px">recebido '+rel(s.at)+(s.by?" · por "+s.by:"")+'</div></div><div style="text-align:right;white-space:nowrap"><div style="font-family:var(--disp);font-weight:800;font-size:1.5rem;line-height:1">'+fmt(s.pl)+' <span style="font-size:.8rem;color:var(--muted);font-weight:600">kg</span></div></div></div>'+(adm?'<div style="display:flex;gap:10px;margin-top:14px"><button class="btn in" data-az="'+s.et+'" style="flex:1">'+ICONS.box+' Armazenar</button><button class="btn out" data-pp="'+s.et+'" style="flex:1">Produção</button><button class="gbtn" data-rm="'+s.et+'" style="width:48px;justify-content:center">✕</button></div><div style="margin-top:10px"><button class="gbtn" data-lbl="'+s.et+'" style="width:100%;justify-content:center">'+ICONS.tag+' Gerar etiqueta</button></div>':'')+'</div>').join('');
  el.querySelectorAll('[data-az]').forEach(b=>b.onclick=()=>stageArmazenar(b.dataset.az));
  el.querySelectorAll('[data-pp]').forEach(b=>b.onclick=()=>stageProducao(b.dataset.pp));
- el.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{/* ✕ limpa só a LISTA de pendências — a bobina continua fisicamente no chão.
-   Chão 70 só perde bobina por PRODUÇÃO ou ENTRADA NA PRATELEIRA (regra do usuário). */STAGE=STAGE.filter(x=>x.et!==b.dataset.rm);saveStage();if(typeof syncDelStage==='function')syncDelStage(b.dataset.rm);renderRecv();updateStageBadge();toast('Removido do intermediário');});
+ el.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{/* Cancela somente a pendência; nenhum depósito físico é alterado. */STAGE=STAGE.filter(x=>x.et!==b.dataset.rm);saveStage();if(typeof syncDelStage==='function')syncDelStage(b.dataset.rm);renderRecv();updateStageBadge();toast('Pendência removida do recebimento');});
  el.querySelectorAll('[data-lbl]').forEach(b=>b.onclick=()=>{var et=norm(b.dataset.lbl);var o=BOB[et]||{};var s=STAGE.find(function(x){return x.et===et;})||{};var it={et:et,pr:o.pr||s.pr||'',desc:((typeof window.convDescByCod==='function'&&window.convDescByCod(o.pr||s.pr))||o.desc||s.desc||''),pl:(o.pl!=null?o.pl:s.pl)};if(typeof printIntakeLabelChoose==='function')printIntakeLabelChoose(it);else showBobLabel(et);});}
 function showBobLabel(et){et=norm(et);const o=BOB[et]||{};const it=(typeof STAGE!=='undefined'&&STAGE?STAGE.find(s=>s.et===et):null)||{};const pr=o.pr||it.pr||'';const desc=((typeof window.convDescByCod==='function'&&window.convDescByCod(pr))||o.desc||it.desc||'');const pl=(o.pl!=null?o.pl:it.pl);
  const lbl='<style>#bobQRbox svg{width:96px!important;height:96px!important}</style>'
@@ -2379,7 +2377,6 @@ updateStageBadge();
     /* UMA ETIQUETA, UM LUGAR: a entrada mais recente vence — remove dos outros locais antes de contar aqui */
     try{if(typeof window.f70HasEt==='function'&&window.f70HasEt(et)&&typeof window.f70Saida==='function'){window.f70Saida(et);toast('Saiu do Chão 70 · '+et);}}catch(e){}
     try{if(typeof LOC!=='undefined'&&LOC[et]&&typeof freeStored==='function'){var _vg=freeStored(et);if(_vg)toast('Saiu da prateleira '+_vg+' · '+et);}}catch(e){}
-    try{if(typeof STAGE!=='undefined'&&STAGE.some(function(s){return s.et===et;})){STAGE=STAGE.filter(function(s){return s.et!==et;});saveStage();if(typeof syncDelStage==='function')syncDelStage(et);if(typeof updateStageBadge==='function')updateStageBadge();toast('Saiu do intermediário · '+et);}}catch(e){}
     const pr=b.pr||'—',pl=Number(b.pl)||0;
     let g=FLOOR[pr];
     if(!g){g={pr:pr,desc:b.desc||'',qtd:0,kg:0,ets:[],at:nowISO(),by:session?session.u:''};FLOOR[pr]=g;}
@@ -2390,6 +2387,7 @@ updateStageBadge();
     /* registra a ENTRADA no Rastreador (MV) — igual a saída já faz. Assim entrada e saída do
        Chão/Recicladora aparecem na aba Rastreador. */
     try{if(typeof MV!=='undefined'){var _locIn=((document.querySelector('.view.active')||{}).id==='v-recic')?'RECICLADORA':'CHÃO';MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:_locIn,pr:pr,q:pl,u:(typeof unitOf==='function'?unitOf(pr):'KG'),et:_eCh(et),before:0,after:pl,at:g.at,by:session?session.u:''});if(typeof syncMov==='function')syncMov(MV[0]);try{if(typeof persistDebounced==='function')persistDebounced('mv');else if(typeof persist==='function')persist();}catch(e){}try{var _av=document.querySelector('.view.active');if(_av&&_av.id==='v-track'&&typeof renderTrackTable==='function')renderTrackTable();}catch(e){}}}catch(e){}
+    try{if(typeof STAGE!=='undefined'&&STAGE.some(function(s){return _eCh(s.et)===_kc;})){STAGE=STAGE.filter(function(s){return _eCh(s.et)!==_kc;});saveStage();if(typeof syncDelStage==='function')syncDelStage(et);if(typeof updateStageBadge==='function')updateStageBadge();}}catch(e){}
     renderFloor();
     var _kgT=etList(g).reduce((s,x)=>s+(Number(x.pl)||0),0);
     toast('+1 no chão · '+pr+' ('+g.qtd+' bob · '+fmt(_kgT)+' kg)');
@@ -2640,9 +2638,6 @@ updateStageBadge();
     /* UMA ETIQUETA, UM LUGAR: a entrada mais recente vence — remove dos outros locais antes de contar aqui */
     try{if(typeof window.floorHasEt==='function'&&window.floorHasEt(et)&&typeof window.floorSaida==='function'){window.floorSaida(et);toast('Saiu do Chão expedição · '+et);}}catch(e){}
     try{if(typeof LOC!=='undefined'&&LOC[et]&&typeof freeStored==='function'){var _vg=freeStored(et);if(_vg)toast('Saiu da prateleira '+_vg+' · '+et);}}catch(e){}
-    /* NÃO expulsa mais do intermediário: bobina recebida e ainda sem endereço fica nos DOIS —
-       no intermediário (o ESTADO: recebida, falta endereçar) e no Chão 70 (o LUGAR FÍSICO onde
-       ela está parada). Ver comentário em recvAdd. */
     const pr=b.pr||'—',pl=Number(b.pl)||0;
     let g=FLOOR70[pr];
     if(!g){g={pr:pr,desc:b.desc||'',qtd:0,kg:0,ets:[],at:nowISO(),by:session?session.u:''};FLOOR70[pr]=g;}
@@ -2652,6 +2647,8 @@ updateStageBadge();
     try{sync70({et:_e70(et),pr:pr,desc:b.desc||'',pl:pl,at:g.at,by:session?session.u:''});}catch(e){}
     /* registra a ENTRADA do Chão 70 no Rastreador (MV) */
     try{if(typeof MV!=='undefined'){MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:'CHÃO 70',pr:pr,q:pl,u:(typeof unitOf==='function'?unitOf(pr):'KG'),et:_e70(et),before:0,after:pl,at:g.at,by:session?session.u:''});if(typeof syncMov==='function')syncMov(MV[0]);try{if(typeof persistDebounced==='function')persistDebounced('mv');else if(typeof persist==='function')persist();}catch(e){}try{var _avt=document.querySelector('.view.active');if(_avt&&_avt.id==='v-track'&&typeof renderTrackTable==='function')renderTrackTable();}catch(e){}}}catch(e){}
+    /* Destino confirmado: agora, e somente agora, encerra a pendência do recebimento. */
+    try{if(typeof STAGE!=='undefined'&&STAGE.some(function(s){return _e70(s.et)===_k;})){STAGE=STAGE.filter(function(s){return _e70(s.et)!==_k;});saveStage();if(typeof syncDelStage==='function')syncDelStage(et);if(typeof updateStageBadge==='function')updateStageBadge();}}catch(e){}
     updateF70();/* atualização LEVE: não recria o input nem a câmera (senão a câmera contínua fechava e a tela não atualizava) */
     var _kgT=etL(g).reduce((s,x)=>s+(Number(x.pl)||0),0);
     toast('+1 no Chão 70 · '+pr+' ('+g.qtd+' bob · '+fmt(_kgT)+' kg)');
@@ -3777,9 +3774,7 @@ updateStageBadge();
     }
     /* empurra pro estoque intermediário (STAGE) se ainda não estiver lá */
     var desc=e.xProd||(typeof nfDescByCode==='function'?nfDescByCode(e.cProd):'')||'';
-    /* Chão de EXPEDIÇÃO é outro lugar físico: se voltou pro recebimento, sai de lá.
-       Chão 70 NÃO — a bobina bipada na NF entra nele (ver bloco depois do STAGE). */
-    try{if(typeof window.floorHasEt==='function'&&window.floorHasEt(id)&&typeof window.floorSaida==='function'){window.floorSaida(id);toast('Saiu do Chão expedição · '+id);}}catch(e2){}
+    /* Bipar na NF registra somente a pendência. Não move nem retira saldo de depósito. */
     var caiu=false;
     if(typeof STAGE!=='undefined'&&STAGE){
       if(!STAGE.some(function(s){return s.et===id;})){
@@ -3791,18 +3786,8 @@ updateStageBadge();
         caiu=true;
       }
     }
-    /* ===== BIPOU NA NF = DESCARREGOU NO CHÃO 70 =====
-       O intermediário é o ESTADO da bobina (recebida, ainda sem endereço); o Chão 70 é o
-       LUGAR FÍSICO onde ela está parada enquanto ninguém a guarda. Ela fica nos dois. Quem
-       contar o Chão 70 tem que enxergá-la, senão a contagem do chão nunca fecha com o que
-       está fisicamente lá. Sai do Chão 70 ao ser guardada na prateleira ou mandada p/ produção. */
-    var _no70=false;
-    try{
-      var _it70={et:id,pr:e.cProd||id,desc:desc,pl:Number(e.kg)||0};
-      if(typeof window.f70Entrada==='function')_no70=window.f70Entrada(_it70,true);
-    }catch(e2){}
     if(jaBip&&!caiu)toast('Etiqueta '+id+' já bipada',false);
-    else toast('Bipado '+id+' · intermediário'+(_no70?' + Chão 70':''));
+    else toast('Bipado '+id+' · pendente no Recebimento');
     /* fechou a NF? */
     if(e.nf&&e.nf!=='__vaga__'){
       var ids=Object.keys(ETQ).filter(function(k){return ETQ[k].nf===e.nf;});
@@ -7582,10 +7567,10 @@ function zEtqCSS(dim){
    Solução: mandar VÁRIOS jobs pequenos, em sequência. 50 por vez já se provou que funciona —
    é justamente onde ele travava. Cada bloco é um trabalho independente: se um falhar, os
    outros saem, e você sabe exatamente qual reimprimir. */
-/* ajustável na tela de impressão. Se 50 ainda falhar, baixe para 25 ou 20:
-   impressora com pouca memória pode não aguentar nem isso. */
-var ZBLOCO=(function(){try{var v=parseInt(localStorage.getItem('wmsx_zbloco'),10);return (v>=5&&v<=200)?v:40;}catch(e){return 40;}})();
-window.setZBloco=function(n){n=parseInt(n,10)||40;if(n<5)n=5;if(n>200)n=200;ZBLOCO=n;try{localStorage.setItem('wmsx_zbloco',String(n));}catch(e){}};
+/* limite operacional da Zebra: no máximo 20 etiquetas por trabalho.
+   Valores antigos maiores, salvos no navegador, são automaticamente reduzidos para 20. */
+var ZBLOCO=(function(){try{var v=parseInt(localStorage.getItem('wmsx_zbloco'),10);return (v>=5&&v<=20)?v:20;}catch(e){return 20;}})();
+window.setZBloco=function(n){n=parseInt(n,10)||20;if(n<5)n=5;if(n>20)n=20;ZBLOCO=n;try{localStorage.setItem('wmsx_zbloco',String(n));}catch(e){}};
 
 function printZebraEtq(arr,dim,kind){
  if(!arr||!arr.length){toast('Nada para imprimir',false);return;}
@@ -7843,6 +7828,29 @@ function _intakeToRast(it){
     bobina: it.et||'',
     nf: '__vaga__'
   };
+}
+function printAllIntakeLabels(){
+ if(!isAdmin()){toast('Somente usuários autorizados podem imprimir etiquetas',false);return;}
+ var pendentes=(typeof STAGE!=='undefined'&&Array.isArray(STAGE))?STAGE.slice():[];
+ if(!pendentes.length){toast('Não há etiquetas pendentes no recebimento',false);return;}
+ var arr=pendentes.map(function(s){
+   var et=norm(s.et),o=(typeof BOB!=='undefined'&&BOB[et])?BOB[et]:{};
+   return _intakeToRast({
+     et:et,
+     pr:o.pr||s.pr||'',
+     desc:((typeof window.convDescByCod==='function'&&window.convDescByCod(o.pr||s.pr))||o.desc||s.desc||''),
+     pl:(o.pl!=null?o.pl:s.pl)
+   });
+ }).filter(function(e){return !!e.id;});
+ if(!arr.length){toast('Nenhuma etiqueta válida para imprimir',false);return;}
+ var opt=(typeof expLabelFmt==='function')?expLabelFmt():{dim:{w:100,h:100},orient:'retrato'};
+ try{
+   printZebraRast(arr,opt.dim,opt.orient==='paisagem'?'paisagem':'retrato');
+   toast(arr.length+' etiqueta(s) preparadas para impressão');
+ }catch(e){
+   console.warn('impressão em lote do recebimento',e);
+   toast('Não foi possível preparar as etiquetas',false);
+ }
 }
 function printIntakeLabel(it){if(!it)return;
  try{

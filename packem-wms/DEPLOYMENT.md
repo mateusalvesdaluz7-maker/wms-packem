@@ -46,3 +46,4 @@ Teste com uma etiqueta de homologação: faça a entrada, bipe uma vez, repita o
 ## Fluxo corrigido
 
 Uma baixa completa deixa a requisição em **A Confirmar**. Apenas a confirmação administrativa muda para **Finalizadas**. Falhas de rede podem ser repetidas com segurança usando o mesmo identificador da operação.
+

@@ -1157,3 +1157,4 @@ body > #camOverlay .cam-frame i.bl,body > #camOverlay .cam-frame i.br{bottom:24%
   body > #camOverlay .cam-frame i.bl,body > #camOverlay .cam-frame i.br{bottom:25%;width:36px;height:36px}
   body > #camOverlay .cam-hint{bottom:calc(80px + env(safe-area-inset-bottom));font-size:13px}
 }
+

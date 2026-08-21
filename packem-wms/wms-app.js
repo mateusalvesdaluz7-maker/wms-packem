@@ -66,7 +66,7 @@ function setIcons(){document.querySelectorAll('[data-ic]').forEach(e=>{const t=e
 })();
 
 const DB=(()=>{const K={sp:'wmsx_sp',mv:'wmsx_mv',tr:'wmsx_tr',vl:'wmsx_vl',us:'wmsx_us',ac:'wmsx_ac',cf:'wmsx_cf'};
-  const r=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d;}catch{return d;}};const w=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+  const r=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v;}catch{return d;}};const w=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
   const seedSp=()=>SEED_SPACES.map(x=>({id:'70-'+x.s+'-'+x.p+'-'+x.l,w:'70',s:x.s,l:x.l,p:x.p,pr:(x.pr&&x.pr!=='0')?x.pr:'',q:x.q||0,u:'KG',o:!!x.o,src:x.src||'',upd:'',by:''}));
   function init(){if(!localStorage.getItem(K.sp))w(K.sp,seedSp());if(!localStorage.getItem(K.vl))w(K.vl,SEED_VALUES.map(c=>({codigo:c,valor:0,descricao:''})));if(!localStorage.getItem(K.us))w(K.us,[]);['mv','tr','ac'].forEach(k=>{if(!localStorage.getItem(K[k]))w(K[k],[]);});if(!localStorage.getItem(K.cf))w(K.cf,{warehouse:'70'});}
   return {init,seedSp,spaces:()=>r(K.sp,[]),saveSpaces:a=>w(K.sp,a),movs:()=>r(K.mv,[]),saveMovs:a=>w(K.mv,a),transf:()=>r(K.tr,[]),saveTransf:a=>w(K.tr,a),values:()=>r(K.vl,[]),saveValues:a=>w(K.vl,a),users:()=>r(K.us,[]),saveUsers:a=>w(K.us,a),act:()=>r(K.ac,[]),saveAct:a=>w(K.ac,a),cfg:()=>r(K.cf,{warehouse:'70'}),saveCfg:c=>w(K.cf,c),reseed:()=>w(K.sp,seedSp())};})();
@@ -1300,7 +1300,7 @@ function renderAct(){const acessos=AC.filter(a=>String(a.action||'').toLowerCase
 
 /* dados */
 function dl(n,c,t='text/csv;charset=utf-8'){const b=new Blob([c],{type:t}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
-function csv(r){return '\uFEFF'+r.map(x=>x.map(c=>`"${String(c??'').replace(/"/g,'""')}"`).join(';')).join('\n');}
+ function csv(r){return '\uFEFF'+r.map(x=>x.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(';')).join('\n');}
 $('#mBackup').onclick=()=>{openDrawer(`${ICONS.save} Backup / Restaurar`,`<button class="gbtn" id="bExp" style="width:100%;justify-content:center;margin-bottom:10px">${ICONS.down} Baixar backup (.json)</button><button class="gbtn" id="bImp" style="width:100%;justify-content:center;margin-bottom:10px">Restaurar de arquivo</button><button class="gbtn" id="bMov" style="width:100%;justify-content:center">${ICONS.down} Exportar movimentos (CSV)</button><input type="file" id="bFile" accept="application/json" hidden>`);$('#bExp').onclick=()=>dl('backup_wms_packem.json',JSON.stringify({S,MV,TR,VL,US,AC,cfg,at:nowISO()}),'application/json');$('#bMov').onclick=()=>{const h=['Data','Acao','Endereco','Produto','Qtd','SaldoApos','Operador'];dl('movimentos.csv',csv([h,...MV.map(m=>[m.at,m.action,m.code,m.pr,m.q,m.after,m.by])]));};$('#bImp').onclick=()=>$('#bFile').click();$('#bFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(d.S)S=d.S;if(d.MV)MV=d.MV;if(d.TR)TR=d.TR;if(d.VL)VL=d.VL;if(d.US)US=d.US;if(d.AC)AC=d.AC;persist();closeDrawer();toast('Restaurado');go('v-home');}catch{toast('Arquivo inválido',false);}};r.readAsText(f);};};
 $('#mReseed').onclick=()=>{if(confirm('Recarregar os 2188 endereços originais? Substitui o estoque atual.')){DB.reseed();S=DB.spaces();persist();toast('Recarregado');go('v-home');}};
 
@@ -2026,7 +2026,10 @@ function vpLoadVoice(){
   }catch(e){}
 }
 vpLoadVoice();
-function vpSplitSentences(text){return String(text||'').replace(/\s+/g,' ').trim().split(/(?<=[.!?;:])\s+(?=\S)/).filter(Boolean);}
+function vpSplitSentences(text){
+  /* Compatível com Safari/iOS antigos: regex lookbehind impedia o arquivo inteiro de abrir. */
+  return String(text||'').replace(/\s+/g,' ').trim().replace(/([.!?;:])\s+/g,'$1\n').split('\n').filter(Boolean);
+}
 function vpSpeakQueue(text,onDone,force){
   try{
     if(!window.speechSynthesis||!text){if(onDone)onDone();return;}
@@ -8867,7 +8870,12 @@ function ocrLocalExtraiCampos(texto){
     });
   });
   // Segunda chance: o número pode ter sido quebrado em várias linhas/blocos.
-  const compact=t.replace(/(?<=[0-9OQILZSGBA])[\s.:-]+(?=[0-9OQILZSGBA])/g,'');
+  /* Evita regex lookbehind, não suportada em vários iPhones/iPads ainda usados na fábrica. */
+  let compact=t,compactAnterior='';
+  while(compact!==compactAnterior){
+    compactAnterior=compact;
+    compact=compact.replace(/([0-9OQILZSGBA])[\s.:-]+([0-9OQILZSGBA])/g,'$1$2');
+  }
   (compact.match(/[0-9OQILZSGBA]{10}/g)||[]).forEach(parte=>{
     const id=corrigeId(parte);
     if(id.length===10)candidatosId.push({id,pontos:(/^26/.test(id)?10:/^2/.test(id)?7:0),idx:999});
@@ -13427,7 +13435,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
   function dados(){
     migrar();var hoje=new Date().toDateString(),ab=REQS.filter(function(r){return ['pendente','em_separacao','pausado','separado'].indexOf(normStatus(r))>=0;}),crit=ab.filter(function(r){return r.prioridade==='critico';}),sep=ab.filter(function(r){return normStatus(r)==='em_separacao';}),fim=REQS.filter(function(r){return normStatus(r)==='entregue'&&new Date(r.ts_entrega||r.updated_date||r.data||0).toDateString()===hoje;});var mins=REQS.map(function(r){return Number(r.tempo_separacao_min)||0;}).filter(Boolean);return {ab:ab.length,sep:sep.length,crit:crit.length,fim:fim.length,media:mins.length?Math.round(mins.reduce(function(a,b){return a+b;},0)/mins.length):0};
   }
-  function filtrar(){var q=state.busca.toLowerCase();return REQS.filter(function(r){var s=normStatus(r);if(state.status==='abertas'&&['pendente','em_separacao','pausado','separado'].indexOf(s)<0)return false;if(state.status!=='todas'&&state.status!=='abertas'&&s!==state.status)return false;if(state.prioridade!=='todas'&&r.prioridade!==state.prioridade)return false;var texto=[r.numero,r.solicitante,r.setor,r.operador_logistica].concat(itens(r).map(function(i){return codigo(i)+' '+descricao(i)+' '+maquina(i);})).join(' ').toLowerCase();return !q||texto.indexOf(q)>=0;}).sort(function(a,b){var pa={critico:0,urgente:1,normal:2},x=pa[a.prioridade]??2,y=pa[b.prioridade]??2;return x-y||Date.parse(b.created_date||b.createdAt||b.data||0)-Date.parse(a.created_date||a.createdAt||a.data||0);});}
+  function filtrar(){var q=state.busca.toLowerCase();return REQS.filter(function(r){var s=normStatus(r);if(state.status==='abertas'&&['pendente','em_separacao','pausado','separado'].indexOf(s)<0)return false;if(state.status!=='todas'&&state.status!=='abertas'&&s!==state.status)return false;if(state.prioridade!=='todas'&&r.prioridade!==state.prioridade)return false;var texto=[r.numero,r.solicitante,r.setor,r.operador_logistica].concat(itens(r).map(function(i){return codigo(i)+' '+descricao(i)+' '+maquina(i);})).join(' ').toLowerCase();return !q||texto.indexOf(q)>=0;}).sort(function(a,b){var pa={critico:0,urgente:1,normal:2},x=pa[a.prioridade],y=pa[b.prioridade];x=x==null?2:x;y=y==null?2:y;return x-y||Date.parse(b.created_date||b.createdAt||b.data||0)-Date.parse(a.created_date||a.createdAt||a.data||0);});}
   function progresso(r){var a=itens(r),tot=a.reduce(function(s,i){return s+quantidade(i);},0),ok=a.reduce(function(s,i){return s+Math.min(quantidade(i),separado(i));},0);return {pct:tot?Math.round(ok/tot*100):0,ok:ok,tot:tot,itens:a.filter(function(i){return i.separado;}).length};}
   function setorRequisicao(r){var corte=['aimee.rafaela','beatriz.martendal','karin.rosario','valerio','luciana.inacio','eduardo.vitoria','luana.oliveira','rubens.silva','ana.cecilia','mara.rubia'],u=String(r&&r.solicitante||'').toLowerCase().trim(),a=itens(r),m=String(a.length?maquina(a[0]):(r&&r.setor)||'').trim(),ml=m.toLowerCase();if(corte.indexOf(u)>=0||/^ct\d+/i.test(m))return'CORTE';if(ml.indexOf('laminadora')>=0||ml.indexOf('multifilamento')>=0)return'LAMINADORA';if(ml.indexOf('extrusora')>=0)return'EXTRUSORA';if(ml.indexOf('tecelagem')>=0)return'TECELAGEM';return String((r&&(r.setor_operacional||r.departamento))||'SETOR NÃO INFORMADO');}
   function card(r){var s=normStatus(r),si=statusInfo(s),a=itens(r),p=progresso(r),maq=a.length?maquina(a[0]):r.setor,setor=setorRequisicao(r),pri=r.prioridade==='critico'?'critico':(r.prioridade==='urgente'?'urgente':'normal'),fim=p.pct>=100?' concluida':'';return '<article class="rnCard rnListCard '+pri+fim+'" data-rn-open="'+escR(r.id)+'" style="--rc:'+si[1]+';--rb:'+si[2]+'"><div class="rnCardFill" style="width:'+p.pct+'%"></div><i class="rnListBar"></i><div class="rnListBody"><div class="rnListTitle"><b>'+escR(r.numero)+'</b>'+(maq?'<span>'+escR(maq)+'</span>':'')+'</div><div class="rnListMeta"><strong>'+escR(setor)+'</strong><em></em><span>'+escR(r.data||'—')+'</span><em></em><span>'+escR(r.hora||'—')+'</span><em></em><span>'+escR(r.turno||'—')+'</span></div>'+(r.observacoes?'<small>“'+escR(r.observacoes)+'”</small>':'')+'</div><div class="rnCardRing" style="--pct:'+p.pct+'" title="Progresso da requisição"><b>'+p.pct+'%</b></div>'+(s==='separado'?'<button class="rnConfirmQuick" data-confirm-id="'+escR(r.id)+'"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>Confirmar</button>':'<span class="rnChip">'+si[0]+'</span>')+'<b class="rnListArrow" aria-label="Abrir requisição"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></b></article>';}

@@ -36,3 +36,4 @@ test('sanitização da requisição limita campos', function () {
   assert.equal(request.clean('  operador  ', 20), 'operador');
   assert.equal(request.clean('123456', 4), '1234');
 });
+

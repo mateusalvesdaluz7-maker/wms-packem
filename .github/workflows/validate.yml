@@ -22,3 +22,4 @@ jobs:
           node-version: 20
       - name: Validar sintaxe e APIs
         run: npm test
+

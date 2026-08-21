@@ -102,3 +102,4 @@ module.exports = async function handler(req, res) {
 };
 
 module.exports._test = { validate, allowedOrigin, parseBody };
+

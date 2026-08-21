@@ -2,7 +2,7 @@
 'use strict';
 var batchIndex=0;
 function pending(){
-  return (typeof window.STAGE!=='undefined'&&Array.isArray(window.STAGE))?window.STAGE:[];
+  return (typeof STAGE!=='undefined'&&Array.isArray(STAGE))?STAGE:[];
 }
 function authorized(){
   try{return typeof window.isAdmin!=='function'||window.isAdmin();}catch(e){return false;}
@@ -18,7 +18,7 @@ function labelText(){
 function makePrintRows(rows){
   return rows.map(function(s){
     var et=typeof window.norm==='function'?window.norm(s.et):String(s.et||'').trim();
-    var o=(window.BOB&&window.BOB[et])?window.BOB[et]:{};
+    var o=(typeof BOB!=='undefined'&&BOB&&BOB[et])?BOB[et]:{};
     var item={
       et:et,
       pr:o.pr||s.pr||'',

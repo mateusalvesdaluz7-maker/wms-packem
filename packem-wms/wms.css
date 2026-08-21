@@ -1113,3 +1113,48 @@ body > #fotosModal .fotos-back-mobile{display:none}
 
 /* iPhone/Safari não abre seletor de câmera em campo file com display:none. */
 #expedOcrInput{position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:.01}
+
+/* Câmera mais limpa e cartões operacionais ajustados para celular/tablet. */
+body > #camOverlay .cam-modelabel{display:none!important}
+body > #camOverlay .cam-top{gap:12px}
+body > #camOverlay .cam-modes{backdrop-filter:blur(8px);background:rgba(4,12,20,.58);border:1px solid rgba(255,255,255,.24)}
+body > #camOverlay .cam-frame i.tl,body > #camOverlay .cam-frame i.tr{top:20%}
+body > #camOverlay .cam-frame i.bl,body > #camOverlay .cam-frame i.br{bottom:24%}
+
+@media(max-width:1024px){
+  #v-exped .item{align-items:flex-start;gap:11px;padding:14px;border-radius:16px}
+  #v-exped .item .body{width:calc(100% - 50px)}
+  #v-exped .item .tag{font-size:15px;line-height:1.35}
+  #v-exped .item .desc{font-size:13px;line-height:1.42}
+  #v-exped .scanitem-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:9px}
+  #v-exped .scanitem-row .scanitem{width:100%;min-height:52px;justify-content:center}
+  #v-exped .adm-actions,#v-exped .op-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  body.admin #v-exped .adm-actions,body.exp-editor #v-exped .adm-actions{display:grid}
+  #v-exped .adm-actions .adm-b,#v-exped .op-actions .op-b{width:100%;min-height:42px;margin:0;white-space:normal;line-height:1.2}
+  #v-exped .item > .icam{align-self:center;flex:0 0 52px;width:52px;height:52px;margin-left:4px}
+}
+
+@media(max-width:600px){
+  #v-exped .item{display:grid;grid-template-columns:42px minmax(0,1fr);padding:13px 12px;gap:10px}
+  #v-exped .item .stat{grid-column:1;width:42px;height:42px}
+  #v-exped .item .body{grid-column:2;width:100%}
+  #v-exped .item > .icam{grid-column:1/-1;width:100%;height:48px;margin:0;border-radius:12px}
+  #v-exped .item > .icam svg{width:23px;height:23px}
+  #v-exped .item .tag{gap:6px;font-size:14px}
+  #v-exped .item .tag.dim{font-size:13px}
+  #v-exped .item .desc{font-size:13px;-webkit-line-clamp:3}
+  #v-exped .item .qty-line{font-size:12px}
+  #v-exped .scanitem-row{grid-template-columns:1fr 1fr;gap:8px}
+  #v-exped .scanitem-row .scanitem{min-height:50px;padding:10px 8px;font-size:12px;line-height:1.2}
+  #v-exped .adm-actions,#v-exped .op-actions{grid-template-columns:1fr 1fr;margin-top:11px;padding-top:10px}
+  #v-exped .adm-actions .adm-b,#v-exped .op-actions .op-b{padding:9px 7px;font-size:12px}
+  #v-exped .qtags{grid-template-columns:1fr}
+  body > #camOverlay .cam-top{padding:max(12px,env(safe-area-inset-top)) 12px 12px}
+  body > #camOverlay .cam-modes{padding:3px;gap:2px}
+  body > #camOverlay .cmode{min-height:42px;padding:9px 15px;font-size:13px}
+  body > #camOverlay .cam-close{width:46px;height:46px;flex:0 0 46px}
+  body > #camOverlay .cam-frame i.tl,body > #camOverlay .cam-frame i.tr{top:23%;width:36px;height:36px}
+  body > #camOverlay .cam-frame i.bl,body > #camOverlay .cam-frame i.br{bottom:25%;width:36px;height:36px}
+  body > #camOverlay .cam-hint{bottom:calc(80px + env(safe-area-inset-bottom));font-size:13px}
+}
+

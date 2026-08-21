@@ -120,3 +120,4 @@ module.exports = async function handler(req, res) {
     res.status(e.status === 401 || e.status === 403 ? 502 : 500).json({ error: (e && e.message) || 'Erro ao buscar no Base44' });
   }
 };
+

@@ -56,3 +56,13 @@ test('bipagem da vaga resolve pendência local antes de consultar a nuvem', func
   assert.match(busca, /Promise\.all/);
   assert.match(busca, /3500/);
 });
+
+test('exclusão direta de estoque fica restrita ao admin sem bloquear a saída operacional', function () {
+  assert.match(app, /strictAdm=\(typeof isStrictAdmin==='function'&&isStrictAdmin\(\)\)/);
+  assert.match(app, /Somente admin pode excluir pendência/);
+  assert.match(app, /floorRemoveEt\(achouPr,et,true\)/);
+  assert.match(app, /f70RemoveEt\(achouPr,et,true\)/);
+  assert.match(app, /function floorRemoveEt\(pr,et,saidaOperacional\)\{if\(!saidaOperacional&&!isStrictAdmin\(\)\)/);
+  assert.match(app, /function f70RemoveEt\(pr,et,saidaOperacional\)\{if\(!saidaOperacional&&!isStrictAdmin\(\)\)/);
+  assert.match(app, /window\.recicRemoveCode=function\(pr\)\{if\(!\(typeof isStrictAdmin/);
+});

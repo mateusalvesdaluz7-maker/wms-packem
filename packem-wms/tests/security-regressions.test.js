@@ -66,3 +66,9 @@ test('exclusão direta de estoque fica restrita ao admin sem bloquear a saída o
   assert.match(app, /function f70RemoveEt\(pr,et,saidaOperacional\)\{if\(!saidaOperacional&&!isStrictAdmin\(\)\)/);
   assert.match(app, /window\.recicRemoveCode=function\(pr\)\{if\(!\(typeof isStrictAdmin/);
 });
+
+test('arquivo principal permanece compatível com Safari de celulares e tablets antigos', function () {
+  assert.doesNotMatch(app, /\(\?<=/);
+  assert.doesNotMatch(app, /\?\?/);
+  assert.match(app, /20260821-mobile1|Compatível com Safari\/iOS antigos/);
+});

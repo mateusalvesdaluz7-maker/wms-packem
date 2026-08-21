@@ -114,3 +114,4 @@ module.exports = async function handler(req, res) {
     return send(res, 502, { error: 'Não foi possível interpretar a etiqueta. Tire outra foto, de frente e bem iluminada.' });
   }
 };
+

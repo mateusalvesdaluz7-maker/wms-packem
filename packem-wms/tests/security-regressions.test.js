@@ -39,3 +39,20 @@ test('criação e alterações locais de requisição disparam sincronização c
   assert.match(requisicao, /reqLastLocalSig=reqLocalSig\(\)/);
 });
 
+test('recebimento cria somente pendência e não envia automaticamente ao Chão 70', function () {
+  const inicio = app.indexOf('async function recvAdd');
+  const fim = app.indexOf('function renderRecv', inicio);
+  const fluxo = app.slice(inicio, fim);
+  assert.match(fluxo, /STAGE\.unshift/);
+  assert.equal(fluxo.includes('f70Entrada'), false);
+  assert.equal(app.includes('recvBackfill70'), false);
+});
+
+test('bipagem da vaga resolve pendência local antes de consultar a nuvem', function () {
+  const inicio = app.indexOf('async function bobFetch');
+  const fim = app.indexOf('window.bobFetch=bobFetch', inicio);
+  const busca = app.slice(inicio, fim);
+  assert.match(busca, /STAGE\.find/);
+  assert.match(busca, /Promise\.all/);
+  assert.match(busca, /3500/);
+});

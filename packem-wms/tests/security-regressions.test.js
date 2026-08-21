@@ -26,11 +26,11 @@ test('a operação de estoque passa pela API transacional', function () {
   assert.equal(rewrite.destination, '/api/stock-operation');
 });
 
-test('requisição completa é finalizada automaticamente por bip ou quantidade', function () {
+test('requisição completa aguarda confirmação após bip ou quantidade', function () {
   const requestApi = fs.readFileSync(path.join(root, 'api', 'req-baixa.js'), 'utf8');
-  assert.match(app, /r\.status='entregue';r\.ts_fim_separacao=fim;r\.ts_entrega=fim/);
-  assert.match(requestApi, /status: 'entregue'/);
-  assert.match(requestApi, /requestStatus = 'entregue'/);
+  assert.match(app, /r\.status='separado';r\.ts_fim_separacao=fim/);
+  assert.match(requestApi, /status: 'separado'/);
+  assert.match(requestApi, /requestStatus = 'separado'/);
 });
 
 test('criação e alterações locais de requisição disparam sincronização com a nuvem', function () {

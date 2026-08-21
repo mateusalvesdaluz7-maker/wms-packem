@@ -96,15 +96,14 @@ module.exports = async function handler(req, res) {
         const history = Array.isArray(currentRequest && currentRequest.historico) ? currentRequest.historico.slice() : [];
         const now = new Date().toISOString();
         if (allComplete) {
-          history.push({ ts: now, acao: 'Requisição Finalizada Automaticamente', usuario: user, detalhe: 'Todas as quantidades foram atendidas · ' + operationId });
+          history.push({ ts: now, acao: 'Separação Concluída Automaticamente', usuario: user, detalhe: 'Todas as quantidades foram atendidas · aguardando confirmação · ' + operationId });
           await b44('PUT', 'Requisicao/' + encodeURIComponent(requestId), {
-            status: 'entregue',
+            status: 'separado',
             operador_logistica: (currentRequest && currentRequest.operador_logistica) || user,
             ts_fim_separacao: now,
-            ts_entrega: now,
             historico: history
           });
-          requestStatus = 'entregue';
+          requestStatus = 'separado';
         } else if (currentRequest && currentRequest.status === 'pendente') {
           history.push({ ts: now, acao: 'Separação Iniciada', usuario: user, detalhe: 'Via WMS · ' + operationId });
           await b44('PUT', 'Requisicao/' + encodeURIComponent(requestId), { status: 'em_separacao', operador_logistica: user, ts_inicio_separacao: now, historico: history });
@@ -120,3 +119,4 @@ module.exports = async function handler(req, res) {
   }
 };
 module.exports._test = { clean, allowedOrigin, withLock };
+

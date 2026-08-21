@@ -130,3 +130,4 @@ revoke all on function public.wms_stock_operation(jsonb) from public, anon, auth
 grant execute on function public.wms_stock_operation(jsonb) to service_role;
 
 commit;
+

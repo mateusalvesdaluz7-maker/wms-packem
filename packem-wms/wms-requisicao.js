@@ -69,4 +69,3 @@
   document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('#rnNova');if(!b)return;e.preventDefault();e.stopImmediatePropagation();abrir();},true);
   document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('#rqAdminSubmit');if(!b)return;var tentativas=0,verificar=setInterval(function(){tentativas++;if(!document.getElementById('rqAdminConfirm')){clearInterval(verificar);if(typeof window.rqlDraw==='function')window.rqlDraw();setTimeout(function(){var aba=document.querySelector('#rnStatusTabs [data-s="separado"]');if(aba)aba.click();},0);return;}if(tentativas>=60)clearInterval(verificar);},50);});
 })();
-

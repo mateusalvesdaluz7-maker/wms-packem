@@ -1800,6 +1800,12 @@ $('#mBob').addEventListener('input',function(){const v=$('#mBob').value;if(!v.tr
 
 confirmMov=function(){if(!isAdmin()){toast('Somente admin pode movimentar',false);return;}
  const b=parseBobina($('#mBob').value),prod=(typeof cleanProd==='function')?cleanProd(b.pr):b.pr,et=b.et;let qty=Number($('#mQty').value);let c=norm($('#mLoc').value);
+ /* Saída é sempre da etiqueta inteira: o operador só precisa bipar bobina e endereço. */
+ if(mode==='saida'&&et){
+   const _bob=BOB&&BOB[et];
+   const _saldo=_bob&&Number(_bob.rem)>0?Number(_bob.rem):(_bob&&Number(_bob.pl)>0?Number(_bob.pl):Number(b.peso));
+   if(_saldo>0)qty=_saldo;
+ }
  const saidaProtegida=(mode==='saida'&&window.wmsSaidaEsperada)?window.wmsSaidaEsperada:null;
  if(saidaProtegida){
    const vagaEsperada=norm(saidaProtegida.vaga),etEsperada=norm(saidaProtegida.etiqueta);
@@ -5087,9 +5093,16 @@ updateStageBadge();
  ['mLoc','mBob','mQty'].forEach(id=>{const o=document.getElementById(id);if(o){const n=o.cloneNode(true);o.parentNode.replaceChild(n,o);}});
  const pBob=$('#mBob').closest('label'),pvBob=$('#mBobPv'),assist=$('#movAssist'),pLoc=$('#mLoc').closest('label'),pvLoc=$('#mLocPv'),pPeso=$('#mQty').closest('label');
  if(pBob&&pLoc&&pPeso){const parent=pPeso.parentNode;[pBob,pvBob,assist,pLoc,pvLoc].forEach(n=>{if(n)parent.insertBefore(n,pPeso);});
-  pBob.querySelector('.lab').textContent='1 · Bipe a bobina (T…)';pLoc.querySelector('.lab').textContent='2 · Bipe o endereço';}
+ pBob.querySelector('.lab').textContent='1 · Bipe a bobina (T…)';pLoc.querySelector('.lab').textContent='2 · Bipe o endereço';}
  const mb=$('#mBob');if(mb)mb.placeholder='ex: T40364663';const ml=$('#mLoc');if(ml)ml.placeholder='ex: S-340-1';
  [mb,ml].forEach(el=>{if(!el)return;scanLock(el);});
+
+ const _setModeBase=setMode;
+ setMode=function(m){
+  _setModeBase(m);
+  if(pPeso){pPeso.style.display=m==='saida'?'none':'';}
+  if(pLoc&&pLoc.querySelector('.lab'))pLoc.querySelector('.lab').textContent='2 · Bipe o endereço';
+ };
 
  function locPrev(){const sp=findSpace($('#mLoc').value),pv=$('#mLocPv');if(!$('#mLoc').value.trim()){pv.style.display='none';return;}pv.style.display='block';if(sp&&sp.o&&sp.pr)pv.innerHTML=chip('','conteúdo atual',sp.pr,fmt(sp.q)+' '+unitOf(sp));else if(sp)pv.innerHTML=chip('','posição','livre');else pv.innerHTML='<div style="color:var(--out);font-size:.82rem;font-weight:600;padding:4px 0">⚠ endereço não existe</div>';}
  function bobPrev(){const v=$('#mBob').value,pv=$('#mBobPv');if(!v.trim()){pv.style.display='none';return;}const b=parseBobina(v);if(b.peso!=null)$('#mQty').value=(mode==='saida'?(b.rem!=null?b.rem:b.peso):(b.pl!=null?b.pl:b.peso));pv.style.display='block';
@@ -5100,10 +5113,11 @@ updateStageBadge();
  $('#mBob').addEventListener('input',bobPrev);
  $('#mBob').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#mLoc').focus();}});
  $('#mLoc').addEventListener('input',locPrev);
- $('#mLoc').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(mode==='saida'){const c=norm($('#mLoc').value);if(!c){return;}const q=$('#mQty');setTimeout(()=>{q.focus();q.select();},120);toast('Confira o peso — edite se a saída for parcial');}else{confirmMov();}}});
+ $('#mLoc').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const c=norm($('#mLoc').value);if(!c)return;confirmMov();}});
  $('#mQty').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();confirmMov();}});
  $('#confirmBtn').onclick=function(){confirmMov();};
  renderMov=function(){setMode(mode);clearScan();renderMovRecent();setTimeout(()=>$('#mBob').focus(),60);};
+ setMode(mode);
 })();
 
 /* ===== etiqueta de endereço: opção "todas as ruas" ===== */

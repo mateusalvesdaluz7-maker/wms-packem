@@ -1770,7 +1770,8 @@ function regBobFromEtq(id,e){try{
 function saveLOC(){try{localStorage.setItem('wmsx_loc',JSON.stringify(LOC));}catch(e){}}
 function brNum(v){if(typeof v==='number')return v;if(v==null)return 0;let s=String(v).trim().replace(/[^\d.,-]/g,'');if(!s)return 0;const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.');if(lc>-1&&ld>-1){if(lc>ld)s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'');}else if(lc>-1){s=s.replace(/,/g,'.');}return parseFloat(s)||0;}
 
-parseBobina=function(v){if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);v=norm(v);if(BOB[v]){const rem=(BOB[v].rem!=null?BOB[v].rem:BOB[v].pl);return{et:v,pr:BOB[v].pr,desc:BOB[v].desc||'',peso:rem,pl:BOB[v].pl,rem:rem};}
+parseBobina=function(v){if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);v=norm(v);if(BOB[v]){/* O saldo restante pode ficar em zero depois de uma SAIDA completa, mas o peso
+   original da etiqueta precisa continuar disponivel para uma transferencia/reentrada. */const saldo=(BOB[v].rem!=null?Number(BOB[v].rem):null),original=Number(BOB[v].pl)||0,rem=(saldo!=null?saldo:original),peso=(saldo>0?saldo:original);return{et:v,pr:BOB[v].pr,desc:BOB[v].desc||'',peso:peso,pl:BOB[v].pl,rem:rem};}
   /* etiqueta rastreável (QR guarda o ID): resolve pelo cadastro da NF/romaneio → puxa o PRODUTO real, nunca o id */
   if(typeof window.etqLookup==='function'){var _le=window.etqLookup(v);if(_le){return{et:v,pr:_le.pr||'',desc:_le.desc||'',peso:_le.pl,pl:_le.pl,rem:_le.pl};}}
   /* Recebimento pendente já contém produto e peso: não consulta a nuvem novamente. */
@@ -1799,6 +1800,14 @@ $('#mBob').addEventListener('input',function(){const v=$('#mBob').value;if(!v.tr
 
 confirmMov=function(){if(!isAdmin()){toast('Somente admin pode movimentar',false);return;}
  const b=parseBobina($('#mBob').value),prod=(typeof cleanProd==='function')?cleanProd(b.pr):b.pr,et=b.et;let qty=Number($('#mQty').value);let c=norm($('#mLoc').value);
+ const saidaProtegida=(mode==='saida'&&window.wmsSaidaEsperada)?window.wmsSaidaEsperada:null;
+ if(saidaProtegida){
+   const vagaEsperada=norm(saidaProtegida.vaga),etEsperada=norm(saidaProtegida.etiqueta);
+   if(!c){toast('1 de 2 · Bipe primeiro o endereço '+vagaEsperada,false);$('#mLoc').focus();return;}
+   if(c!==vagaEsperada){toast('Endereço errado. Bipe a vaga '+vagaEsperada,false);$('#mLoc').value='';$('#mLoc').focus();return;}
+   if(!et){toast('2 de 2 · Agora bipe a bobina '+etEsperada,false);$('#mBob').focus();return;}
+   if(norm(et)!==etEsperada){toast('Bobina errada. Bipe a etiqueta '+etEsperada,false);$('#mBob').value='';$('#mQty').value='';$('#mBob').focus();return;}
+ }
  if(mode==='saida'){if(!c){toast('Bipe o endereço para confirmar',false);$('#mLoc').click();return;}if(et&&LOC[et]&&c!==LOC[et]){toast('Endereço errado — a bobina '+et+' está em '+LOC[et],false);return;}}
  if(!c){toast('Bipe o endereço',false);$('#mLoc').focus();return;}
  const sp=findSpace(c);if(!sp){toast('Endereço não existe',false);return;}
@@ -1823,7 +1832,7 @@ confirmMov=function(){if(!isAdmin()){toast('Somente admin pode movimentar',false
   else if(et&&LOC[et]&&sp.q<=0){delete LOC[et];saveLOC();}
   if(sp.q<=0){sp.q=0;sp.o=false;sp.pr='';}}
  var _un=unitOf(prod);sp.u=_un;sp.upd=nowISO();sp.by=session.u;MV.unshift({id:uid(),action:mode,w:cfg.warehouse,code:c,pr:prod,q:qty,u:_un,et:et||'',before,after:sp.o?sp.q:0,at:nowISO(),by:session.u}); /* log local enxuto: o histórico completo fica na nuvem */
- persist();/* empurra a vaga e o movimento pra nuvem NA HORA — esta é a versão ATIVA do confirmMov; sem isso o sync revertia a entrada/saída */try{if(typeof syncSpace==='function')syncSpace(sp);}catch(e){}try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}logAct(mode,(et?et+' · ':'')+prod+' '+(mode==='entrada'?'+':'−')+qty+' @ '+c);try{enqueue3dTask(c,mode==='entrada'?'in':'out');}catch(e){}const bobMsg=(mode==='saida'&&et&&BOB[et])?(' · bobina '+fmt(BOB[et].rem)+' '+_un.toLowerCase()):'';toast((mode==='entrada'?'Entrada':'Saída')+(et?' · '+et:'')+' · '+c+' · pos '+fmt(sp.q)+bobMsg);clearScan();renderMovRecent();$('#mLoc').focus();};
+ persist();/* empurra a vaga e o movimento pra nuvem NA HORA — esta é a versão ATIVA do confirmMov; sem isso o sync revertia a entrada/saída */try{if(typeof syncSpace==='function')syncSpace(sp);}catch(e){}try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}logAct(mode,(et?et+' · ':'')+prod+' '+(mode==='entrada'?'+':'−')+qty+' @ '+c);try{enqueue3dTask(c,mode==='entrada'?'in':'out');}catch(e){}const bobMsg=(mode==='saida'&&et&&BOB[et])?(' · bobina '+fmt(BOB[et].rem)+' '+_un.toLowerCase()):'';toast((mode==='entrada'?'Entrada':'Saída')+(et?' · '+et:'')+' · '+c+' · pos '+fmt(sp.q)+bobMsg);if(saidaProtegida){window.wmsSaidaEsperada=null;var _ml=$('#mLoc'),_mb=$('#mBob');if(_ml){delete _ml.dataset.esperado;_ml.placeholder='ex: A-10-1';}if(_mb){delete _mb.dataset.esperado;_mb.placeholder='ex: T40364663';}var _mt=document.getElementById('movFormTitle');if(_mt)_mt.textContent='Movimentar estoque';}clearScan();renderMovRecent();$('#mLoc').focus();};
 $('#confirmBtn').onclick=function(){confirmMov();};
 
 (function(){const lab=[...document.querySelectorAll('#v-mov .lab')].find(l=>l.textContent.indexOf('Etiqueta da bobina')>-1);if(lab)lab.textContent='2 · Bipe a etiqueta da bobina (T…)';const mb=$('#mBob');if(mb)mb.placeholder='ex: T40364663';})();
@@ -13810,11 +13819,11 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
       +'<div style="font-size:.83rem;color:var(--muted);margin-bottom:4px">Local atual</div><div style="font-size:1rem;font-weight:800">'+safe(local)+'</div>'
       +(vaga?'<div style="margin-top:9px;padding:12px;border-radius:10px;background:#fff;border:1px solid #f3c36b"><span style="font-size:.72rem;color:#9a5b00;font-weight:700;text-transform:uppercase">Vaga / endereço</span><div class="mono" style="font-size:1.45rem;font-weight:900;margin-top:3px">'+safe(vaga)+'</div></div>':'')
       +(destino?'<div style="font-size:.76rem;color:var(--muted);margin-top:11px">Destino tentado: '+safe(destino)+'</div>':'')+'</div>'
-      +'<p style="font-size:.84rem;line-height:1.5;color:var(--muted);margin:0 0 15px">Faça a saída no local acima. Depois, bipe novamente para armazenar na nova vaga.</p>'
-      +(ehPrateleira?'<button class="btn brand" id="wmsDupSaida" style="width:100%;height:48px;margin-bottom:9px">Fazer saída desta vaga</button><button class="gbtn" id="wmsDupAbrir" style="width:100%;justify-content:center">Abrir vaga no mapa</button>':'<button class="btn brand" id="wmsDupFechar" style="width:100%;height:48px">Entendi</button>');
+      +'<p style="font-size:.84rem;line-height:1.5;color:var(--muted);margin:0 0 15px">Para retirar com segurança, o sistema vai pedir <b>dois bipes</b>: primeiro o endereço acima e depois a bobina. Nada será removido sem confirmar os dois.</p>'
+      +(ehPrateleira?'<button class="btn brand" id="wmsDupSaida" style="width:100%;height:48px;margin-bottom:9px">Bipar endereço e bobina para saída</button><button class="gbtn" id="wmsDupAbrir" style="width:100%;justify-content:center">Abrir vaga no mapa</button>':'<button class="btn brand" id="wmsDupFechar" style="width:100%;height:48px">Entendi</button>');
     openDrawer('Etiqueta já armazenada',html);
     if(ehPrateleira){
-      var sair=document.getElementById('wmsDupSaida');if(sair)sair.onclick=function(){closeDrawer();go('v-mov');setTimeout(function(){try{setMode('saida');var a=document.getElementById('mLoc'),b=document.getElementById('mBob');if(a){a.value=vaga;a.dispatchEvent(new Event('input',{bubbles:true}));}if(b){b.value=et;b.dispatchEvent(new Event('input',{bubbles:true}));b.focus();}}catch(e){}},80);};
+      var sair=document.getElementById('wmsDupSaida');if(sair)sair.onclick=function(){closeDrawer();go('v-mov');setTimeout(function(){try{setMode('saida');clearScan();window.wmsSaidaEsperada={etiqueta:et,vaga:vaga};var a=document.getElementById('mLoc'),b=document.getElementById('mBob');if(a){a.placeholder='1 · Bipe o endereço '+vaga;a.dataset.esperado=vaga;}if(b){b.placeholder='2 · Depois bipe a bobina '+et;b.dataset.esperado=et;}var form=document.getElementById('movFormTitle');if(form)form.textContent='Saída protegida · bipe '+vaga+' e depois '+et;if(a)a.focus();toast('Primeiro bipe o endereço '+vaga+'; depois bipe a bobina '+et); }catch(e){}},80);};
       var abrir=document.getElementById('wmsDupAbrir');if(abrir)abrir.onclick=function(){closeDrawer();go('v-board');setTimeout(function(){var sp=findSpace(vaga);if(sp)openSpace(sp.id);else toast('A vaga '+vaga+' não foi encontrada no mapa.',false);},100);};
     }else{var fechar=document.getElementById('wmsDupFechar');if(fechar)fechar.onclick=closeDrawer;}
     return true;

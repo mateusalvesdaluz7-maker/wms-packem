@@ -973,8 +973,6 @@ function renderStock(){
   /* autoFixWeights já roda no boot e após cada sync — não repete aqui (evita travar ao abrir o Estoque) */
   /* se já há um detalhe de card aberto, NÃO mexe nele nem na tabela (senão o clique "volta sozinho") */
   var _det=document.getElementById('stChaoDetail');var _aberto=_det&&_det.innerHTML.trim()!=='';
-  const st=$('#stStreet');if(st.options.length<=1)[...new Set(S.filter(x=>x.w===cfg.warehouse).map(x=>x.s))].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent='Rua '+s;st.appendChild(o);});
-  renderChaoCard();
   if(!_aberto){renderStockTable();}
 }
 function renderChaoCard(){var el=document.getElementById('stChaoCard');if(!el)return;var t=chaoTotals();
@@ -6005,7 +6003,7 @@ async function pullLight(){
   try{var _mvr=await Promise.race([supa.from('movimentos').select('*').order('at',{ascending:false}).limit(40),new Promise(function(res){setTimeout(function(){res({data:null});},9000);})]);if(_mvr&&_mvr.data&&_mvr.data.length){var _seen={};MV.forEach(function(m){if(m&&m.id)_seen[m.id]=1;});var _add=[];_mvr.data.forEach(function(r){if(!_seen[r.id])_add.push({id:r.id,action:r.action,w:r.w,code:r.code,pr:r.pr,q:Number(r.q)||0,u:r.u,et:r.et||'',before:Number(r.before_q)||0,after:Number(r.after_q)||0,at:r.at,by:r.by_user||''});});if(_add.length){_mvNew=_add.length;MV=_add.concat(MV);MV.sort(function(a,b){return (b.at||'')<(a.at||'')?-1:((b.at||'')>(a.at||'')?1:0);}); /* log local enxuto: o histórico completo fica na nuvem */DB.saveMovs(MV);}}}catch(e){}
   var _spNew=0;
   try{var _spr=await Promise.race([supa.from('espacos').select('*').order('upd',{ascending:false,nullsFirst:false}).limit(200),new Promise(function(res){setTimeout(function(){res({data:null});},9000);})]);if(_spr&&_spr.data&&_spr.data.length){var _byId={};S.forEach(function(x){_byId[x.id]=x;});_spr.data.forEach(function(r){if(!r.upd)return;var cloud={id:r.id,w:r.w,s:r.s,l:r.l,p:r.p,pr:r.pr||'',q:cleanQ(r.q),u:r.u||'KG',o:!!r.o,src:r.src||'',upd:r.upd||'',by:r.by_user||''};var loc=_byId[r.id];if(!loc){S.push(cloud);_spNew++;return;}var _lu=String(loc.upd||''),_cu=String(cloud.upd||'');if(!guard&&_cu&&(!_lu||_cu>_lu)){var i=S.indexOf(loc);if(i>=0){S[i]=cloud;_spNew++;}}});if(_spNew){DB.saveSpaces(S);}}}catch(e){}
-  if(session){var _ae=document.activeElement;var _dig=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');var _drw=document.querySelector('#drawer.show');if(!_dig&&!_drw){var v=document.querySelector('.view.active');if(v){var _live=(v.id==='v-recv'||v.id==='v-floor'||v.id==='v-floor70');var _mov=(v.id==='v-vsm'||v.id==='v-track');var _sp=(v.id==='v-home'||v.id==='v-board'||v.id==='v-stock'||v.id==='v-abc');if(_live||(_mov&&_mvNew)||(_sp&&_spNew))render(v.id);}}}
+  if(session){var _ae=document.activeElement;var _dig=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');var _drw=document.querySelector('#drawer.show');if(!_dig&&!_drw){var v=document.querySelector('.view.active');if(v){var _live=(v.id==='v-recv'||v.id==='v-floor'||v.id==='v-floor70');var _mov=(v.id==='v-vsm'||v.id==='v-track');var _sp=(v.id==='v-home'||v.id==='v-board'||v.id==='v-abc');if(_live||(_mov&&_mvNew)||(_sp&&_spNew))render(v.id);}}}
   updateStageBadge();
   /* aba Nota Fiscal aberta = mantém as NFs/romaneios dos outros PCs chegando ao vivo.
      (não bloqueia o pull leve: dispara em paralelo e o throttle de 6s evita rajada) */
@@ -6031,7 +6029,7 @@ function autoSyncTick(){
      Agora só solta quando a promise de fato termina (com teto de 90s para pane real). */
   if(_syncing){ if(Date.now()-_syncStart>90000){_syncing=false;} else return; }
   _syncing=true;_syncStart=Date.now();_tickN++;
-  var full=(_tickN%30===0); // pull completo (pesado) a cada ~5 min; o resto é leve
+  var full=(_tickN%15===0); // consulta completa a cada ~5 min; o restante chega por tempo real + consulta leve
   try{window._DIAG.ticks=_tickN;if(full)window._DIAG.fullAt=new Date().toLocaleTimeString();}catch(e){}
   var p=full?pullAll(true):pullLight();
   p.then(function(ok){
@@ -6041,7 +6039,7 @@ function autoSyncTick(){
  }catch(e){_syncing=false;}
 }
 let _autoSyncTimer=null;
-function startAutoSync(){clearInterval(_autoSyncTimer);_autoSyncTimer=setInterval(autoSyncTick,10000);}
+function startAutoSync(){clearInterval(_autoSyncTimer);_autoSyncTimer=setInterval(autoSyncTick,20000);}
 /* wraps p/ gravar cada ação na nuvem */
 (function(){
  const _cm=confirmMov;confirmMov=function(){const n0=MV.length;_cm();if(MV.length>n0){const m=MV[0];syncMov(m);const sp=findSpace(m.code);if(sp)syncSpace(sp);if(m.et){if(m.action==='entrada'){syncLoc(m.et,m.code);}else if(m.action==='saida'){
@@ -6436,10 +6434,24 @@ window.wmsFixReport=function(){try{var log=JSON.parse(localStorage.getItem('wmsx
  +'#stTable td.mut{color:var(--muted)}#stTable td.tot{color:var(--brand);font-weight:700}';
  document.head.appendChild(s);})();
 
-filterStock=function(){const q=($('#stSearch').value||'').trim().toUpperCase(),sr=$('#stStreet').value,stt=$('#stStatus').value;let rows=S.filter(x=>x.w===cfg.warehouse);if(stt===''||!stt)rows=rows.filter(x=>x.o&&x.q>0);else if(stt==='zero')rows=rows.filter(x=>x.o&&x.q<=0);else if(stt==='sem_etq'){rows=rows.filter(x=>x.o&&isNoLabel(x.pr));}if(sr)rows=rows.filter(x=>x.s===sr);if(q)rows=rows.filter(x=>{if(code(x).toUpperCase().indexOf(q)>=0)return true;if((x.pr||'').toUpperCase().indexOf(q)>=0)return true;const d=descOf(x.pr);return !!d&&d.toUpperCase().indexOf(q)>=0;});
+function stockQuery(){return (($('#stSearch')&&$('#stSearch').value)||'').trim().toUpperCase();}
+function stockFillStreets(){const st=$('#stStreet');if(!st||st.options.length>1)return;const ruas=new Set();for(let i=0;i<S.length;i++){const x=S[i];if(x.w===cfg.warehouse&&x.s)ruas.add(x.s);}Array.from(ruas).sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent='Rua '+s;st.appendChild(o);});}
+filterStock=function(){const q=stockQuery(),sr=$('#stStreet').value,stt=$('#stStatus').value;if(!q)return [];let rows=S.filter(x=>x.w===cfg.warehouse);if(stt===''||!stt)rows=rows.filter(x=>x.o&&x.q>0);else if(stt==='zero')rows=rows.filter(x=>x.o&&x.q<=0);else if(stt==='sem_etq'){rows=rows.filter(x=>x.o&&isNoLabel(x.pr));}if(sr)rows=rows.filter(x=>x.s===sr);rows=rows.filter(x=>{if(code(x).toUpperCase().indexOf(q)>=0)return true;if((x.pr||'').toUpperCase().indexOf(q)>=0)return true;const d=descOf(x.pr);return !!d&&d.toUpperCase().indexOf(q)>=0;});
   const k=stSort.k,d=stSort.d;rows.sort((a,b)=>{let va,vb;if(k==='code'){va=code(a);vb=code(b);}else if(k==='pr'){va=a.pr;vb=b.pr;}else if(k==='q'){va=a.q;vb=b.q;}else{va=a.upd;vb=b.upd;}if(va<vb)return -d;if(va>vb)return d;return 0;});return rows;};
 
-renderStockTable=_renderStockTableNova=function(){const rows=filterStock();
+renderStockTable=_renderStockTableNova=function(){
+  const q=stockQuery();
+  if(!q){
+    const sm=document.getElementById('stSummary');if(sm)sm.remove();
+    const cc=document.getElementById('stChaoCard');if(cc)cc.innerHTML='<div style="padding:22px;text-align:center;color:#64748b;font-weight:700">Digite um código, descrição ou endereço para consultar o estoque.</div>';
+    $('#stCount').textContent='Digite para pesquisar';
+    $('#stTable').innerHTML='<tbody><tr><td colspan="6" style="padding:44px 20px;text-align:center;color:#64748b"><b>Nenhum dado carregado.</b><br>Use a busca acima para visualizar somente o material desejado.</td></tr></tbody>';
+    const fb=document.getElementById('stFixWeights');if(fb)fb.style.display='none';
+    return;
+  }
+  stockFillStreets();
+  const cc=document.getElementById('stChaoCard');if(cc)cc.innerHTML='';
+  const rows=filterStock();
   // total GERAL do armazém (todas as posições ocupadas) — não depende do filtro da tela, pra bater com a exportação
   var _todas=S.filter(function(x){return x.w===cfg.warehouse&&x.o;});
   var pesoKg=0,pesoMt=0,pesoUn=0;_todas.forEach(function(x){var n=(typeof pesoReal==='function')?pesoReal(x):(Number(x.q)||0);if(n<=0)return;var u=(typeof unitOf==='function'?unitOf(x):'KG');if(u==='MT')pesoMt+=n;else if(u==='UN')pesoUn+=n;else pesoKg+=n;});
@@ -6466,7 +6478,7 @@ renderStockTable=_renderStockTableNova=function(){const rows=filterStock();
   if(rows.length>150)$('#stCount').textContent=rows.length+' itens · 150 mostrados';};
 (function(){
  ['stSearch','stStreet','stStatus'].forEach(id=>{const el=document.getElementById(id);if(el){const c=el.cloneNode(true);el.parentNode.replaceChild(c,el);}});
- let _stT=null;const deb=()=>{clearTimeout(_stT);_stT=setTimeout(()=>renderStockTable(),320);};
+ let _stT=null;const deb=()=>{clearTimeout(_stT);_stT=setTimeout(()=>renderStockTable(),240);};
  const se=document.getElementById('stSearch');if(se)se.addEventListener('input',deb);
  ['stStreet','stStatus'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',()=>renderStockTable());});})();
 (function(){const sane=v=>{return (typeof pesoReal==='function')?0:v;};const _p=x=>(typeof pesoReal==='function'?pesoReal(x):(Number(x.q)||0));const exp=document.getElementById('stExport');if(exp)exp.onclick=()=>{const tot={};S.filter(x=>x.w===cfg.warehouse&&x.o).forEach(x=>{if(x.pr)tot[x.pr]=(tot[x.pr]||0)+_p(x);});const h=['Endereco','Produto','Descricao','Peso','TotalProduto','Un','Origem','Atualizado','Operador'];const b=filterStock().map(x=>[code(x),x.pr,descOf(x.pr),_p(x),tot[x.pr]||0,unitOf(x),x.src,x.upd,x.by]);dl('estoque_packem.csv',csv([h,...b]));toast('Exportado');};
@@ -7462,7 +7474,9 @@ function togglePlan3d(force){
  (_3d.meshes||[]).forEach(function(m){m.visible=!on&&(_3d.level===0||m.userData.l===_3d.level);});(_3d.planMeshes||[]).forEach(function(m){m.visible=on&&(_3d.level===0||m.userData.l===_3d.level);});
  if(p){p.classList.toggle('on',on);p.innerHTML=on?'<div class="ph"><span>Projeção recomendada</span><span class="safe">somente simulação</span></div><div class="pv">Materiais iguais juntos · Rua U → Rua A</div><div class="ps">Clique em um material para localizar suas posições recomendadas. Nenhuma vaga real foi alterada.</div><div class="pk"><span><i style="background:#ef4444"></i>Giro A</span><span><i style="background:#f59e0b"></i>Giro B</span><span><i style="background:#3b82f6"></i>Giro C</span><span>'+((_3d.planSummary&&_3d.planSummary.materials)||0)+' materiais</span></div>'+planItemsHtml3d():'';if(on)wirePlanPanel3d();}if(leg)leg.style.display=on?'none':'';if(_3d.hover){_3d.hover.scale.set(1,1,1);_3d.hover=null;}
 }
-function animate3d(frameNow){_3d.raf=requestAnimationFrame(animate3d);try{const nowFrame=frameNow||performance.now();const presenting=!!(_3d.show&&_3d.show.on);const minFrame=(_3d.auto&&!presenting)?16:(presenting?40:33);if(_3d._paintAt&&nowFrame-_3d._paintAt<minFrame)return;_3d._paintAt=nowFrame;if(!_3d.lastFrame)_3d.lastFrame=nowFrame-(1000/60);const elapsed=Math.max(1,Math.min(50,nowFrame-_3d.lastFrame));const frameStep=elapsed/(1000/60);_3d.lastFrame=nowFrame;if(_3d.auto){const orbiting=presenting&&_3d.show.phase==='orbit';_3d.theta+=(orbiting?0.36:0.096)*(elapsed/1000);if(!presenting&&Math.abs(_3d.theta)>Math.PI*2)_3d.theta%=Math.PI*2;}camPos3d();
+function isMap3dVisible(){const v=document.getElementById('v-3d');return !document.hidden&&!!(v&&v.classList.contains('active'));}
+function schedule3dIdle(){if(_3d.idleTimer)return;_3d.idleTimer=setTimeout(function(){_3d.idleTimer=null;if(!_3d.ready)return;if(isMap3dVisible()){_3d.lastFrame=0;_3d._paintAt=0;if(!_3d.raf)_3d.raf=requestAnimationFrame(animate3d);}else schedule3dIdle();},500);}
+function animate3d(frameNow){_3d.raf=0;if(!isMap3dVisible()){_3d.lastFrame=0;_3d._paintAt=0;schedule3dIdle();return;}if(_3d.idleTimer){clearTimeout(_3d.idleTimer);_3d.idleTimer=null;}_3d.raf=requestAnimationFrame(animate3d);try{const nowFrame=frameNow||performance.now();const presenting=!!(_3d.show&&_3d.show.on);const minFrame=(_3d.auto&&!presenting)?16:(presenting?40:33);if(_3d._paintAt&&nowFrame-_3d._paintAt<minFrame)return;_3d._paintAt=nowFrame;if(!_3d.lastFrame)_3d.lastFrame=nowFrame-(1000/60);const elapsed=Math.max(1,Math.min(50,nowFrame-_3d.lastFrame));const frameStep=elapsed/(1000/60);_3d.lastFrame=nowFrame;if(_3d.auto){const orbiting=presenting&&_3d.show.phase==='orbit';_3d.theta+=(orbiting?0.36:0.096)*(elapsed/1000);if(!presenting&&Math.abs(_3d.theta)>Math.PI*2)_3d.theta%=Math.PI*2;}camPos3d();
  if(_3d.show&&_3d.show.on){const now=performance.now();
   if(_3d.show.phase==='orbit'){if(_3d.show.theta0==null)_3d.show.theta0=_3d.theta;if(_3d.theta-_3d.show.theta0>=Math.PI*2){_3d.show.phase='kpis';_3d.show.slide=0;_3d.show.t0=now;showSlide(0);}}
   else{var dur=[20000,10000,10000][_3d.show.slide]||10000;if(now-_3d.show.t0>dur){_3d.show.slide=(_3d.show.slide||0)+1;if(_3d.show.slide>2){_3d.show.phase='orbit';_3d.show.theta0=_3d.theta;_3d.show.t0=now;hideShow3d();}else{_3d.show.t0=now;showSlide(_3d.show.slide);}}}

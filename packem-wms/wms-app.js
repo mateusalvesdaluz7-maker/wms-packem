@@ -217,6 +217,8 @@ function findSpace(c){c=norm(c);return S.find(x=>x.w===cfg.warehouse&&code(x)===
 function valOf(c){const v=VL.find(x=>x.codigo===c);return v?Number(v.valor)||0:0;}
 function occSpaces(){return S.filter(x=>x.w===cfg.warehouse&&x.o&&x.pr&&x.q>0);}
 
+/* Um único modo leve atende celular e tablet. O PC mantém todos os recursos. */
+
 /* login */
 function showLogin(){$('#login').style.display='flex';$('#logHint').textContent='';$('#logHint').style.color='';}
 function logErr(msg){var h=$('#logHint');if(h){h.textContent=msg;h.style.color='#ff6b6b';h.style.fontWeight='700';}}
@@ -1964,24 +1966,21 @@ function placeBobina(et,pr,pl,c){pl=Number(pl);if(!Number.isFinite(pl)||pl<=0){t
   }
  return true;}
 async function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){b=await bobFetch(et);}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
-  if(STAGE.some(s=>s.et===et)){toast('Etiqueta já no intermediário',false);return;}
   var _it={et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u};
-  STAGE.unshift(_it);saveStage();
-  /* Recebimento não é depósito físico. A etiqueta fica somente pendente e nenhum saldo
-     de Prateleira, Chão 70, Expedição ou Recicladora é alterado neste momento. */
-  /* TRAVA ANTI-CORRIDA: sem isso o pullLight (que roda a cada 2,5s) sobrescrevia STAGE com a
-     versão da nuvem ANTES do syncStage chegar lá — e o bipe sumia do estoque intermediário. */
+  if(typeof window.f70Entrada!=='function'){toast('Não foi possível acessar o Chão de Fábrica - 70',false);return false;}
+  /* A NF entra fisicamente direto no Chão 70. A proteção de localização única executada
+     antes desta função impede criar uma segunda cópia da mesma etiqueta em outro depósito. */
+  if(!window.f70Entrada(_it,true))return false;
   try{markLocalWrite();}catch(e){}
-  try{if(typeof syncStage==='function')syncStage(_it);}catch(e){}
-  MV.unshift({id:uid(),action:'recebimento',w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:b.pr||'',q:Number(b.pl)||0,u:(typeof unitOf==='function'?unitOf(b.pr):'KG'),et:et,before:0,after:Number(b.pl)||0,at:nowISO(),by:session.u}); /* log local enxuto: o histórico completo fica na nuvem */try{if(typeof syncMov==='function')syncMov(MV[0]);}catch(e){}logAct('recebimento',et+' · '+b.pr);renderRecv();updateStageBadge();toast('Recebido: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});}
+  renderRecv();updateStageBadge();toast('Recebido no Chão de Fábrica - 70: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});return true;}
 function renderRecv(){const adm=isAdmin();
- $('#v-recv').innerHTML='<div class="ph-head"><div><p class="eb">Operação · recebimento</p><h1>Estoque intermediário</h1></div></div>'+
+ $('#v-recv').innerHTML='<div class="ph-head"><div><p class="eb">Operação · recebimento</p><h1>Entrada no Chão de Fábrica</h1></div></div>'+
  '<div class="two">'+
   '<div class="panel"><div class="ph"><span class="pdot"></span>Bipar etiqueta para receber</div>'+
    '<label class="fld"><span class="lab">Etiqueta (T…)</span><input class="input code" id="recvScan" placeholder="ex: T40364663" '+(adm?'':'disabled')+'></label>'+
-   '<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">A bobina fica <b>somente pendente</b>, sem saldo em depósito. Depois bipe a etiqueta no destino: <b>Prateleira, Chão de Fábrica, Expedição, Recicladora</b> ou <b>Produção</b>.</p><label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvAutoLbl"'+(autoLabelOn()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Imprimir etiqueta automaticamente ao bipar</label><label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvStation"'+(isPrintStation()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Esta máquina imprime na Zebra (estação do PC)</label><div style="margin-top:12px"><button class="gbtn" id="recvSetFmt" style="width:100%;justify-content:center">'+(ICONS.tag||'')+' Escolher modelo da etiqueta</button><div style="font-size:.72rem;color:var(--muted);margin-top:6px" id="recvFmtLbl"></div></div></div>'+
-  '<div class="panel" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><div style="font-family:var(--disp);font-size:3rem;font-weight:800;line-height:1">'+STAGE.length+'</div><div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px">bobinas aguardando destino</div>'+(STAGE.length?'<div style="font-family:var(--mono);font-size:.85rem;color:var(--muted);margin-top:8px">'+fmt(STAGE.reduce((a,b)=>a+(b.pl||0),0))+' kg pendentes</div>':'')+(STAGE.length&&adm?'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px"><button class="btn brand" id="recvPrintAll" style="font-size:.76rem;padding:9px 13px">'+(ICONS.print||'')+' Imprimir todas ('+STAGE.length+')</button></div>':'')+'</div>'+
- '</div><h3 class="sub">Pendentes</h3><div id="stageList"></div>';
+   '<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">Ao bipar, a bobina entra diretamente no <b>Chão de Fábrica - 70</b>. Para levá-la a outro local, faça primeiro a <b>SAÍDA</b> no Chão e depois a <b>ENTRADA</b> no destino.</p><label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvAutoLbl"'+(autoLabelOn()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Imprimir etiqueta automaticamente ao bipar</label><label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvStation"'+(isPrintStation()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Esta máquina imprime na Zebra (estação do PC)</label><div style="margin-top:12px"><button class="gbtn" id="recvSetFmt" style="width:100%;justify-content:center">'+(ICONS.tag||'')+' Escolher modelo da etiqueta</button><div style="font-size:.72rem;color:var(--muted);margin-top:6px" id="recvFmtLbl"></div></div></div>'+
+  '<div class="panel" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><div style="font-family:var(--disp);font-size:3rem;font-weight:800;line-height:1">'+STAGE.length+'</div><div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px">pendências antigas aguardando destino</div>'+(STAGE.length?'<div style="font-family:var(--mono);font-size:.85rem;color:var(--muted);margin-top:8px">'+fmt(STAGE.reduce((a,b)=>a+(b.pl||0),0))+' kg pendentes</div>':'')+(STAGE.length&&adm?'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px"><button class="btn brand" id="recvPrintAll" style="font-size:.76rem;padding:9px 13px">'+(ICONS.print||'')+' Imprimir todas ('+STAGE.length+')</button></div>':'')+'</div>'+
+ '</div><h3 class="sub">Pendências antigas</h3><div id="stageList"></div>';
  const sc=$('#recvScan');if(sc){sc.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();recvAdd(sc.value);sc.value='';}});if(!sc.disabled){sc.placeholder=isSuper()?'bipe ou digite a etiqueta':'toque para bipar';scanLock(sc);}}
  const al=document.getElementById('recvAutoLbl');if(al)al.onchange=function(){try{localStorage.setItem('wmsx_autoLabel',al.checked?'1':'0');}catch(e){}
    if(al.checked){try{toast('Vai abrir a impressão a cada bipe. Só ligue se a Zebra for a impressora padrão desta máquina.');}catch(e){}}
@@ -1992,7 +1991,7 @@ function renderRecv(){const adm=isAdmin();
  var sf=document.getElementById('recvSetFmt');if(sf)sf.onclick=function(){if(typeof askLabelFormat==='function')askLabelFormat('Modelo da etiqueta de recebimento',function(opt){if(typeof setExpLabelFmt==='function')setExpLabelFmt(opt);_showFmt();toast('Modelo salvo · '+opt.dim.w+'×'+opt.dim.h+'mm');});};
  renderStageList();}
 function renderStageList(){const el=$('#stageList');if(!el)return;const adm=isAdmin(),strictAdm=(typeof isStrictAdmin==='function'&&isStrictAdmin());
- if(!STAGE.length){el.innerHTML='<div class="empty"><div class="ei">'+ICONS.inbox+'</div><b>Nada pendente</b><div class="es">Bipe uma etiqueta para receber.</div></div>';return;}
+ if(!STAGE.length){el.innerHTML='<div class="empty"><div class="ei">'+ICONS.inbox+'</div><b>Nenhuma pendência antiga</b><div class="es">As novas entradas da NF vão direto para o Chão de Fábrica - 70.</div></div>';return;}
  el.innerHTML=STAGE.map(s=>'<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--sh-sm);margin-bottom:12px"><div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:200px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="mono" style="font-weight:800;font-size:1.05rem">'+s.pr+'</span><span class="pill muted">'+s.et+'</span></div><div style="color:var(--ink);font-size:.9rem;margin-top:6px;font-weight:500">'+(s.desc||'—')+'</div><div style="color:var(--faint);font-size:.72rem;margin-top:5px">recebido '+rel(s.at)+(s.by?" · por "+s.by:"")+'</div></div><div style="text-align:right;white-space:nowrap"><div style="font-family:var(--disp);font-weight:800;font-size:1.5rem;line-height:1">'+fmt(s.pl)+' <span style="font-size:.8rem;color:var(--muted);font-weight:600">kg</span></div></div></div>'+(adm?'<div style="display:flex;gap:10px;margin-top:14px"><button class="btn in" data-az="'+s.et+'" style="flex:1">'+ICONS.box+' Armazenar</button><button class="btn out" data-pp="'+s.et+'" style="flex:1">Produção</button>'+(strictAdm?'<button class="gbtn" data-rm="'+s.et+'" style="width:48px;justify-content:center" title="Excluir pendência (somente admin)">✕</button>':'')+'</div><div style="margin-top:10px"><button class="gbtn" data-lbl="'+s.et+'" style="width:100%;justify-content:center">'+ICONS.tag+' Gerar etiqueta</button></div>':'')+'</div>').join('');
  el.querySelectorAll('[data-az]').forEach(b=>b.onclick=()=>stageArmazenar(b.dataset.az));
  el.querySelectorAll('[data-pp]').forEach(b=>b.onclick=()=>stageProducao(b.dataset.pp));
@@ -2610,16 +2609,17 @@ updateStageBadge();
     }catch(e){}
   };
 
-  /* ===== ENTRADA SILENCIOSA NO CHÃO 70 =====
-     Usada pelo recebimento (recvAdd). Diferente do floor70Add, NÃO aplica a regra
-     "uma etiqueta, um lugar": aqui a bobina entra no Chão 70 continuando no intermediário,
-     porque os dois descrevem coisas diferentes (estado x lugar físico). */
+  /* ===== ENTRADA SEGURA NO CHÃO 70 =====
+     Usada pelo recebimento e pela NF. A trava de localização única impede que uma etiqueta
+     ainda armazenada em outro depósito seja copiada para o Chão 70. */
   window.f70Entrada=function(it,silencioso){
     try{
       if(!it||!it.et)return false;
       var et=norm(it.et),_k=_e70(et);
       try{delete _del70[_k];_bip70[_k]=Date.now();_bump70(et);}catch(e){}
-      if(f70HasEt(et))return false;
+      /* Repetir o mesmo bipe no próprio Chão é idempotente: não cria saldo nem
+         movimentação duplicada, mas também não faz a NF parecer que falhou. */
+      if(f70HasEt(et))return true;
       var pr=it.pr||'—',pl=Number(it.pl)||0;
       var g=FLOOR70[pr];
       if(!g){g={pr:pr,desc:it.desc||'',qtd:0,kg:0,ets:[],at:nowISO(),by:(session?session.u:'')};FLOOR70[pr]=g;}
@@ -2628,6 +2628,8 @@ updateStageBadge();
       saveF70();
       try{sync70({et:_k,pr:pr,desc:it.desc||'',pl:pl,at:g.at,by:(session?session.u:'')});}catch(e){}
       try{var mov={id:uid(),action:'entrada',w:cfg.warehouse,code:'CHÃO 70',pr:pr,q:pl,u:(typeof unitOf==='function'?unitOf(pr):'KG'),et:_k,before:0,after:pl,at:g.at,by:(session?session.u:'')};MV.unshift(mov);if(typeof syncMov==='function')syncMov(mov);if(typeof persistDebounced==='function')persistDebounced('mv');}catch(e){}
+      /* Remove apenas uma eventual pendência legada depois que a entrada física foi concluída. */
+      try{if(typeof STAGE!=='undefined'&&STAGE.some(function(s){return norm(s.et)===et;})){STAGE=STAGE.filter(function(s){return norm(s.et)!==et;});if(typeof saveStage==='function')saveStage();if(typeof syncDelStage==='function')syncDelStage(et);if(typeof updateStageBadge==='function')updateStageBadge();}}catch(e){}
       try{if(typeof logAct==='function')logAct('chao70',et+' · '+pr+' (via recebimento)');}catch(e){}
       try{updateF70();}catch(e){}
       if(!silencioso)toast('+1 no Chão 70 · '+pr);
@@ -2653,9 +2655,8 @@ updateStageBadge();
       toast('Etiqueta '+et+' já contada'+(_achou?(' em '+_achou):'')+' no Chão 70',false);
       return;
     }
-    /* UMA ETIQUETA, UM LUGAR: a entrada mais recente vence — remove dos outros locais antes de contar aqui */
-    try{if(typeof window.floorHasEt==='function'&&window.floorHasEt(et)&&typeof window.floorSaida==='function'){window.floorSaida(et);toast('Saiu do Chão expedição · '+et);}}catch(e){}
-    try{if(typeof LOC!=='undefined'&&LOC[et]&&typeof freeStored==='function'){var _vg=freeStored(et);if(_vg)toast('Saiu da prateleira '+_vg+' · '+et);}}catch(e){}
+    /* Nunca retirar automaticamente de outro depósito. A trava global informa o
+       endereço atual e exige que o operador faça a SAÍDA antes desta ENTRADA. */
     const pr=b.pr||'—',pl=Number(b.pl)||0;
     let g=FLOOR70[pr];
     if(!g){g={pr:pr,desc:b.desc||'',qtd:0,kg:0,ets:[],at:nowISO(),by:session?session.u:''};FLOOR70[pr]=g;}
@@ -3765,7 +3766,7 @@ updateStageBadge();
     ci.addEventListener('keydown',function(ev){if(ev.key==='Escape')close();});
   }
 
-  /* ---- bipar recebimento da NF: marca entrada (enche a barra) e joga no estoque intermediário ---- */
+  /* ---- bipar recebimento da NF: entrada física direta no Chão de Fábrica - 70 ---- */
   function nfRecvBip(v){
     var raw=String(v==null?'':v), id='';
     if(ETQ[norm(raw)])id=norm(raw);
@@ -3773,39 +3774,16 @@ updateStageBadge();
     if(!id)id=norm(raw);
     var e=ETQ[id];
     if(!e){toast('Etiqueta '+id+' não encontrada',false);return;}
-    var jaBip=(e.status==='entrada');
-    if(!jaBip){e.status='entrada';e.hist.push({ev:'entrada',at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')});saveNF();if(typeof logAct==='function')logAct('recebimento-nf',id);if(typeof syncEtiqueta==='function')syncEtiqueta(e);
-      /* cria movimento no Rastreador (MV) — recebimento pela bipagem do romaneio/NF ao vivo */
-      try{
-        if(typeof MV!=='undefined'&&MV){
-          var _un=(typeof unitOf==='function')?unitOf(e.cProd):'KG';
-          var _mv={id:uid(),action:'recebimento',nf:1,w:cfg.warehouse,code:'INTERMEDIÁRIO',pr:e.cProd||id,q:Number(e.kg)||0,u:_un,et:id,before:0,after:Number(e.kg)||0,at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:''),req:(function(){try{var k=e.nf;if(!k||k==='__vaga__')return '';
-            /* resolve o NÚMERO humano — o rastreador mostra "NF 1378", não a chave interna */
-            var d=(typeof NFS!=='undefined'&&NFS[k])||null;if(d&&d.nNF)return 'NF '+d.nNF;
-            var r=(typeof ROMS!=='undefined'&&ROMS[k])||null;if(r&&r.nRomaneio)return 'Rom. '+r.nRomaneio;
-            return '';}catch(_e){return '';}})()};
-          MV.unshift(_mv);  /* log local enxuto: o histórico completo fica na nuvem */
-          if(typeof persist==='function')persist(); else if(DB&&DB.saveMovs)DB.saveMovs(MV);
-          if(typeof syncMov==='function')syncMov(MV[0]);
-        }
-      }catch(err){}
-    }
-    /* empurra pro estoque intermediário (STAGE) se ainda não estiver lá */
     var desc=e.xProd||(typeof nfDescByCode==='function'?nfDescByCode(e.cProd):'')||'';
-    /* Bipar na NF registra somente a pendência. Não move nem retira saldo de depósito. */
-    var caiu=false;
-    if(typeof STAGE!=='undefined'&&STAGE){
-      if(!STAGE.some(function(s){return s.et===id;})){
-        var _docLocal=((NFS[e.nf]||ROMS[e.nf]||{}).local)||e.local||'';
-        var item={et:id,pr:e.cProd||id,desc:desc,pl:Number(e.kg)||0,local:_docLocal,at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')};
-        STAGE.unshift(item); if(typeof saveStage==='function')saveStage();
-        if(typeof syncStage==='function')syncStage(item);
-        if(typeof updateStageBadge==='function')updateStageBadge();
-        caiu=true;
-      }
-    }
-    if(jaBip&&!caiu)toast('Etiqueta '+id+' já bipada',false);
-    else toast('Bipado '+id+' · pendente no Recebimento');
+    var _docLocal=((NFS[e.nf]||ROMS[e.nf]||{}).local)||e.local||'';
+    var _it={et:id,pr:e.cProd||id,desc:desc,pl:Number(e.kg)||0,local:_docLocal,at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')};
+    if(typeof window.f70Entrada!=='function'){toast('Não foi possível acessar o Chão de Fábrica - 70',false);return;}
+    /* Só confirma a NF depois que a entrada física foi aceita. Se a etiqueta estiver em outro
+       local, a trava informa o endereço e exige a saída manual antes de uma nova entrada. */
+    if(!window.f70Entrada(_it,true)){renderNF();return;}
+    e.status='entrada';if(!Array.isArray(e.hist))e.hist=[];e.hist.push({ev:'entrada-chao70',at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')});
+    saveNF();if(typeof logAct==='function')logAct('recebimento-nf',id+' · Chão 70');if(typeof syncEtiqueta==='function')syncEtiqueta(e);
+    toast('Bipado '+id+' · entrada no Chão de Fábrica - 70');
     /* fechou a NF? */
     if(e.nf&&e.nf!=='__vaga__'){
       var ids=Object.keys(ETQ).filter(function(k){return ETQ[k].nf===e.nf;});
@@ -6975,7 +6953,7 @@ function dispose3d(){if(_3d.raf)cancelAnimationFrame(_3d.raf);_3d.raf=0;if(_3d.o
 function colFor(x){if(!x.o)return null;if(x.q<=0)return 0xF0A024;const days=x.upd?((Date.now()-new Date(x.upd).getTime())/864e5):0;if(days>=15)return 0xE03b3b;return 0x16A34A;}
 function renderThree(){if(!isSuper()){try{dispose3d();}catch(e){}return;}const v=$('#v-3d');if(!v)return;
  /* em celular/tablet o 3D trava — mostra aviso leve, com opção de forçar. No PC roda normal. */
- var _isMobile=(function(){try{var coarse=window.matchMedia&&window.matchMedia('(pointer:coarse)').matches;var small=Math.min(window.innerWidth,window.innerHeight)<820||window.innerWidth<1024;var ua=/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent||'');return (coarse&&small)||ua;}catch(e){return false;}})();
+ var _isMobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)||(window.matchMedia&&window.matchMedia('(max-width:900px)').matches);
  if(_isMobile && !window._force3D){
    v.dataset.built='';
    v.innerHTML='<div style="max-width:520px;margin:40px auto;padding:28px 24px;text-align:center">'
@@ -7010,10 +6988,13 @@ function build3dCore(){dispose3d();const THREE=window.THREE;const cv=document.ge
  const scene=new THREE.Scene();scene.background=new THREE.Color(0xf3f6f9);scene.fog=new THREE.FogExp2(0xf3f6f9,0.00034);
  const cam=new THREE.PerspectiveCamera(50,W/H,1,6000);
  var lowGfx=(Math.min(window.innerWidth||999,window.innerHeight||999)<820)||/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent||'');
- const rndr=new THREE.WebGLRenderer({canvas:cv,antialias:!lowGfx});rndr.setSize(W,H,false);rndr.setPixelRatio(lowGfx?1:Math.min(devicePixelRatio,1.35));rndr.shadowMap.enabled=!lowGfx;rndr.shadowMap.type=lowGfx?THREE.BasicShadowMap:THREE.PCFSoftShadowMap;
+ // O mapa possui milhares de posições. Sombras suaves, antialias e DPR alto juntos
+ // saturavam a GPU durante o giro, causando o ciclo "gira, trava, gira".
+ var denseScene=S.length>1200,perfGfx=lowGfx||denseScene;
+ const rndr=new THREE.WebGLRenderer({canvas:cv,antialias:!perfGfx,powerPreference:'high-performance'});rndr.setSize(W,H,false);rndr.setPixelRatio(perfGfx?1:Math.min(devicePixelRatio,1.25));rndr.shadowMap.enabled=!perfGfx;rndr.shadowMap.type=THREE.PCFSoftShadowMap;
  // iluminação de galpão
  scene.add(new THREE.HemisphereLight(0xffffff,0xcbd5df,1.12));
- const sun=new THREE.DirectionalLight(0xffffff,1.16);sun.position.set(220,460,180);sun.castShadow=!lowGfx;sun.shadow.mapSize.set(lowGfx?512:2048,lowGfx?512:2048);sun.shadow.camera.near=10;sun.shadow.camera.far=1800;sun.shadow.camera.left=-800;sun.shadow.camera.right=800;sun.shadow.camera.top=800;sun.shadow.camera.bottom=-800;sun.shadow.bias=-0.0003;sun.shadow.radius=4;scene.add(sun);
+ const sun=new THREE.DirectionalLight(0xffffff,1.16);sun.position.set(220,460,180);sun.castShadow=!perfGfx;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.near=10;sun.shadow.camera.far=1800;sun.shadow.camera.left=-800;sun.shadow.camera.right=800;sun.shadow.camera.top=800;sun.shadow.camera.bottom=-800;sun.shadow.bias=-0.0003;sun.shadow.radius=3;scene.add(sun);
  const fill=new THREE.DirectionalLight(0xd9efff,0.5);fill.position.set(-200,160,-160);scene.add(fill);
  scene.add(new THREE.AmbientLight(0xffffff,0.34));
  const dims=Object.keys(GRID_LAYOUT);
@@ -7304,6 +7285,12 @@ function buildPanel3d(){const p=document.getElementById('panel3d');if(!p)return;
  p.querySelectorAll('[data-rua]').forEach(function(el){el.onclick=function(){focusRua3d(el.getAttribute('data-rua'));};});
 }
 function _pad2(n){return ('0'+n).slice(-2);}
+function _movFlow(m){
+ var a=String(m&&m.action||'').trim().toLowerCase();
+ if(a==='entrada'||a==='recebimento')return 'entrada';
+ if(a==='saida'||a==='saída'||a==='producao'||a==='produção'||a==='expedicao'||a==='expedição'||a==='consumo')return 'saida';
+ return 'interno';
+}
 function _hc(q){return q>=85?'#ff5a5a':q>=60?'#ffb733':'#36e07a';}
 function kpiData(){
  var tot=S.length,occ=0,parado=0,per={},now=Date.now(),D15=15*864e5;
@@ -7316,15 +7303,15 @@ function kpiData(){
  var top=sd.slice(0,5),bot=sd.slice().reverse().slice(0,5);
  var td=new Date();td.setHours(0,0,0,0);var t0=td.getTime();
  var tm=MV.filter(function(m){return new Date(m.at).getTime()>=t0;});
- var entH=tm.filter(function(m){return m.action==='entrada';}).length;
- var saiH=tm.filter(function(m){return m.action==='saida';}).length;
+ var entH=tm.filter(function(m){return _movFlow(m)==='entrada';}).length;
+ var saiH=tm.filter(function(m){return _movFlow(m)==='saida';}).length;
  var totH=tm.length;
  var ps={};tm.forEach(function(m){if(m.pr)ps[m.pr]=(ps[m.pr]||0)+1;});
  var prodMov=Object.keys(ps).length,topProd='—',topN=0;
  Object.keys(ps).forEach(function(p){if(ps[p]>topN){topN=ps[p];topProd=p;}});
  var rs={};tm.forEach(function(m){var r=(m.code||'').split('-')[0];if(r)rs[r]=1;});
  var corrAt=Object.keys(rs).length;
- var days=[];for(var i=6;i>=0;i--){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-i);var a=d.getTime(),b=a+864e5;var e=0,s3=0;MV.forEach(function(m){var t=new Date(m.at).getTime();if(t>=a&&t<b){if(m.action==='entrada')e++;else if(m.action==='saida')s3++;}});days.push({ent:e,sai:s3,lbl:['dom','seg','ter','qua','qui','sex','sáb'][d.getDay()]});}
+ var days=[];for(var i=6;i>=0;i--){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-i);var a=d.getTime(),b=a+864e5;var e=0,s3=0;MV.forEach(function(m){var t=new Date(m.at).getTime(),flow=_movFlow(m);if(t>=a&&t<b){if(flow==='entrada')e++;else if(flow==='saida')s3++;}});days.push({ent:e,sai:s3,lbl:['dom','seg','ter','qua','qui','sex','sáb'][d.getDay()]});}
  var total7=days.reduce(function(s4,x){return s4+x.ent+x.sai;},0),media=Math.round(total7/7);
  return{tot:tot,occ:occ,liv:liv,pct:pct,parado:parado,arr:arr,crit:crit,top:top,bot:bot,entH:entH,saiH:saiH,totH:totH,prodMov:prodMov,topProd:topProd,topN:topN,corrAt:corrAt,days:days,total7:total7,media:media};
 }
@@ -7476,7 +7463,7 @@ function togglePlan3d(force){
 }
 function isMap3dVisible(){const v=document.getElementById('v-3d');return !document.hidden&&!!(v&&v.classList.contains('active'));}
 function schedule3dIdle(){if(_3d.idleTimer)return;_3d.idleTimer=setTimeout(function(){_3d.idleTimer=null;if(!_3d.ready)return;if(isMap3dVisible()){_3d.lastFrame=0;_3d._paintAt=0;if(!_3d.raf)_3d.raf=requestAnimationFrame(animate3d);}else schedule3dIdle();},500);}
-function animate3d(frameNow){_3d.raf=0;if(!isMap3dVisible()){_3d.lastFrame=0;_3d._paintAt=0;schedule3dIdle();return;}if(_3d.idleTimer){clearTimeout(_3d.idleTimer);_3d.idleTimer=null;}_3d.raf=requestAnimationFrame(animate3d);try{const nowFrame=frameNow||performance.now();const presenting=!!(_3d.show&&_3d.show.on);const minFrame=(_3d.auto&&!presenting)?16:(presenting?40:33);if(_3d._paintAt&&nowFrame-_3d._paintAt<minFrame)return;_3d._paintAt=nowFrame;if(!_3d.lastFrame)_3d.lastFrame=nowFrame-(1000/60);const elapsed=Math.max(1,Math.min(50,nowFrame-_3d.lastFrame));const frameStep=elapsed/(1000/60);_3d.lastFrame=nowFrame;if(_3d.auto){const orbiting=presenting&&_3d.show.phase==='orbit';_3d.theta+=(orbiting?0.36:0.096)*(elapsed/1000);if(!presenting&&Math.abs(_3d.theta)>Math.PI*2)_3d.theta%=Math.PI*2;}camPos3d();
+function animate3d(frameNow){_3d.raf=0;if(!isMap3dVisible()){_3d.lastFrame=0;_3d._paintAt=0;schedule3dIdle();return;}if(_3d.idleTimer){clearTimeout(_3d.idleTimer);_3d.idleTimer=null;}_3d.raf=requestAnimationFrame(animate3d);try{const nowFrame=frameNow||performance.now();const presenting=!!(_3d.show&&_3d.show.on);const minFrame=presenting?40:33;if(_3d._paintAt&&nowFrame-_3d._paintAt<minFrame)return;_3d._paintAt=nowFrame;if(!_3d.lastFrame)_3d.lastFrame=nowFrame-(1000/30);const elapsed=Math.max(1,Math.min(80,nowFrame-_3d.lastFrame));const frameStep=elapsed/(1000/60);_3d.lastFrame=nowFrame;if(_3d.auto){const orbiting=presenting&&_3d.show.phase==='orbit';_3d.theta+=(orbiting?0.36:0.096)*(elapsed/1000);if(!presenting&&Math.abs(_3d.theta)>Math.PI*2)_3d.theta%=Math.PI*2;}camPos3d();
  if(_3d.show&&_3d.show.on){const now=performance.now();
   if(_3d.show.phase==='orbit'){if(_3d.show.theta0==null)_3d.show.theta0=_3d.theta;if(_3d.theta-_3d.show.theta0>=Math.PI*2){_3d.show.phase='kpis';_3d.show.slide=0;_3d.show.t0=now;showSlide(0);}}
   else{var dur=[20000,10000,10000][_3d.show.slide]||10000;if(now-_3d.show.t0>dur){_3d.show.slide=(_3d.show.slide||0)+1;if(_3d.show.slide>2){_3d.show.phase='orbit';_3d.show.theta0=_3d.theta;_3d.show.t0=now;hideShow3d();}else{_3d.show.t0=now;showSlide(_3d.show.slide);}}}
@@ -13915,6 +13902,8 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
       var entradaRecebimentoFabrica=window.f70Entrada;
       var travaRecebimentoFabrica=function(it){
         var et=it&&it.et;
+        /* Entrada repetida no mesmo Chão é apenas confirmação idempotente. */
+        try{if(et&&typeof window.f70HasEt==='function'&&window.f70HasEt(et))return true;}catch(e){}
         /* Estar no intermediario nao e duplicidade fisica; estar em qualquer deposito e. */
         if(bloquearEntradaDuplicada(et,'Chão de Fábrica - 70'))return false;
         return entradaRecebimentoFabrica.apply(this,arguments);
@@ -13933,7 +13922,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     if(typeof recvAdd==='function'&&!recvAdd._localUnico){
       var entradaRecebimento=recvAdd;
       var travaRecebimento=async function(v){
-        if(bloquearEntradaDuplicada(v,'Recebimento / Estoque intermediário'))return false;
+        if(bloquearEntradaDuplicada(v,'Chão de Fábrica - 70'))return false;
         return entradaRecebimento.apply(this,arguments);
       };
       travaRecebimento._localUnico=true;recvAdd=travaRecebimento;window.recvAdd=travaRecebimento;

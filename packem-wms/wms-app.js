@@ -1967,20 +1967,20 @@ function placeBobina(et,pr,pl,c){pl=Number(pl);if(!Number.isFinite(pl)||pl<=0){t
  return true;}
 async function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){b=await bobFetch(et);}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
   var _it={et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u};
-  if(typeof window.f70Entrada!=='function'){toast('Não foi possível acessar o Chão de Fábrica - 70',false);return false;}
-  /* A NF entra fisicamente direto no Chão 70. A proteção de localização única executada
-     antes desta função impede criar uma segunda cópia da mesma etiqueta em outro depósito. */
-  if(!window.f70Entrada(_it,true))return false;
+  var _ja=STAGE.find(function(s){return norm(s.et)===et;});
+  if(_ja){toast('Etiqueta '+et+' já está no Recebimento',false);renderRecv();return true;}
+  STAGE.unshift(_it);saveStage();
+  try{if(typeof syncStage==='function')syncStage(_it);}catch(e){}
   try{markLocalWrite();}catch(e){}
-  renderRecv();updateStageBadge();toast('Recebido no Chão de Fábrica - 70: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});return true;}
+  renderRecv();updateStageBadge();toast('Puxado para o Recebimento: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});return true;}
 function renderRecv(){const adm=isAdmin();
- $('#v-recv').innerHTML='<div class="ph-head"><div><p class="eb">Operação · recebimento</p><h1>Entrada no Chão de Fábrica</h1></div></div>'+
+ $('#v-recv').innerHTML='<div class="ph-head"><div><p class="eb">Operação · recebimento</p><h1>Recebimento de Materiais</h1></div></div>'+
  '<div class="two">'+
   '<div class="panel"><div class="ph"><span class="pdot"></span>Bipar etiqueta para receber</div>'+
    '<label class="fld"><span class="lab">Etiqueta (T…)</span><input class="input code" id="recvScan" placeholder="ex: T40364663" '+(adm?'':'disabled')+'></label>'+
-   '<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">Ao bipar, a bobina entra diretamente no <b>Chão de Fábrica - 70</b>. Para levá-la a outro local, faça primeiro a <b>SAÍDA</b> no Chão e depois a <b>ENTRADA</b> no destino.</p><label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvAutoLbl"'+(autoLabelOn()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Imprimir etiqueta automaticamente ao bipar</label><label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvStation"'+(isPrintStation()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Esta máquina imprime na Zebra (estação do PC)</label><div style="margin-top:12px"><button class="gbtn" id="recvSetFmt" style="width:100%;justify-content:center">'+(ICONS.tag||'')+' Escolher modelo da etiqueta</button><div style="font-size:.72rem;color:var(--muted);margin-top:6px" id="recvFmtLbl"></div></div></div>'+
-  '<div class="panel" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><div style="font-family:var(--disp);font-size:3rem;font-weight:800;line-height:1">'+STAGE.length+'</div><div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px">pendências antigas aguardando destino</div>'+(STAGE.length?'<div style="font-family:var(--mono);font-size:.85rem;color:var(--muted);margin-top:8px">'+fmt(STAGE.reduce((a,b)=>a+(b.pl||0),0))+' kg pendentes</div>':'')+(STAGE.length&&adm?'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px"><button class="btn brand" id="recvPrintAll" style="font-size:.76rem;padding:9px 13px">'+(ICONS.print||'')+' Imprimir todas ('+STAGE.length+')</button></div>':'')+'</div>'+
- '</div><h3 class="sub">Pendências antigas</h3><div id="stageList"></div>';
+   '<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">Ao bipar, o material aparece abaixo para conferência. Depois escolha <b>Armazenar</b> ou <b>Produção</b>.</p><label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvAutoLbl"'+(autoLabelOn()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Imprimir etiqueta automaticamente ao bipar</label><label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvStation"'+(isPrintStation()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Esta máquina imprime na Zebra (estação do PC)</label><div style="margin-top:12px"><button class="gbtn" id="recvSetFmt" style="width:100%;justify-content:center">'+(ICONS.tag||'')+' Escolher modelo da etiqueta</button><div style="font-size:.72rem;color:var(--muted);margin-top:6px" id="recvFmtLbl"></div></div></div>'+
+  '<div class="panel" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><div style="font-family:var(--disp);font-size:3rem;font-weight:800;line-height:1">'+STAGE.length+'</div><div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px">itens aguardando destino</div>'+(STAGE.length?'<div style="font-family:var(--mono);font-size:.85rem;color:var(--muted);margin-top:8px">'+fmt(STAGE.reduce((a,b)=>a+(b.pl||0),0))+' kg pendentes</div>':'')+(STAGE.length&&adm?'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px"><button class="btn brand" id="recvPrintAll" style="font-size:.76rem;padding:9px 13px">'+(ICONS.print||'')+' Imprimir todas ('+STAGE.length+')</button></div>':'')+'</div>'+
+ '</div><h3 class="sub">Itens recebidos aguardando destino</h3><div id="stageList"></div>';
  const sc=$('#recvScan');if(sc){sc.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();recvAdd(sc.value);sc.value='';}});if(!sc.disabled){sc.placeholder=isSuper()?'bipe ou digite a etiqueta':'toque para bipar';scanLock(sc);}}
  const al=document.getElementById('recvAutoLbl');if(al)al.onchange=function(){try{localStorage.setItem('wmsx_autoLabel',al.checked?'1':'0');}catch(e){}
    if(al.checked){try{toast('Vai abrir a impressão a cada bipe. Só ligue se a Zebra for a impressora padrão desta máquina.');}catch(e){}}
@@ -1991,7 +1991,7 @@ function renderRecv(){const adm=isAdmin();
  var sf=document.getElementById('recvSetFmt');if(sf)sf.onclick=function(){if(typeof askLabelFormat==='function')askLabelFormat('Modelo da etiqueta de recebimento',function(opt){if(typeof setExpLabelFmt==='function')setExpLabelFmt(opt);_showFmt();toast('Modelo salvo · '+opt.dim.w+'×'+opt.dim.h+'mm');});};
  renderStageList();}
 function renderStageList(){const el=$('#stageList');if(!el)return;const adm=isAdmin(),strictAdm=(typeof isStrictAdmin==='function'&&isStrictAdmin());
- if(!STAGE.length){el.innerHTML='<div class="empty"><div class="ei">'+ICONS.inbox+'</div><b>Nenhuma pendência antiga</b><div class="es">As novas entradas da NF vão direto para o Chão de Fábrica - 70.</div></div>';return;}
+ if(!STAGE.length){el.innerHTML='<div class="empty"><div class="ei">'+ICONS.inbox+'</div><b>Nenhum item aguardando</b><div class="es">Bipe uma etiqueta da NF para puxar código, descrição e quantidade.</div></div>';return;}
  el.innerHTML=STAGE.map(s=>'<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--sh-sm);margin-bottom:12px"><div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:200px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="mono" style="font-weight:800;font-size:1.05rem">'+s.pr+'</span><span class="pill muted">'+s.et+'</span></div><div style="color:var(--ink);font-size:.9rem;margin-top:6px;font-weight:500">'+(s.desc||'—')+'</div><div style="color:var(--faint);font-size:.72rem;margin-top:5px">recebido '+rel(s.at)+(s.by?" · por "+s.by:"")+'</div></div><div style="text-align:right;white-space:nowrap"><div style="font-family:var(--disp);font-weight:800;font-size:1.5rem;line-height:1">'+fmt(s.pl)+' <span style="font-size:.8rem;color:var(--muted);font-weight:600">kg</span></div></div></div>'+(adm?'<div style="display:flex;gap:10px;margin-top:14px"><button class="btn in" data-az="'+s.et+'" style="flex:1">'+ICONS.box+' Armazenar</button><button class="btn out" data-pp="'+s.et+'" style="flex:1">Produção</button>'+(strictAdm?'<button class="gbtn" data-rm="'+s.et+'" style="width:48px;justify-content:center" title="Excluir pendência (somente admin)">✕</button>':'')+'</div><div style="margin-top:10px"><button class="gbtn" data-lbl="'+s.et+'" style="width:100%;justify-content:center">'+ICONS.tag+' Gerar etiqueta</button></div>':'')+'</div>').join('');
  el.querySelectorAll('[data-az]').forEach(b=>b.onclick=()=>stageArmazenar(b.dataset.az));
  el.querySelectorAll('[data-pp]').forEach(b=>b.onclick=()=>stageProducao(b.dataset.pp));
@@ -3766,7 +3766,7 @@ updateStageBadge();
     ci.addEventListener('keydown',function(ev){if(ev.key==='Escape')close();});
   }
 
-  /* ---- bipar recebimento da NF: entrada física direta no Chão de Fábrica - 70 ---- */
+  /* ---- bipar recebimento da NF: envia para a fila de conferência do Recebimento ---- */
   function nfRecvBip(v){
     var raw=String(v==null?'':v), id='';
     if(ETQ[norm(raw)])id=norm(raw);
@@ -3777,13 +3777,11 @@ updateStageBadge();
     var desc=e.xProd||(typeof nfDescByCode==='function'?nfDescByCode(e.cProd):'')||'';
     var _docLocal=((NFS[e.nf]||ROMS[e.nf]||{}).local)||e.local||'';
     var _it={et:id,pr:e.cProd||id,desc:desc,pl:Number(e.kg)||0,local:_docLocal,at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')};
-    if(typeof window.f70Entrada!=='function'){toast('Não foi possível acessar o Chão de Fábrica - 70',false);return;}
-    /* Só confirma a NF depois que a entrada física foi aceita. Se a etiqueta estiver em outro
-       local, a trava informa o endereço e exige a saída manual antes de uma nova entrada. */
-    if(!window.f70Entrada(_it,true)){renderNF();return;}
-    e.status='entrada';if(!Array.isArray(e.hist))e.hist=[];e.hist.push({ev:'entrada-chao70',at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')});
-    saveNF();if(typeof logAct==='function')logAct('recebimento-nf',id+' · Chão 70');if(typeof syncEtiqueta==='function')syncEtiqueta(e);
-    toast('Bipado '+id+' · entrada no Chão de Fábrica - 70');
+    var _ja=STAGE.find(function(s){return norm(s.et)===id;});
+    if(!_ja){STAGE.unshift(_it);saveStage();try{if(typeof syncStage==='function')syncStage(_it);}catch(_e){}try{if(typeof updateStageBadge==='function')updateStageBadge();}catch(_e){}}
+    e.status='entrada';if(!Array.isArray(e.hist))e.hist=[];e.hist.push({ev:'entrada-recebimento',at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')});
+    saveNF();if(typeof logAct==='function')logAct('recebimento-nf',id+' · aguardando destino');if(typeof syncEtiqueta==='function')syncEtiqueta(e);
+    toast((_ja?'Já estava no Recebimento: ':'Puxado para o Recebimento: ')+id+' · '+fmt(_it.pl)+' kg');
     /* fechou a NF? */
     if(e.nf&&e.nf!=='__vaga__'){
       var ids=Object.keys(ETQ).filter(function(k){return ETQ[k].nf===e.nf;});
@@ -4135,6 +4133,35 @@ updateStageBadge();
     var isRom=!!ROMS[key], doc=isRom?ROMS[key]:NFS[key];
     if(!doc){toast('Não encontrado',false);return;}
     var label=isRom?('Romaneio '+(doc.nRomaneio||key)):('NF '+(doc.nNF||key));
+    window.nfPodeCorrigirEtiqueta=function(){try{return (typeof isSuper==='function'&&isSuper())||String((session&&session.u)||'').trim().toLowerCase()==='maria';}catch(e){return false;}};
+    function editarEtiqueta(id){
+      var e=ETQ[id];if(!e)return;
+      if(!window.nfPodeCorrigirEtiqueta()){toast('Somente Maria ou administrador pode corrigir código e quantidade da etiqueta.',false);return;}
+      if(e.status==='entrada'){toast('Esta etiqueta já teve a entrada confirmada e não pode mais ser editada aqui.',false);return;}
+      var codigoAtual=String(e.cProd||e.bobina||'').trim(),pesoAtual=Number(e.kg)||0;
+      var bodyEdit='<div style="background:var(--card,rgba(0,0,0,.03));border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:14px;font-size:.76rem;color:var(--muted)">O ID/QR permanece o mesmo. A impressão e a bipagem passarão a usar o código e o peso corrigidos.</div>'
+        +'<label class="fld"><span class="lab">Código do material</span><input class="input code" id="rbeCod" value="'+esc(codigoAtual)+'" autocomplete="off"></label>'
+        +'<label class="fld"><span class="lab">Quantidade / peso líquido (kg)</span><input class="input" id="rbeKg" inputmode="decimal" value="'+String(pesoAtual).replace('.',',')+'"></label>'
+        +'<div style="color:var(--faint);font-size:.7rem;margin:-5px 0 14px">ID: '+esc(e.id)+'</div>'
+        +'<div style="display:flex;gap:8px"><button class="btn brand" id="rbeSave" style="flex:1;justify-content:center">Salvar correção</button><button class="btn" id="rbeBack">Cancelar</button></div>';
+      openDrawer((ICONS.edit||'')+' Corrigir etiqueta',bodyEdit);
+      var voltar=function(){openRomBipDrawer(key);};
+      document.getElementById('rbeBack').onclick=voltar;
+      document.getElementById('rbeSave').onclick=function(){
+        var cod=norm((document.getElementById('rbeCod')||{}).value||''),kg=brNum((document.getElementById('rbeKg')||{}).value);
+        if(!cod){toast('Informe o código do material',false);return;}
+        if(!(kg>0)){toast('Informe um peso maior que zero',false);return;}
+        var antesCod=codigoAtual,antesKg=pesoAtual,desc=(typeof window.convDescByCod==='function'?window.convDescByCod(cod):'')||(typeof nfDescByCode==='function'?nfDescByCode(cod):'')||e.xProd||e.gramatura||'';
+        e.cProd=cod;e.bobina=cod;e.kg=kg;if(desc){e.xProd=desc;e.gramatura=desc;}
+        e.hist=Array.isArray(e.hist)?e.hist:[];e.hist.push({ev:'corrigida',at:nowISO(),by:(session&&session.u)||'',de_codigo:antesCod,para_codigo:cod,de_kg:antesKg,para_kg:kg});
+        try{BOB[String(e.id).trim().toUpperCase()]={pr:cod,desc:desc,pl:kg};saveBOB();}catch(_e){}
+        saveNF();try{if(typeof syncEtiqueta==='function')syncEtiqueta(e);}catch(_e){}
+        try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function')chunkUp('bobinas',[{etiqueta:String(e.id).trim().toUpperCase(),pr:cod,descricao:desc,pl:kg}]);}catch(_e){}
+        try{logAct('nf-editar','Etiqueta '+e.id+' · '+antesCod+' / '+fmt(antesKg)+' kg → '+cod+' / '+fmt(kg)+' kg');}catch(_e){}
+        toast('Etiqueta corrigida · a próxima impressão usará os novos valores');
+        voltar();
+      };
+    }
     function calc(){
       var all=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;}).sort(function(a,b){return (ETQ[a].idx||0)-(ETQ[b].idx||0);});
       var ent=all.filter(function(id){return ETQ[id].status==='entrada';});
@@ -4152,6 +4179,7 @@ updateStageBadge();
             +'<div class="mono" style="color:var(--brand);font-size:.72rem;font-weight:700;margin-top:1px">ID: '+esc(etqId)+'</div>'
             +(sub?'<div style="color:var(--faint);font-size:.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(sub)+'</div>':'')+'</div>'
           +'<div style="font-family:var(--mono);font-weight:700;font-size:.8rem;color:'+(ok?'var(--ink)':'var(--muted)')+'">'+fmt(e.kg||0)+' kg</div>'
+          +(!ok&&window.nfPodeCorrigirEtiqueta()?'<button class="gbtn" type="button" data-rbd-edit="'+esc(etqId)+'" style="padding:5px 9px;font-size:.68rem;flex:none">Editar</button>':'')
           +'</div>';
       }).join('');
       return {rows:rows,pct:pct,ent:ent.length,tot:all.length,kgEnt:kgEnt,kgTot:kgTot};
@@ -4162,15 +4190,19 @@ updateStageBadge();
       +'<div id="rbdSummary" style="display:flex;justify-content:space-between;color:var(--faint);font-size:.74rem;margin-top:5px"><span>'+st.ent+'/'+st.tot+' etiquetas</span><span>'+fmt(st.kgEnt)+' de '+fmt(st.kgTot)+' kg ('+st.pct+'%)</span></div>'
       +'</div>'
       +'<div class="fld"><input class="input code" id="rbdScan" autocomplete="off" placeholder="Bipe ou digite o código da etiqueta"></div>'
+      +'<button class="btn" id="rbdPrint" type="button" style="width:100%;justify-content:center">'+(ICONS.print||'')+' Imprimir / reimprimir etiquetas</button>'
       +'<div id="rbdList" style="margin-top:10px;max-height:48vh;overflow-y:auto">'+st.rows+'</div>';
     openDrawer((ICONS.tag||'')+' '+label,body);
+    function bindRows(){document.querySelectorAll('[data-rbd-edit]').forEach(function(b){b.onclick=function(){editarEtiqueta(b.getAttribute('data-rbd-edit'));};});}
     function refresh(){
       var s2=calc();
       var bar=document.getElementById('rbdBar');if(bar){bar.style.width=s2.pct+'%';bar.style.background=(s2.ent>=s2.tot&&s2.tot>0?'#16a34a':'var(--brand)');}
       var sum=document.getElementById('rbdSummary');if(sum)sum.innerHTML='<span>'+s2.ent+'/'+s2.tot+' etiquetas</span><span>'+fmt(s2.kgEnt)+' de '+fmt(s2.kgTot)+' kg ('+s2.pct+'%)</span>';
-      var list=document.getElementById('rbdList');if(list)list.innerHTML=s2.rows;
+      var list=document.getElementById('rbdList');if(list){list.innerHTML=s2.rows;bindRows();}
       if(s2.ent>=s2.tot&&s2.tot>0)toast('✓ '+label+' fechado — todas as etiquetas bipadas');
     }
+    bindRows();
+    var imprimir=document.getElementById('rbdPrint');if(imprimir)imprimir.onclick=function(){openRomLabelSheet(key);};
     var inp=document.getElementById('rbdScan');
     if(inp){
       inp.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=inp.value;inp.value='';nfRecvBip(v);refresh();}});
@@ -7772,10 +7804,10 @@ function zEtqCSS(dim){
    Solução: mandar VÁRIOS jobs pequenos, em sequência. 50 por vez já se provou que funciona —
    é justamente onde ele travava. Cada bloco é um trabalho independente: se um falhar, os
    outros saem, e você sabe exatamente qual reimprimir. */
-/* limite operacional da Zebra: no máximo 20 etiquetas por trabalho.
-   Valores antigos maiores, salvos no navegador, são automaticamente reduzidos para 20. */
-var ZBLOCO=(function(){try{var v=parseInt(localStorage.getItem('wmsx_zbloco'),10);return (v>=5&&v<=20)?v:20;}catch(e){return 20;}})();
-window.setZBloco=function(n){n=parseInt(n,10)||20;if(n<5)n=5;if(n>20)n=20;ZBLOCO=n;try{localStorage.setItem('wmsx_zbloco',String(n));}catch(e){}};
+/* limite operacional da Zebra: no máximo 40 etiquetas por trabalho.
+   Valores antigos maiores, salvos no navegador, são automaticamente reduzidos para 40. */
+var ZBLOCO=(function(){try{if(localStorage.getItem('wmsx_zbloco_padrao')!=='40'){localStorage.setItem('wmsx_zbloco','40');localStorage.setItem('wmsx_zbloco_padrao','40');return 40;}var v=parseInt(localStorage.getItem('wmsx_zbloco'),10);return (v>=5&&v<=40)?v:40;}catch(e){return 40;}})();
+window.setZBloco=function(n){n=parseInt(n,10)||40;if(n<5)n=5;if(n>40)n=40;ZBLOCO=n;try{localStorage.setItem('wmsx_zbloco',String(n));localStorage.setItem('wmsx_zbloco_padrao','40');}catch(e){}};
 
 function printZebraEtq(arr,dim,kind){
  if(!arr||!arr.length){toast('Nada para imprimir',false);return;}
@@ -13315,7 +13347,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
  function acaoDo(el){var t=String(el.innerText||el.textContent||'').toLowerCase(),view=(el.closest('.view')||{}).id||((document.querySelector('.view.active')||{}).id)||'',id=el.id||'',ds=el.dataset||{};if(view==='v-requisicao'){if(ds.fifoSave||ds.sepSave||/^(em_separacao|pausado|separado)$/.test(ds.st||'')||/iniciar separa|continuar separa|finalizar separa|confirmar e dar baixa|adicionar quantidade/.test(t))return 'separar_requisicao';if(/^(rnAbrirNova|rqNSend|rnfSave)$/.test(id)||el.classList.contains('rnNew')||/nova requisi[cç][aã]o|enviar requisi[cç][aã]o|cadastrar requisi[cç][aã]o/.test(t))return 'criar_requisicao';}if(/exportar|baixar|csv|excel|pdf/.test(t))return 'exportar';if(/excluir|remover|apagar|limpar|zerar/.test(t))return 'excluir';if(/editar|alterar|corrigir|ajustar/.test(t))return 'editar';if(/salvar|cadastrar|adicionar|novo|nova|criar|importar|lançar|receber|confirmar/.test(t))return 'cadastrar';return '';}
  function critica(el){var t=String(el.innerText||el.textContent||'').toLowerCase(),view=(el.closest('.view')||{}).id||'',drawer=!!el.closest('#drawer');if(/limpar|zerar/.test(t)&&(/estoque|chão|chao|recicladora/.test(t)||/v-stock|v-floor|v-floor70|v-recic/.test(view)))return 'limpar estoque/chão';if(/excluir|apagar/.test(t)&&(view==='v-nf'||drawer&&/nota|nf/.test((document.getElementById('drawerTitle')||{}).innerText||'')))return 'excluir Nota Fiscal';if(/finalizar|encerrar/.test(t)&&/invent[aá]rio/.test(t+' '+((document.getElementById('drawerTitle')||{}).innerText||'')))return 'finalizar inventário';return '';}
  var liberado=new WeakSet();
- document.addEventListener('click',async function(e){var el=e.target&&e.target.closest&&e.target.closest('button,[role="button"],a.gbtn,a.btn');if(!el||liberado.has(el))return;var a=acaoDo(el),view=(el.closest('.view')||{}).id||((document.querySelector('.view.active')||{}).id)||'',editorExp=view==='v-exped'&&typeof window.expFullAccess==='function'&&window.expFullAccess();if(a&&!editorExp&&!window.canAction(a)){e.preventDefault();e.stopImmediatePropagation();toast('Sem permissão para '+a,false);return;}var c=critica(el);if(!c)return;e.preventDefault();e.stopImmediatePropagation();var senha=prompt('CONFIRMAÇÃO DE SEGURANÇA\n\nDigite sua senha para '+c+':');if(senha==null)return;var atual=(US||[]).find(function(u){return session&&u.u===session.u;});if(!atual||!await WMSSecurity.verify(atual.p,senha)){toast('Senha incorreta. Operação cancelada.',false);return;}try{logAct('autorizacao',c+' confirmado por senha');}catch(_e){}liberado.add(el);el.click();setTimeout(function(){liberado.delete(el);},0);},true);
+ document.addEventListener('click',async function(e){var el=e.target&&e.target.closest&&e.target.closest('button,[role="button"],a.gbtn,a.btn');if(!el||liberado.has(el))return;var a=acaoDo(el),view=(el.closest('.view')||{}).id||((document.querySelector('.view.active')||{}).id)||'',editorExp=view==='v-exped'&&typeof window.expFullAccess==='function'&&window.expFullAccess(),editorNf=!!((el.dataset||{}).rbdEdit&&typeof window.nfPodeCorrigirEtiqueta==='function'&&window.nfPodeCorrigirEtiqueta());if(a&&!editorExp&&!editorNf&&!window.canAction(a)){e.preventDefault();e.stopImmediatePropagation();toast('Sem permissão para '+a,false);return;}var c=critica(el);if(!c)return;e.preventDefault();e.stopImmediatePropagation();var senha=prompt('CONFIRMAÇÃO DE SEGURANÇA\n\nDigite sua senha para '+c+':');if(senha==null)return;var atual=(US||[]).find(function(u){return session&&u.u===session.u;});if(!atual||!await WMSSecurity.verify(atual.p,senha)){toast('Senha incorreta. Operação cancelada.',false);return;}try{logAct('autorizacao',c+' confirmado por senha');}catch(_e){}liberado.add(el);el.click();setTimeout(function(){liberado.delete(el);},0);},true);
 })();
 
 /* Senhas existentes permanecem protegidas; o admin pode conferir a nova senha antes de redefinir. */

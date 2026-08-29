@@ -828,6 +828,13 @@ function drawBoardStreet(){
   $$('#boardBox .cellx[data-id]').forEach(c=>c.onclick=()=>openSpace(c.dataset.id));
 }
 function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdmin();
+  /* Vaga livre/zerada é a verdade. Remove vínculos antigos de etiquetas que ficaram
+     apontando para ela e faziam o próximo bipe ser bloqueado como duplicado. */
+  if((!x.o||(Number(x.q)||0)<=0)&&typeof LOC!=='undefined'&&LOC){
+    var _addrLivre=norm(code(x)),_limpas=[];
+    Object.keys(LOC).forEach(function(et){if(norm(LOC[et])===_addrLivre){delete LOC[et];_limpas.push(et);if(typeof BOB!=='undefined'&&BOB[et])BOB[et].rem=0;}});
+    if(_limpas.length){try{saveLOC();saveBOB();}catch(e){}_limpas.forEach(function(et){try{if(typeof syncDelLoc==='function')syncDelLoc(et);}catch(e){}});}
+  }
   /* Mantem a identidade da etiqueta lida. Antes o leitor substituia o campo pelo
      codigo do produto e o Salvar criava uma etiqueta R... nova. Assim a etiqueta
      original continuava no Chao 70 e o mesmo peso era somado na prateleira. */
@@ -840,24 +847,7 @@ function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdm
     <button class="btn brand" id="spSave" style="width:100%;height:48px;margin-bottom:10px">Salvar</button>
     <button class="gbtn" id="spFree" style="width:100%;justify-content:center">${ICONS.out||''} Enviar para produção</button>`
     :`<div style="font-size:.85rem;color:var(--muted)">Produto</div><div class="mono" style="font-size:1.2rem;font-weight:700;margin:4px 0 14px">${x.pr||'(livre)'}</div><div style="font-size:.85rem;color:var(--muted)">Peso</div><div style="font-family:var(--disp);font-size:1.8rem;font-weight:700">${fmt(x.q||0)} <small style="font-size:.9rem;color:var(--muted)">${unitOf(x).toLowerCase()}</small></div>`}
-    <button class="gbtn" id="spLabel" style="width:100%;justify-content:center;margin-top:14px">${ICONS.tag} Ver etiqueta</button>
-    ${(function(){
-      try{
-        var here=[];if(typeof LOC!=='undefined')Object.keys(LOC).forEach(function(et){if(norm(LOC[et])===norm(code(x)))here.push(et);});
-        if(!here.length)return '';
-        var un=unitOf(x).toLowerCase();
-        var rows=here.map(function(et){
-          var b=(typeof BOB!=='undefined'&&BOB[et])?BOB[et]:null;
-          var pl=b?(b.rem!=null?b.rem:b.pl):0;
-          var desc=b?(b.desc||''):'';
-          return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-2,rgba(255,255,255,.03));border:1px solid var(--line);border-radius:9px;margin-top:6px">'
-            +'<div style="flex:1;min-width:0"><div class="mono" style="font-weight:700">'+et+'</div>'+(desc?'<div style="font-size:.72rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+desc+'</div>':'')+'</div>'
-            +'<div style="font-family:var(--mono);font-size:.82rem;color:var(--muted);white-space:nowrap">'+fmt(pl)+' '+un+'</div>'
-            +'<button type="button" class="gbtn" style="padding:7px 10px;white-space:nowrap" onclick="printBobLabel(\''+et+'\')">'+(ICONS.print||'')+' Imprimir etiqueta</button></div>';
-        }).join('');
-        return '<div style="margin-top:16px"><div style="font-size:.66rem;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:2px">Bobinas nesta posição ('+here.length+')</div>'+rows+'</div>';
-      }catch(e){return '';}
-    })()}`);
+    <button class="gbtn" id="spLabel" style="width:100%;justify-content:center;margin-top:14px">${ICONS.tag} Ver etiqueta</button>`);
   if(adm){var _peK=document.getElementById('spProd');if(_peK){_peK.addEventListener('keydown',function(e){if(e.key!=='Enter'||!_peK.value.trim())return;e.preventDefault();var v=_peK.value;var _q=document.getElementById('spQty');var _fill=function(p){if(p&&p.et)spScannedEt=norm(p.et);if(p&&p.pr)_peK.value=p.pr;if(_q&&p&&p.peso!=null&&!isNaN(p.peso))_q.value=p.peso;if(_q)_q.focus();};var p=parseBobina(v);var _cn=norm(typeof window.cleanScanCode==='function'?window.cleanScanCode(v):v);if(p.peso==null&&typeof norm==='function'&&(p.pr===_cn||!p.pr)&&_cn&&typeof window.bobFetch==='function'){toast('buscando etiqueta na nuvem…');window.bobFetch(_cn).then(function(){_fill(parseBobina(v));},function(){_fill(p);});}else{_fill(p);}});}}
   if(adm){if(window.addCam){var _pe=document.getElementById('spProd');if(_pe)window.addCam('spProd',{title:'Bipe a bobina',onResult:function(v){var _fill=function(p){if(p&&p.et)spScannedEt=norm(p.et);var _rawEt=norm(typeof window.cleanScanCode==='function'?window.cleanScanCode(v):v);if(!spScannedEt&&_rawEt&&typeof BOB!=='undefined'&&BOB[_rawEt])spScannedEt=_rawEt;if(p&&p.pr)_pe.value=p.pr;var _q=document.getElementById('spQty');if(_q&&p&&p.peso!=null&&!isNaN(p.peso))_q.value=p.peso;toast('Etiqueta '+(spScannedEt||p&&(p.et||p.pr)||v)+' lida · confira e Salvar');};var p=parseBobina(v);var _cn=norm(typeof window.cleanScanCode==='function'?window.cleanScanCode(v):v);if(p.peso==null&&typeof norm==='function'&&(p.pr===_cn||!p.pr)&&_cn&&typeof window.bobFetch==='function'){toast('buscando etiqueta na nuvem…');window.bobFetch(_cn).then(function(){_fill(parseBobina(v));},function(){_fill(p);});}else{_fill(p);}}});}
   $('#spSave').onclick=()=>{
@@ -13877,7 +13867,13 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
   }
   window.wmsLocalDaEtiqueta=function(v){
     var et=etiquetaNormalizada(v);if(!et)return null;
-    try{if(typeof LOC!=='undefined'&&LOC&&LOC[et])return {etiqueta:et,local:'Prateleira - 70',detalhe:String(LOC[et])};}catch(e){}
+    try{if(typeof LOC!=='undefined'&&LOC&&LOC[et]){
+      var _end=String(LOC[et]),_sp=(typeof findSpace==='function')?findSpace(_end):null;
+      if(_sp&&_sp.o&&(Number(_sp.q)||0)>0)return {etiqueta:et,local:'Prateleira - 70',detalhe:_end};
+      /* vínculo órfão: a vaga está livre/zerada, então não pode bloquear uma nova entrada */
+      delete LOC[et];if(typeof BOB!=='undefined'&&BOB[et])BOB[et].rem=0;
+      try{saveLOC();saveBOB();}catch(_e){}try{if(typeof syncDelLoc==='function')syncDelLoc(et);}catch(_e){}
+    }}catch(e){}
     try{if(typeof window.recicGetState==='function'&&listaTemEtiqueta(window.recicGetState(),et))return {etiqueta:et,local:'Recicladora - 91',detalhe:''};}catch(e){}
     try{if(typeof window.floor70GetState==='function'&&listaTemEtiqueta(window.floor70GetState(),et))return {etiqueta:et,local:'Chão de Fábrica - 70',detalhe:''};}catch(e){}
     try{if(typeof window.floorGetState==='function'&&listaTemEtiqueta(window.floorGetState(),et))return {etiqueta:et,local:ultimoLocalDoChao(et),detalhe:''};}catch(e){}

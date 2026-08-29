@@ -737,13 +737,14 @@ function boardZerarMapa(){
     var me=(Array.isArray(US)?US:[]).find(function(u){return u&&u.u===(typeof session!=='undefined'&&session?session.u:'');});
     var okPw = me ? await WMSSecurity.verify(me.p,typed) : false;
     if(!okPw){toast('Senha incorreta',false);return;}
-    var n=0;
-    alvo.forEach(function(sp){
+    var n=0,resetAt=nowISO(),resetSrc='__WMS_MAP_RESET__|'+wh+'|'+Date.parse(resetAt);
+    var todas=(Array.isArray(S)?S:[]).filter(function(x){return x&&x.w===wh;});
+    todas.forEach(function(sp){
       try{
         var cd=code(sp);
-        sp.pr='';sp.q=0;sp.o=false;sp.src='';sp.u='KG';sp.upd=nowISO();sp.by=(typeof session!=='undefined'&&session?session.u:'');
+        if(sp.o||sp.pr||Number(sp.q)>0)n++;
+        sp.pr='';sp.q=0;sp.o=false;sp.src=resetSrc;sp.u='KG';sp.upd=resetAt;sp.by=(typeof session!=='undefined'&&session?session.u:'');
         if(typeof LOC!=='undefined'&&LOC){Object.keys(LOC).forEach(function(et){if(norm(LOC[et])===norm(cd)){delete LOC[et];if(typeof BOB!=='undefined'&&BOB[et])BOB[et].rem=0;}});}
-        n++;
       }catch(e){}
     });
     try{if(typeof saveLOC==='function')saveLOC();if(typeof saveBOB==='function')saveBOB();}catch(e){}
@@ -751,7 +752,7 @@ function boardZerarMapa(){
     /* envia TODAS as vagas zeradas DE UMA VEZ, em lote (chunkUp = lotes de 400). Antes eu mandava
        uma por uma num laço de milhares — parte não chegava na nuvem e outros aparelhos (celular)
        continuavam vendo ocupado. O resto do app já usa chunkUp p/ mudanças em massa. */
-    try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',alvo.map(spRow));}catch(e){}
+    try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',todas.map(spRow));}catch(e){}
     try{logAct('ajuste','zerou o mapa de '+lbl+' ('+n+' vaga(s))');}catch(e){}
     closeDrawer();
     try{renderBoard();}catch(e){}
@@ -5517,10 +5518,20 @@ function markLocalWrite(){window._lastLocalWrite=Date.now();}
 function _writeGuardActive(){return (Date.now()-(window._lastLocalWrite||0))<12000;}
 /* compara o miolo de duas vagas (ocupação/produto/peso) — usado pra só reenviar quando realmente diferiu */
 function _sameSpace(a,b){if(!a||!b)return false;return (!!a.o===!!b.o)&&((a.pr||'')===(b.pr||''))&&((Number(a.q)||0)===(Number(b.q)||0));}
+/* Um reset altera milhares de vagas, mas o pull leve recebe só as 200 mais recentes. O marcador
+   abaixo faz uma única linha zerada invalidar todo cache anterior daquele depósito. Assim celular
+   antigo não conserva nem reenvia ocupações que existiam antes do comando "Zerar mapa". */
+function _applyMapResetMarkers(rows){
+ var marks={};(rows||[]).forEach(function(r){var m=/^__WMS_MAP_RESET__\|([^|]+)\|(\d+)$/.exec(String(r&&r.src||''));if(m){var ep=Number(m[2])||0;if(ep>(marks[m[1]]||0))marks[m[1]]=ep;}});
+ var changed=false,clearedCodes={};
+ Object.keys(marks).forEach(function(wh){var ep=marks[wh],src='__WMS_MAP_RESET__|'+wh+'|'+ep,iso=new Date(ep).toISOString();(S||[]).forEach(function(x){if(!x||String(x.w)!==String(wh))return;var lu=Date.parse(x.upd||'')||0;if(lu>ep)return;if(x.o||x.pr||Number(x.q)>0)clearedCodes[norm(code(x))]=1;if(x.o||x.pr||Number(x.q)>0||x.src!==src||x.upd!==iso||x.u!=='KG')changed=true;x.pr='';x.q=0;x.o=false;x.u='KG';x.src=src;x.upd=iso;});});
+ if(changed){try{if(typeof LOC!=='undefined'&&LOC){Object.keys(LOC).forEach(function(et){if(clearedCodes[norm(LOC[et])]){delete LOC[et];if(typeof BOB!=='undefined'&&BOB[et])BOB[et].rem=0;}});if(typeof saveLOC==='function')saveLOC();if(typeof saveBOB==='function')saveBOB();}}catch(e){}try{DB.saveSpaces(S);}catch(e){}}
+ return changed;
+}
 async function pullAll(silent){if(!supa)return false;if(!silent)setNet('sync');
  var guard=_writeGuardActive(); // se você acabou de gravar, não sobrescreve seus dados com a nuvem antiga
  try{
-  const sp=await pgAll('espacos');if(sp.length){const corruptIds=sp.filter(r=>{var n=Number(r.q)||0;return n>1000000000||n<0;}).map(r=>r.id);
+   const sp=await pgAll('espacos');if(sp.length){_applyMapResetMarkers(sp);const corruptIds=sp.filter(r=>{var n=Number(r.q)||0;return n>1000000000||n<0;}).map(r=>r.id);
    /* MERGE POR VAGA (anti "sai e volta"): compara o carimbo `upd` linha a linha.
       Se a versão local é mais nova que a da nuvem (upsert falhou/atrasou), a local VENCE
       e é reenviada para a nuvem — em vez de a nuvem antiga reocupar a vaga. */
@@ -5615,7 +5626,7 @@ function applyRealtime(p){const t=p.table,n=p.new,o=p.old,ev=p.eventType;
  /* catálogo de bobinas NÃO entra por realtime (sincroniza por delta/push) */
  if(t==='bobinas')return;
  try{
- if(t==='espacos'&&n){const i=S.findIndex(x=>x.id===n.id);const row={id:n.id,w:n.w,s:n.s,l:n.l,p:n.p,pr:n.pr||'',q:cleanQ(n.q),u:n.u||'KG',o:!!n.o,src:n.src||'',upd:n.upd||'',by:n.by_user||''};
+  if(t==='espacos'&&n){_applyMapResetMarkers([n]);const i=S.findIndex(x=>x.id===n.id);const row={id:n.id,w:n.w,s:n.s,l:n.l,p:n.p,pr:n.pr||'',q:cleanQ(n.q),u:n.u||'KG',o:!!n.o,src:n.src||'',upd:n.upd||'',by:n.by_user||''};
   // anti-eco: se chega uma versão MAIS ANTIGA desta vaga do que a que já tenho, ignoro SEMPRE (é eco atrasado / aparelho desatualizado)
   if(i>=0){var _cur=S[i];
     var _curU=String(_cur&&_cur.upd||''),_rowU=String(row.upd||'');
@@ -6002,7 +6013,7 @@ async function pullLight(){
   var _mvNew=0;
   try{var _mvr=await Promise.race([supa.from('movimentos').select('*').order('at',{ascending:false}).limit(40),new Promise(function(res){setTimeout(function(){res({data:null});},9000);})]);if(_mvr&&_mvr.data&&_mvr.data.length){var _seen={};MV.forEach(function(m){if(m&&m.id)_seen[m.id]=1;});var _add=[];_mvr.data.forEach(function(r){if(!_seen[r.id])_add.push({id:r.id,action:r.action,w:r.w,code:r.code,pr:r.pr,q:Number(r.q)||0,u:r.u,et:r.et||'',before:Number(r.before_q)||0,after:Number(r.after_q)||0,at:r.at,by:r.by_user||''});});if(_add.length){_mvNew=_add.length;MV=_add.concat(MV);MV.sort(function(a,b){return (b.at||'')<(a.at||'')?-1:((b.at||'')>(a.at||'')?1:0);}); /* log local enxuto: o histórico completo fica na nuvem */DB.saveMovs(MV);}}}catch(e){}
   var _spNew=0;
-  try{var _spr=await Promise.race([supa.from('espacos').select('*').order('upd',{ascending:false,nullsFirst:false}).limit(200),new Promise(function(res){setTimeout(function(){res({data:null});},9000);})]);if(_spr&&_spr.data&&_spr.data.length){var _byId={};S.forEach(function(x){_byId[x.id]=x;});_spr.data.forEach(function(r){if(!r.upd)return;var cloud={id:r.id,w:r.w,s:r.s,l:r.l,p:r.p,pr:r.pr||'',q:cleanQ(r.q),u:r.u||'KG',o:!!r.o,src:r.src||'',upd:r.upd||'',by:r.by_user||''};var loc=_byId[r.id];if(!loc){S.push(cloud);_spNew++;return;}var _lu=String(loc.upd||''),_cu=String(cloud.upd||'');if(!guard&&_cu&&(!_lu||_cu>_lu)){var i=S.indexOf(loc);if(i>=0){S[i]=cloud;_spNew++;}}});if(_spNew){DB.saveSpaces(S);}}}catch(e){}
+   try{var _spr=await Promise.race([supa.from('espacos').select('*').order('upd',{ascending:false,nullsFirst:false}).limit(200),new Promise(function(res){setTimeout(function(){res({data:null});},9000);})]);if(_spr&&_spr.data&&_spr.data.length){if(_applyMapResetMarkers(_spr.data))_spNew++;var _byId={};S.forEach(function(x){_byId[x.id]=x;});_spr.data.forEach(function(r){if(!r.upd)return;var cloud={id:r.id,w:r.w,s:r.s,l:r.l,p:r.p,pr:r.pr||'',q:cleanQ(r.q),u:r.u||'KG',o:!!r.o,src:r.src||'',upd:r.upd||'',by:r.by_user||''};var loc=_byId[r.id];if(!loc){S.push(cloud);_spNew++;return;}var _lu=String(loc.upd||''),_cu=String(cloud.upd||'');if(!guard&&_cu&&(!_lu||_cu>_lu)){var i=S.indexOf(loc);if(i>=0){S[i]=cloud;_spNew++;}}});if(_spNew){DB.saveSpaces(S);}}}catch(e){}
   if(session){var _ae=document.activeElement;var _dig=_ae&&(_ae.tagName==='INPUT'||_ae.tagName==='TEXTAREA'||_ae.tagName==='SELECT');var _drw=document.querySelector('#drawer.show');if(!_dig&&!_drw){var v=document.querySelector('.view.active');if(v){var _live=(v.id==='v-recv'||v.id==='v-floor'||v.id==='v-floor70');var _mov=(v.id==='v-vsm'||v.id==='v-track');var _sp=(v.id==='v-home'||v.id==='v-board'||v.id==='v-abc');if(_live||(_mov&&_mvNew)||(_sp&&_spNew))render(v.id);}}}
   updateStageBadge();
   /* aba Nota Fiscal aberta = mantém as NFs/romaneios dos outros PCs chegando ao vivo.

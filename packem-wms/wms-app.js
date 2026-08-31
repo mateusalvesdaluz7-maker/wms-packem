@@ -153,7 +153,8 @@ function scanLock(el){if(!el)return;
 /* Inventário liberado para TODOS os papéis: o operador precisa ver a contagem que o admin
    atribuiu a ele. O que ele NÃO pode é escolher o que contar — só executa o que foi atribuído.
    Essa trava mora no renderInv (cards de início escondidos p/ não-admin), não aqui. */
-const ROLE_VIEWS={operador:['v-board','v-recv','v-floor','v-floor70','v-exped','v-mov','v-stock','v-recic','v-labels','v-inv','v-amrp','v-logalert'],recepcao:['v-nf','v-labels','v-recv','v-floor','v-floor70','v-inv'],requisitante:['v-requisicao']};
+const REMOVED_VIEWS=['v-requisicao','v-reqlive','v-inv','v-vsm'];
+const ROLE_VIEWS={operador:['v-board','v-recv','v-floor','v-floor70','v-exped','v-mov','v-stock','v-recic','v-labels','v-amrp','v-logalert'],recepcao:['v-nf','v-labels','v-recv','v-floor','v-floor70'],requisitante:['v-home']};
 function allowedViews(){const r=curRole();return (r&&ROLE_VIEWS[r])||null;}
 const code=sp=>sp.s+'-'+sp.p+'-'+sp.l;
 const whLabel=w=>w==='70'?'Dep 70':w==='novo'?'Novo':'Chão';
@@ -269,7 +270,7 @@ function applyPerms(){const sup=isSuper();try{if(typeof window.ensureAdmin3D==='
 
 /* nav */
 const TITLES={'v-home':'Visão Geral','v-board':'Mapa Operacional - 70','v-mov':'Movimentação','v-stock':'Gestão de Estoque','v-transf':'Transferências','v-labels':'Gestão de Etiquetas','v-abc':'Análise ABC','v-values':'Cadastro de Materiais','v-users':'Gestão de Usuários','v-act':'Log de Atividades'};
-function go(id){if(id==='v-3d'&&!isSuper()){try{dispose3d();}catch(e){}toast('Mapa 3D disponível somente para o administrador',false);id='v-home';}if(id==='v-users'&&!isSuper())id='v-home';if(id==='v-mov'&&!isAdmin()){toast('Sem permissão para movimentar',false);return;}const allow=allowedViews();if(allow&&allow.indexOf(id)<0)id=allow[0]||'v-stock';
+function go(id){if(REMOVED_VIEWS.indexOf(id)>=0)id='v-home';if(id==='v-3d'&&!isSuper()){try{dispose3d();}catch(e){}toast('Mapa 3D disponível somente para o administrador',false);id='v-home';}if(id==='v-users'&&!isSuper())id='v-home';if(id==='v-mov'&&!isAdmin()){toast('Sem permissão para movimentar',false);return;}const allow=allowedViews();if(allow&&allow.indexOf(id)<0)id=allow[0]||'v-stock';
   /* Toda entrada nova em Documentos Fiscais exige escolher novamente PRE ou TÊXTIL.
      A regra fica aqui, no núcleo da navegação, para funcionar também quando o menu
      for reconstruído por login, troca de perfil ou permissões. */
@@ -4299,6 +4300,7 @@ updateStageBadge();
 
   /* ---- nav + views ---- */
   function addNavAfter(refView,view,ic,label,fn){
+    if(typeof REMOVED_VIEWS!=='undefined'&&REMOVED_VIEWS.indexOf(view)>=0)return null;
     var ref=[].slice.call(document.querySelectorAll('.nav')).find(function(n){return n.dataset.view===refView;});
     var anchor=ref;
     var nv=document.createElement('div');nv.className='nav';nv.dataset.view=view;nv.dataset.ic=ic;nv.innerHTML='<span class="ni"></span>'+label;
@@ -4312,11 +4314,11 @@ updateStageBadge();
   var _nfNavEntry=addNavAfter('v-floor','v-nf','nf','Documentos Fiscais');
   if(_nfNavEntry)_nfNavEntry.onclick=function(){window.nfResetLocal();go('v-nf');};
   if(typeof ICONS!=='undefined')ICONS.vsm=ICONS.vsm||'<svg class="i" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>';
-  addNavAfter('v-nf','v-vsm','vsm','VSM em Tempo Real');
+  /* VSM removido do sistema. */
 
   /* ===== Requisições ao vivo (integração Base44 · REQUISIÇÃO PACKEM) ===== */
   if(typeof ICONS!=='undefined')ICONS.reqlive=ICONS.reqlive||'<svg class="i" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M3 6l1.2 1.2L6.5 5M3 12l1.2 1.2L6.5 11M3 18l1.2 1.2L6.5 17"/></svg>';
-  addNavAfter('v-vsm','v-reqlive','reqlive','Requisições em Tempo Real');
+  /* Requisições em tempo real removidas do sistema. */
   var RQL={data:null,err:'',at:0,loading:false,filtro:'pendente',aberta:null,baixando:false};
   function rqlStatusChip(st){
     var m={pendente:['Pendente','#b45309','#fef3c7'],em_separacao:['Em separação','#1d4ed8','#dbeafe'],pausado:['Pausado','#c2410c','#ffedd5'],separado:['Separado','#0f766e','#ccfbf1'],entregue:['Entregue','#15803d','#dcfce7'],cancelado:['Cancelado','#b91c1c','#fee2e2']};
@@ -5620,7 +5622,6 @@ let _rt=null;function scheduleRerender(){clearTimeout(_rt);_rt=setTimeout(()=>{i
 let _pT={};function persistDebounced(k){clearTimeout(_pT[k]);_pT[k]=setTimeout(function(){try{if(k==='sp')DB.saveSpaces(S);else if(k==='bob')saveBOB();else if(k==='loc')saveLOC();else if(k==='stage')saveStage();else if(k==='mv')DB.saveMovs(MV);else if(k==='vl')DB.saveValues(VL);else if(k==='us')DB.saveUsers(US);}catch(e){}},200);}
 var _rtBurst=0,_rtBurstT=0;
 function applyRealtime(p){const t=p.table,n=p.new,o=p.old,ev=p.eventType;
- try{if(t==='inventarios'){if(typeof window.invPullQ==='function')window.invPullQ();var _av=document.querySelector('.view.active');if(_av&&_av.id==='v-inv'&&typeof window.renderInv==='function'&&!document.querySelector('#invBipe:focus'))setTimeout(window.renderInv,400);return;}}catch(e){}
  /* FREIO ANTI-ENXURRADA: se chegarem mais de 120 eventos em 2s (import em massa ecoando de volta),
     para de processar e agenda UM pull leve no fim — em vez de re-renderizar 40 mil vezes. */
  try{var _now=Date.now();if(_now-_rtBurstT>2000){_rtBurstT=_now;_rtBurst=0;}_rtBurst++;
@@ -5665,7 +5666,7 @@ function startRealtime(){if(!supa)return;
      estourado → CHANNEL_ERROR → reconecta → e no SUBSCRIBED disparava pullAll() FORA da trava
      de sync. Resultado: "ao vivo / atualizando / offline" piscando pra sempre.
      Agora: assina tabela por tabela, SEM `bobinas` (o catálogo já sincroniza por delta/push). */
-  var TBL=['espacos','locais','stage','movimentos','valores','usuarios','chao','chao70','etiquetas','notas_fiscais','romaneios','inventarios'];
+  var TBL=['espacos','locais','stage','movimentos','valores','usuarios','chao','chao70','etiquetas','notas_fiscais','romaneios'];
   var ch=supa.channel('wms-ops-'+Date.now());
   TBL.forEach(function(t){ch=ch.on('postgres_changes',{event:'*',schema:'public',table:t},function(p){applyRealtime(p);});});
   _rtChan=ch.subscribe(function(status){
@@ -11277,6 +11278,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     try{if(typeof setIcons==='function')setIcons();}catch(e){}
   };
   /* injeta menu + tela + rota */
+  if(typeof REMOVED_VIEWS!=='undefined'&&REMOVED_VIEWS.indexOf('v-inv')>=0)return;
   try{
     var _invSec=document.getElementById('v-inv');
     if(!_invSec){_invSec=document.createElement('section');_invSec.className='view';_invSec.id='v-inv';var _mn=document.querySelector('main');if(_mn)_mn.appendChild(_invSec);}
@@ -13136,19 +13138,15 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     ]},
     {grupo:'Operação',itens:[
       ['v-exped','Expedição de Romaneios'],
-      ['v-reqlive','Requisições'],
-      ['v-requisicao','Requisição'],
       ['v-logalert','Alertas da Logística'],
-      ['v-track','Movimentação'],
-      ['v-inv','Inventário']
+      ['v-track','Movimentação']
     ]},
     {grupo:'Gestão e Documentação',itens:[
       ['v-recv','Recebimento'],
       ['v-nf','Nota Fiscal']
     ]},
     {grupo:'Análise',itens:[
-      ['v-abc','Análise ABC'],
-      ['v-vsm','VSM Tempo Real']
+      ['v-abc','Análise ABC']
     ]},
     {grupo:'Cadastro',itens:[
       ['v-values','Cadastro de Materiais'],
@@ -13308,15 +13306,15 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
  var catalogo=[
   ['Geral',[['v-home','Visão Geral']]],
   ['Estoque',[['v-stock','Gestão de Estoque - Geral'],['v-board','Prateleira - 70'],['v-recic','Recicladora - 91'],['v-floor70','Chão de Fábrica - 70'],['v-floor','Expedição - 71']]],
-  ['Operação',[['v-exped','Expedição de Romaneios'],['v-reqlive','Requisições'],['v-requisicao','Requisição'],['v-logalert','Alertas da Logística'],['v-track','Movimentação'],['v-inv','Inventário']]],
+  ['Operação',[['v-exped','Expedição de Romaneios'],['v-logalert','Alertas da Logística'],['v-track','Movimentação']]],
   ['Gestão e Documentação',[['v-recv','Recebimento'],['v-nf','Nota Fiscal']]],
-  ['Análise',[['v-abc','Análise ABC'],['v-vsm','VSM Tempo Real']]],
+  ['Análise',[['v-abc','Análise ABC']]],
   ['Cadastro',[['v-values','Cadastro de Materiais'],['v-users','Gestão de Usuário'],['v-act','Log de Atividades'],['v-labels','Gestão de Etiquetas'],['v-etqconsulta','Consulta de Etiqueta']]]
  ];
  function mapa(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){return {};}}
  function grava(m){try{localStorage.setItem(KEY,JSON.stringify(m));}catch(e){}}
- function padrao(role){if(role==='operador')return ['v-home','v-stock','v-board','v-recic','v-floor70','v-floor','v-reqlive','v-requisicao','v-logalert','v-track','v-inv','v-recv','v-labels','v-etqconsulta'];if(role==='recepcao')return ['v-home','v-recv','v-nf','v-labels','v-etqconsulta'];if(role==='viewer')return ['v-home','v-stock','v-board','v-abc','v-vsm','v-etqconsulta'];return null;}
- allowedViews=function(){var r=curRole();if(r==='admin')return null;var nome=session&&session.u||'',chave=String(nome).toLowerCase(),m=mapa(),cad=(US||[]).find(function(x){return String(x.u||'').toLowerCase()===chave;}),acessos=cad&&Array.isArray(cad.views)?cad.views:(Array.isArray(m[chave])?m[chave]:padrao(r));if(Array.isArray(acessos))acessos=acessos.filter(function(v){return v!=='v-3d';});if(Array.isArray(acessos)&&acessos.indexOf('v-requisicao')>=0&&acessos.indexOf('v-logalert')<0)acessos=acessos.concat('v-logalert');return acessos;};
+ function padrao(role){if(role==='operador')return ['v-home','v-stock','v-board','v-recic','v-floor70','v-floor','v-logalert','v-track','v-recv','v-labels','v-etqconsulta'];if(role==='recepcao')return ['v-home','v-recv','v-nf','v-labels','v-etqconsulta'];if(role==='viewer')return ['v-home','v-stock','v-board','v-abc','v-etqconsulta'];if(role==='requisitante')return ['v-home'];return null;}
+ allowedViews=function(){var r=curRole();if(r==='admin')return null;var nome=session&&session.u||'',chave=String(nome).toLowerCase(),m=mapa(),cad=(US||[]).find(function(x){return String(x.u||'').toLowerCase()===chave;}),acessos=cad&&Array.isArray(cad.views)?cad.views:(Array.isArray(m[chave])?m[chave]:padrao(r));if(Array.isArray(acessos))acessos=acessos.filter(function(v){return v!=='v-3d'&&REMOVED_VIEWS.indexOf(v)<0;});return acessos;};
  window.allowedViews=allowedViews;
  var css=document.createElement('style');css.textContent='.uv-head{display:flex;align-items:center;justify-content:space-between;margin:18px 0 10px}.uv-head b{font-size:.72rem;text-transform:uppercase;letter-spacing:.7px}.uv-all{border:0;background:none;color:var(--brand);font-weight:700;font-size:.72rem;cursor:pointer}.uv-group{border:1px solid var(--line);border-radius:11px;margin-bottom:9px;overflow:hidden}.uv-group-title{background:var(--card-2);padding:8px 11px;font-size:.62rem;text-transform:uppercase;letter-spacing:.8px;font-weight:800;color:var(--muted)}.uv-list{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:5px 9px}.uv-item{display:flex;align-items:center;gap:8px;padding:8px 5px;font-size:.76rem;cursor:pointer}.uv-item input{width:16px;height:16px;accent-color:var(--brand)}@media(max-width:520px){.uv-list{grid-template-columns:1fr}}';document.head.appendChild(css);
  renderUsers=function(){var m=mapa();document.getElementById('userTable').innerHTML='<thead><tr><th>Usuário</th><th>Perfil</th><th>Acesso</th><th>Status</th><th></th></tr></thead><tbody>'+US.map(function(u,i){var acessos=Array.isArray(u.views)?u.views:(m[String(u.u||'').toLowerCase()]||padrao(u.role)||[]),total=u.role==='admin'?'Todas':(acessos.length+' abas');return '<tr class="click" data-eu="'+i+'"><td style="font-weight:600">'+u.u+'</td><td><span class="pill '+(u.role==='admin'?'a':'c')+'">'+u.role+'</span></td><td>'+total+'</td><td>'+(u.active===false?'<span class="pill out">inativo</span>':'<span class="pill in">ativo</span>')+'</td><td style="color:var(--faint)">editar ›</td></tr>';}).join('')+'</tbody>';document.querySelectorAll('#userTable tbody tr[data-eu]').forEach(function(t){t.onclick=function(){editUser(Number(t.dataset.eu));};});};
@@ -13394,7 +13392,15 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
    finally{if(campo&&campo.isConnected)campo.value='';}
   };
  };
- window.editUser=editUser;
+window.editUser=editUser;
+})();
+
+/* Remoção definitiva das áreas descontinuadas. Também limpa menus antigos que possam estar
+   guardados/recriados por código legado depois do login ou da troca de usuário. */
+(function(){
+ function purgeRemovedViews(){try{(REMOVED_VIEWS||[]).forEach(function(id){document.querySelectorAll('.nav[data-view="'+id+'"],#'+id).forEach(function(el){el.remove();});});if(window.__vsmLiveTimer){clearInterval(window.__vsmLiveTimer);window.__vsmLiveTimer=null;}}catch(e){}}
+ purgeRemovedViews();
+ if(document.body&&typeof MutationObserver!=='undefined'){var obs=new MutationObserver(function(){purgeRemovedViews();});obs.observe(document.body,{childList:true,subtree:true});window.__removedViewsObserver=obs;}
 })();
 
 /* ===== EVENTOS FISCAIS NO RASTREADOR ===== */
@@ -13644,11 +13650,11 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
   if(!requisicaoNav){requisicaoNav=document.createElement('div');requisicaoNav.className='nav';requisicaoNav.dataset.view='v-requisicao';requisicaoNav.innerHTML='<span class="ni"></span>Requisição';if(reqOriginalNav&&reqOriginalNav.parentNode)reqOriginalNav.parentNode.insertBefore(requisicaoNav,reqOriginalNav.nextSibling);}
   var view=document.getElementById('v-requisicao');if(!view){view=document.createElement('section');view.className='view';view.id='v-requisicao';document.querySelector('main').appendChild(view);}TITLES['v-requisicao']='Requisição';requisicaoNav.onclick=function(){go('v-requisicao');};
   var alertNav=[].slice.call(document.querySelectorAll('.nav')).find(function(n){return n.dataset.view==='v-logalert';});
-  if(!alertNav){alertNav=document.createElement('div');alertNav.className='nav';alertNav.dataset.view='v-logalert';alertNav.innerHTML='<span class="ni"></span><span class="menuLabel">Alertas da Logística</span><b class="navAlertBadge" hidden>0</b>';if(requisicaoNav&&requisicaoNav.parentNode)requisicaoNav.parentNode.insertBefore(alertNav,requisicaoNav.nextSibling);}
+  if(!alertNav){alertNav=document.createElement('div');alertNav.className='nav';alertNav.dataset.view='v-logalert';alertNav.innerHTML='<span class="ni"></span><span class="menuLabel">Alertas da Logística</span><b class="navAlertBadge" hidden>0</b>';var alertBase=(requisicaoNav&&requisicaoNav.parentNode)?requisicaoNav:[].slice.call(document.querySelectorAll('.nav')).find(function(x){return x.dataset.view==='v-track';});if(alertBase&&alertBase.parentNode)alertBase.parentNode.insertBefore(alertNav,alertBase.nextSibling);}
   var alertView=document.getElementById('v-logalert');if(!alertView){alertView=document.createElement('section');alertView.className='view';alertView.id='v-logalert';document.querySelector('main').appendChild(alertView);}TITLES['v-logalert']='Alertas da Logística';alertNav.onclick=function(){go('v-logalert');};
   function dynamicNavRoot(){return document.querySelector('.sb-nav')||document;}
   function ensureRequisicaoNav(){var root=dynamicNavRoot(),n=[].slice.call(root.querySelectorAll('.nav')).find(function(x){return x.dataset.view==='v-requisicao';});if(n)return n;var base=[].slice.call(root.querySelectorAll('.nav')).find(function(x){return x.dataset.view==='v-reqlive';})||[].slice.call(root.querySelectorAll('.nav')).find(function(x){return x.dataset.view==='v-track';});if(!base||!base.parentNode)return null;n=document.createElement('div');n.className='nav';n.dataset.view='v-requisicao';n.innerHTML='<span class="ni"></span>Requisição';n.onclick=function(){go('v-requisicao');};base.parentNode.insertBefore(n,base.dataset.view==='v-track'?base:base.nextSibling);return n;}
-  function ensureAlertNav(){var root=dynamicNavRoot(),nodes=[].slice.call(root.querySelectorAll('.nav[data-view="v-logalert"]')),n=nodes.shift();nodes.forEach(function(duplicado){duplicado.remove();});if(!n){var base=[].slice.call(root.querySelectorAll('.nav')).find(function(x){return x.dataset.view==='v-requisicao';});if(!base||!base.parentNode)return null;n=document.createElement('div');n.className='nav';n.dataset.view='v-logalert';base.parentNode.insertBefore(n,base.nextSibling);}var badge=n.querySelector('.navAlertBadge');if(!badge){badge=document.createElement('b');badge.className='navAlertBadge';badge.hidden=true;badge.textContent='0';n.appendChild(badge);}[].slice.call(n.querySelectorAll('.navAlertLabel,.menuLabel')).forEach(function(label){label.remove();});[].slice.call(n.childNodes).forEach(function(child){if(child.nodeType===3)child.remove();});var label=document.createElement('span');label.className='menuLabel';label.textContent='Alertas da Logística';n.insertBefore(label,badge);n.id='navLogAlert';n.onclick=function(){go('v-logalert');};return n;}
+  function ensureAlertNav(){var root=dynamicNavRoot(),nodes=[].slice.call(root.querySelectorAll('.nav[data-view="v-logalert"]')),n=nodes.shift();nodes.forEach(function(duplicado){duplicado.remove();});if(!n){var base=[].slice.call(root.querySelectorAll('.nav')).find(function(x){return x.dataset.view==='v-track';});if(!base||!base.parentNode)return null;n=document.createElement('div');n.className='nav';n.dataset.view='v-logalert';base.parentNode.insertBefore(n,base.nextSibling);}var badge=n.querySelector('.navAlertBadge');if(!badge){badge=document.createElement('b');badge.className='navAlertBadge';badge.hidden=true;badge.textContent='0';n.appendChild(badge);}[].slice.call(n.querySelectorAll('.navAlertLabel,.menuLabel')).forEach(function(label){label.remove();});[].slice.call(n.childNodes).forEach(function(child){if(child.nodeType===3)child.remove();});var label=document.createElement('span');label.className='menuLabel';label.textContent='Alertas da Logística';n.insertBefore(label,badge);n.id='navLogAlert';n.onclick=function(){go('v-logalert');};return n;}
   function updateAlertNavBadge(){var n=ensureAlertNav();if(!n)return;var badge=n.querySelector('.navAlertBadge'),total=Array.isArray(REQS)?REQS.filter(alertaAtivo).length:0;if(!badge)return;badge.textContent=String(total);badge.hidden=total===0;n.classList.toggle('hasAlerts',total>0);}
   function abrirPainelAlertas(){ensureRequisicaoNav();if(typeof applyPerms==='function')applyPerms();var n=ensureAlertNav();if(n){n.hidden=false;n.style.removeProperty('display');}updateAlertNavBadge();go('v-logalert');renderLogAlerts(true);if(n&&typeof n.scrollIntoView==='function')setTimeout(function(){n.scrollIntoView({block:'nearest'});},0);}
   window.ensureWmsDynamicNav=function(){ensureRequisicaoNav();if(typeof applyPerms==='function')applyPerms();ensureRequisicaoNav();ensureAlertNav();updateAlertNavBadge();};

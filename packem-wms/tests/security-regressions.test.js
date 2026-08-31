@@ -183,6 +183,10 @@ test('menu mantém somente um acesso aos Alertas da Logística', function () {
   assert.doesNotMatch(app, /<span class="navAlertLabel">Alertas da Logística<\/span>/);
 });
 
+test('menu oficial mantém o acesso à requisição interna', function () {
+  assert.match(app, /\['v-requisicao','Requisição'\]/);
+});
+
 test('prateleira recusa quantidade zero ou inválida antes de armazenar', function () {
   assert.match(app, /function placeBobina\(et,pr,pl,c\)\{pl=Number\(pl\);if\(!Number\.isFinite\(pl\)\|\|pl<=0\)/);
   assert.match(app, /Não é permitido armazenar quantidade zero na prateleira/);

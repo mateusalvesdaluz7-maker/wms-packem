@@ -13138,6 +13138,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     ]},
     {grupo:'Operação',itens:[
       ['v-exped','Expedição de Romaneios'],
+      ['v-requisicao','Requisição'],
       ['v-logalert','Alertas da Logística'],
       ['v-track','Movimentação']
     ]},

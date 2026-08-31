@@ -1291,7 +1291,10 @@ function renderAct(){const acessos=AC.filter(a=>String(a.action||'').toLowerCase
 
 /* dados */
 function dl(n,c,t='text/csv;charset=utf-8'){const b=new Blob([c],{type:t}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
- function csv(r){return '\uFEFF'+r.map(x=>x.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(';')).join('\n');}
+ /* CSV para Excel pt-BR: ponto decimal era lido como separador de milhar e transformava
+    30573.4647999999 em 30.573.464.799.999.900. Números saem arredondados e com vírgula. */
+ function csvValue(v){if(typeof v==='number'){if(!isFinite(v))return '0';var n=Math.round(v*1000)/1000;if(Object.is&&Object.is(n,-0))n=0;return String(n).replace('.',',');}return String(v==null?'':v);}
+ function csv(r){return '\uFEFF'+r.map(x=>x.map(c=>`"${csvValue(c).replace(/"/g,'""')}"`).join(';')).join('\n');}
 $('#mBackup').onclick=()=>{openDrawer(`${ICONS.save} Backup / Restaurar`,`<button class="gbtn" id="bExp" style="width:100%;justify-content:center;margin-bottom:10px">${ICONS.down} Baixar backup (.json)</button><button class="gbtn" id="bImp" style="width:100%;justify-content:center;margin-bottom:10px">Restaurar de arquivo</button><button class="gbtn" id="bMov" style="width:100%;justify-content:center">${ICONS.down} Exportar movimentos (CSV)</button><input type="file" id="bFile" accept="application/json" hidden>`);$('#bExp').onclick=()=>dl('backup_wms_packem.json',JSON.stringify({S,MV,TR,VL,US,AC,cfg,at:nowISO()}),'application/json');$('#bMov').onclick=()=>{const h=['Data','Acao','Endereco','Produto','Qtd','SaldoApos','Operador'];dl('movimentos.csv',csv([h,...MV.map(m=>[m.at,m.action,m.code,m.pr,m.q,m.after,m.by])]));};$('#bImp').onclick=()=>$('#bFile').click();$('#bFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(d.S)S=d.S;if(d.MV)MV=d.MV;if(d.TR)TR=d.TR;if(d.VL)VL=d.VL;if(d.US)US=d.US;if(d.AC)AC=d.AC;persist();closeDrawer();toast('Restaurado');go('v-home');}catch{toast('Arquivo inválido',false);}};r.readAsText(f);};};
 $('#mReseed').onclick=()=>{if(confirm('Recarregar os 2188 endereços originais? Substitui o estoque atual.')){DB.reseed();S=DB.spaces();persist();toast('Recarregado');go('v-home');}};
 

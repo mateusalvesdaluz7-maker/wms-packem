@@ -2829,12 +2829,34 @@ updateStageBadge();
   var CONV_MAP={"167 X 91":{"cod":"0303410058","desc":"ALCA PET 1000 KGF 70MM CRISTAL"},"66 X 65":{"cod":"0303480154","desc":"TEC.TUBULAR PP LAM.54G+12GX65CM BR EXT.02"},"137 X 97":{"cod":"0303550015","desc":"TEC.PLANO PP 140G X 97CM - EXT-02"},"66 X 97":{"cod":"0303480152","desc":"TEC. PLANO PP LAM. 54+12G 97CM BRANCO EXT-02"},"155 X 360":{"cod":"0303450156","desc":"TEC.TUBULAR PP 156G 360CM BRANCO EXT 02"},"66 X 45":{"cod":"0303480153","desc":"TEC.TUBULAR PP LAM.54+12G X 45CM BRANCO"},"137 X 105":{"cod":"0303490013","desc":"TEC.PLANO PP 140G 105CM BRANCO"},"155 X 396":{"cod":"0303450157","desc":"TEC.TUBULAR PP 156G 396CM BRANCO EXT-02"},"66 X 55":{"cod":"0303480107","desc":"TEC.TUBULAR PP LAM. 54+12G 55CM BRANCO EXT-01"},"167 X 198":{"cod":"0303450137","desc":"TEC.TUBULAR PET 165G X 392CM CRISTAL R.ALCA"},"97 X 62":{"cod":"0303480151","desc":"TEC.TUB LAM. PET 70+30G 62CM CRISTAL COMPRADO-02"},"167 X 178":{"cod":"0303450132","desc":"TECIDO TUBULAR PET 165GX356CM CRISTAL"},"167 X 100":{"cod":"0303470059","desc":"TEC.PLANO PET 160G 100CM CRISTAL"},"87 X 65":{"cod":"0303480148","desc":"TEC.TUBULAR LAM. PET 70+30G 65CM CRISTAL- INTERNO"},"167 X 97":{"cod":"0303470108","desc":"TEC.PLANO PET 160G 97M CRISTAL"},"177 X 178":{"cod":"0303450132","desc":"TECIDO TUBULAR PET 165GX356CM CRISTAL"},"87 X 103":{"cod":"0303480078","desc":"TEC.PLANO LAM. PET 70+20G 105CM CRISTAL"},"167 X 107":{"cod":"0303470074","desc":"TEC.PLANO PET 160G 105CM CRISTAL"},"54 X 97":{"cod":"0303490095","desc":"TEC.PLANO PP 54G 97CM BRANCO EXT-02"},"54 X 45":{"cod":"0303490098","desc":"TEC.TUBULAR PP 54G 45CM BRANCO EXT-02"},"54 X 55":{"cod":"0303490094","desc":"TEC.TUBULAR PP 54G 55CM BRANCO EXT-02"},"54 X 65":{"cod":"0303490099","desc":"TEC.TUBULAR PP 54G 65CM BRANCO EXT-03"},"POLIPROPILENO":{"cod":"101120035","desc":"POLIPROPILENO PG 480 BR25 - BF"},"POLIPROPILENO H-503 HS":{"cod":"101110007","desc":"POLIPROPILENO HOMOPOLIMERO BRASKEM H503HS-AF"},"POLIETILENO BAIXA DENSIDADE IPHETENE 670":{"cod":"101110033","desc":"POLIETILENO BAIXA DENSIDADE IPHETENE 670"},"POLOPROPILENO COPOLIMERO 2500 E":{"cod":"101000013","desc":"POLIPROPILENO COPOLIMERO 2500 E PETROCUYO"},"PEDB FILME IND - IPETHENE100":{"cod":"101110011","desc":"POLIETILENO BAIXA DENSIDADE IPHETENE 100"},"PEBD COATING 7019EC":{"cod":"101110063","desc":"POLIETILENO BAIXA DENSIDADE COATING - 7019EC"},"POLIPROPILENO RP 144":{"cod":"101110016","desc":"POLIPROPILENO COPOLIMERO BRASKEM PP RP144"},"POLOPROPILENO H107":{"cod":"101110012","desc":"POLIPROPILENO HOMOPOLIMERO BRASKEM H107-AF"},"POLIPROPILENO H 103":{"cod":"101110021","desc":"POLIPROPILENO HOMOPOLIMERO BRASKEM H103-AF"},"MLLDPE 7118A":{"cod":"101210004","desc":""},"METALOCENO 7115A":{"cod":"101120037","desc":"METALOCENO 7115A"},"POLIETILENO BC 818":{"cod":"101110010","desc":"POLIETILENO BAIXA DENSIDADE BRASKEM BC818"},"97 X 97":{"cod":"0303480171","desc":"TEC.TUBULAR LAM.PET 70G+20G 97CM CRISTAL - EXTERNO"},"167 X 180":{"cod":"0303450171","desc":"TECIDO TUBULAR PET 165GX356CM CRISTAL EXTERNO"},"167X180":{"cod":"0303450171","desc":"TECIDO TUBULAR PET 165GX356CM CRISTAL EXTERNO"},"97 X 65":{"cod":"0303480172","desc":"TEC.TUBULAR LAM.PET 70+30G 65CM CRISTAL EXTERNO"},"360 X 220":{"cod":"0303450130","desc":"TEC.TUBULAR PP 220G 360CM BRANCO EXT-01"},"360 X 190":{"cod":"0303450175","desc":"TEC. TUBULAR PP 190G X 360CM BRANCO EXT"},"97 X 45":{"cod":"0303480173","desc":"TEC.TUBULAR LAM.PET 70+30G 45CM CRISTAL EXTERNO"},"136 X 105":{"cod":"0303560001","desc":"TEC.PLANO 140G 105CM BRANCO EXTERNO"},"136 X 97":{"cod":"0303550015","desc":"TEC.PLANO PP 140G X 97CM - EXT-02"},"156 X 396":{"cod":"0303450157","desc":"TEC.TUBULAR PP 156G 396CM BRANCO EXT-02"}};
   var CONV_AMB={"SUCATA PET":["103580008 - PET FLAKE AZUL","103580003 - PET FLAKE CRISTAL"]};
   var CONV_BY_COD={};
-  try{
+  function convRebuildIndex(){CONV_BY_COD={};try{
     Object.keys(CONV_MAP).forEach(function(k){var v=CONV_MAP[k];if(v&&v.cod)CONV_BY_COD[String(v.cod).trim()]=v.desc||'';});
     Object.keys(CONV_AMB).forEach(function(k){(CONV_AMB[k]||[]).forEach(function(s){var p=String(s).split(' - ');if(p.length>=2)CONV_BY_COD[p[0].trim()]=p.slice(1).join(' - ').trim();});});
-  }catch(e){}
+  }catch(e){}}
+  convRebuildIndex();
   window.convDescByCod=function(cod){try{cod=String(cod||'').trim();return CONV_BY_COD[cod]||'';}catch(e){return '';}};
   function convNorm(s){try{s=String(s==null?'':s).toUpperCase();s=s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');/* aceita 360X220, 360 x 220 e 360×220 como a mesma medida */s=s.replace(/(\d)\s*[X×]\s*(\d)/g,'$1 X $2');s=s.replace(/\s+/g,' ').trim();return s;}catch(e){return String(s||'').toUpperCase().trim();}}
+  var CONV_CLOUD_KEY='__codigo_norte_mp__',CONV_LOCAL_KEY='wmsx_codigo_norte_mp';
+  function convApplyPayload(data,saveLocal){try{
+    if(!data||data.type!=='codigo_norte_mp'||!data.map||typeof data.map!=='object')return false;
+    CONV_MAP=data.map;CONV_AMB=data.amb&&typeof data.amb==='object'?data.amb:{};convRebuildIndex();
+    if(saveLocal!==false)localStorage.setItem(CONV_LOCAL_KEY,JSON.stringify(data));
+    window._convInfo={rows:Number(data.rows)||Object.keys(CONV_MAP).length,updated_at:data.updated_at||'',by:data.by||''};
+    return true;
+  }catch(e){return false;}}
+  try{var _convSaved=JSON.parse(localStorage.getItem(CONV_LOCAL_KEY)||'null');if(_convSaved)convApplyPayload(_convSaved,false);}catch(e){}
+  function convParseRows(rows){
+    if(!rows||!rows.length)throw new Error('Planilha vazia.');
+    var hi=-1,idx={cod:-1,pack:-1,nf:-1};
+    for(var i=0;i<Math.min(rows.length,20);i++){var h=(rows[i]||[]).map(function(x){return convNorm(x).replace(/[^A-Z0-9 ]/g,'');});var a=h.findIndex(function(x){return x==='CODIGO'||x.indexOf('CODIGO')>=0;}),b=h.findIndex(function(x){return x.indexOf('DESCRICAO PACKEM')>=0;}),c=h.findIndex(function(x){return x.indexOf('DESCRICAO NOTA FISCAL')>=0||x.indexOf('DESCRICAO NF')>=0;});if(a>=0&&b>=0&&c>=0){hi=i;idx={cod:a,pack:b,nf:c};break;}}
+    if(hi<0)throw new Error('Não encontrei as colunas CÓDIGO, DESCRIÇÃO PACKEM e DESCRIÇÃO NOTA FISCAL.');
+    var grupos={},validas=0;
+    rows.slice(hi+1).forEach(function(r){var cod=String((r||[])[idx.cod]||'').replace(/[^0-9A-Za-z]/g,'').trim(),desc=String((r||[])[idx.pack]||'').replace(/\uFFFD/g,'').trim(),chave=convNorm((r||[])[idx.nf]);if(!cod||!chave)return;validas++;var id=cod+'\u0001'+desc;(grupos[chave]=grupos[chave]||{})[id]={cod:cod,desc:desc};});
+    if(!validas)throw new Error('A planilha não possui linhas válidas de conversão.');
+    var map={},amb={};Object.keys(grupos).forEach(function(chave){var op=Object.keys(grupos[chave]).map(function(k){return grupos[chave][k];});if(op.length===1)map[chave]=op[0];else amb[chave]=op.map(function(x){return x.cod+' - '+x.desc;});});
+    return {type:'codigo_norte_mp',map:map,amb:amb,rows:validas,updated_at:new Date().toISOString(),by:(session&&session.u)||''};
+  }
+  window.convImportFile=function(file){return loadXLSX().then(function(){return new Promise(function(resolve,reject){var rd=new FileReader();rd.onload=function(){try{var wb=XLSX.read(new Uint8Array(rd.result),{type:'array'}),sn=wb.SheetNames[0],rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''}),payload=convParseRows(rows);convApplyPayload(payload,true);try{if(typeof supa!=='undefined'&&supa)supa.from('romaneios').upsert({key:CONV_CLOUD_KEY,data:payload,updated_at:payload.updated_at}).then(function(r){if(r&&r.error)toast('Tabela salva neste aparelho, mas não sincronizou na nuvem.',false);},function(){toast('Tabela salva neste aparelho, mas não sincronizou na nuvem.',false);});}catch(e){}resolve(payload);}catch(e){reject(e);}};rd.onerror=function(){reject(new Error('Não foi possível ler o arquivo.'));};rd.readAsArrayBuffer(file);});});};
   /* extrai as medidas do texto do romaneio: "ART MAT PLAST 137GM² 97CM" → "137 X 97" (gramatura X largura) */
   function convExtraiMedidas(gram){
     try{
@@ -3003,7 +3025,7 @@ updateStageBadge();
         if(_reSubir.length){try{if(typeof syncEtiquetasLote==='function')syncEtiquetasLote(_reSubir,'status');else if(typeof syncEtiqueta==='function')_reSubir.forEach(function(id){if(ETQ[id])syncEtiqueta(ETQ[id]);});}catch(e){}}
       }
       if(rowsNotas&&rowsNotas.length){var newNFS={};(rowsNotas||[]).forEach(function(r){if(r.data)newNFS[r.key]=r.data;});Object.keys(NFS).forEach(function(k){if(!newNFS[k])newNFS[k]=NFS[k];});NFS=newNFS;}
-      if(rowsRom&&rowsRom.length){var newROMS={};(rowsRom||[]).forEach(function(r){if(r.data)newROMS[r.key]=r.data;});Object.keys(ROMS).forEach(function(k){if(!newROMS[k])newROMS[k]=ROMS[k];});ROMS=newROMS;}
+      if(rowsRom&&rowsRom.length){var newROMS={};(rowsRom||[]).forEach(function(r){if(r.key===CONV_CLOUD_KEY){if(r.data)convApplyPayload(r.data,true);return;}if(r.data)newROMS[r.key]=r.data;});Object.keys(ROMS).forEach(function(k){if(k!==CONV_CLOUD_KEY&&!newROMS[k])newROMS[k]=ROMS[k];});ROMS=newROMS;}
       try{if(typeof window.fixDupEtq==='function')window.fixDupEtq();}catch(e){}
       saveNF();
       /* NÃO redesenha a tela se o usuário está no meio de importar/editar uma NF ou romaneio,
@@ -3022,6 +3044,7 @@ updateStageBadge();
       }else if(table==='notas_fiscais'){
         if(ev==='DELETE'&&o){delete NFS[o.key];}else if(n&&n.data){NFS[n.key]=n.data;}
       }else if(table==='romaneios'){
+        if((n&&n.key===CONV_CLOUD_KEY)||(o&&o.key===CONV_CLOUD_KEY)){if(n&&n.data)convApplyPayload(n.data,true);return;}
         if(ev==='DELETE'&&o){delete ROMS[o.key];}else if(n&&n.data){ROMS[n.key]=n.data;}
       }else{return;}
       saveNF();
@@ -3395,7 +3418,7 @@ updateStageBadge();
     var romaneios=_allRoms.filter(_nfMatchLocal);
     /* resumo p/ faixa do topo: totais de docs, etiquetas, abertos/fechados */
     var _rz={docs:0,etq:0,abertos:0,kgFalta:0};
-    try{[].concat(notas,romaneios).forEach(function(n){var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});if(!ids.length)return;_rz.docs++;_rz.etq+=ids.length;var ent=ids.filter(function(id){return ETQ[id].status==='entrada';}).length;var kgTot=ids.reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);var kgEnt=ids.filter(function(id){return ETQ[id].status==='entrada';}).reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);if(ent<ids.length){_rz.abertos++;_rz.kgFalta+=Math.max(0,kgTot-kgEnt);}});}catch(e){}
+    try{[].concat(notas,romaneios).forEach(function(n){var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});if(!ids.length)return;_rz.docs++;_rz.etq+=ids.length;var ent=ids.filter(function(id){return ETQ[id].status==='entrada'||ETQ[id].status==='saida';}).length;var kgTot=ids.reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);var kgEnt=ids.filter(function(id){return ETQ[id].status==='entrada'||ETQ[id].status==='saida';}).reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);if(ent<ids.length){_rz.abertos++;_rz.kgFalta+=Math.max(0,kgTot-kgEnt);}});}catch(e){}
     var preview='';
     if(nfParsed){
       var rows=nfParsed.items.map(function(it,idx){
@@ -3495,6 +3518,14 @@ updateStageBadge();
     }
 
     var list='', romList='';
+    window._nfDocFilter=window._nfDocFilter||'aberto';
+    function nfDocSituacao(n){var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;}),ent=ids.filter(function(id){return ETQ[id].status==='entrada'||ETQ[id].status==='saida';}).length;if(ids.length&&ent>=ids.length)return 'finalizado';if(ent>0)return 'processo';return 'aberto';}
+    var _docsTodos=[].concat(notas,romaneios),_nfSitCount={aberto:0,processo:0,finalizado:0};_docsTodos.forEach(function(n){_nfSitCount[nfDocSituacao(n)]++;});
+    function nfDocVisivel(n){return window._nfDocFilter==='todos'||nfDocSituacao(n)===window._nfDocFilter;}
+    var _nfMaisNovo=function(a,b){return Date.parse(b.at||b.updated_at||0)-Date.parse(a.at||a.updated_at||0);};
+    var notasLista=notas.filter(nfDocVisivel).sort(_nfMaisNovo),romaneiosLista=romaneios.filter(nfDocVisivel).sort(_nfMaisNovo);
+    var nfFilterBar='<div class="nfStatusFilters" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">'+[['aberto','Abertos',_nfSitCount.aberto],['processo','Em processo',_nfSitCount.processo],['finalizado','Finalizados',_nfSitCount.finalizado],['todos','Todos',_docsTodos.length]].map(function(x){var on=window._nfDocFilter===x[0];return '<button type="button" class="'+(on?'btn brand':'gbtn')+'" data-nf-status="'+x[0]+'" style="justify-content:center;min-width:130px">'+x[1]+' <b style="margin-left:6px">'+x[2]+'</b></button>';}).join('')+'</div>';
+    if(!notasLista.length&&!romaneiosLista.length)nfFilterBar+='<div class="panel" style="margin-top:10px;text-align:center;color:var(--muted);padding:24px">Nenhum documento nesta situação.</div>';
     var scanPanel='';
     if(notas.length||romaneios.length){
       scanPanel='<div class="panel nfScanPanel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Bipar recebimento</div>'
@@ -3502,11 +3533,11 @@ updateStageBadge();
         +'<div class="fld nfScanField"><input class="input code" id="nfRecvScan" autocomplete="off" placeholder="Bipe ou digite o código da etiqueta"></div>'
         +'</div>';
     }
-    if(notas.length){
+    if(notasLista.length){
       list='<div class="panel" style="margin-top:16px"><div class="ph" style="display:flex;align-items:center;gap:8px"><span class="pdot"></span>Notas importadas</div><div class="nfDocList">'
-        +notas.map(function(n){
+        +notasLista.map(function(n){
           var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});
-          var entIds=ids.filter(function(id){return ETQ[id].status==='entrada';});
+          var entIds=ids.filter(function(id){return ETQ[id].status==='entrada'||ETQ[id].status==='saida';});
           var ent=entIds.length;
           var sai=ids.filter(function(id){return ETQ[id].status==='saida';}).length;
           var kgTot=ids.reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);
@@ -3533,11 +3564,11 @@ updateStageBadge();
             +'</div>';
         }).join('')+'</div></div>';
     }
-    if(romaneios.length){
+    if(romaneiosLista.length){
       romList='<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Romaneios importados</div><div class="nfDocList">'
-        +romaneios.map(function(n){
+        +romaneiosLista.map(function(n){
           var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});
-          var entIds=ids.filter(function(id){return ETQ[id].status==='entrada';});
+          var entIds=ids.filter(function(id){return ETQ[id].status==='entrada'||ETQ[id].status==='saida';});
           var ent=entIds.length;
           var sai=ids.filter(function(id){return ETQ[id].status==='saida';}).length;
           var kgTot=ids.reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);
@@ -3585,7 +3616,7 @@ updateStageBadge();
       +'</div>';
     /* progresso geral de bipagem (kg bipado / kg total dos docs abertos+fechados) */
     var _kgTotAll=0,_kgEntAll=0;
-    try{[].concat(notas,romaneios).forEach(function(n){var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});ids.forEach(function(id){var kg=Number(ETQ[id].kg)||0;_kgTotAll+=kg;if(ETQ[id].status==='entrada')_kgEntAll+=kg;});});}catch(e){}
+    try{[].concat(notas,romaneios).forEach(function(n){var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});ids.forEach(function(id){var kg=Number(ETQ[id].kg)||0;_kgTotAll+=kg;if(ETQ[id].status==='entrada'||ETQ[id].status==='saida')_kgEntAll+=kg;});});}catch(e){}
     var _pctAll=_kgTotAll>0?Math.min(100,Math.round(_kgEntAll/_kgTotAll*100)):0;
     var _hero='<div class="nfHero">'
       +'<div class="nfHeroTop">'
@@ -3612,14 +3643,22 @@ updateStageBadge();
       +'<input type="file" id="romFile" accept=".xlsx,.xls" style="display:none">'
       +'<div class="nfDrop" id="romPick"><div class="nfDropTxt"><b>Selecionar planilha</b><span>clique ou arraste o arquivo .xlsx aqui</span></div></div>'
       +'</div>'
+      +('<div class="panel nfImportCard"><div class="ph"><span class="pdot"></span>Tabela de conversão de códigos</div>'
+      +'<div style="color:var(--muted);font-size:.82rem;margin-bottom:14px">Importe o arquivo CODIGO NORTE E MP.xlsx. A nova tabela será usada nas próximas notas e romaneios e sincronizada com os outros aparelhos.</div>'
+      +'<input type="file" id="convFile" accept=".xlsx,.xls" style="display:none">'
+      +'<div class="nfDrop" id="convPick"><div class="nfDropTxt"><b>Atualizar tabela de códigos</b><span>'+((window._convInfo&&window._convInfo.updated_at)?(window._convInfo.rows+' linhas · última atualização '+new Date(window._convInfo.updated_at).toLocaleString('pt-BR')):'selecione a planilha atualizada')+'</span></div></div>'
+      +'</div>')
       +'<div class="panel nfImportCard"><div class="ph"><span class="pdot"></span>Nota fiscal manual (digitar)</div>'
       +'<div style="color:var(--muted);font-size:.82rem;margin-bottom:14px">Sem XML nem planilha? Digite o nº da NF e os itens. Ao pôr um código já cadastrado em Produtos, a descrição é preenchida sozinha.</div>'
       +'<div class="nfDrop" id="mnfPick"><div class="nfDropTxt"><b>Lançar NF manual</b><span>digitar itens, peso e nº de etiquetas</span></div></div>'
       +'</div>'
-      +'</div></div>'+preview+romPreview+scanPanel+list+romList;
+      +'</div></div>'+preview+romPreview+scanPanel+nfFilterBar+list+romList;
 
     var fileInp=document.getElementById('nfFile');
+    document.querySelectorAll('[data-nf-status]').forEach(function(b){b.onclick=function(){window._nfDocFilter=b.dataset.nfStatus;renderNF();};});
     document.getElementById('nfPick').onclick=function(){fileInp.click();};
+    var convFileInp=document.getElementById('convFile'),convPick=document.getElementById('convPick');
+    if(convFileInp&&convPick){convPick.onclick=function(){convFileInp.click();};convFileInp.onchange=function(){var f=convFileInp.files&&convFileInp.files[0];if(!f)return;toast('Lendo tabela de conversão…');window.convImportFile(f).then(function(p){toast('Tabela atualizada · '+p.rows+' linha(s)');renderNF();},function(e){toast((e&&e.message)||'Não foi possível importar a tabela.',false);});convFileInp.value='';};}
     var _mnfPick=document.getElementById('mnfPick'); if(_mnfPick)_mnfPick.onclick=function(){openManualNF();};
     fileInp.onchange=function(){var f=fileInp.files&&fileInp.files[0];if(!f)return;
       var nm=(f.name||'').toLowerCase(), isPdf=/\.pdf$/.test(nm)||f.type==='application/pdf';

@@ -160,16 +160,19 @@ test('CSV usa decimal brasileiro e não deixa o Excel criar números gigantes', 
   assert.match(app, /csvValue\(c\)\.replace/);
 });
 
-test('requisições, inventário e VSM foram removidos das telas e permissões', function () {
-  assert.doesNotMatch(index, /data-view="v-requisicao"|id="v-requisicao"|wms-requisicao\.js|wms-requisicao-fix\.css/);
-  assert.match(app, /const REMOVED_VIEWS=\['v-requisicao','v-reqlive','v-inv','v-vsm'\]/);
+test('requisição interna permanece e requisições externa, inventário e VSM foram removidos', function () {
+  assert.match(index, /data-view="v-requisicao"/);
+  assert.match(index, /id="v-requisicao"/);
+  assert.match(index, /wms-requisicao\.js/);
+  assert.match(index, /wms-requisicao-fix\.css/);
+  assert.match(app, /const REMOVED_VIEWS=\['v-reqlive','v-inv','v-vsm'\]/);
   assert.match(app, /function go\(id\)\{if\(REMOVED_VIEWS\.indexOf\(id\)>=0\)id='v-home'/);
   assert.doesNotMatch(app, /addNavAfter\([^\n]*'v-vsm'/);
   assert.doesNotMatch(app, /addNavAfter\([^\n]*'v-reqlive'/);
   assert.doesNotMatch(app, /\['v-inv','Inventário'\]|\['v-vsm','VSM Tempo Real'\]/);
   assert.match(app, /function purgeRemovedViews\(\)/);
   assert.match(app, /MutationObserver\(function\(\)\{purgeRemovedViews\(\);\}\)/);
-  assert.match(app, /if\(role==='requisitante'\)return \['v-home'\]/);
+  assert.match(app, /if\(role==='requisitante'\)return \['v-requisicao'\]/);
 });
 
 test('menu mantém somente um acesso aos Alertas da Logística', function () {

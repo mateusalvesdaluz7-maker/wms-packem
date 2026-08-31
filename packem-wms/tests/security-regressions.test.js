@@ -7,7 +7,7 @@ const test = require('node:test');
 
 const root = path.resolve(__dirname, '..');
 const app = fs.readFileSync(path.join(root, 'wms-app.js'), 'utf8');
-const requisicao = fs.readFileSync(path.join(root, 'wms-requisicao.js'), 'utf8');
+const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
 
 test('não recria usuários ou senhas fixas no navegador', function () {
@@ -26,37 +26,25 @@ test('a operação de estoque passa pela API transacional', function () {
   assert.equal(rewrite.destination, '/api/stock-operation');
 });
 
-test('requisição completa aguarda confirmação após bip ou quantidade', function () {
-  const requestApi = fs.readFileSync(path.join(root, 'api', 'req-baixa.js'), 'utf8');
-  assert.match(app, /r\.status='separado';r\.ts_fim_separacao=fim/);
-  assert.match(requestApi, /status: 'separado'/);
-  assert.match(requestApi, /requestStatus = 'separado'/);
-});
-
-test('criação e alterações locais de requisição disparam sincronização com a nuvem', function () {
-  assert.match(requisicao, /REQS\.unshift\(r\);try\{reqPersist\(\);window\.wmsReqCloudPush\(\);\}/);
-  assert.match(requisicao, /reqLocalSig\(\)!==reqLastLocalSig\)window\.wmsReqCloudPush\(\)/);
-  assert.match(requisicao, /reqLastLocalSig=reqLocalSig\(\)/);
-});
-
-test('recebimento envia diretamente ao Chão 70 sem criar saldo intermediário', function () {
+test('recebimento mantém o item visível até o operador escolher o destino', function () {
   const inicio = app.indexOf('async function recvAdd');
   const fim = app.indexOf('function renderRecv', inicio);
   const fluxo = app.slice(inicio, fim);
-  assert.match(fluxo, /window\.f70Entrada\(_it,true\)/);
-  assert.doesNotMatch(fluxo, /STAGE\.unshift/);
+  assert.match(fluxo, /STAGE\.unshift\(_it\)/);
+  assert.match(fluxo, /syncStage\(_it\)/);
+  assert.doesNotMatch(fluxo, /window\.f70Entrada\(_it,true\)/);
   assert.doesNotMatch(fluxo, /code:'INTERMEDIÁRIO'/);
   assert.equal(app.includes('recvBackfill70'), false);
 });
 
-test('bipagem da NF só confirma entrada depois da gravação física no Chão 70', function () {
+test('bipagem da NF puxa código e peso para a fila do recebimento', function () {
   const inicio = app.indexOf('function nfRecvBip');
   const fim = app.indexOf('function nfDeleteNote', inicio);
   const fluxo = app.slice(inicio, fim);
-  assert.match(fluxo, /window\.f70Entrada\(_it,true\)/);
-  assert.doesNotMatch(fluxo, /STAGE\.unshift/);
-  assert.doesNotMatch(fluxo, /INTERMEDIÁRIO/);
-  assert.ok(fluxo.indexOf('window.f70Entrada(_it,true)') < fluxo.indexOf("e.status='entrada'"));
+  assert.match(fluxo, /STAGE\.unshift\(_it\)/);
+  assert.match(fluxo, /syncStage\(_it\)/);
+  assert.match(fluxo, /Puxado para o Recebimento/);
+  assert.ok(fluxo.indexOf('STAGE.unshift(_it)') < fluxo.indexOf("e.status='entrada'"));
 });
 
 test('entrada no Chão é idempotente e nunca remove automaticamente outro estoque', function () {
@@ -80,6 +68,21 @@ test('bipagem da vaga resolve pendência local antes de consultar a nuvem', func
   assert.match(busca, /STAGE\.find/);
   assert.match(busca, /Promise\.all/);
   assert.match(busca, /3500/);
+});
+
+test('vaga livre limpa etiquetas órfãs e não mostra lista paralela de bobinas', function () {
+  const inicio = app.indexOf('function openSpace');
+  const fim = app.indexOf("$('#mLoc').addEventListener", inicio);
+  const vaga = app.slice(inicio, fim);
+  assert.match(vaga, /\(!x\.o\|\|\(Number\(x\.q\)\|\|0\)<=0\)/);
+  assert.match(vaga, /delete LOC\[et\]/);
+  assert.doesNotMatch(vaga, /Bobinas nesta posição/);
+
+  const inicioLocal = app.indexOf('window.wmsLocalDaEtiqueta=function');
+  const fimLocal = app.indexOf('window.wmsAvisarEtiquetaOcupada=function', inicioLocal);
+  const local = app.slice(inicioLocal, fimLocal);
+  assert.match(local, /_sp&&_sp\.o&&\(Number\(_sp\.q\)\|\|0\)>0/);
+  assert.match(local, /syncDelLoc\(et\)/);
 });
 
 test('exclusão direta de estoque fica restrita ao admin sem bloquear a saída operacional', function () {
@@ -130,6 +133,43 @@ test('limpeza remota do chão substitui o cache local em todos os dispositivos',
   assert.doesNotMatch(fluxoChao70, /!rows\.length[^\n]*localEts\.length/);
   assert.match(fluxoChao, /FLOOR=merged;saveFloor\(\)/);
   assert.match(fluxoChao70, /FLOOR70=merged;saveF70\(\)/);
+});
+
+test('zerar mapa invalida o cache antigo mesmo no pull rápido de 200 vagas', function () {
+  assert.match(app, /resetSrc='__WMS_MAP_RESET__\|'/);
+  assert.match(app, /chunkUp\('espacos',todas\.map\(spRow\)\)/);
+  assert.match(app, /function _applyMapResetMarkers\(rows\)/);
+  assert.match(app, /const sp=await pgAll\('espacos'\);if\(sp\.length\)\{_applyMapResetMarkers\(sp\)/);
+  assert.match(app, /if\(t==='espacos'&&n\)\{_applyMapResetMarkers\(\[n\]\)/);
+  assert.match(app, /if\(_applyMapResetMarkers\(_spr\.data\)\)_spNew\+\+/);
+});
+
+test('resumo por produto saneia cada valor e usa os mesmos locais do total do sistema', function () {
+  assert.match(app, /function reportQty\(v\).*isFinite\(n\)&&n>=0/);
+  assert.match(app, /function stockProductReport\(\)/);
+  assert.match(app, /\[\['f','chao'\],\['f70','chao70'\],\['rec','rec'\]\]/);
+  assert.match(app, /\['Codigo','Descricao','Total','Unidade','Prateleiras','Chao','Chao70','Recicladora91','Posicoes','BobinasAreas'\]/);
+  assert.doesNotMatch(app, /\['Codigo','Descricao','TotalKG','Posicoes'\]/);
+});
+
+test('CSV usa decimal brasileiro e não deixa o Excel criar números gigantes', function () {
+  assert.match(app, /function csvValue\(v\)/);
+  assert.match(app, /Math\.round\(v\*1000\)\/1000/);
+  assert.match(app, /String\(n\)\.replace\('\.',','\)/);
+  assert.match(app, /if\(!isFinite\(v\)\)return '0'/);
+  assert.match(app, /csvValue\(c\)\.replace/);
+});
+
+test('requisições, inventário e VSM foram removidos das telas e permissões', function () {
+  assert.doesNotMatch(index, /data-view="v-requisicao"|id="v-requisicao"|wms-requisicao\.js|wms-requisicao-fix\.css/);
+  assert.match(app, /const REMOVED_VIEWS=\['v-requisicao','v-reqlive','v-inv','v-vsm'\]/);
+  assert.match(app, /function go\(id\)\{if\(REMOVED_VIEWS\.indexOf\(id\)>=0\)id='v-home'/);
+  assert.doesNotMatch(app, /addNavAfter\([^\n]*'v-vsm'/);
+  assert.doesNotMatch(app, /addNavAfter\([^\n]*'v-reqlive'/);
+  assert.doesNotMatch(app, /\['v-inv','Inventário'\]|\['v-vsm','VSM Tempo Real'\]/);
+  assert.match(app, /function purgeRemovedViews\(\)/);
+  assert.match(app, /MutationObserver\(function\(\)\{purgeRemovedViews\(\);\}\)/);
+  assert.match(app, /if\(role==='requisitante'\)return \['v-home'\]/);
 });
 
 test('menu mantém somente um acesso aos Alertas da Logística', function () {

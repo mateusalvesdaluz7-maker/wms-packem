@@ -195,6 +195,13 @@ test('etiqueta rastreável respeita KG, MT ou UN escolhidos no formulário', fun
   assert.match(app, /uCom:\(data\.un\|\|'KG'\)/);
 });
 
+test('conversão da NF e romaneio usa a tabela atualizada de códigos', function () {
+  assert.match(app, /"167 X 91":\{"cod":"0303410058"/);
+  assert.match(app, /"156 X 396":\{"cod":"0303450157"/);
+  assert.match(app, /s\.replace\(\/\(\\d\)\\s\*\[X×\]\\s\*\(\\d\)\/g,'\$1 X \$2'\)/);
+  assert.match(app, /var CONV_AMB=\{"SUCATA PET":\["103580008 - PET FLAKE AZUL","103580003 - PET FLAKE CRISTAL"\]\}/);
+});
+
 test('prateleira recusa quantidade zero ou inválida antes de armazenar', function () {
   assert.match(app, /function placeBobina\(et,pr,pl,c\)\{pl=Number\(pl\);if\(!Number\.isFinite\(pl\)\|\|pl<=0\)/);
   assert.match(app, /Não é permitido armazenar quantidade zero na prateleira/);

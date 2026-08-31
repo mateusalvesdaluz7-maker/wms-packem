@@ -153,8 +153,8 @@ function scanLock(el){if(!el)return;
 /* Inventário liberado para TODOS os papéis: o operador precisa ver a contagem que o admin
    atribuiu a ele. O que ele NÃO pode é escolher o que contar — só executa o que foi atribuído.
    Essa trava mora no renderInv (cards de início escondidos p/ não-admin), não aqui. */
-const REMOVED_VIEWS=['v-requisicao','v-reqlive','v-inv','v-vsm'];
-const ROLE_VIEWS={operador:['v-board','v-recv','v-floor','v-floor70','v-exped','v-mov','v-stock','v-recic','v-labels','v-amrp','v-logalert'],recepcao:['v-nf','v-labels','v-recv','v-floor','v-floor70'],requisitante:['v-home']};
+const REMOVED_VIEWS=['v-reqlive','v-inv','v-vsm'];
+const ROLE_VIEWS={operador:['v-board','v-recv','v-floor','v-floor70','v-exped','v-mov','v-stock','v-recic','v-labels','v-amrp','v-logalert'],recepcao:['v-nf','v-labels','v-recv','v-floor','v-floor70'],requisitante:['v-requisicao']};
 function allowedViews(){const r=curRole();return (r&&ROLE_VIEWS[r])||null;}
 const code=sp=>sp.s+'-'+sp.p+'-'+sp.l;
 const whLabel=w=>w==='70'?'Dep 70':w==='novo'?'Novo':'Chão';
@@ -13313,7 +13313,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
  ];
  function mapa(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){return {};}}
  function grava(m){try{localStorage.setItem(KEY,JSON.stringify(m));}catch(e){}}
- function padrao(role){if(role==='operador')return ['v-home','v-stock','v-board','v-recic','v-floor70','v-floor','v-logalert','v-track','v-recv','v-labels','v-etqconsulta'];if(role==='recepcao')return ['v-home','v-recv','v-nf','v-labels','v-etqconsulta'];if(role==='viewer')return ['v-home','v-stock','v-board','v-abc','v-etqconsulta'];if(role==='requisitante')return ['v-home'];return null;}
+ function padrao(role){if(role==='operador')return ['v-home','v-stock','v-board','v-recic','v-floor70','v-floor','v-logalert','v-track','v-recv','v-labels','v-etqconsulta'];if(role==='recepcao')return ['v-home','v-recv','v-nf','v-labels','v-etqconsulta'];if(role==='viewer')return ['v-home','v-stock','v-board','v-abc','v-etqconsulta'];if(role==='requisitante')return ['v-requisicao'];return null;}
  allowedViews=function(){var r=curRole();if(r==='admin')return null;var nome=session&&session.u||'',chave=String(nome).toLowerCase(),m=mapa(),cad=(US||[]).find(function(x){return String(x.u||'').toLowerCase()===chave;}),acessos=cad&&Array.isArray(cad.views)?cad.views:(Array.isArray(m[chave])?m[chave]:padrao(r));if(Array.isArray(acessos))acessos=acessos.filter(function(v){return v!=='v-3d'&&REMOVED_VIEWS.indexOf(v)<0;});return acessos;};
  window.allowedViews=allowedViews;
  var css=document.createElement('style');css.textContent='.uv-head{display:flex;align-items:center;justify-content:space-between;margin:18px 0 10px}.uv-head b{font-size:.72rem;text-transform:uppercase;letter-spacing:.7px}.uv-all{border:0;background:none;color:var(--brand);font-weight:700;font-size:.72rem;cursor:pointer}.uv-group{border:1px solid var(--line);border-radius:11px;margin-bottom:9px;overflow:hidden}.uv-group-title{background:var(--card-2);padding:8px 11px;font-size:.62rem;text-transform:uppercase;letter-spacing:.8px;font-weight:800;color:var(--muted)}.uv-list{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:5px 9px}.uv-item{display:flex;align-items:center;gap:8px;padding:8px 5px;font-size:.76rem;cursor:pointer}.uv-item input{width:16px;height:16px;accent-color:var(--brand)}@media(max-width:520px){.uv-list{grid-template-columns:1fr}}';document.head.appendChild(css);

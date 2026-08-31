@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
 <script src="wms-security.js"></script>
   <link rel="stylesheet" href="wms.css?v=20260820-romaneio-stock1">
+<link rel="stylesheet" href="wms-requisicao-fix.css?v=20260831-interna1">
 <meta name="theme-color" content="#0f1830">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -27,6 +28,7 @@
       <div class="nav" data-view="v-board" data-ic="grid"><span class="ni"></span>Mapa Operacional - 70</div>
       <div class="sb-grp">Operação</div>
       <div class="nav" data-view="v-mov" data-ic="scan" data-writer="1"><span class="ni"></span>Movimentação</div>
+      <div class="nav" data-view="v-requisicao" data-ic="list"><span class="ni"></span>Requisição</div>
       <div class="nav" data-view="v-stock" data-ic="box"><span class="ni"></span>Gestão de Estoque</div>
       <div class="nav" data-view="v-recic" data-ic="reload"><span class="ni"></span>Recicladora - 91</div>
       <div class="nav adminOnly" data-view="v-protheus" data-ic="transfer"><span class="ni"></span>Baixa Protheus</div>
@@ -54,6 +56,7 @@
     <main>
       <section class="view active" id="v-home"></section>
       <section class="view" id="v-board"></section>
+      <section class="view" id="v-requisicao"></section>
 <section class="view" id="v-exped">
 <div class="shell">
   <header class="appbar">
@@ -415,5 +418,6 @@
 <!-- OCR executado no próprio aparelho. Não usa nem consome a API da OpenAI. -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="wms-app.js?v=20260831-remove-req-inv-vsm1"></script>
+<script src="wms-requisicao.js?v=20260831-interna1"></script>
 </body>
 </html>

@@ -1182,7 +1182,20 @@ function confTransfer(id){const t=TR.find(x=>x.id===id);if(!t)return;openDrawer(
 
 /* ABC */
 $$('#abcSeg button').forEach(b=>b.onclick=()=>{abcMetric=b.dataset.metric;$$('#abcSeg button').forEach(x=>x.className=x.dataset.metric===abcMetric?'act-b':'');renderABC();});
-function abcData(){const agg={};occSpaces().forEach(x=>{const k=x.pr;agg[k]=agg[k]||{pr:k,peso:0,valor:0};agg[k].peso+=x.q;agg[k].valor+=x.q*valOf(k);});let arr=Object.values(agg).sort((a,b)=>b[abcMetric]-a[abcMetric]);const total=arr.reduce((a,b)=>a+b[abcMetric],0)||1;let cum=0;arr.forEach(r=>{cum+=r[abcMetric];r.acc=cum/total*100;r.cls=r.acc<=80?'A':r.acc<=95?'B':'C';});return {arr,total};}
+function abcData(){
+  const agg={};let semValor=0;const unidade=window.abcUnit||'KG';
+  occSpaces().forEach(x=>{const q=Number(x.q),u=unitOf(x);if(!Number.isFinite(q)||q<=0||(abcMetric==='peso'&&u!==unidade))return;
+    const k=x.pr+'|'+u;const custo=Number(valOf(x.pr));const valor=Number.isFinite(custo)&&custo>0?q*custo:0;
+    if(!Number.isFinite(valor))return;
+    agg[k]=agg[k]||{pr:x.pr,u:u,peso:0,valor:0,vagas:0};agg[k].peso+=q;agg[k].valor+=valor;agg[k].vagas++;
+  });
+  let arr=Object.values(agg);semValor=arr.filter(r=>r.valor<=0).length;
+  if(abcMetric==='valor')arr=arr.filter(r=>r.valor>0);
+  arr.sort((a,b)=>b[abcMetric]-a[abcMetric]||a.pr.localeCompare(b.pr));
+  const total=arr.reduce((a,b)=>a+b[abcMetric],0);let cum=0;
+  arr.forEach(r=>{const antes=total?cum/total*100:0;r.cls=antes<80?'A':antes<95?'B':'C';cum+=r[abcMetric];r.acc=total?cum/total*100:0;});
+  return {arr,total,semValor};
+}
 function renderABC(){const {arr,total}=abcData();const cnt={A:0,B:0,C:0};arr.forEach(r=>cnt[r.cls]++);
   $('#abcClasses').innerHTML=['A','B','C'].map(cl=>{const items=arr.filter(r=>r.cls===cl);const sum=items.reduce((a,b)=>a+b[abcMetric],0);const colors={A:'var(--a)',B:'var(--b)',C:'var(--c)'};return `<div class="row"><span class="pill ${cl.toLowerCase()}" style="width:34px;justify-content:center">${cl}</span><span class="bw"><span class="bar"><i style="width:${sum/total*100}%;background:${colors[cl]}"></i></span></span><span class="v">${cnt[cl]} itens · ${Math.round(sum/total*100)}%</span></div>`;}).join('');
   if(abcMetric==='valor'&&total<=1){$('#paretoBox').innerHTML=`<div class="empty" style="padding:30px"><div class="ei">${ICONS.money}</div><b>Valores não preenchidos</b></div>`;$('#abcTable').innerHTML='<thead></thead>';return;}
@@ -1975,7 +1988,7 @@ function renderRecv(){const adm=isAdmin();
    '<label class="fld"><span class="lab">Etiqueta (T…)</span><input class="input code" id="recvScan" placeholder="ex: T40364663" '+(adm?'':'disabled')+'></label>'+
    '<p style="color:var(--muted);font-size:.8rem;margin:0;line-height:1.5">Ao bipar, o material aparece abaixo para conferência. Depois escolha <b>Armazenar</b> ou <b>Produção</b>.</p><label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvAutoLbl"'+(autoLabelOn()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Imprimir etiqueta automaticamente ao bipar</label><label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.82rem;color:var(--ink);cursor:pointer;font-weight:600"><input type="checkbox" id="recvStation"'+(isPrintStation()?' checked':'')+' style="width:16px;height:16px;accent-color:var(--brand)"> Esta máquina imprime na Zebra (estação do PC)</label><div style="margin-top:12px"><button class="gbtn" id="recvSetFmt" style="width:100%;justify-content:center">'+(ICONS.tag||'')+' Escolher modelo da etiqueta</button><div style="font-size:.72rem;color:var(--muted);margin-top:6px" id="recvFmtLbl"></div></div></div>'+
   '<div class="panel" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center"><div style="font-family:var(--disp);font-size:3rem;font-weight:800;line-height:1">'+STAGE.length+'</div><div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px">itens aguardando destino</div>'+(STAGE.length?'<div style="font-family:var(--mono);font-size:.85rem;color:var(--muted);margin-top:8px">'+fmt(STAGE.reduce((a,b)=>a+(b.pl||0),0))+' kg pendentes</div>':'')+(STAGE.length&&adm?'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px"><button class="btn brand" id="recvPrintAll" style="font-size:.76rem;padding:9px 13px">'+(ICONS.print||'')+' Imprimir todas ('+STAGE.length+')</button></div>':'')+'</div>'+
- '</div><h3 class="sub">Itens recebidos aguardando destino</h3><div id="stageList"></div>';
+ '</div>'+'<h3 class="sub">Itens recebidos aguardando destino</h3><div id="stageList"></div>';
  const sc=$('#recvScan');if(sc){sc.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();recvAdd(sc.value);sc.value='';}});if(!sc.disabled){sc.placeholder=isSuper()?'bipe ou digite a etiqueta':'toque para bipar';scanLock(sc);}}
  const al=document.getElementById('recvAutoLbl');if(al)al.onchange=function(){try{localStorage.setItem('wmsx_autoLabel',al.checked?'1':'0');}catch(e){}
    if(al.checked){try{toast('Vai abrir a impressão a cada bipe. Só ligue se a Zebra for a impressora padrão desta máquina.');}catch(e){}}
@@ -3808,14 +3821,19 @@ updateStageBadge();
     if(!id)id=norm(raw);
     var e=ETQ[id];
     if(!e){toast('Etiqueta '+id+' não encontrada',false);return;}
+    if(e.status==='entrada'||e.status==='saida'){toast('Etiqueta '+id+' já recebida — nenhuma nova entrada realizada');return;}
     var desc=e.xProd||(typeof nfDescByCode==='function'?nfDescByCode(e.cProd):'')||'';
     var _docLocal=((NFS[e.nf]||ROMS[e.nf]||{}).local)||e.local||'';
     var _it={et:id,pr:e.cProd||id,desc:desc,pl:Number(e.kg)||0,local:_docLocal,at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')};
+    var _tecido=/^TEC\./i.test(String(desc).trim());
     var _ja=STAGE.find(function(s){return norm(s.et)===id;});
-    if(!_ja){STAGE.unshift(_it);saveStage();try{if(typeof syncStage==='function')syncStage(_it);}catch(_e){}try{if(typeof updateStageBadge==='function')updateStageBadge();}catch(_e){}}
-    e.status='entrada';if(!Array.isArray(e.hist))e.hist=[];e.hist.push({ev:'entrada-recebimento',at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')});
-    saveNF();if(typeof logAct==='function')logAct('recebimento-nf',id+' · aguardando destino');if(typeof syncEtiqueta==='function')syncEtiqueta(e);
-    toast((_ja?'Já estava no Recebimento: ':'Puxado para o Recebimento: ')+id+' · '+fmt(_it.pl)+' kg');
+    if(_tecido){
+      if(typeof window.f70Entrada!=='function'){toast('Chão de Fábrica indisponível. A etiqueta não foi confirmada; tente novamente.',false);return;}
+      if(window.f70Entrada(_it,true)!==true){toast('Não foi possível dar entrada no Chão de Fábrica. Confira o local da etiqueta antes de repetir.',false);return;}
+    }else if(!_ja){STAGE.unshift(_it);saveStage();try{if(typeof syncStage==='function')syncStage(_it);}catch(_e){}try{if(typeof updateStageBadge==='function')updateStageBadge();}catch(_e){}}
+    e.status='entrada';if(!Array.isArray(e.hist))e.hist=[];e.hist.push({ev:_tecido?'entrada-chao70':'entrada-recebimento',at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')});
+    saveNF();if(typeof logAct==='function')logAct('recebimento-nf',id+(_tecido?' · Chão de Fábrica - 70':' · aguardando destino'));if(typeof syncEtiqueta==='function')syncEtiqueta(e);
+    toast((_tecido?'Entrada no Chão de Fábrica - 70: ':(_ja?'Já estava no Recebimento: ':'Puxado para o Recebimento: '))+id+' · '+fmt(_it.pl)+' kg');
     /* fechou a NF? */
     if(e.nf&&e.nf!=='__vaga__'){
       var ids=Object.keys(ETQ).filter(function(k){return ETQ[k].nf===e.nf;});
@@ -6564,9 +6582,10 @@ function trkNumNF(m){try{
   var d=(typeof NFS!=='undefined'&&NFS[k])||null;if(d&&d.nNF)return 'NF '+d.nNF;
   var r=(typeof ROMS!=='undefined'&&ROMS[k])||null;if(r&&r.nRomaneio)return 'Rom. '+r.nRomaneio;
   return '';}catch(e){return '';}}
-const ALAB={entrada:['Entrada','in'],saida:['Saída','out'],producao:['Produção','muted'],transf:['Transferência','muted'],recebimento:['Recebimento','in'],armazenar:['Armazenado','in'],req_saida:['Saída p/ requisição','out'],interm_saida:['Saída intermediário','out'],romaneio:['Romaneio','muted']};
+const ALAB={entrada:['Entrada','in'],saida:['Saída','out'],producao:['Saída para produção','out'],transf:['Transferência','muted'],recebimento:['Recebimento','in'],armazenar:['Armazenado','in'],req_saida:['Saída p/ requisição','out'],interm_saida:['Saída intermediário','out'],romaneio:['Romaneio','muted']};
+function trkBaseRows(){return Array.isArray(window._trkServerRows)?window._trkServerRows:MV.slice(0,5000);}
 function trkRows(){const q=norm((document.getElementById('trkSearch')||{}).value||'');const tp=((document.getElementById('trkType')||{}).value)||'';const f=((document.getElementById('trkFrom')||{}).value)||'';const t=((document.getElementById('trkTo')||{}).value)||'';const wf=((document.getElementById('trkWh')||{}).value)||'';
- let rows=(Array.isArray(window._trkServerRows)?window._trkServerRows:MV.slice(0,5000));
+ let rows=trkBaseRows();
  if(wf){rows=rows.filter(function(m){var c=String(m.code||'').toUpperCase().trim();
    if(wf==='recic')return c==='RECICLADORA';
    if(wf==='chaoexp')return c==='CHÃO'||c==='CHAO';
@@ -6574,7 +6593,7 @@ function trkRows(){const q=norm((document.getElementById('trkSearch')||{}).value
    if(wf==='dep70')return (m.w||'70')==='70' && c!=='CHÃO'&&c!=='CHAO'&&c!=='CHÃO 70'&&c!=='CHAO 70'&&c!=='RECICLADORA';
    return (m.w||'70')===wf;});
  }
- if(tp==='nf')rows=rows.filter(m=>trkEhNF(m));else if(tp==='romaneio')rows=rows.filter(m=>trkEhRomaneio(m));else if(tp)rows=rows.filter(m=>m.action===tp);
+ if(tp==='nf')rows=rows.filter(m=>trkEhNF(m));else if(tp==='romaneio')rows=rows.filter(m=>trkEhRomaneio(m));else if(tp==='saida')rows=rows.filter(m=>m.action==='saida'||m.action==='producao');else if(tp)rows=rows.filter(m=>m.action===tp);
  if(q)rows=rows.filter(m=>(m.code||'').toUpperCase().includes(q)||(m.pr||'').toUpperCase().includes(q)||(m.et||'').toUpperCase().includes(q)||(m.req||'').toUpperCase().includes(q)||norm(descOf(m.pr)).includes(q));
  if(f){const ff=new Date(f+'T00:00:00').getTime();rows=rows.filter(m=>new Date(m.at).getTime()>=ff);}
  if(t){const tt=new Date(t+'T23:59:59').getTime();rows=rows.filter(m=>new Date(m.at).getTime()<=tt);}
@@ -6583,12 +6602,12 @@ function renderTrackTable(){const rows=trkRows();$('#trkCount').textContent=rows
  /* BUG corrigido: os cards só somavam action==='entrada'/'saida' — 866 recebimentos
     apareciam como "Entradas +0 kg". Agora soma pela DIREÇÃO que o próprio ALAB declara:
     'in' (entrada, recebimento, armazenado) e 'out' (saída, req., interm.). Produção
-    segue em card próprio, fora do 'out' (no ALAB ela é 'muted'). */
+    integra as saídas; seu card é um detalhamento, não uma segunda baixa. */
  const _dir=m=>(ALAB[m.action]||[])[1]||'';
  const ent=rows.filter(m=>_dir(m)==='in').reduce((s,m)=>s+(+m.q||0),0);
  const sai=rows.filter(m=>_dir(m)==='out').reduce((s,m)=>s+(+m.q||0),0);
  const prd=rows.filter(m=>m.action==='producao').reduce((s,m)=>s+(+m.q||0),0);
- const sm=document.getElementById('trkSum');if(sm)sm.innerHTML='<div class="sc"><span>Movimentos</span><b>'+rows.length+'</b></div><div class="sc"><span>Entradas</span><b style="color:#16a34a">+'+fmt(ent)+' <i>KG</i></b></div><div class="sc"><span>Saídas</span><b style="color:#dc2626">−'+fmt(sai)+' <i>KG</i></b></div><div class="sc"><span>Produção</span><b>'+fmt(prd)+' <i>KG</i></b></div>';
+ const sm=document.getElementById('trkSum');if(sm)sm.innerHTML='<div class="sc"><span>Movimentos</span><b>'+rows.length+'</b></div><div class="sc"><span>Entradas</span><b style="color:#16a34a">+'+fmt(ent)+' <i>KG</i></b></div><div class="sc"><span>Saídas</span><b style="color:#dc2626">−'+fmt(sai)+' <i>KG</i></b></div><div class="sc"><span>Das saídas: produção</span><b>'+fmt(prd)+' <i>KG</i></b></div>';
  const cap=rows.slice(0,120);
  $('#trkTable').innerHTML='<thead><tr><th>Data/hora</th><th>Tipo</th><th>Etiqueta</th><th>Produto</th><th>Descrição</th><th>Endereço</th><th class="num">Qtd</th><th class="num">Antes → Depois</th><th>Operador</th></tr></thead><tbody>'+
   (cap.length?cap.map(m=>{let a=ALAB[m.action]||[m.action,'muted'];if(m.req&&m.action==='saida')a=['Saída p/ requisição','out'];else if(trkEhNF(m))a=['Entrada NF','in'];/* origem NF: marca nova OU dedução retroativa pelo ETQ */var _u=(m.u||(typeof unitOf==='function'?unitOf(m.pr):'KG')).toLowerCase(),_desc=m.action==='romaneio'?(m.detail||m.reference||'Evento do romaneio'):(descOf(m.pr)||'—');return '<tr><td style="color:var(--muted);white-space:nowrap">'+new Date(m.at).toLocaleString('pt-BR')+'</td><td><span class="pill '+a[1]+'">'+a[0]+'</span>'+(function(){var nn=trkNumNF(m);return nn?'<div style="font-size:.66rem;color:var(--muted);font-weight:700;margin-top:2px">'+nn+'</div>':'';})()+'</td><td class="mono">'+(m.et||'—')+'</td><td class="mono">'+(m.pr||'—')+'</td><td style="color:var(--muted);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+String(_desc).replace(/"/g,'&quot;')+'">'+_desc+'</td><td class="mono">'+(m.code||'—')+'</td><td class="num">'+fmt(m.q)+' '+_u+'</td><td class="num" style="color:var(--muted)">'+fmt(m.before)+' → '+fmt(m.after)+'</td><td style="color:var(--muted)">'+(m.by||'—')+'</td></tr>';}).join('')
@@ -6596,14 +6615,17 @@ function renderTrackTable(){const rows=trkRows();$('#trkCount').textContent=rows
   if(rows.length>120)$('#trkCount').textContent=rows.length+' movimentos recentes · 120 mostrados';}
 const renderTrackTableOriginal=renderTrackTable;renderTrackTable=function(){renderTrackTableOriginal();var rows=trkRows().slice(0,120),trs=document.querySelectorAll('#trkTable tbody tr');trs.forEach(function(tr,i){var ref=rows[i]&&rows[i].reference;if(!ref)return;var td=tr.children&&tr.children[1];if(!td)return;var d=document.createElement('div');d.className='trk-ref';d.style.cssText='font-size:.66rem;color:#235b92;font-weight:900;margin-top:3px;white-space:nowrap';d.textContent=/^OP\s/i.test(ref)?ref:'OP '+ref;td.appendChild(d);});};
 async function loadTrackPeriod(from,to){
- const count=document.getElementById('trkCount');if(count)count.textContent='Carregando do banco...';
- var data=null,response=null;try{response=await fetch('/wms-data/movements?from='+encodeURIComponent(from)+'&to='+encodeURIComponent(to),{headers:{accept:'application/json'}});data=await response.json().catch(function(){return null;});}catch(_e){}
- if((!response||!response.ok||!data||!Array.isArray(data.rows))&&typeof supa!=='undefined'&&supa){var ini=new Date(from+'T00:00:00').toISOString(),fim=new Date(to+'T23:59:59.999').toISOString(),cloud=await supa.from('movimentos').select('*').gte('at',ini).lte('at',fim).order('at',{ascending:false}).limit(20000);if(!cloud.error)data={rows:cloud.data||[],truncated:(cloud.data||[]).length>=20000};}
- if(!data||!Array.isArray(data.rows))throw new Error(data&&data.error||'Falha ao consultar movimentações');
- window._trkServerRows=data.rows.map(function(r){var local=(MV||[]).find(function(m){return m.id===r.id;})||{};return {id:r.id,action:r.action,w:r.w,code:r.code,pr:r.pr,q:Number(r.q)||0,u:r.u,et:r.et||'',before:Number(r.before_q)||0,after:Number(r.after_q)||0,at:r.at,by:r.by_user||'',operation_id:r.operation_id||'',reference:r.referencia||r.reference||local.reference||'',detail:local.detail||'',romaneio:local.romaneio||''};});
- window._trkServerTruncated=!!data.truncated;renderTrackTable();
- if(data.truncated&&count)count.textContent+=' · limite de 20.000 atingido; reduza o período';
+ const count=document.getElementById('trkCount');if(count)count.textContent='Carregando todas as movimentações...';
+ try{
+  if(typeof window.readWmsMovementHistory!=='function')throw new Error('Atualize o módulo de histórico do WMS.');
+  const rows=await window.readWmsMovementHistory(typeof supa==='undefined'?null:supa,from,to);
+  window._trkServerRows=rows.map(function(r){return Object.assign({},r,{before:Number(r.before_q)||0,after:Number(r.after_q)||0,by:r.by_user||'',reference:r.referencia||r.reference||''});});
+  window._trkServerTruncated=false;
+  var ff=document.getElementById('trkFrom'),tt=document.getElementById('trkTo');if(ff)ff.value=from||'';if(tt)tt.value=to;
+  if(document.getElementById('trkTable'))renderTrackTable();
+ }catch(e){window._trkServerRows=[];if(document.getElementById('trkTable'))renderTrackTable();if(count)count.textContent='Falha ao carregar histórico completo';throw e;}
 }
+
 function renderTrack(){const v=$('#v-track');if(!v)return;
  if(!v.dataset.built){
   v.innerHTML='<style>'
@@ -13280,20 +13302,23 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
     var v=document.getElementById('v-abc');if(!v)return;var d=abcData(),arr=d.arr,total=d.total,realTotal=arr.reduce(function(s,r){return s+(Number(r[abcMetric])||0);},0),cnt={A:0,B:0,C:0},sums={A:0,B:0,C:0};
     arr.forEach(function(r){cnt[r.cls]++;sums[r.cls]+=r[abcMetric];});
     var top=(realTotal>0&&arr[0])?arr[0]:{pr:'—',peso:0,valor:0},topPct=realTotal>0?(top[abcMetric]/realTotal*100):0;
-    var metricLabel=abcMetric==='peso'?'Peso físico':'Valor financeiro';
+    var metricLabel=abcMetric==='peso'?'Quantidade em '+(window.abcUnit||'KG'):'Valor financeiro';
     v.innerHTML='<div class="abc-livehead"><div><div style="font-size:.58rem;letter-spacing:1.6px;text-transform:uppercase;color:#ff9b5c;font-weight:800">Inteligência de estoque</div><h1>Curva ABC Executiva</h1><p>Priorização automática dos materiais por relevância acumulada.</p></div><div><div class="abc-live"><i></i>DADOS AO VIVO</div><div id="abcClock" style="font-size:.66rem;color:#91a2b8;text-align:right;margin-top:8px"></div></div></div>'
-    +'<div class="abc-toolbar"><div class="sw" id="abcSeg"><button data-metric="peso" class="'+(abcMetric==='peso'?'act-b':'')+'">Por peso</button><button data-metric="valor" class="'+(abcMetric==='valor'?'act-b':'')+'">Por valor</button></div><input class="abc-search" id="abcSearchLive" placeholder="Buscar produto ou descrição" value="'+String(busca).replace(/"/g,'&quot;')+'"><button class="gbtn" id="abcRefresh">Atualizar agora</button></div>'
-    +'<div class="abc-kpis"><div class="abc-kpi"><span>Base analisada</span><b>'+arr.length+' produtos</b><small>'+metricLabel+'</small></div><div class="abc-kpi"><span>Total analisado</span><b>'+(realTotal>0?(abcMetric==='peso'?fmt(realTotal)+' kg':money(realTotal)):'—')+'</b><small>'+(realTotal>0?'estoque ocupado atual':'valores ainda não cadastrados')+'</small></div><div class="abc-kpi"><span>Maior impacto</span><b class="mono">'+top.pr+'</b><small>'+(realTotal>0?topPct.toFixed(1)+'% da base':'aguardando valores')+'</small></div><div class="abc-kpi"><span>Classe A</span><b>'+cnt.A+' produtos</b><small>'+((sums.A/total)*100||0).toFixed(1)+'% de participação</small></div></div>'
+    +'<div class="abc-toolbar"><div class="sw" id="abcSeg"><button data-metric="peso" class="'+(abcMetric==='peso'?'act-b':'')+'">Por quantidade</button><button data-metric="valor" class="'+(abcMetric==='valor'?'act-b':'')+'">Por valor</button></div><input class="abc-search" id="abcSearchLive" placeholder="Buscar produto ou descrição" value="'+String(busca).replace(/"/g,'&quot;')+'"><button class="gbtn" id="abcRefresh">Atualizar agora</button></div>'
+    +'<div class="abc-kpis"><div class="abc-kpi"><span>Base analisada</span><b>'+arr.length+' produtos</b><small>'+metricLabel+'</small></div><div class="abc-kpi"><span>Total analisado</span><b>'+(realTotal>0?(abcMetric==='peso'?fmt(realTotal)+' '+(window.abcUnit||'KG'):money(realTotal)):'—')+'</b><small>'+(realTotal>0?'estoque ocupado atual':'valores ainda não cadastrados')+'</small></div><div class="abc-kpi"><span>Maior impacto</span><b class="mono">'+top.pr+'</b><small>'+(realTotal>0?topPct.toFixed(1)+'% da base':'aguardando valores')+'</small></div><div class="abc-kpi"><span>Classe A</span><b>'+cnt.A+' produtos</b><small>'+((sums.A/total)*100||0).toFixed(1)+'% de participação</small></div></div>'
     +'<div class="abc-grid"><div class="panel"><div class="ph"><span class="pdot"></span>Pareto · principais materiais</div><div id="paretoBox"></div></div><div class="panel"><div class="ph"><span class="pdot"></span>Distribuição por classe</div><div id="abcClasses"></div></div></div><div class="abc-tablebox"><table class="tbl" id="abcTable"></table></div>';
     v.querySelectorAll('#abcSeg button').forEach(function(b){b.onclick=function(){abcMetric=b.dataset.metric;renderABC();};});
     document.getElementById('abcRefresh').onclick=function(){renderABC();toast('Curva ABC atualizada');};
     var inp=document.getElementById('abcSearchLive');inp.oninput=function(){busca=inp.value;desenhaTabela(arr,total);};
     function clock(){var e=document.getElementById('abcClock');if(e)e.textContent='Atualizado '+new Date().toLocaleTimeString('pt-BR');}clock();
     document.getElementById('abcClasses').innerHTML=['A','B','C'].map(function(cl){var pct=(sums[cl]/total*100)||0,col=cl==='A'?'#22c55e':cl==='B'?'#f59e0b':'#94a3b8';return '<div class="abc-class-card"><div class="abc-class-top"><span class="pill '+cl.toLowerCase()+'">Classe '+cl+'</span><b>'+cnt[cl]+' itens · '+pct.toFixed(1)+'%</b></div><div class="abc-class-bar"><i style="width:'+pct+'%;background:'+col+'"></i></div></div>';}).join('');
-    if(abcMetric==='valor'&&total<=1){document.getElementById('paretoBox').innerHTML='<div class="empty" style="padding:35px"><b>Cadastre os valores dos materiais para liberar esta análise.</b></div>';}else document.getElementById('paretoBox').innerHTML=pareto(arr.slice(0,15));
+    if(abcMetric==='valor'&&total<=0){document.getElementById('paretoBox').innerHTML='<div class="empty" style="padding:35px"><b>Cadastre os valores dos materiais para liberar esta análise.</b></div>';}else document.getElementById('paretoBox').innerHTML=pareto(arr.slice(0,15));
+    var toolbar=v.querySelector('.abc-toolbar'),sel=document.createElement('select');sel.className='input';sel.setAttribute('aria-label','Unidade da análise ABC');sel.innerHTML=['KG','MT','UN'].map(function(u){return '<option value="'+u+'">'+u+'</option>';}).join('');sel.value=window.abcUnit||'KG';sel.disabled=abcMetric==='valor';sel.onchange=function(){window.abcUnit=sel.value;renderABC();};toolbar.appendChild(sel);
+    var info=document.createElement('div');info.className='panel';info.style.marginBottom='16px';info.innerHTML='<h3>Como usar esta análise</h3><p>Base: posições ocupadas de '+whLabel(cfg.warehouse)+'. Não inclui chão, recicladora ou fila de recebimento. Não representa consumo ou giro.</p><p><b>A:</b> prioridade de acompanhamento até atingir 80% acumulados. <b>B:</b> próximos itens até 95%. <b>C:</b> restante. O material que ultrapassa o limite permanece na classe iniciada.</p><p>Por quantidade: compara apenas a unidade selecionada. Por valor: quantidade × valor unitário cadastrado; '+d.semValor+' materiais sem valor positivo ficam fora da classificação financeira.</p><p>Confira com maior frequência os itens A. Para B e C, planeje reposição conforme o consumo real, não somente pela classe.</p>';toolbar.insertAdjacentElement('afterend',info);
+    var exp=document.createElement('button');exp.className='gbtn';exp.textContent='Exportar análise';exp.onclick=function(){dl('curva_abc.csv',csv([['Código','Descrição','Unidade','Quantidade','Valor','Posições','Participação %','Acumulado %','Classe']].concat(arr.map(function(r){return [r.pr,descOf(r.pr),r.u,r.peso,r.valor,r.vagas,total?r[abcMetric]/total*100:0,r.acc,r.cls];}))));};toolbar.appendChild(exp);
     desenhaTabela(arr,total);
   };
-  function desenhaTabela(arr,total){var tb=document.getElementById('abcTable');if(!tb)return;var q=String(busca||'').trim().toUpperCase(),list=arr.filter(function(r){return !q||String(r.pr).toUpperCase().includes(q)||String((typeof descOf==='function'?descOf(r.pr):'')).toUpperCase().includes(q);});tb.innerHTML='<thead><tr><th>#</th><th>Material</th><th class="num">'+(abcMetric==='peso'?'Peso':'Valor')+'</th><th class="num">Participação</th><th class="num">Acumulado</th><th>Classe</th></tr></thead><tbody>'+(list.length?list.map(function(r){var pos=arr.indexOf(r)+1,desc=(typeof descOf==='function'?descOf(r.pr):'')||'Sem descrição cadastrada';return '<tr><td style="color:var(--faint)">'+pos+'</td><td class="mono"><b>'+r.pr+'</b><span class="abc-prod-desc">'+desc+'</span></td><td class="num"><b>'+(abcMetric==='peso'?fmt(Math.round(r.peso))+' kg':money(r.valor))+'</b></td><td class="num">'+(r[abcMetric]/total*100).toFixed(1)+'%</td><td class="num">'+r.acc.toFixed(1)+'%</td><td><span class="pill '+r.cls.toLowerCase()+'">'+r.cls+'</span></td></tr>';}).join(''):'<tr><td colspan="6" style="text-align:center;padding:36px;color:var(--muted)">Nenhum material encontrado</td></tr>')+'</tbody>';}
+  function desenhaTabela(arr,total){var tb=document.getElementById('abcTable');if(!tb)return;var q=String(busca||'').trim().toUpperCase(),list=arr.filter(function(r){return !q||String(r.pr).toUpperCase().includes(q)||String((typeof descOf==='function'?descOf(r.pr):'')).toUpperCase().includes(q);});tb.innerHTML='<thead><tr><th>#</th><th>Material</th><th class="num">'+(abcMetric==='peso'?'Quantidade':'Valor')+'</th><th class="num">Participação</th><th class="num">Acumulado</th><th>Classe</th></tr></thead><tbody>'+(list.length?list.map(function(r){var pos=arr.indexOf(r)+1,desc=(typeof descOf==='function'?descOf(r.pr):'')||'Sem descrição cadastrada';return '<tr><td style="color:var(--faint)">'+pos+'</td><td class="mono"><b>'+r.pr+'</b><span class="abc-prod-desc">'+desc+'</span></td><td class="num"><b>'+(abcMetric==='peso'?fmt(r.peso)+' '+r.u:money(r.valor))+'</b></td><td class="num">'+(r[abcMetric]/total*100).toFixed(1)+'%</td><td class="num">'+r.acc.toFixed(1)+'%</td><td><span class="pill '+r.cls.toLowerCase()+'">'+r.cls+'</span></td></tr>';}).join(''):'<tr><td colspan="6" style="text-align:center;padding:36px;color:var(--muted)">Nenhum material encontrado</td></tr>')+'</tbody>';}
   setInterval(function(){var v=document.getElementById('v-abc');if(v&&v.classList.contains('active')&&!document.querySelector('#v-abc input:focus'))renderABC();},15000);
 })();
 

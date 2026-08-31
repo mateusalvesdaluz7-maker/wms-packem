@@ -202,6 +202,25 @@ test('conversão da NF e romaneio usa a tabela atualizada de códigos', function
   assert.match(app, /var CONV_AMB=\{"SUCATA PET":\["103580008 - PET FLAKE AZUL","103580003 - PET FLAKE CRISTAL"\]\}/);
 });
 
+test('admin pode importar e sincronizar a tabela de códigos pela Nota Fiscal', function () {
+  assert.match(app, /id="convFile" accept="\.xlsx,\.xls"/);
+  assert.match(app, /window\.convImportFile=function\(file\)/);
+  assert.match(app, /CONV_CLOUD_KEY='__codigo_norte_mp__'/);
+  assert.match(app, /supa\.from\('romaneios'\)\.upsert\(\{key:CONV_CLOUD_KEY/);
+  assert.match(app, /if\(r\.key===CONV_CLOUD_KEY\)\{if\(r\.data\)convApplyPayload\(r\.data,true\);return;\}/);
+  assert.match(app, /Não encontrei as colunas CÓDIGO, DESCRIÇÃO PACKEM e DESCRIÇÃO NOTA FISCAL/);
+});
+
+test('tabela de códigos fica disponível a todos e documentos fiscais são separados por situação', function () {
+  assert.doesNotMatch(app, /isAdmin\(\)\?\('<div class="panel nfImportCard"><div class="ph"><span class="pdot"><\/span>Tabela de conversão de códigos/);
+  assert.match(app, /\['aberto','Abertos',_nfSitCount\.aberto\]/);
+  assert.match(app, /\['processo','Em processo',_nfSitCount\.processo\]/);
+  assert.match(app, /\['finalizado','Finalizados',_nfSitCount\.finalizado\]/);
+  assert.match(app, /data-nf-status/);
+  assert.match(app, /status==='entrada'\|\|ETQ\[id\]\.status==='saida'/);
+  assert.match(app, /sort\(_nfMaisNovo\)/);
+});
+
 test('prateleira recusa quantidade zero ou inválida antes de armazenar', function () {
   assert.match(app, /function placeBobina\(et,pr,pl,c\)\{pl=Number\(pl\);if\(!Number\.isFinite\(pl\)\|\|pl<=0\)/);
   assert.match(app, /Não é permitido armazenar quantidade zero na prateleira/);

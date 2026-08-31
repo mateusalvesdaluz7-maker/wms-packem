@@ -187,6 +187,14 @@ test('menu oficial mantém o acesso à requisição interna', function () {
   assert.match(app, /\['v-requisicao','Requisição'\]/);
 });
 
+test('etiqueta rastreável respeita KG, MT ou UN escolhidos no formulário', function () {
+  assert.match(app, /normUnit\(e&&\(e\.uCom\|\|e\.un\|\|e\.u\)\)/);
+  assert.match(app, /if\(marcada==='MT'\)return 'MT'/);
+  assert.match(app, /if\(marcada==='UN'\)return 'UN'/);
+  assert.match(app, /if\(marcada==='KG'\)return 'KG'/);
+  assert.match(app, /uCom:\(data\.un\|\|'KG'\)/);
+});
+
 test('prateleira recusa quantidade zero ou inválida antes de armazenar', function () {
   assert.match(app, /function placeBobina\(et,pr,pl,c\)\{pl=Number\(pl\);if\(!Number\.isFinite\(pl\)\|\|pl<=0\)/);
   assert.match(app, /Não é permitido armazenar quantidade zero na prateleira/);

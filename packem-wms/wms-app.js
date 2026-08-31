@@ -7731,10 +7731,16 @@ function nfDescByCode(c){
 function rastEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function rastNoAcc(s){return String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();}
 function rastUnit(e,desc){
+ /* Etiqueta manual: respeita primeiro a unidade escolhida no formulário.
+    A descrição serve apenas como compatibilidade para etiquetas antigas sem uCom. */
+ var marcada=(typeof normUnit==='function')?normUnit(e&&(e.uCom||e.un||e.u)):String(e&&(e.uCom||e.un||e.u)||'').toUpperCase();
+ if(marcada==='MT')return 'MT';
+ if(marcada==='UN')return 'UN';
+ if(marcada==='KG')return 'KG';
  /* metro só quando o PRODUTO é alça/cadarço (descrição começa com a palavra),
     não quando apenas menciona (ex.: "TEC.TUBULAR ... E ALÇA" = tecido, kg) */
  var d=rastNoAcc(desc).replace(/^[^A-Z]+/,'');
- return /^ALCA|^CADARC/.test(d)?'m':'kg';
+ return /^ALCA|^CADARC/.test(d)?'MT':'KG';
 }
 function rastQRPayload(e){
  /* ===== QR DE LINHA ÚNICA =====

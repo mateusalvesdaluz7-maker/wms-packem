@@ -4219,6 +4219,7 @@ updateStageBadge();
     if(!doc){toast('Não encontrado',false);return;}
     var label=isRom?('Romaneio '+(doc.nRomaneio||key)):('NF '+(doc.nNF||key));
     window.nfPodeCorrigirEtiqueta=function(){try{return (typeof isSuper==='function'&&isSuper())||String((session&&session.u)||'').trim().toLowerCase()==='maria';}catch(e){return false;}};
+    window.nfPodeExcluirEtiqueta=function(){try{return (typeof isSuper==='function'&&isSuper())||String((session&&session.u)||'').trim().toLowerCase()==='maria';}catch(e){return false;}};
     function editarEtiqueta(id){
       var e=ETQ[id];if(!e)return;
       if(!window.nfPodeCorrigirEtiqueta()){toast('Somente Maria ou administrador pode corrigir código e quantidade da etiqueta.',false);return;}
@@ -4250,7 +4251,7 @@ updateStageBadge();
     function excluirEtiqueta(id){
       id=String(id||'').trim().toUpperCase();
       var e=ETQ[id];if(!e)return;
-      if(!(typeof isStrictAdmin==='function'&&isStrictAdmin())){toast('Somente administrador pode excluir etiqueta.',false);return;}
+      if(!window.nfPodeExcluirEtiqueta()){toast('Somente Maria ou administrador pode excluir etiqueta.',false);return;}
       if(e.status==='entrada'||e.status==='saida'){toast('Esta etiqueta já possui movimentação e não pode ser excluída pela Nota Fiscal.',false);return;}
       if(!confirm('Excluir somente esta etiqueta?\n\nID: '+id+'\nCódigo: '+String(e.cProd||e.bobina||'')+'\nPeso: '+fmt(e.kg||0)+' kg\n\nAs outras etiquetas da nota serão mantidas.'))return;
       criticalBackup('etiqueta',{documento:key,etiqueta:e});
@@ -4282,7 +4283,7 @@ updateStageBadge();
             +(sub?'<div style="color:var(--faint);font-size:.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(sub)+'</div>':'')+'</div>'
           +'<div style="font-family:var(--mono);font-weight:700;font-size:.8rem;color:'+(ok?'var(--ink)':'var(--muted)')+'">'+fmt(e.kg||0)+' kg</div>'
           +(!ok&&window.nfPodeCorrigirEtiqueta()?'<button class="gbtn" type="button" data-rbd-edit="'+esc(etqId)+'" style="padding:5px 9px;font-size:.68rem;flex:none">Editar</button>':'')
-          +(!ok&&(typeof isStrictAdmin==='function'&&isStrictAdmin())?'<button class="gbtn danger" type="button" data-rbd-del="'+esc(etqId)+'" style="padding:5px 9px;font-size:.68rem;flex:none" title="Excluir somente esta etiqueta">Excluir</button>':'')
+          +(!ok&&window.nfPodeExcluirEtiqueta()?'<button class="gbtn danger" type="button" data-rbd-del="'+esc(etqId)+'" style="padding:5px 9px;font-size:.68rem;flex:none" title="Excluir somente esta etiqueta">Excluir</button>':'')
           +'</div>';
       }).join('');
       return {rows:rows,pct:pct,ent:ent.length,tot:all.length,kgEnt:kgEnt,kgTot:kgTot};
@@ -13494,7 +13495,7 @@ try{window.EXP.toggleManual=toggleManual;}catch(e){}
  function acaoDo(el){var t=String(el.innerText||el.textContent||'').toLowerCase(),view=(el.closest('.view')||{}).id||((document.querySelector('.view.active')||{}).id)||'',id=el.id||'',ds=el.dataset||{};if(view==='v-requisicao'){if(ds.fifoSave||ds.sepSave||/^(em_separacao|pausado|separado)$/.test(ds.st||'')||/iniciar separa|continuar separa|finalizar separa|confirmar e dar baixa|adicionar quantidade/.test(t))return 'separar_requisicao';if(/^(rnAbrirNova|rqNSend|rnfSave)$/.test(id)||el.classList.contains('rnNew')||/nova requisi[cç][aã]o|enviar requisi[cç][aã]o|cadastrar requisi[cç][aã]o/.test(t))return 'criar_requisicao';}if(/exportar|baixar|csv|excel|pdf/.test(t))return 'exportar';if(/excluir|remover|apagar|limpar|zerar/.test(t))return 'excluir';if(/editar|alterar|corrigir|ajustar/.test(t))return 'editar';if(/salvar|cadastrar|adicionar|novo|nova|criar|importar|lançar|receber|confirmar/.test(t))return 'cadastrar';return '';}
  function critica(el){var t=String(el.innerText||el.textContent||'').toLowerCase(),view=(el.closest('.view')||{}).id||'',drawer=!!el.closest('#drawer');if(/limpar|zerar/.test(t)&&(/estoque|chão|chao|recicladora/.test(t)||/v-stock|v-floor|v-floor70|v-recic/.test(view)))return 'limpar estoque/chão';if(/excluir|apagar/.test(t)&&(view==='v-nf'||drawer&&/nota|nf/.test((document.getElementById('drawerTitle')||{}).innerText||'')))return 'excluir Nota Fiscal';if(/finalizar|encerrar/.test(t)&&/invent[aá]rio/.test(t+' '+((document.getElementById('drawerTitle')||{}).innerText||'')))return 'finalizar inventário';return '';}
  var liberado=new WeakSet();
- document.addEventListener('click',async function(e){var el=e.target&&e.target.closest&&e.target.closest('button,[role="button"],a.gbtn,a.btn');if(!el||liberado.has(el))return;var a=acaoDo(el),view=(el.closest('.view')||{}).id||((document.querySelector('.view.active')||{}).id)||'',editorExp=view==='v-exped'&&typeof window.expFullAccess==='function'&&window.expFullAccess(),editorNf=!!((el.dataset||{}).rbdEdit&&typeof window.nfPodeCorrigirEtiqueta==='function'&&window.nfPodeCorrigirEtiqueta());if(a&&!editorExp&&!editorNf&&!window.canAction(a)){e.preventDefault();e.stopImmediatePropagation();toast('Sem permissão para '+a,false);return;}var c=critica(el);if(!c)return;e.preventDefault();e.stopImmediatePropagation();var senha=prompt('CONFIRMAÇÃO DE SEGURANÇA\n\nDigite sua senha para '+c+':');if(senha==null)return;var atual=(US||[]).find(function(u){return session&&u.u===session.u;});if(!atual||!await WMSSecurity.verify(atual.p,senha)){toast('Senha incorreta. Operação cancelada.',false);return;}try{logAct('autorizacao',c+' confirmado por senha');}catch(_e){}liberado.add(el);el.click();setTimeout(function(){liberado.delete(el);},0);},true);
+ document.addEventListener('click',async function(e){var el=e.target&&e.target.closest&&e.target.closest('button,[role="button"],a.gbtn,a.btn');if(!el||liberado.has(el))return;var a=acaoDo(el),view=(el.closest('.view')||{}).id||((document.querySelector('.view.active')||{}).id)||'',editorExp=view==='v-exped'&&typeof window.expFullAccess==='function'&&window.expFullAccess(),editorNf=!!(((el.dataset||{}).rbdEdit&&typeof window.nfPodeCorrigirEtiqueta==='function'&&window.nfPodeCorrigirEtiqueta())||((el.dataset||{}).rbdDel&&typeof window.nfPodeExcluirEtiqueta==='function'&&window.nfPodeExcluirEtiqueta()));if(a&&!editorExp&&!editorNf&&!window.canAction(a)){e.preventDefault();e.stopImmediatePropagation();toast('Sem permissão para '+a,false);return;}var c=critica(el);if(!c)return;e.preventDefault();e.stopImmediatePropagation();var senha=prompt('CONFIRMAÇÃO DE SEGURANÇA\n\nDigite sua senha para '+c+':');if(senha==null)return;var atual=(US||[]).find(function(u){return session&&u.u===session.u;});if(!atual||!await WMSSecurity.verify(atual.p,senha)){toast('Senha incorreta. Operação cancelada.',false);return;}try{logAct('autorizacao',c+' confirmado por senha');}catch(_e){}liberado.add(el);el.click();setTimeout(function(){liberado.delete(el);},0);},true);
 })();
 
 /* Senhas existentes permanecem protegidas; o admin pode conferir a nova senha antes de redefinir. */

@@ -6642,6 +6642,8 @@ function trkNumNF(m){try{
   return '';}catch(e){return '';}}
 const ALAB={entrada:['Entrada','in'],saida:['Saída','out'],producao:['Saída para produção','out'],transf:['Transferência','muted'],recebimento:['Recebimento','in'],armazenar:['Armazenado','in'],req_saida:['Saída p/ requisição','out'],interm_saida:['Saída intermediário','out'],romaneio:['Romaneio','muted']};
 function trkBaseRows(){return Array.isArray(window._trkServerRows)?window._trkServerRows:MV.slice(0,5000);}
+window._trkVisibleLimit=window._trkVisibleLimit||120;
+function trkResetVisible(){window._trkVisibleLimit=120;}
 function trkRows(){const q=norm((document.getElementById('trkSearch')||{}).value||'');const tp=((document.getElementById('trkType')||{}).value)||'';const f=((document.getElementById('trkFrom')||{}).value)||'';const t=((document.getElementById('trkTo')||{}).value)||'';const wf=((document.getElementById('trkWh')||{}).value)||'';
  let rows=trkBaseRows();
  if(wf){rows=rows.filter(function(m){var c=String(m.code||'').toUpperCase().trim();
@@ -6666,18 +6668,22 @@ function renderTrackTable(){const rows=trkRows();$('#trkCount').textContent=rows
  const sai=rows.filter(m=>_dir(m)==='out').reduce((s,m)=>s+(+m.q||0),0);
  const prd=rows.filter(m=>m.action==='producao').reduce((s,m)=>s+(+m.q||0),0);
  const sm=document.getElementById('trkSum');if(sm)sm.innerHTML='<div class="sc"><span>Movimentos</span><b>'+rows.length+'</b></div><div class="sc"><span>Entradas</span><b style="color:#16a34a">+'+fmt(ent)+' <i>KG</i></b></div><div class="sc"><span>Saídas</span><b style="color:#dc2626">−'+fmt(sai)+' <i>KG</i></b></div><div class="sc"><span>Das saídas: produção</span><b>'+fmt(prd)+' <i>KG</i></b></div>';
- const cap=rows.slice(0,120);
+ const limite=Math.max(120,Number(window._trkVisibleLimit)||120),cap=rows.slice(0,limite),restantes=Math.max(0,rows.length-cap.length);
  $('#trkTable').innerHTML='<thead><tr><th>Data/hora</th><th>Tipo</th><th>Etiqueta</th><th>Produto</th><th>Descrição</th><th>Endereço</th><th class="num">Qtd</th><th class="num">Antes → Depois</th><th>Operador</th></tr></thead><tbody>'+
   (cap.length?cap.map(m=>{let a=ALAB[m.action]||[m.action,'muted'];if(m.req&&m.action==='saida')a=['Saída p/ requisição','out'];else if(trkEhNF(m))a=['Entrada NF','in'];/* origem NF: marca nova OU dedução retroativa pelo ETQ */var _u=(m.u||(typeof unitOf==='function'?unitOf(m.pr):'KG')).toLowerCase(),_desc=m.action==='romaneio'?(m.detail||m.reference||'Evento do romaneio'):(descOf(m.pr)||'—');return '<tr><td style="color:var(--muted);white-space:nowrap">'+new Date(m.at).toLocaleString('pt-BR')+'</td><td><span class="pill '+a[1]+'">'+a[0]+'</span>'+(function(){var nn=trkNumNF(m);return nn?'<div style="font-size:.66rem;color:var(--muted);font-weight:700;margin-top:2px">'+nn+'</div>':'';})()+'</td><td class="mono">'+(m.et||'—')+'</td><td class="mono">'+(m.pr||'—')+'</td><td style="color:var(--muted);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+String(_desc).replace(/"/g,'&quot;')+'">'+_desc+'</td><td class="mono">'+(m.code||'—')+'</td><td class="num">'+fmt(m.q)+' '+_u+'</td><td class="num" style="color:var(--muted)">'+fmt(m.before)+' → '+fmt(m.after)+'</td><td style="color:var(--muted)">'+(m.by||'—')+'</td></tr>';}).join('')
-  :'<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--muted)">Nenhum movimento encontrado</td></tr>')+'</tbody>';
-  if(rows.length>120)$('#trkCount').textContent=rows.length+' movimentos recentes · 120 mostrados';}
-const renderTrackTableOriginal=renderTrackTable;renderTrackTable=function(){renderTrackTableOriginal();var rows=trkRows().slice(0,120),trs=document.querySelectorAll('#trkTable tbody tr');trs.forEach(function(tr,i){var ref=rows[i]&&rows[i].reference;if(!ref)return;var td=tr.children&&tr.children[1];if(!td)return;var d=document.createElement('div');d.className='trk-ref';d.style.cssText='font-size:.66rem;color:#235b92;font-weight:900;margin-top:3px;white-space:nowrap';d.textContent=/^OP\s/i.test(ref)?ref:'OP '+ref;td.appendChild(d);});};
+  :'<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--muted)">Nenhum movimento encontrado</td></tr>')
+  +(restantes?'<tr id="trkMoreRow"><td colspan="9" style="padding:18px;text-align:center"><button type="button" class="gbtn" id="trkMore" style="min-width:230px;justify-content:center">Carregar mais ('+restantes+' restantes)</button></td></tr>':'')+'</tbody>';
+  $('#trkCount').textContent=rows.length+' movimentos · '+cap.length+' mostrados';
+  var mais=document.getElementById('trkMore');if(mais){var carregar=function(){window._trkVisibleLimit=limite+200;renderTrackTable();};mais.onclick=carregar;try{var obs=new IntersectionObserver(function(es){if(es.some(function(e){return e.isIntersecting;})){obs.disconnect();carregar();}},{rootMargin:'300px'});obs.observe(document.getElementById('trkMoreRow'));}catch(e){}}
+}
+const renderTrackTableOriginal=renderTrackTable;renderTrackTable=function(){renderTrackTableOriginal();var rows=trkRows().slice(0,Math.max(120,Number(window._trkVisibleLimit)||120)),trs=document.querySelectorAll('#trkTable tbody tr:not(#trkMoreRow)');trs.forEach(function(tr,i){var ref=rows[i]&&rows[i].reference;if(!ref)return;var td=tr.children&&tr.children[1];if(!td)return;var d=document.createElement('div');d.className='trk-ref';d.style.cssText='font-size:.66rem;color:#235b92;font-weight:900;margin-top:3px;white-space:nowrap';d.textContent=/^OP\s/i.test(ref)?ref:'OP '+ref;td.appendChild(d);});};
 async function loadTrackPeriod(from,to){
  const count=document.getElementById('trkCount');if(count)count.textContent='Carregando todas as movimentações...';
  try{
   if(typeof window.readWmsMovementHistory!=='function')throw new Error('Atualize o módulo de histórico do WMS.');
   const rows=await window.readWmsMovementHistory(typeof supa==='undefined'?null:supa,from,to);
   window._trkServerRows=rows.map(function(r){return Object.assign({},r,{before:Number(r.before_q)||0,after:Number(r.after_q)||0,by:r.by_user||'',reference:r.referencia||r.reference||''});});
+  trkResetVisible();
   window._trkServerTruncated=false;
   var ff=document.getElementById('trkFrom'),tt=document.getElementById('trkTo');if(ff)ff.value=from||'';if(tt)tt.value=to;
   if(document.getElementById('trkTable'))renderTrackTable();
@@ -6725,11 +6731,11 @@ function renderTrack(){const v=$('#v-track');if(!v)return;
    +'<div class="st-sum" id="trkSum"></div>'
    +'<div class="tbl-wrap"><table class="tbl" id="trkTable"></table></div>';
   v.dataset.built='1';
-   ['trkSearch','trkType','trkWh'].forEach(id=>{const el=document.getElementById(id);if(el){el.addEventListener('input',renderTrackTable);el.addEventListener('change',renderTrackTable);}});
+   ['trkSearch','trkType','trkWh'].forEach(id=>{const el=document.getElementById(id);if(el){var filtrar=function(){trkResetVisible();renderTrackTable();};el.addEventListener('input',filtrar);el.addEventListener('change',filtrar);}});
    ['trkFrom','trkTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',async function(){const f=document.getElementById('trkFrom').value,t=document.getElementById('trkTo').value;if(!f||!t)return;try{await loadTrackPeriod(f,t);}catch(e){toast(e.message||'Não foi possível consultar o período',false);}});});
   const ex=document.getElementById('trkExport');if(ex)ex.onclick=()=>{const h=['DataHora','Tipo','Etiqueta','Produto','Descricao','Endereco','Qtd','Antes','Depois','Operador'];const b=trkRows().map(m=>[new Date(m.at).toLocaleString('pt-BR'),(ALAB[m.action]||[m.action])[0],m.et||'',m.pr||'',descOf(m.pr),m.code||'',m.q,m.before,m.after,m.by||'']);dl('movimentacoes_packem.csv',csv([h,...b]));toast('Exportado');};
    const _td=document.getElementById('trkToday');if(_td)_td.onclick=async()=>{const d=new Date();const z=n=>String(n).padStart(2,'0');const s=d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());const ff=document.getElementById('trkFrom'),tt=document.getElementById('trkTo');if(ff)ff.value=s;if(tt)tt.value=s;try{await loadTrackPeriod(s,s);}catch(e){toast(e.message||'Falha ao carregar',false);}};
-   const _cl=document.getElementById('trkClear');if(_cl)_cl.onclick=()=>{['trkSearch'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});const ty=document.getElementById('trkType');if(ty)ty.value='';const wh=document.getElementById('trkWh');if(wh)wh.value='';renderTrackTable();};
+   const _cl=document.getElementById('trkClear');if(_cl)_cl.onclick=()=>{['trkSearch'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});const ty=document.getElementById('trkType');if(ty)ty.value='';const wh=document.getElementById('trkWh');if(wh)wh.value='';trkResetVisible();renderTrackTable();};
   setIcons();
  }
  if(!window._trkPeriodReady){

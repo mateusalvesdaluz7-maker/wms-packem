@@ -214,9 +214,10 @@ function _persistSyncSpaces(){
 function _spSnapInit(){try{if(Array.isArray(S))S.forEach(function(x){if(x&&x.id)_spSnap[x.id]=(x.upd||'')+'|'+(x.o?1:0)+'|'+(x.pr||'')+'|'+(Number(x.q)||0);});}catch(e){}}
 function logAct(a,d){AC.unshift({u:session?session.u:'-',action:a,details:d,at:nowISO()});DB.saveAct(AC);}
 function rel(iso){if(!iso)return'—';const d=new Date(iso),s=(Date.now()-d)/1000;if(s<60)return'agora';if(s<3600)return Math.floor(s/60)+'min';if(s<86400)return Math.floor(s/3600)+'h';return d.toLocaleDateString('pt-BR');}
-function findSpace(c){c=norm(c);return S.find(x=>x.w===cfg.warehouse&&code(x)===c);}
+function spaceAtiva(x){return !!(x&&String(x.src||'')!=='__WMS_SLOT_DISABLED__');}
+function findSpace(c){c=norm(c);return S.find(x=>x.w===cfg.warehouse&&spaceAtiva(x)&&code(x)===c);}
 function valOf(c){const v=VL.find(x=>x.codigo===c);return v?Number(v.valor)||0:0;}
-function occSpaces(){return S.filter(x=>x.w===cfg.warehouse&&x.o&&x.pr&&x.q>0);}
+function occSpaces(){return S.filter(x=>x.w===cfg.warehouse&&spaceAtiva(x)&&x.o&&x.pr&&x.q>0);}
 
 /* Um único modo leve atende celular e tablet. O PC mantém todos os recursos. */
 
@@ -429,7 +430,7 @@ function reelGauge(pct){const r=72,c=2*Math.PI*r,off=c*(1-pct/100);return `<svg 
 
 /* DASHBOARD */
 function renderHome(){
-  const all=S.filter(x=>x.w===cfg.warehouse),occ=all.filter(x=>x.o),wp=occSpaces();
+  const all=S.filter(x=>x.w===cfg.warehouse&&spaceAtiva(x)),occ=all.filter(x=>x.o),wp=occSpaces();
   const _pr=x=>(typeof pesoReal==='function'?pesoReal(x):(Number(x.q)||0));
   const peso=wp.reduce((a,b)=>a+_pr(b),0),valor=wp.reduce((a,b)=>a+_pr(b)*valOf(b.pr),0);
   const skus=new Set(wp.map(x=>x.pr)).size,pct=all.length?Math.round(occ.length/all.length*100):0;
@@ -521,7 +522,7 @@ function renderBoard(){
   let _prevSL=0,_prevST=0;try{const _pb=box.querySelector('.board');if(_pb){_prevSL=_pb.scrollLeft;_prevST=_pb.scrollTop;}}catch(e){}
   const SS=Array.isArray(S)?S:[];
   const wh=(cfg&&cfg.warehouse)||'70';
-  const all=SS.filter(x=>x&&x.w===wh);
+  const all=SS.filter(x=>x&&x.w===wh&&spaceAtiva(x));
   boardWH=wh;
   const levels=[...new Set(all.map(x=>Number(x.l)).filter(v=>!isNaN(v)))].sort((a,b)=>a-b);
   if(!(levels.indexOf(Number(boardLevel))>=0))boardLevel=levels.length?levels[0]:null;
@@ -717,6 +718,19 @@ function boardDescOf(pr){
   return '';
 }
 function boardCompact(s){return String(s||'').toUpperCase().replace(/\s+/g,'');}
+function boardGerenciarVagas(){
+ if(!(typeof isStrictAdmin==='function'&&isStrictAdmin())){toast('Somente administrador pode adicionar ou excluir vagas',false);return;}
+ var wh=(typeof boardWH!=='undefined'&&boardWH)||(cfg&&cfg.warehouse)||'70';
+ openDrawer('Gerenciar vagas · '+whLabel(wh),'<p style="color:var(--muted);font-size:.84rem;line-height:1.5;margin-bottom:14px">Digite o endereço completo. Exemplo: <b>A-10-1</b> significa rua A, posição 10, nível 1.</p><label class="fld"><span class="lab">Nova vaga</span><input class="input code" id="slotCode" placeholder="A-10-1" autocomplete="off"></label><button class="btn brand" id="slotAdd" style="width:100%;height:48px">Adicionar vaga</button><div style="font-size:.75rem;color:var(--muted);margin-top:12px">Para excluir, abra uma vaga vazia no mapa e toque em <b>Excluir vaga</b>.</div>');
+ var add=document.getElementById('slotAdd');if(add)add.onclick=async function(){
+  var raw=norm((document.getElementById('slotCode')||{}).value||''),m=raw.match(/^([A-Z]+)-(\d+)-(\d+)$/);if(!m){toast('Use o formato Rua-Posição-Nível, exemplo A-10-1',false);return;}
+  var s=m[1],p=Number(m[2]),l=Number(m[3]),id=wh+'-'+s+'-'+p+'-'+l,sp=S.find(function(x){return x.id===id||x.w===wh&&code(x)===raw;});
+  if(sp&&spaceAtiva(sp)){toast('A vaga '+raw+' já existe',false);return;}
+  if(sp){sp.pr='';sp.q=0;sp.o=false;sp.u='KG';sp.src='__WMS_MANUAL_SLOT__';sp.upd=nowISO();sp.by=session.u;}
+  else{sp={id:id,w:wh,s:s,p:p,l:l,pr:'',q:0,u:'KG',o:false,src:'__WMS_MANUAL_SLOT__',upd:nowISO(),by:session.u};S.push(sp);}
+  DB.saveSpaces(S);try{if(typeof syncSpace==='function')syncSpace(sp);}catch(e){}try{logAct('vaga-adicionar',raw+' · '+whLabel(wh));}catch(e){}closeDrawer();boardLevel=Number(l);boardStreet=s;renderBoard();toast('Vaga '+raw+' adicionada');
+ };
+}
 /* ===== ZERAR MAPA (só admin, confirma com senha) — esvazia todas as vagas do armazém atual ===== */
 function boardZerarMapa(){
   if(typeof isSuper==='function' && !isSuper()){toast('Só o admin pode zerar o mapa',false);return;}
@@ -840,7 +854,7 @@ function boardSearchGo(q,viaVoice){
 function drawBoard(){
   if(boardStreet)return drawBoardStreet();
   const wh=boardWH||(cfg&&cfg.warehouse)||'70';
-  const rows=(Array.isArray(S)?S:[]).filter(x=>x&&x.w===wh&&Number(x.l)===Number(boardLevel));
+  const rows=(Array.isArray(S)?S:[]).filter(x=>x&&x.w===wh&&spaceAtiva(x)&&Number(x.l)===Number(boardLevel));
   const streets=[...new Set(rows.map(x=>x.s))].sort();
   const positions=[...new Set(rows.map(x=>Number(x.p)))].sort((a,b)=>a-b);
   const map={};rows.forEach(x=>map[x.s+'_'+Number(x.p)]=x);
@@ -852,7 +866,7 @@ function drawBoard(){
 }
 function drawBoardStreet(){
   const wh=boardWH||(cfg&&cfg.warehouse)||'70';
-  const rows=(Array.isArray(S)?S:[]).filter(x=>x&&x.w===wh&&x.s===boardStreet);
+  const rows=(Array.isArray(S)?S:[]).filter(x=>x&&x.w===wh&&spaceAtiva(x)&&x.s===boardStreet);
   const levels=[...new Set(rows.map(x=>Number(x.l)).filter(v=>!isNaN(v)))].sort((a,b)=>a-b);
   const positions=[...new Set(rows.map(x=>Number(x.p)))].sort((a,b)=>a-b);
   const map={};rows.forEach(x=>map[Number(x.l)+'_'+Number(x.p)]=x);
@@ -882,7 +896,8 @@ function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdm
     <button class="btn brand" id="spSave" style="width:100%;height:48px;margin-bottom:10px">Salvar</button>
     <button class="gbtn" id="spFree" style="width:100%;justify-content:center">${ICONS.out||''} Enviar para produção</button>`
     :`<div style="font-size:.85rem;color:var(--muted)">Produto</div><div class="mono" style="font-size:1.2rem;font-weight:700;margin:4px 0 14px">${x.pr||'(livre)'}</div><div style="font-size:.85rem;color:var(--muted)">Peso</div><div style="font-family:var(--disp);font-size:1.8rem;font-weight:700">${fmt(x.q||0)} <small style="font-size:.9rem;color:var(--muted)">${unitOf(x).toLowerCase()}</small></div>`}
-    <button class="gbtn" id="spLabel" style="width:100%;justify-content:center;margin-top:14px">${ICONS.tag} Ver etiqueta</button>`);
+    <button class="gbtn" id="spLabel" style="width:100%;justify-content:center;margin-top:14px">${ICONS.tag} Ver etiqueta</button>
+    ${(typeof isStrictAdmin==='function'&&isStrictAdmin()&&!x.o&&Number(x.q||0)<=0)?'<button class="gbtn danger" id="spDeleteSlot" style="width:100%;justify-content:center;margin-top:10px">Excluir vaga</button>':''}`);
   if(adm){var _peK=document.getElementById('spProd');if(_peK){_peK.addEventListener('keydown',function(e){if(e.key!=='Enter'||!_peK.value.trim())return;e.preventDefault();var v=_peK.value;var _q=document.getElementById('spQty');var _fill=function(p){if(p&&p.et)spScannedEt=norm(p.et);if(p&&p.pr)_peK.value=p.pr;if(_q&&p&&p.peso!=null&&!isNaN(p.peso))_q.value=p.peso;if(_q)_q.focus();};var p=parseBobina(v);var _cn=norm(typeof window.cleanScanCode==='function'?window.cleanScanCode(v):v);if(p.peso==null&&typeof norm==='function'&&(p.pr===_cn||!p.pr)&&_cn&&typeof window.bobFetch==='function'){toast('buscando etiqueta na nuvem…');window.bobFetch(_cn).then(function(){_fill(parseBobina(v));},function(){_fill(p);});}else{_fill(p);}});}}
   if(adm){if(window.addCam){var _pe=document.getElementById('spProd');if(_pe)window.addCam('spProd',{title:'Bipe a bobina',onResult:function(v){var _fill=function(p){if(p&&p.et)spScannedEt=norm(p.et);var _rawEt=norm(typeof window.cleanScanCode==='function'?window.cleanScanCode(v):v);if(!spScannedEt&&_rawEt&&typeof BOB!=='undefined'&&BOB[_rawEt])spScannedEt=_rawEt;if(p&&p.pr)_pe.value=p.pr;var _q=document.getElementById('spQty');if(_q&&p&&p.peso!=null&&!isNaN(p.peso))_q.value=p.peso;toast('Etiqueta '+(spScannedEt||p&&(p.et||p.pr)||v)+' lida · confira e Salvar');};var p=parseBobina(v);var _cn=norm(typeof window.cleanScanCode==='function'?window.cleanScanCode(v):v);if(p.peso==null&&typeof norm==='function'&&(p.pr===_cn||!p.pr)&&_cn&&typeof window.bobFetch==='function'){toast('buscando etiqueta na nuvem…');window.bobFetch(_cn).then(function(){_fill(parseBobina(v));},function(){_fill(p);});}else{_fill(p);}}});}
   $('#spSave').onclick=()=>{
@@ -927,6 +942,7 @@ function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdm
    const head='<div style="margin-bottom:14px"><div class="mono" style="font-size:1.1rem;font-weight:700">'+code(x)+'</div><div style="color:var(--muted);font-size:.9rem">'+(x.pr||'(sem produto)')+' · '+fmt(before)+' '+unitOf(x)+'</div></div>';
    openDrawer('Enviar para produção',head+'<p style="color:var(--muted);font-size:.85rem;line-height:1.5;margin-bottom:14px">Registra uma saída por <b>produção</b> e esvazia a posição.</p><button class="btn brand" id="prodGo" style="width:100%;height:48px;margin-bottom:10px">Confirmar envio</button><button class="gbtn" id="prodCancel" style="width:100%;justify-content:center">Cancelar</button>');$('#prodGo').onclick=()=>doSend('');$('#prodCancel').onclick=()=>openSpace(x.id);};}
   $('#spLabel').onclick=()=>{closeDrawer();showLabelSheet(code(x),x.pr||'',x.w);};
+  var delSlot=document.getElementById('spDeleteSlot');if(delSlot)delSlot.onclick=function(){if(!(typeof isStrictAdmin==='function'&&isStrictAdmin())){toast('Somente administrador pode excluir vaga',false);return;}if(x.o||Number(x.q)>0){toast('Esvazie a vaga antes de excluir',false);return;}if(!confirm('Excluir a vaga '+code(x)+'? Ela desaparecerá do mapa em todos os aparelhos.'))return;x.pr='';x.q=0;x.o=false;x.u='KG';x.src='__WMS_SLOT_DISABLED__';x.upd=nowISO();x.by=session.u;DB.saveSpaces(S);try{if(typeof syncSpace==='function')syncSpace(x);}catch(e){}try{logAct('vaga-excluir',code(x)+' · '+whLabel(x.w));}catch(e){}closeDrawer();renderBoard();toast('Vaga '+code(x)+' excluída');};
 }
 
 /* MOVIMENTAÇÃO */
@@ -1351,10 +1367,10 @@ function closeDrawer(){$('#drawer').classList.remove('show');$('#scrim').classLi
 $('#scrim').onclick=closeDrawer;
 
 /* ===== INSIGHTS ===== */
-function emptySpaces(){return S.filter(x=>x.w===cfg.warehouse&&!x.o);}
-function healthScore(){const all=S.filter(x=>x.w===cfg.warehouse);if(!all.length)return 0;const occ=all.filter(x=>x.o);const occPct=occ.length/all.length;const zeros=occ.filter(x=>x.q<=0).length;const clean=occ.length?1-zeros/occ.length:1;const util=1-Math.min(1,Math.abs(occPct-0.8)/0.8);return Math.round((clean*0.6+util*0.4)*100);}
+function emptySpaces(){return S.filter(x=>x.w===cfg.warehouse&&spaceAtiva(x)&&!x.o);}
+function healthScore(){const all=S.filter(x=>x.w===cfg.warehouse&&spaceAtiva(x));if(!all.length)return 0;const occ=all.filter(x=>x.o);const occPct=occ.length/all.length;const zeros=occ.filter(x=>x.q<=0).length;const clean=occ.length?1-zeros/occ.length:1;const util=1-Math.min(1,Math.abs(occPct-0.8)/0.8);return Math.round((clean*0.6+util*0.4)*100);}
 function insightsHTML(){
-  const all=S.filter(x=>x.w===cfg.warehouse),occ=all.filter(x=>x.o);
+  const all=S.filter(x=>x.w===cfg.warehouse&&spaceAtiva(x)),occ=all.filter(x=>x.o);
   const zeros=occ.filter(x=>x.q<=0);
   const noMove=occ.filter(x=>x.q>0&&!x.upd);
   const hs=healthScore();
@@ -6785,15 +6801,15 @@ const GRID_LAYOUT={
 function gridWanted(){const set={};for(const s in GRID_LAYOUT){GRID_LAYOUT[s].forEach(seg=>{for(let p=seg.from;p<=seg.to;p+=10){seg.levels.forEach(l=>{set[s+'-'+p+'-'+l]={s:s,p:p,l:l};});}});}return set;}
 function fixGrid(){if(!isAdmin()){toast('Somente admin pode corrigir a grade',false);return;}
  const wanted=gridWanted();const existing={};S.forEach(x=>{if(x.w==='70')existing[x.s+'-'+x.p+'-'+x.l]=x;});
- let added=0,removed=0,foraOcup=0;
+ let added=0,removed=0,foraOcup=0,foraManual=0;
  for(const k in wanted){if(!existing[k]){const o=wanted[k];S.push({id:'70-'+o.s+'-'+o.p+'-'+o.l,w:'70',s:o.s,l:o.l,p:o.p,pr:'',q:0,u:'KG',o:false,src:'',upd:'',by:''});added++;}}
- for(let i=S.length-1;i>=0;i--){const x=S[i];if(x.w!=='70')continue;if(!wanted[x.s+'-'+x.p+'-'+x.l]){if(x.o&&x.pr&&x.q>0){foraOcup++;}else{S.splice(i,1);removed++;}}}
+ for(let i=S.length-1;i>=0;i--){const x=S[i];if(x.w!=='70')continue;if(!wanted[x.s+'-'+x.p+'-'+x.l]){if(x.o&&x.pr&&x.q>0)foraOcup++;else foraManual++;/* vagas extras são preservadas: podem ter sido criadas manualmente pelo admin */}}
  persist();boardLevel=null;
  if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function'){chunkUp('espacos',S.map(spRow));}
  renderBoard();
  const total=Object.keys(wanted).length;
- toast('Grade A–U corrigida · '+total+' posições · +'+added+' criadas · '+removed+' vazias fora removidas'+(foraOcup?' · '+foraOcup+' c/ saldo fora do padrão (mantidas, confira)':''));}
-(function(){const _rb=renderBoard;renderBoard=function(){_rb();const h=document.querySelector('#v-board .ph-head');if(h&&isAdmin()&&!document.getElementById('fixGridBtn')){h.style.display='flex';h.style.alignItems='center';h.style.justifyContent='space-between';const b=document.createElement('button');b.id='fixGridBtn';b.className='btn ghost';b.style.marginLeft='auto';b.innerHTML='⊞ Gerar / corrigir grade A–U';b.title='Cria todas as posições certas (A até U), mantém o que tem produto e remove posições vazias fora do padrão';b.onclick=fixGrid;h.appendChild(b);}};})();
+ toast('Grade A–U corrigida · '+total+' posições · +'+added+' criadas'+(foraManual?' · '+foraManual+' vaga(s) manual(is) mantida(s)':'')+(foraOcup?' · '+foraOcup+' c/ saldo fora do padrão (mantidas, confira)':''));}
+(function(){const _rb=renderBoard;renderBoard=function(){_rb();const h=document.querySelector('#v-board .ph-head');if(h&&isAdmin()&&!document.getElementById('fixGridBtn')){h.style.display='flex';h.style.alignItems='center';h.style.justifyContent='space-between';const b=document.createElement('button');b.id='fixGridBtn';b.className='btn ghost';b.style.marginLeft='auto';b.innerHTML='⊞ Gerar / corrigir grade A–U';b.title='Cria todas as posições certas (A até U), mantém o que tem produto e remove posições vazias fora do padrão';b.onclick=fixGrid;h.appendChild(b);}if(h&&typeof isStrictAdmin==='function'&&isStrictAdmin()&&!document.getElementById('manageSlotsBtn')){const g=document.createElement('button');g.id='manageSlotsBtn';g.className='btn ghost';g.innerHTML='+ Adicionar vaga';g.onclick=boardGerenciarVagas;h.appendChild(g);}};})();
 
 /* ===== ETIQUETAS DE ENDEREÇO A PARTIR DA GRADE OFICIAL A–U ===== */
 function gridCodesForRua(s){const out=[];(GRID_LAYOUT[s]||[]).forEach(seg=>{for(let p=seg.from;p<=seg.to;p+=10){seg.levels.forEach(l=>out.push(s+'-'+p+'-'+l));}});return out;}

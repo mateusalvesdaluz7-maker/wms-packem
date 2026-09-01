@@ -738,22 +738,55 @@ function boardZerarMapa(){
     var me=(Array.isArray(US)?US:[]).find(function(u){return u&&u.u===(typeof session!=='undefined'&&session?session.u:'');});
     var okPw = me ? await WMSSecurity.verify(me.p,typed) : false;
     if(!okPw){toast('Senha incorreta',false);return;}
+    go.disabled=true;go.textContent='Zerando e conferindo na nuvem…';
     var n=0,resetAt=nowISO(),resetSrc='__WMS_MAP_RESET__|'+wh+'|'+Date.parse(resetAt);
     var todas=(Array.isArray(S)?S:[]).filter(function(x){return x&&x.w===wh;});
+    var antes=todas.map(function(sp){return Object.assign({},sp);});
+    var codigosAntes={};antes.forEach(function(sp){codigosAntes[norm(code(sp))]=1;});
+    var etiquetasAntes=[];try{if(typeof LOC!=='undefined'&&LOC)Object.keys(LOC).forEach(function(et){if(codigosAntes[norm(LOC[et])])etiquetasAntes.push(et);});}catch(e){}
+    var mapaNuvemZerado=false;
+    try{criticalBackup('mapa',{deposito:wh,espacos:antes});}catch(e){}
     todas.forEach(function(sp){
       try{
         var cd=code(sp);
         if(sp.o||sp.pr||Number(sp.q)>0)n++;
         sp.pr='';sp.q=0;sp.o=false;sp.src=resetSrc;sp.u='KG';sp.upd=resetAt;sp.by=(typeof session!=='undefined'&&session?session.u:'');
-        if(typeof LOC!=='undefined'&&LOC){Object.keys(LOC).forEach(function(et){if(norm(LOC[et])===norm(cd)){delete LOC[et];if(typeof BOB!=='undefined'&&BOB[et])BOB[et].rem=0;}});}
       }catch(e){}
     });
-    try{if(typeof saveLOC==='function')saveLOC();if(typeof saveBOB==='function')saveBOB();}catch(e){}
-    try{persist();}catch(e){}
+    try{if(typeof markLocalWrite==='function')markLocalWrite();DB.saveSpaces(S);}catch(e){}
     /* envia TODAS as vagas zeradas DE UMA VEZ, em lote (chunkUp = lotes de 400). Antes eu mandava
        uma por uma num laço de milhares — parte não chegava na nuvem e outros aparelhos (celular)
        continuavam vendo ocupado. O resto do app já usa chunkUp p/ mudanças em massa. */
-    try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function'&&typeof spRow==='function')chunkUp('espacos',todas.map(spRow));}catch(e){}
+    try{
+      if(typeof supa==='undefined'||!supa||typeof chunkUp!=='function'||typeof spRow!=='function')throw new Error('Sem conexão com a nuvem');
+      await chunkUp('espacos',todas.map(spRow));
+      /* Confere no servidor antes de anunciar sucesso. Um aparelho antigo não pode
+         receber novamente uma ocupação anterior ao zeramento. */
+      var conf=await supa.from('espacos').select('id').eq('w',wh).eq('o',true).limit(1);
+      if(conf&&conf.error)throw new Error(conf.error.message||'falha ao conferir o mapa');
+      if(conf&&conf.data&&conf.data.length)throw new Error('a nuvem ainda possui vaga ocupada');
+      mapaNuvemZerado=true;
+      /* Os vínculos etiqueta→vaga também vivem na nuvem. Sem esta limpeza, outro celular
+         podia continuar dizendo que a etiqueta estava guardada numa vaga já zerada. */
+      for(var li=0;li<etiquetasAntes.length;li+=200){
+        var bloco=etiquetasAntes.slice(li,li+200),delOk=false,delErr=null;
+        for(var tent=0;tent<3&&!delOk;tent++){
+          var dr=await supa.from('locais').delete().in('etiqueta',bloco);
+          if(!dr||!dr.error)delOk=true;else{delErr=dr.error;if(tent<2)await new Promise(function(resolve){setTimeout(resolve,500);});}
+        }
+        if(!delOk)throw new Error((delErr&&(delErr.message||delErr.code))||'falha ao limpar vínculos das etiquetas');
+      }
+    }catch(e){
+      /* Se nem as vagas chegaram à nuvem, restaura a tela anterior. Se as vagas já foram
+         confirmadas vazias, mantém o mapa vazio e informa somente a falha dos vínculos. */
+      if(!mapaNuvemZerado){var porId={};antes.forEach(function(x){porId[x.id]=x;});S=S.map(function(x){return porId[x.id]||x;});DB.saveSpaces(S);}
+      try{renderBoard();}catch(_e){}
+      go.disabled=false;go.textContent='Tentar zerar novamente';
+      toast(mapaNuvemZerado?'Mapa zerado, mas faltou limpar vínculos de etiquetas. Tente novamente.':'Não foi possível confirmar o zeramento na nuvem. Nenhuma limpeza foi confirmada.',false);
+      return;
+    }
+    /* Só solta as etiquetas locais depois que o mapa zerado foi confirmado no servidor. */
+    try{if(typeof LOC!=='undefined'&&LOC){etiquetasAntes.forEach(function(et){delete LOC[et];if(typeof BOB!=='undefined'&&BOB[et])BOB[et].rem=0;});}if(typeof saveLOC==='function')saveLOC();if(typeof saveBOB==='function')saveBOB();}catch(e){}
     try{logAct('ajuste','zerou o mapa de '+lbl+' ('+n+' vaga(s))');}catch(e){}
     closeDrawer();
     try{renderBoard();}catch(e){}
@@ -4214,6 +4247,23 @@ updateStageBadge();
         voltar();
       };
     }
+    function excluirEtiqueta(id){
+      id=String(id||'').trim().toUpperCase();
+      var e=ETQ[id];if(!e)return;
+      if(!(typeof isStrictAdmin==='function'&&isStrictAdmin())){toast('Somente administrador pode excluir etiqueta.',false);return;}
+      if(e.status==='entrada'||e.status==='saida'){toast('Esta etiqueta já possui movimentação e não pode ser excluída pela Nota Fiscal.',false);return;}
+      if(!confirm('Excluir somente esta etiqueta?\n\nID: '+id+'\nCódigo: '+String(e.cProd||e.bobina||'')+'\nPeso: '+fmt(e.kg||0)+' kg\n\nAs outras etiquetas da nota serão mantidas.'))return;
+      criticalBackup('etiqueta',{documento:key,etiqueta:e});
+      delete ETQ[id];
+      try{if(typeof BOB!=='undefined'&&BOB[id]){delete BOB[id];saveBOB();}}catch(_e){}
+      try{if(typeof STAGE!=='undefined'){STAGE=STAGE.filter(function(s){return String(s.et||'').trim().toUpperCase()!==id;});saveStage();if(typeof syncDelStage==='function')syncDelStage(id);}}catch(_e){}
+      saveNF();
+      try{if(typeof syncDelEtiqueta==='function')syncDelEtiqueta(id);}catch(_e){}
+      try{if(typeof syncDelBobina==='function')syncDelBobina(id);}catch(_e){}
+      try{logAct('nf-etiqueta-excluir',label+' · '+id);}catch(_e){}
+      toast('Etiqueta '+id+' excluída');
+      refresh();renderNF();
+    }
     function calc(){
       var all=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;}).sort(function(a,b){return (ETQ[a].idx||0)-(ETQ[b].idx||0);});
       var ent=all.filter(function(id){return ETQ[id].status==='entrada';});
@@ -4232,6 +4282,7 @@ updateStageBadge();
             +(sub?'<div style="color:var(--faint);font-size:.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(sub)+'</div>':'')+'</div>'
           +'<div style="font-family:var(--mono);font-weight:700;font-size:.8rem;color:'+(ok?'var(--ink)':'var(--muted)')+'">'+fmt(e.kg||0)+' kg</div>'
           +(!ok&&window.nfPodeCorrigirEtiqueta()?'<button class="gbtn" type="button" data-rbd-edit="'+esc(etqId)+'" style="padding:5px 9px;font-size:.68rem;flex:none">Editar</button>':'')
+          +(!ok&&(typeof isStrictAdmin==='function'&&isStrictAdmin())?'<button class="gbtn danger" type="button" data-rbd-del="'+esc(etqId)+'" style="padding:5px 9px;font-size:.68rem;flex:none" title="Excluir somente esta etiqueta">Excluir</button>':'')
           +'</div>';
       }).join('');
       return {rows:rows,pct:pct,ent:ent.length,tot:all.length,kgEnt:kgEnt,kgTot:kgTot};
@@ -4245,7 +4296,10 @@ updateStageBadge();
       +'<button class="btn" id="rbdPrint" type="button" style="width:100%;justify-content:center">'+(ICONS.print||'')+' Imprimir / reimprimir etiquetas</button>'
       +'<div id="rbdList" style="margin-top:10px;max-height:48vh;overflow-y:auto">'+st.rows+'</div>';
     openDrawer((ICONS.tag||'')+' '+label,body);
-    function bindRows(){document.querySelectorAll('[data-rbd-edit]').forEach(function(b){b.onclick=function(){editarEtiqueta(b.getAttribute('data-rbd-edit'));};});}
+    function bindRows(){
+      document.querySelectorAll('[data-rbd-edit]').forEach(function(b){b.onclick=function(){editarEtiqueta(b.getAttribute('data-rbd-edit'));};});
+      document.querySelectorAll('[data-rbd-del]').forEach(function(b){b.onclick=function(){excluirEtiqueta(b.getAttribute('data-rbd-del'));};});
+    }
     function refresh(){
       var s2=calc();
       var bar=document.getElementById('rbdBar');if(bar){bar.style.width=s2.pct+'%';bar.style.background=(s2.ent>=s2.tot&&s2.tot>0?'#16a34a':'var(--brand)');}
@@ -5468,6 +5522,7 @@ function syncDelEtiquetasLote(ids){if(!supa||!ids||!ids.length)return;
   },function(){if((tent||0)<3){setTimeout(function(){run(ci,(tent||0)+1);},1200*((tent||0)+1));}else{setTimeout(function(){run(ci+1,0);},120);}});
  };run(0,0);}
 function syncDelEtiqueta(id,_t){if(!supa||!id)return;if(!_t){try{window._etqDelMark(id);}catch(e){}}supa.from('etiquetas').delete().eq('id',id).then(function(r){if(r&&r.error&&(_t||0)<3){setTimeout(function(){syncDelEtiqueta(id,(_t||0)+1);},1000*((_t||0)+1));}},function(){if((_t||0)<3){setTimeout(function(){syncDelEtiqueta(id,(_t||0)+1);},1000*((_t||0)+1));}});}
+function syncDelBobina(id,_t){if(!supa||!id)return;supa.from('bobinas').delete().eq('etiqueta',id).then(function(r){if(r&&r.error&&(_t||0)<3){setTimeout(function(){syncDelBobina(id,(_t||0)+1);},1000*((_t||0)+1));}},function(){if((_t||0)<3){setTimeout(function(){syncDelBobina(id,(_t||0)+1);},1000*((_t||0)+1));}});}
 function syncNota(n,_try){if(!supa||!n||!n.key)return;supa.from('notas_fiscais').upsert({key:n.key,data:n,updated_at:new Date().toISOString()}).then(function(res){
     if(res&&res.error){window._syncErrs.rom++;window._syncErrs.lastErr='notas: '+(res.error.message||res.error.code||'erro');
       if((_try||0)<2){setTimeout(function(){syncNota(n,(_try||0)+1);},1200*((_try||0)+1));}
@@ -5705,15 +5760,16 @@ function applyRealtime(p){const t=p.table,n=p.new,o=p.old,ev=p.eventType;
  else if(t==='locais'){if(ev==='DELETE'&&o){delete LOC[o.etiqueta];}else if(n){LOC[n.etiqueta]=n.code;}persistDebounced('loc');}
  else if(t==='stage'){if(ev==='DELETE'&&o){STAGE=STAGE.filter(s=>s.et!==o.etiqueta);}else if(n){const i=STAGE.findIndex(s=>s.et===n.etiqueta);const it={et:n.etiqueta,pr:n.pr,desc:n.descricao||'',pl:Number(n.pl)||0,at:n.at,by:n.by_user||''};if(i>=0){STAGE[i]=it;}else{STAGE.unshift(it);try{stationPrint(it);}catch(e){}}}persistDebounced('stage');}
  else if(t==='movimentos'&&n&&ev==='INSERT'){if(!MV.some(m=>m.id===n.id)){MV.unshift({id:n.id,action:n.action,w:n.w,code:n.code,pr:n.pr,q:Number(n.q)||0,u:n.u,et:n.et||'',before:Number(n.before_q)||0,after:Number(n.after_q)||0,at:n.at,by:n.by_user||''}); /* log local enxuto: o histórico completo fica na nuvem */persistDebounced('mv');try{if(typeof window.recicSyncFromMovs==='function')window.recicSyncFromMovs();}catch(e){}}}
- else if(t==='valores'&&n){const i=VL.findIndex(v=>v.codigo===n.codigo);const row={codigo:n.codigo,valor:Number(n.valor)||0,descricao:n.descricao||'',un:(n.un||'')};if(i>=0)VL[i]=row;else VL.push(row);persistDebounced('vl');}
- else if(t==='usuarios'&&n){const i=US.findIndex(u=>String(u.u||'').toLowerCase()===String(n.u||'').toLowerCase());const row=window.wmsDecodeUserRole({u:n.u,p:n.p,role:n.role,active:n.active!==false}),local=i>=0?US[i]:null;if(!local||Number(row._userUpdated||0)>=Number(local._userUpdated||0)) {if(i>=0)US[i]=row;else US.push(row);}persistDebounced('us');try{if(session&&String(session.u).toLowerCase()===String(row.u).toLowerCase())applyPerms();}catch(e){}}
+ else if(t==='valores'){if(ev==='DELETE'&&o){VL=VL.filter(function(v){return v.codigo!==o.codigo;});}else if(n){const i=VL.findIndex(v=>v.codigo===n.codigo);const row={codigo:n.codigo,valor:Number(n.valor)||0,descricao:n.descricao||'',un:(n.un||'')};if(i>=0)VL[i]=row;else VL.push(row);}persistDebounced('vl');}
+ else if(t==='usuarios'){if(ev==='DELETE'&&o){US=US.filter(function(u){return String(u.u||'').toLowerCase()!==String(o.u||'').toLowerCase();});}else if(n){const i=US.findIndex(u=>String(u.u||'').toLowerCase()===String(n.u||'').toLowerCase());const row=window.wmsDecodeUserRole({u:n.u,p:n.p,role:n.role,active:n.active!==false}),local=i>=0?US[i]:null;if(!local||Number(row._userUpdated||0)>=Number(local._userUpdated||0)) {if(i>=0)US[i]=row;else US.push(row);}try{if(session&&String(session.u).toLowerCase()===String(row.u).toLowerCase())applyPerms();}catch(e){}}persistDebounced('us');}
  else if((t==='etiquetas'||t==='notas_fiscais'||t==='romaneios')&&typeof window.nfApplyRealtimeRow==='function'){window.nfApplyRealtimeRow(t,ev,n,o);}
  else if(t==='chao'&&typeof window.floorApplyRealtimeRow==='function'){window.floorApplyRealtimeRow(ev,n,o);}
  else if(t==='chao70'&&typeof window.floor70ApplyRealtimeRow==='function'){window.floor70ApplyRealtimeRow(ev,n,o);}
  }catch(e){}
  scheduleRerender();}
-let _rtChan=null,_rtOk=false,_rtRetry=0;
+let _rtChan=null,_rtOk=false,_rtRetry=0,_rtGen=0;
 function startRealtime(){if(!supa)return;
+ var gen=++_rtGen;clearTimeout(startRealtime._t);
  try{if(_rtChan){try{supa.removeChannel(_rtChan);}catch(e){}_rtChan=null;}}catch(e){}
  try{
   /* ===== CAUSA DO "ATUALIZANDO SEM PARAR" =====
@@ -5727,11 +5783,13 @@ function startRealtime(){if(!supa)return;
   var ch=supa.channel('wms-ops-'+Date.now());
   TBL.forEach(function(t){ch=ch.on('postgres_changes',{event:'*',schema:'public',table:t},function(p){applyRealtime(p);});});
   _rtChan=ch.subscribe(function(status){
+     if(gen!==_rtGen)return; /* retorno tardio do canal antigo: não cria reconexão fantasma */
      try{window._DIAG.rt=status+' @'+new Date().toLocaleTimeString();}catch(e){}
      if(status==='SUBSCRIBED'){_rtOk=true;_rtRetry=0;
+       clearTimeout(startRealtime._t);
        /* só puxa tudo na PRIMEIRA conexão. Reconexões não disparam mais pullAll —
           era isso que furava a trava e empilhava pull em cima de pull. */
-       if(!window._rtFirstDone){window._rtFirstDone=true;try{pullAll(true);}catch(e){}}
+       if(!window._rtFirstDone){window._rtFirstDone=true;if(!window._initialCloudPullStarted){try{pullAll(true);}catch(e){}}}
      }
      else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){_rtOk=false;
        // reconecta em SILÊNCIO no fundo (não mexe no status visual — quem manda no status é o auto-sync).
@@ -6227,7 +6285,7 @@ loadSupa().then(()=>{
   try{
     supa=window.supabase.createClient(SUPA_URL,SUPA_KEY);
     try{if(typeof _spSnapInit==='function')_spSnapInit();}catch(e){}
-    setNet('sync');startRealtime();startAutoSync();
+    setNet('sync');window._initialCloudPullStarted=true;startRealtime();startAutoSync();
     /* pull inicial com retry: um aparelho que demora a conectar não fica sem dados */
     var _pullTry=0;
     function _initPull(){

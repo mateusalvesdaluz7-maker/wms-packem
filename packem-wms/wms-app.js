@@ -3102,7 +3102,7 @@ updateStageBadge();
     try{
       if(table==='etiquetas'){
         if(ev==='DELETE'&&o){delete ETQ[o.id];}
-        else if(n){ETQ[n.id]={id:n.id,nf:n.doc_key||'',nNF:n.n_nf||'',nRomaneio:n.n_romaneio||'',nNFe:n.n_nf||'',cliente:n.cliente||'',bobina:n.bobina||'',op:n.op||'',lote:n.lote||'',addr:n.addr||'',gramatura:n.gramatura||'',xProd:n.gramatura||'',cProd:n.c_prod||'',uCom:n.u_com||'',kg:Number(n.kg)||0,pesoBruto:Number(n.peso_bruto)||0,vol:Number(n.vol)||0,volTot:Number(n.vol_tot)||0,idx:Number(n.idx)||0,status:n.status||'',hist:n.hist||[]};}
+        else if(n&&!(typeof window._etqDelActive==='function'&&window._etqDelActive(n.id))){ETQ[n.id]={id:n.id,nf:n.doc_key||'',nNF:n.n_nf||'',nRomaneio:n.n_romaneio||'',nNFe:n.n_nf||'',cliente:n.cliente||'',bobina:n.bobina||'',op:n.op||'',lote:n.lote||'',addr:n.addr||'',gramatura:n.gramatura||'',xProd:n.gramatura||'',cProd:n.c_prod||'',uCom:n.u_com||'',kg:Number(n.kg)||0,pesoBruto:Number(n.peso_bruto)||0,vol:Number(n.vol)||0,volTot:Number(n.vol_tot)||0,idx:Number(n.idx)||0,status:n.status||'',hist:n.hist||[]};}
       }else if(table==='notas_fiscais'){
         if(ev==='DELETE'&&o){delete NFS[o.key];}else if(n&&n.data){NFS[n.key]=n.data;}
       }else if(table==='romaneios'){
@@ -3893,8 +3893,23 @@ updateStageBadge();
     var act=document.querySelector('.view.active'); if(act&&act.id==='v-recv'&&typeof renderRecv==='function'){renderRecv();if(typeof updateStageBadge==='function')updateStageBadge();}
   }
 
+  /* Etiquetas pertencentes à geração atual do documento. Documentos antigos não
+     tinham labelIds; nesses casos mantém a busca por doc_key para compatibilidade. */
+  function nfDocLabelIds(key){
+    var doc=NFS[key]||ROMS[key]||{};
+    if(Array.isArray(doc.labelIds))return doc.labelIds.filter(function(id){return !!ETQ[id];});
+    var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;});
+    /* Recuperação para uma NF reimportada antes desta correção: usa a data da
+       importação atual e descarta etiquetas geradas pela importação excluída. */
+    var docAt=Date.parse(doc.at||'');
+    if(isFinite(docAt)){
+      var atuais=ids.filter(function(id){var h=(ETQ[id].hist||[])[0]||{};var etqAt=Date.parse(h.at||'');return isFinite(etqAt)&&etqAt>=docAt-5000;});
+      if(atuais.length)return atuais;
+    }
+    return ids;
+  }
   /* ---- excluir nota importada (e suas etiquetas) ---- */
-  function nfDeleteNote(key){
+  async function nfDeleteNote(key){
     if(!isSuper()){toast('Somente o administrador pode excluir Nota Fiscal',false);return;}
     var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;});
     var n=NFS[key]||{};
@@ -3904,10 +3919,13 @@ updateStageBadge();
     if(_dig==null)return;
     if(String(_dig).trim()!==_alvo.trim()){toast('Número não confere — exclusão cancelada',false);return;}
     criticalBackup('nf',{nota:n,etiquetas:ids.map(function(id){return ETQ[id];}).filter(Boolean)});
+    toast('Excluindo NF e etiquetas da nuvem…');
+    try{
+      if(typeof syncDelEtiquetasLote==='function')await syncDelEtiquetasLote(ids);
+      if(typeof syncDelNota==='function')await syncDelNota(key);
+    }catch(err){toast('Não foi possível concluir a exclusão na nuvem. A NF foi mantida; tente novamente.',false);return;}
     ids.forEach(function(id){delete ETQ[id];});
-    if(typeof syncDelEtiquetasLote==='function')syncDelEtiquetasLote(ids);else if(typeof syncDelEtiqueta==='function')ids.forEach(function(id){syncDelEtiqueta(id);});
     if(NFS[key])delete NFS[key];
-    if(typeof syncDelNota==='function')syncDelNota(key);
     saveNF(); if(typeof logAct==='function')logAct('nf-excluir',n.nNF||key);
     toast('NF excluída'); if(nfParsed&&nfParsed.key===key)nfParsed=null; renderNF();
   }
@@ -4018,7 +4036,7 @@ updateStageBadge();
       }
     });
     if(!created.length){toast('Defina ao menos 1 etiqueta',false);return;}
-    NFS[nfParsed.key]={key:nfParsed.key,nNF:nfParsed.nNF,serie:nfParsed.serie,emit:nfParsed.emit,chave:nfParsed.chave,local:nfLocal,at:nowISO(),by:session.u,total:created.length};
+    NFS[nfParsed.key]={key:nfParsed.key,nNF:nfParsed.nNF,serie:nfParsed.serie,emit:nfParsed.emit,chave:nfParsed.chave,local:nfLocal,at:nowISO(),by:session.u,total:created.length,labelIds:created.slice()};
     saveNF();logAct('nf-etiquetas','NF '+nfParsed.nNF+' · '+created.length+' etiquetas');
     if(typeof syncNota==='function')syncNota(NFS[nfParsed.key]);
     if(typeof syncEtiquetasLote==='function')syncEtiquetasLote(created,'nf');
@@ -4047,7 +4065,7 @@ updateStageBadge();
       +'</div>';
   }
   function openLabelSheet(key){
-    var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;}).sort(function(a,b){return (ETQ[a].idx||0)-(ETQ[b].idx||0);});
+    var ids=nfDocLabelIds(key).sort(function(a,b){return (ETQ[a].idx||0)-(ETQ[b].idx||0);});
     if(!ids.length){toast('Sem etiquetas',false);return;}
     var arr=ids.map(function(id){return ETQ[id];});
     var sizes=(typeof ZSIZES!=='undefined')?ZSIZES:{z100:{w:100,h:100,n:'100×100 mm'}};
@@ -4127,7 +4145,7 @@ updateStageBadge();
       created.push(id);
     });
     if(!created.length){toast('Nenhuma bobina válida para gerar',false);return;}
-    ROMS[romParsed.key]={key:romParsed.key,nRomaneio:hdr.nRomaneio,nfe:hdr.nfe,dataSaida:hdr.dataSaida,cliente:hdr.cliente,local:nfLocal,at:nowISO(),by:session.u,total:created.length};
+    ROMS[romParsed.key]={key:romParsed.key,nRomaneio:hdr.nRomaneio,nfe:hdr.nfe,dataSaida:hdr.dataSaida,cliente:hdr.cliente,local:nfLocal,at:nowISO(),by:session.u,total:created.length,labelIds:created.slice()};
     saveNF();logAct('romaneio-etiquetas','Romaneio '+hdr.nRomaneio+' · '+created.length+' etiquetas');
     window._syncErrs={etq:0,rom:0,lastErr:''}; /* zera antes de sincronizar (não carrega erro velho de impressão) */
     if(typeof syncRomaneio==='function')syncRomaneio(ROMS[romParsed.key]);
@@ -4139,7 +4157,7 @@ updateStageBadge();
     try{openRomLabelSheet(key);}catch(e){toast('Etiquetas salvas. A impressão não abriu — você pode reimprimir depois pela lista.',false);}
   }
   function openRomLabelSheet(key){
-    var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;}).sort(function(a,b){return (ETQ[a].idx||0)-(ETQ[b].idx||0);});
+    var ids=nfDocLabelIds(key).sort(function(a,b){return (ETQ[a].idx||0)-(ETQ[b].idx||0);});
     if(!ids.length){toast('Sem etiquetas',false);return;}
     var arr=ids.map(function(id){return ETQ[id];});
     var sizes=(typeof ZSIZES!=='undefined')?ZSIZES:{z100:{w:100,h:100,n:'100×100 mm'}};
@@ -5524,20 +5542,22 @@ function syncEtiqueta(e,_try){if(!supa||!e||!e.id)return;var row=etqRow(e);
    NÃO rebaixar elas de volta (corrige 'excluí etiqueta e ela voltou ao reimportar a NF'). */
 window._etqDelMap=(function(){try{return JSON.parse(localStorage.getItem('wmsx_etqDel')||'{}');}catch(e){return {};}})();
 window._etqDelMark=function(id){try{id=String(id||'').trim().toUpperCase();if(!id)return;window._etqDelMap[id]=Date.now();localStorage.setItem('wmsx_etqDel',JSON.stringify(window._etqDelMap));}catch(e){}};
-window._etqDelActive=function(id){try{id=String(id||'').trim().toUpperCase();var t=window._etqDelMap[id];return !!(t&&(Date.now()-t)<600000);}catch(e){return false;}}; /* trava por 10 min */
-window._etqDelClean=function(){try{var now=Date.now(),ch=false;Object.keys(window._etqDelMap).forEach(function(k){if(now-window._etqDelMap[k]>600000){delete window._etqDelMap[k];ch=true;}});if(ch)localStorage.setItem('wmsx_etqDel',JSON.stringify(window._etqDelMap));}catch(e){}};
+window._etqDelActive=function(id){try{id=String(id||'').trim().toUpperCase();var t=window._etqDelMap[id];return !!(t&&(Date.now()-t)<604800000);}catch(e){return false;}}; /* trava por 7 dias */
+window._etqDelClean=function(){try{var now=Date.now(),ch=false;Object.keys(window._etqDelMap).forEach(function(k){if(now-window._etqDelMap[k]>604800000){delete window._etqDelMap[k];ch=true;}});if(ch)localStorage.setItem('wmsx_etqDel',JSON.stringify(window._etqDelMap));}catch(e){}};
 /* EXCLUSÃO EM LOTE: apaga N etiquetas em chunks de 100 via .in() — sequencial.
    Antes: 200 DELETEs individuais simultâneos (cada um com 3 retries) saturavam a conexão
    e apareciam como "falha na conexão" ao excluir romaneio/NF grande. */
-function syncDelEtiquetasLote(ids){if(!supa||!ids||!ids.length)return;
+async function syncDelEtiquetasLote(ids){if(!ids||!ids.length)return true;if(!supa)throw new Error('Sem conexão com a nuvem');
  try{var m=window._etqDelMap||{};ids.forEach(function(id){id=String(id||'').trim().toUpperCase();if(id)m[id]=Date.now();});window._etqDelMap=m;localStorage.setItem('wmsx_etqDel',JSON.stringify(m));}catch(e){}
  var chunks=[];for(var i=0;i<ids.length;i+=100)chunks.push(ids.slice(i,i+100));
- var run=function(ci,tent){if(ci>=chunks.length)return;var ch=chunks[ci];
-  supa.from('etiquetas').delete().in('id',ch).then(function(r){
-   if(r&&r.error&&(tent||0)<3){setTimeout(function(){run(ci,(tent||0)+1);},1200*((tent||0)+1));}
-   else{setTimeout(function(){run(ci+1,0);},120);}
-  },function(){if((tent||0)<3){setTimeout(function(){run(ci,(tent||0)+1);},1200*((tent||0)+1));}else{setTimeout(function(){run(ci+1,0);},120);}});
- };run(0,0);}
+ for(var ci=0;ci<chunks.length;ci++){
+  var lastErr=null;
+  for(var tent=0;tent<4;tent++){
+   try{var r=await supa.from('etiquetas').delete().in('id',chunks[ci]);if(r&&r.error)throw r.error;lastErr=null;break;}catch(err){lastErr=err;if(tent<3)await new Promise(function(ok){setTimeout(ok,1200*(tent+1));});}
+  }
+  if(lastErr)throw lastErr;
+ }
+ return true;}
 function syncDelEtiqueta(id,_t){if(!supa||!id)return;if(!_t){try{window._etqDelMark(id);}catch(e){}}supa.from('etiquetas').delete().eq('id',id).then(function(r){if(r&&r.error&&(_t||0)<3){setTimeout(function(){syncDelEtiqueta(id,(_t||0)+1);},1000*((_t||0)+1));}},function(){if((_t||0)<3){setTimeout(function(){syncDelEtiqueta(id,(_t||0)+1);},1000*((_t||0)+1));}});}
 function syncDelBobina(id,_t){if(!supa||!id)return;supa.from('bobinas').delete().eq('etiqueta',id).then(function(r){if(r&&r.error&&(_t||0)<3){setTimeout(function(){syncDelBobina(id,(_t||0)+1);},1000*((_t||0)+1));}},function(){if((_t||0)<3){setTimeout(function(){syncDelBobina(id,(_t||0)+1);},1000*((_t||0)+1));}});}
 function syncNota(n,_try){if(!supa||!n||!n.key)return;supa.from('notas_fiscais').upsert({key:n.key,data:n,updated_at:new Date().toISOString()}).then(function(res){
@@ -5545,7 +5565,7 @@ function syncNota(n,_try){if(!supa||!n||!n.key)return;supa.from('notas_fiscais')
       if((_try||0)<2){setTimeout(function(){syncNota(n,(_try||0)+1);},1200*((_try||0)+1));}
     }
   },function(err){window._syncErrs.rom++;window._syncErrs.lastErr='notas: rede';if((_try||0)<2){setTimeout(function(){syncNota(n,(_try||0)+1);},1200*((_try||0)+1));}});}
-function syncDelNota(key,_t){if(!supa||!key)return;supa.from('notas_fiscais').delete().eq('key',key).then(function(r){if(r&&r.error&&(_t||0)<3){setTimeout(function(){syncDelNota(key,(_t||0)+1);},1000*((_t||0)+1));}},function(){if((_t||0)<3){setTimeout(function(){syncDelNota(key,(_t||0)+1);},1000*((_t||0)+1));}});}
+async function syncDelNota(key){if(!key)return true;if(!supa)throw new Error('Sem conexão com a nuvem');var lastErr=null;for(var t=0;t<4;t++){try{var r=await supa.from('notas_fiscais').delete().eq('key',key);if(r&&r.error)throw r.error;return true;}catch(err){lastErr=err;if(t<3)await new Promise(function(ok){setTimeout(ok,1000*(t+1));});}}throw lastErr;}
 function syncRomaneio(r,_try){if(!supa||!r||!r.key)return;supa.from('romaneios').upsert({key:r.key,data:r,updated_at:new Date().toISOString()}).then(function(res){
     if(res&&res.error){window._syncErrs.rom++;window._syncErrs.lastErr='romaneios: '+(res.error.message||res.error.code||'erro');
       if((_try||0)<2){setTimeout(function(){syncRomaneio(r,(_try||0)+1);},1200*((_try||0)+1));}

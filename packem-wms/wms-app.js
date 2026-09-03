@@ -5447,11 +5447,23 @@ function syncChao(item){if(!supa||!item||!item.et)return;supa.from('chao').upser
 function syncDelChao(et,_try){if(!supa||!et)return;var t=_try||0;supa.from('chao').delete().eq('et',et).then(function(r){if(r&&r.error&&t<4){setTimeout(function(){syncDelChao(et,t+1);},600*(t+1));}else if(typeof window._floorDelClear==='function'){/* mantém o tombstone alguns segundos mesmo após confirmar, pra cobrir sync em voo */setTimeout(function(){try{window._floorDelClear(et);}catch(e){}},8000);}},function(){if(t<4)setTimeout(function(){syncDelChao(et,t+1);},600*(t+1));});}
 window._syncErrs={etq:0,rom:0,lastErr:''};
 function etqRow(e){return {id:e.id,doc_key:e.nf||'',doc_type:e.nRomaneio?'romaneio':(e.addr?'vaga':'nf'),n_nf:e.nNF||'',n_romaneio:e.nRomaneio||'',cliente:e.cliente||'',bobina:e.bobina||'',op:e.op||'',lote:e.lote||'',addr:e.addr||'',gramatura:e.gramatura||e.xProd||'',c_prod:e.cProd||'',u_com:e.uCom||'',kg:Number(e.kg)||0,peso_bruto:Number(e.pesoBruto)||0,vol:Number(e.vol)||0,vol_tot:Number(e.volTot)||0,idx:Number(e.idx)||0,status:e.status||'',hist:e.hist||[],updated_at:new Date().toISOString()};}
+async function fiscalDirect(action,payload){
+ if(!supa)throw new Error('Sem conexão com o Supabase');payload=payload||{};var r=null,rows=payload.rows||[],key=payload.key||payload.doc_key;
+ if(action==='upsert_labels')r=await supa.from('etiquetas').upsert(rows);
+ else if(action==='delete_labels')r=await supa.from('etiquetas').delete().in('id',payload.ids||[]);
+ else if(action==='reconcile_labels'){
+  var ids=rows.map(function(x){return x.id;});var q=supa.from('etiquetas').delete().eq('doc_key',key);if(ids.length)q=q.not('id','in','('+ids.map(function(x){return '"'+String(x).replace(/"/g,'')+'"';}).join(',')+')');r=await q;if(r&&r.error)throw new Error(r.error.message||r.error.code);for(var i=0;i<rows.length;i+=200){r=await supa.from('etiquetas').upsert(rows.slice(i,i+200));if(r&&r.error)throw new Error(r.error.message||r.error.code);}return true;
+ }
+ else if(action==='upsert_note')r=await supa.from('notas_fiscais').upsert(payload.row);
+ else if(action==='upsert_rom')r=await supa.from('romaneios').upsert(payload.row);
+ else if(action==='delete_note')r=await supa.from('notas_fiscais').upsert({key:key,data:{key:key,deleted:true,deletedAt:new Date().toISOString()},updated_at:new Date().toISOString()});
+ else if(action==='delete_rom')r=await supa.from('romaneios').upsert({key:key,data:{key:key,deleted:true,deletedAt:new Date().toISOString()},updated_at:new Date().toISOString()});
+ else throw new Error('Operação fiscal inválida');
+ if(r&&r.error)throw new Error(r.error.message||r.error.code||'Supabase recusou a alteração');return true;
+}
 async function fiscalApi(action,payload){
- var r=await fetch('/wms-data/fiscal-sync',{method:'POST',headers:{'Content-Type':'application/json','X-WMS-Request':'fiscal-'+Date.now().toString(36)},body:JSON.stringify(Object.assign({action:action},payload||{}))});
- var d=await r.json().catch(function(){return {};});
- if(!r.ok||!d.ok)throw new Error(d.error||('Falha HTTP '+r.status));
- return true;
+ var apiErr=null;try{var r=await fetch('/wms-data/fiscal-sync',{method:'POST',headers:{'Content-Type':'application/json','X-WMS-Request':'fiscal-'+Date.now().toString(36)},body:JSON.stringify(Object.assign({action:action},payload||{}))});var d=await r.json().catch(function(){return {};});if(!r.ok||!d.ok)throw new Error(d.error||('Falha HTTP '+r.status));return true;}catch(e){apiErr=e;}
+ try{return await fiscalDirect(action,payload);}catch(directErr){throw new Error('API: '+String(apiErr&&apiErr.message||apiErr)+' · Supabase: '+String(directErr&&directErr.message||directErr));}
 }
 async function syncDocumentoFiscal(key){key=String(key||'').trim();if(!key)return false;var rows=Object.keys(ETQ).filter(function(id){return ETQ[id]&&String(ETQ[id].nf||'')===key;}).map(function(id){return etqRow(ETQ[id]);});await fiscalApi('reconcile_labels',{doc_key:key,rows:rows});return true;}
 

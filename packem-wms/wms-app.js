@@ -5629,18 +5629,13 @@ async function publishNFBase(){
  (cloudNF||[]).forEach(function(r){if(r.key&&!NFS[r.key]&&!(r.data&&r.data.deleted))nfRows.push({key:r.key,data:{key:r.key,deleted:true,deletedAt:at},updated_at:at});});
  (cloudRom||[]).forEach(function(r){if(r.key!==CONV_CLOUD_KEY&&r.key!==NF_CANON_KEY&&!ROMS[r.key]&&!(r.data&&r.data.deleted))romRows.push({key:r.key,data:{key:r.key,deleted:true,deletedAt:at},updated_at:at});});
  romRows.push({key:NF_CANON_KEY,data:{canonical:true,publishedAt:at,by:(session&&session.u)||''},updated_at:at});
- await chunkUp('notas_fiscais',nfRows);await chunkUp('romaneios',romRows);
- /* Remove da nuvem etiquetas que não existem mais na geração atual de cada documento. */
- var wanted={};ids.forEach(function(id){wanted[id]=1;});
+ /* Publica documentos pela API do servidor: não depende das políticas de escrita do navegador. */
+ for(var ni=0;ni<nfRows.length;ni++){var nr=nfRows[ni];if(nr.data&&nr.data.deleted)await fiscalApi('delete_note',{key:nr.key});else await fiscalApi('upsert_note',{row:nr});}
+ for(var ri=0;ri<romRows.length;ri++){var rr=romRows[ri];if(rr.data&&rr.data.deleted)await fiscalApi('delete_rom',{key:rr.key});else await fiscalApi('upsert_rom',{row:rr});}
+ /* Faz cada documento da nuvem ficar EXATAMENTE igual a este computador. */
  var allKeys=Object.keys(docSet).concat((cloudNF||[]).map(function(r){return r.key;}),(cloudRom||[]).filter(function(r){return r.key!==CONV_CLOUD_KEY&&r.key!==NF_CANON_KEY;}).map(function(r){return r.key;}));
  allKeys=allKeys.filter(function(k,i,a){return k&&a.indexOf(k)===i;});
- for(var i=0;i<allKeys.length;i+=20){
-  var q=await supa.from('etiquetas').select('id').in('doc_key',allKeys.slice(i,i+20)).range(0,9999);
-  if(q&&q.error)throw new Error('etiquetas: '+(q.error.message||q.error.code));
-  var stale=(q.data||[]).map(function(x){return x.id;}).filter(function(id){return !wanted[id];});
-  for(var j=0;j<stale.length;j+=200){var d=await supa.from('etiquetas').delete().in('id',stale.slice(j,j+200));if(d&&d.error)throw new Error('excluir etiquetas antigas: '+(d.error.message||d.error.code));}
- }
- await syncEtiquetasLote(ids,'publicacao');
+ for(var ai=0;ai<allKeys.length;ai++){var ak=allKeys[ai];if(docSet[ak])await syncDocumentoFiscal(ak);else await fiscalApi('reconcile_labels',{doc_key:ak,rows:[]});}
  window._nfWM=null;window._nfFullAt=0;window._fixDone={};
  return {nf:nKeys.length,rom:rKeys.length,etq:ids.length};
 }

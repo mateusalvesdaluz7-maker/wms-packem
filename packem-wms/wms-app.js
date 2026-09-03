@@ -3979,7 +3979,7 @@ updateStageBadge();
       di.addEventListener('input',function(){di.dataset.auto='';});
       if(typeof attachCodeAC==='function')attachCodeAC(ci,di,fill);
     });
-    var sv=document.getElementById('egSave'); if(sv)sv.onclick=function(){
+    var sv=document.getElementById('egSave'); if(sv)sv.onclick=async function(){
       try{if(typeof markLocalWrite==='function')markLocalWrite();}catch(e){} // trava: impede o auto-sync de sobrescrever antes de subir
       var _edited=[];
       order.forEach(function(k,gi){
@@ -3994,10 +3994,13 @@ updateStageBadge();
       });
       saveNF(); if(typeof logAct==='function')logAct('nf-editar',n.nNF||key);
       /* SOBE PRA NUVEM: sem isso o auto-sync baixava os dados antigos e revertia a edição */
-      try{if(typeof syncEtiqueta==='function')_edited.forEach(function(id){if(ETQ[id])syncEtiqueta(ETQ[id]);});}catch(e){}
-      try{if(typeof syncNota==='function'&&NFS[key])syncNota(NFS[key]);}catch(e){}
+      try{
+        var envios=_edited.map(function(id){return ETQ[id]&&typeof syncEtiqueta==='function'?syncEtiqueta(ETQ[id]):Promise.resolve(true);});
+        if(typeof syncNota==='function'&&NFS[key])envios.push(syncNota(NFS[key]));
+        var resultados=await Promise.all(envios);if(resultados.some(function(x){return x!==true;}))throw new Error('uma ou mais alterações não foram confirmadas');
+      }catch(e){toast('Alteração mantida neste aparelho, mas não chegou à nuvem: '+String(e&&e.message||e),false);return;}
       try{if(typeof markLocalWrite==='function')markLocalWrite();}catch(e){}
-      toast('NF atualizada · sincronizada'); closeDrawer(); renderNF();
+      toast('NF atualizada · todos os aparelhos receberão a alteração'); closeDrawer(); renderNF();
     };
   }
 
@@ -4281,7 +4284,7 @@ updateStageBadge();
       openDrawer((ICONS.edit||'')+' Corrigir etiqueta',bodyEdit);
       var voltar=function(){openRomBipDrawer(key);};
       document.getElementById('rbeBack').onclick=voltar;
-      document.getElementById('rbeSave').onclick=function(){
+      document.getElementById('rbeSave').onclick=async function(){
         var cod=norm((document.getElementById('rbeCod')||{}).value||''),kg=brNum((document.getElementById('rbeKg')||{}).value);
         if(!cod){toast('Informe o código do material',false);return;}
         if(!(kg>0)){toast('Informe um peso maior que zero',false);return;}
@@ -4289,10 +4292,10 @@ updateStageBadge();
         e.cProd=cod;e.bobina=cod;e.kg=kg;if(desc){e.xProd=desc;e.gramatura=desc;}
         e.hist=Array.isArray(e.hist)?e.hist:[];e.hist.push({ev:'corrigida',at:nowISO(),by:(session&&session.u)||'',de_codigo:antesCod,para_codigo:cod,de_kg:antesKg,para_kg:kg});
         try{BOB[String(e.id).trim().toUpperCase()]={pr:cod,desc:desc,pl:kg};saveBOB();}catch(_e){}
-        saveNF();try{if(typeof syncEtiqueta==='function')syncEtiqueta(e);}catch(_e){}
+        saveNF();var sincronizou=false;try{sincronizou=typeof syncEtiqueta==='function'?await syncEtiqueta(e):false;}catch(_e){}
         try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function')chunkUp('bobinas',[{etiqueta:String(e.id).trim().toUpperCase(),pr:cod,descricao:desc,pl:kg}]);}catch(_e){}
         try{logAct('nf-editar','Etiqueta '+e.id+' · '+antesCod+' / '+fmt(antesKg)+' kg → '+cod+' / '+fmt(kg)+' kg');}catch(_e){}
-        toast('Etiqueta corrigida · a próxima impressão usará os novos valores');
+        toast(sincronizou?'Etiqueta corrigida e sincronizada em todos os aparelhos':'Etiqueta corrigida somente neste aparelho. Verifique a internet.',sincronizou);
         voltar();
       };
     }
@@ -5450,6 +5453,12 @@ function syncChao(item){if(!supa||!item||!item.et)return;supa.from('chao').upser
 function syncDelChao(et,_try){if(!supa||!et)return;var t=_try||0;supa.from('chao').delete().eq('et',et).then(function(r){if(r&&r.error&&t<4){setTimeout(function(){syncDelChao(et,t+1);},600*(t+1));}else if(typeof window._floorDelClear==='function'){/* mantém o tombstone alguns segundos mesmo após confirmar, pra cobrir sync em voo */setTimeout(function(){try{window._floorDelClear(et);}catch(e){}},8000);}},function(){if(t<4)setTimeout(function(){syncDelChao(et,t+1);},600*(t+1));});}
 window._syncErrs={etq:0,rom:0,lastErr:''};
 function etqRow(e){return {id:e.id,doc_key:e.nf||'',doc_type:e.nRomaneio?'romaneio':(e.addr?'vaga':'nf'),n_nf:e.nNF||'',n_romaneio:e.nRomaneio||'',cliente:e.cliente||'',bobina:e.bobina||'',op:e.op||'',lote:e.lote||'',addr:e.addr||'',gramatura:e.gramatura||e.xProd||'',c_prod:e.cProd||'',u_com:e.uCom||'',kg:Number(e.kg)||0,peso_bruto:Number(e.pesoBruto)||0,vol:Number(e.vol)||0,vol_tot:Number(e.volTot)||0,idx:Number(e.idx)||0,status:e.status||'',hist:e.hist||[],updated_at:new Date().toISOString()};}
+async function fiscalApi(action,payload){
+ var r=await fetch('/wms-data/fiscal-sync',{method:'POST',headers:{'Content-Type':'application/json','X-WMS-Request':'fiscal-'+Date.now().toString(36)},body:JSON.stringify(Object.assign({action:action},payload||{}))});
+ var d=await r.json().catch(function(){return {};});
+ if(!r.ok||!d.ok)throw new Error(d.error||('Falha HTTP '+r.status));
+ return true;
+}
 
 /* ===== ENVIO EM LOTE DAS ETIQUETAS DE UMA NF/ROMANEIO =====
    Antes o import disparava 1 upsert POR etiqueta (200 requisições simultâneas). Numa rede
@@ -5467,9 +5476,7 @@ async function syncEtiquetasLote(ids,tag){
    var bloco=rows.slice(i,i+200);
    var ok=false;
    for(var t=0;t<3&&!ok;t++){
-    try{var r=await supa.from('etiquetas').upsert(bloco);
-      if(!r||!r.error)ok=true;
-      else{ultErro=(r.error.message||'')+' ['+(r.error.code||'')+']'+(r.error.details?' · '+r.error.details:'')+(r.error.hint?' · '+r.error.hint:'');}
+    try{await fiscalApi('upsert_labels',{rows:bloco});ok=true;
     }catch(e){ultErro=String((e&&e.message)||e);}
     if(!ok)await new Promise(function(res){setTimeout(res,800*(t+1));});
    }
@@ -5486,7 +5493,7 @@ async function syncEtiquetasLote(ids,tag){
    }
    var faltam=rows.filter(function(r){return !chegou[r.id];});
    if(faltam.length){
-    for(var k=0;k<faltam.length;k+=200){try{var rr=await supa.from('etiquetas').upsert(faltam.slice(k,k+200));if(rr&&rr.error)ultErro=(rr.error.message||'')+' ['+(rr.error.code||'')+']';}catch(e){ultErro=String((e&&e.message)||e);}}
+    for(var k=0;k<faltam.length;k+=200){try{await fiscalApi('upsert_labels',{rows:faltam.slice(k,k+200)});}catch(e){ultErro=String((e&&e.message)||e);}}
     var chegou2={};
     for(var m=0;m<faltam.length;m+=300){var q2=await supa.from('etiquetas').select('id').in('id',faltam.slice(m,m+300).map(function(r){return r.id;}));if(q2&&q2.data)q2.data.forEach(function(x){chegou2[x.id]=1;});}
     var ainda=faltam.filter(function(r){return !chegou2[r.id];}).length;
@@ -5546,12 +5553,7 @@ async function reenviarDoc(key){
 }
 window.reenviarDoc=reenviarDoc;
 
-function syncEtiqueta(e,_try){if(!supa||!e||!e.id)return;var row=etqRow(e);
-  supa.from('etiquetas').upsert(row).then(function(r){
-    if(r&&r.error){window._syncErrs.etq++;window._syncErrs.lastErr='etiquetas: '+(r.error.message||r.error.code||'erro');
-      if((_try||0)<2){setTimeout(function(){syncEtiqueta(e,(_try||0)+1);},1200*((_try||0)+1));}
-    }else{try{e._uat=row.updated_at;}catch(_){}}
-  },function(err){window._syncErrs.etq++;window._syncErrs.lastErr='etiquetas: rede';if((_try||0)<2){setTimeout(function(){syncEtiqueta(e,(_try||0)+1);},1200*((_try||0)+1));}});}
+async function syncEtiqueta(e,_try){if(!e||!e.id)return false;var row=etqRow(e);try{await fiscalApi('upsert_labels',{rows:[row]});e._uat=row.updated_at;return true;}catch(err){window._syncErrs.etq++;window._syncErrs.lastErr='etiquetas: '+String(err&&err.message||'erro');if((_try||0)<2){await new Promise(function(ok){setTimeout(ok,1200*((_try||0)+1));});return syncEtiqueta(e,(_try||0)+1);}toast('Etiqueta salva apenas neste aparelho: '+String(err&&err.message||err),false);return false;}}
 /* TOMBSTONE de etiquetas excluídas: marca ids apagados por um tempo, pra o pull da nuvem
    NÃO rebaixar elas de volta (corrige 'excluí etiqueta e ela voltou ao reimportar a NF'). */
 window._etqDelMap=(function(){try{return JSON.parse(localStorage.getItem('wmsx_etqDel')||'{}');}catch(e){return {};}})();
@@ -5561,33 +5563,25 @@ window._etqDelClean=function(){try{var now=Date.now(),ch=false;Object.keys(windo
 /* EXCLUSÃO EM LOTE: apaga N etiquetas em chunks de 100 via .in() — sequencial.
    Antes: 200 DELETEs individuais simultâneos (cada um com 3 retries) saturavam a conexão
    e apareciam como "falha na conexão" ao excluir romaneio/NF grande. */
-async function syncDelEtiquetasLote(ids){if(!ids||!ids.length)return true;if(!supa)throw new Error('Sem conexão com a nuvem');
+async function syncDelEtiquetasLote(ids){if(!ids||!ids.length)return true;
  try{var m=window._etqDelMap||{};ids.forEach(function(id){id=String(id||'').trim().toUpperCase();if(id)m[id]=Date.now();});window._etqDelMap=m;localStorage.setItem('wmsx_etqDel',JSON.stringify(m));}catch(e){}
  var chunks=[];for(var i=0;i<ids.length;i+=100)chunks.push(ids.slice(i,i+100));
  for(var ci=0;ci<chunks.length;ci++){
   var lastErr=null;
   for(var tent=0;tent<4;tent++){
-   try{var r=await supa.from('etiquetas').delete().in('id',chunks[ci]);if(r&&r.error)throw r.error;lastErr=null;break;}catch(err){lastErr=err;if(tent<3)await new Promise(function(ok){setTimeout(ok,1200*(tent+1));});}
+   try{await fiscalApi('delete_labels',{ids:chunks[ci]});lastErr=null;break;}catch(err){lastErr=err;if(tent<3)await new Promise(function(ok){setTimeout(ok,1200*(tent+1));});}
   }
   if(lastErr)throw lastErr;
  }
  return true;}
-function syncDelEtiqueta(id,_t){if(!supa||!id)return;if(!_t){try{window._etqDelMark(id);}catch(e){}}supa.from('etiquetas').delete().eq('id',id).then(function(r){if(r&&r.error&&(_t||0)<3){setTimeout(function(){syncDelEtiqueta(id,(_t||0)+1);},1000*((_t||0)+1));}},function(){if((_t||0)<3){setTimeout(function(){syncDelEtiqueta(id,(_t||0)+1);},1000*((_t||0)+1));}});}
+async function syncDelEtiqueta(id,_t){if(!id)return false;if(!_t){try{window._etqDelMark(id);}catch(e){}}try{await fiscalApi('delete_labels',{ids:[id]});return true;}catch(err){if((_t||0)<3){await new Promise(function(ok){setTimeout(ok,1000*((_t||0)+1));});return syncDelEtiqueta(id,(_t||0)+1);}toast('Etiqueta excluída somente neste aparelho: '+String(err&&err.message||err),false);return false;}}
 function syncDelBobina(id,_t){if(!supa||!id)return;supa.from('bobinas').delete().eq('etiqueta',id).then(function(r){if(r&&r.error&&(_t||0)<3){setTimeout(function(){syncDelBobina(id,(_t||0)+1);},1000*((_t||0)+1));}},function(){if((_t||0)<3){setTimeout(function(){syncDelBobina(id,(_t||0)+1);},1000*((_t||0)+1));}});}
-function syncNota(n,_try){if(!supa||!n||!n.key)return;supa.from('notas_fiscais').upsert({key:n.key,data:n,updated_at:new Date().toISOString()}).then(function(res){
-    if(res&&res.error){window._syncErrs.rom++;window._syncErrs.lastErr='notas: '+(res.error.message||res.error.code||'erro');
-      if((_try||0)<2){setTimeout(function(){syncNota(n,(_try||0)+1);},1200*((_try||0)+1));}
-    }
-  },function(err){window._syncErrs.rom++;window._syncErrs.lastErr='notas: rede';if((_try||0)<2){setTimeout(function(){syncNota(n,(_try||0)+1);},1200*((_try||0)+1));}});}
+async function syncNota(n,_try){if(!n||!n.key)return false;try{await fiscalApi('upsert_note',{row:{key:n.key,data:n,updated_at:new Date().toISOString()}});return true;}catch(err){window._syncErrs.rom++;window._syncErrs.lastErr='notas: '+String(err&&err.message||'erro');if((_try||0)<2){await new Promise(function(ok){setTimeout(ok,1200*((_try||0)+1));});return syncNota(n,(_try||0)+1);}toast('NF salva apenas neste aparelho: '+String(err&&err.message||err),false);return false;}}
 /* Mantém na nuvem um marcador de exclusão. Assim, aparelhos que estavam
    desligados também removem a NF quando voltarem a sincronizar. */
-async function syncDelNota(key){if(!key)return true;if(!supa)throw new Error('Sem conexão com a nuvem');var lastErr=null;for(var t=0;t<4;t++){try{var at=new Date().toISOString();var r=await supa.from('notas_fiscais').upsert({key:key,data:{key:key,deleted:true,deletedAt:at},updated_at:at});if(r&&r.error)throw r.error;return true;}catch(err){lastErr=err;if(t<3)await new Promise(function(ok){setTimeout(ok,1000*(t+1));});}}throw lastErr;}
-function syncRomaneio(r,_try){if(!supa||!r||!r.key)return;supa.from('romaneios').upsert({key:r.key,data:r,updated_at:new Date().toISOString()}).then(function(res){
-    if(res&&res.error){window._syncErrs.rom++;window._syncErrs.lastErr='romaneios: '+(res.error.message||res.error.code||'erro');
-      if((_try||0)<2){setTimeout(function(){syncRomaneio(r,(_try||0)+1);},1200*((_try||0)+1));}
-    }
-  },function(err){window._syncErrs.rom++;window._syncErrs.lastErr='romaneios: rede';if((_try||0)<2){setTimeout(function(){syncRomaneio(r,(_try||0)+1);},1200*((_try||0)+1));}});}
-async function syncDelRomaneio(key){if(!key)return true;if(!supa)throw new Error('Sem conexão com a nuvem');var lastErr=null;for(var t=0;t<4;t++){try{var at=new Date().toISOString();var r=await supa.from('romaneios').upsert({key:key,data:{key:key,deleted:true,deletedAt:at},updated_at:at});if(r&&r.error)throw r.error;return true;}catch(err){lastErr=err;if(t<3)await new Promise(function(ok){setTimeout(ok,1000*(t+1));});}}throw lastErr;}
+async function syncDelNota(key){if(!key)return true;var lastErr=null;for(var t=0;t<4;t++){try{await fiscalApi('delete_note',{key:key});return true;}catch(err){lastErr=err;if(t<3)await new Promise(function(ok){setTimeout(ok,1000*(t+1));});}}throw lastErr;}
+async function syncRomaneio(r,_try){if(!r||!r.key)return false;try{await fiscalApi('upsert_rom',{row:{key:r.key,data:r,updated_at:new Date().toISOString()}});return true;}catch(err){window._syncErrs.rom++;window._syncErrs.lastErr='romaneios: '+String(err&&err.message||'erro');if((_try||0)<2){await new Promise(function(ok){setTimeout(ok,1200*((_try||0)+1));});return syncRomaneio(r,(_try||0)+1);}toast('Romaneio salvo apenas neste aparelho: '+String(err&&err.message||err),false);return false;}}
+async function syncDelRomaneio(key){if(!key)return true;var lastErr=null;for(var t=0;t<4;t++){try{await fiscalApi('delete_rom',{key:key});return true;}catch(err){lastErr=err;if(t<3)await new Promise(function(ok){setTimeout(ok,1000*(t+1));});}}throw lastErr;}
 /* diagnóstico: reenvia TODAS as etiquetas e romaneios locais pra nuvem, e mostra erro se houver */
 window.resyncTudoNF=function(){
   if(!supa){toast('Sem conexão com a nuvem',false);return;}

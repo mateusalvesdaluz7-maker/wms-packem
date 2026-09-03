@@ -26,7 +26,10 @@
     {
       "source": "/wms-data/stock-operation",
       "destination": "/api/stock-operation"
+    },
+    {
+      "source": "/wms-data/fiscal-sync",
+      "destination": "/api/fiscal-sync"
     }
   ]
 }
-

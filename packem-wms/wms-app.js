@@ -3086,7 +3086,7 @@ updateStageBadge();
         /* reenvia (sem travar a UI) os bipes que a nuvem ainda não tinha */
         if(_reSubir.length){try{if(typeof syncEtiquetasLote==='function')syncEtiquetasLote(_reSubir,'status');else if(typeof syncEtiqueta==='function')_reSubir.forEach(function(id){if(ETQ[id])syncEtiqueta(ETQ[id]);});}catch(e){}}
       }
-      if(rowsNotas&&rowsNotas.length){var newNFS={};(rowsNotas||[]).forEach(function(r){if(r.data)newNFS[r.key]=r.data;});Object.keys(NFS).forEach(function(k){if(!newNFS[k])newNFS[k]=NFS[k];});NFS=newNFS;}
+      if(rowsNotas&&rowsNotas.length){var newNFS={};(rowsNotas||[]).forEach(function(r){if(r.data&&r.data.deleted){Object.keys(ETQ).forEach(function(id){if(ETQ[id].nf===r.key)delete ETQ[id];});}else if(r.data)newNFS[r.key]=r.data;});Object.keys(NFS).forEach(function(k){if(!newNFS[k]&&!(rowsNotas||[]).some(function(r){return r.key===k&&r.data&&r.data.deleted;}))newNFS[k]=NFS[k];});NFS=newNFS;}
       if(rowsRom&&rowsRom.length){var newROMS={};(rowsRom||[]).forEach(function(r){if(r.key===CONV_CLOUD_KEY){if(r.data)convApplyPayload(r.data,true);return;}if(r.data)newROMS[r.key]=r.data;});Object.keys(ROMS).forEach(function(k){if(k!==CONV_CLOUD_KEY&&!newROMS[k])newROMS[k]=ROMS[k];});ROMS=newROMS;}
       try{if(typeof window.fixDupEtq==='function')window.fixDupEtq();}catch(e){}
       saveNF();
@@ -3104,7 +3104,9 @@ updateStageBadge();
         if(ev==='DELETE'&&o){delete ETQ[o.id];}
         else if(n&&!(typeof window._etqDelActive==='function'&&window._etqDelActive(n.id))){ETQ[n.id]={id:n.id,nf:n.doc_key||'',nNF:n.n_nf||'',nRomaneio:n.n_romaneio||'',nNFe:n.n_nf||'',cliente:n.cliente||'',bobina:n.bobina||'',op:n.op||'',lote:n.lote||'',addr:n.addr||'',gramatura:n.gramatura||'',xProd:n.gramatura||'',cProd:n.c_prod||'',uCom:n.u_com||'',kg:Number(n.kg)||0,pesoBruto:Number(n.peso_bruto)||0,vol:Number(n.vol)||0,volTot:Number(n.vol_tot)||0,idx:Number(n.idx)||0,status:n.status||'',hist:n.hist||[]};}
       }else if(table==='notas_fiscais'){
-        if(ev==='DELETE'&&o){delete NFS[o.key];}else if(n&&n.data){NFS[n.key]=n.data;}
+        if(ev==='DELETE'&&o){delete NFS[o.key];}
+        else if(n&&n.data&&n.data.deleted){delete NFS[n.key];Object.keys(ETQ).forEach(function(id){if(ETQ[id].nf===n.key)delete ETQ[id];});}
+        else if(n&&n.data){NFS[n.key]=n.data;}
       }else if(table==='romaneios'){
         if((n&&n.key===CONV_CLOUD_KEY)||(o&&o.key===CONV_CLOUD_KEY)){if(n&&n.data)convApplyPayload(n.data,true);return;}
         if(ev==='DELETE'&&o){delete ROMS[o.key];}else if(n&&n.data){ROMS[n.key]=n.data;}
@@ -5565,7 +5567,9 @@ function syncNota(n,_try){if(!supa||!n||!n.key)return;supa.from('notas_fiscais')
       if((_try||0)<2){setTimeout(function(){syncNota(n,(_try||0)+1);},1200*((_try||0)+1));}
     }
   },function(err){window._syncErrs.rom++;window._syncErrs.lastErr='notas: rede';if((_try||0)<2){setTimeout(function(){syncNota(n,(_try||0)+1);},1200*((_try||0)+1));}});}
-async function syncDelNota(key){if(!key)return true;if(!supa)throw new Error('Sem conexão com a nuvem');var lastErr=null;for(var t=0;t<4;t++){try{var r=await supa.from('notas_fiscais').delete().eq('key',key);if(r&&r.error)throw r.error;return true;}catch(err){lastErr=err;if(t<3)await new Promise(function(ok){setTimeout(ok,1000*(t+1));});}}throw lastErr;}
+/* Mantém na nuvem um marcador de exclusão. Assim, aparelhos que estavam
+   desligados também removem a NF quando voltarem a sincronizar. */
+async function syncDelNota(key){if(!key)return true;if(!supa)throw new Error('Sem conexão com a nuvem');var lastErr=null;for(var t=0;t<4;t++){try{var at=new Date().toISOString();var r=await supa.from('notas_fiscais').upsert({key:key,data:{key:key,deleted:true,deletedAt:at},updated_at:at});if(r&&r.error)throw r.error;return true;}catch(err){lastErr=err;if(t<3)await new Promise(function(ok){setTimeout(ok,1000*(t+1));});}}throw lastErr;}
 function syncRomaneio(r,_try){if(!supa||!r||!r.key)return;supa.from('romaneios').upsert({key:r.key,data:r,updated_at:new Date().toISOString()}).then(function(res){
     if(res&&res.error){window._syncErrs.rom++;window._syncErrs.lastErr='romaneios: '+(res.error.message||res.error.code||'erro');
       if((_try||0)<2){setTimeout(function(){syncRomaneio(r,(_try||0)+1);},1200*((_try||0)+1));}
@@ -5967,7 +5971,7 @@ function _nfMergeRows(rowsEtq,rowsNotas,rowsRom){
   ETQ[r.id]=novo;
   mudou=true;
  });
- (rowsNotas||[]).forEach(function(r){if(r.data){NFS[r.key]=r.data;mudou=true;}});
+ (rowsNotas||[]).forEach(function(r){if(r.data&&r.data.deleted){delete NFS[r.key];Object.keys(ETQ).forEach(function(id){if(ETQ[id].nf===r.key)delete ETQ[id];});mudou=true;}else if(r.data){NFS[r.key]=r.data;mudou=true;}});
  (rowsRom||[]).forEach(function(r){if(r.data){ROMS[r.key]=r.data;mudou=true;}});
  if(_reSubir.length){try{if(typeof syncEtiquetasLote==='function')syncEtiquetasLote(_reSubir,'status');else if(typeof syncEtiqueta==='function')_reSubir.forEach(function(id){if(ETQ[id])syncEtiqueta(ETQ[id]);});}catch(e){}}
  if(mudou){

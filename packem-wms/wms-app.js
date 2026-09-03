@@ -4299,7 +4299,7 @@ updateStageBadge();
         voltar();
       };
     }
-    function excluirEtiqueta(id){
+    async function excluirEtiqueta(id){
       id=String(id||'').trim().toUpperCase();
       var e=ETQ[id];if(!e)return;
       if(!window.nfPodeExcluirEtiqueta()){toast('Somente Maria ou administrador pode excluir etiqueta.',false);return;}
@@ -4310,10 +4310,10 @@ updateStageBadge();
       try{if(typeof BOB!=='undefined'&&BOB[id]){delete BOB[id];saveBOB();}}catch(_e){}
       try{if(typeof STAGE!=='undefined'){STAGE=STAGE.filter(function(s){return String(s.et||'').trim().toUpperCase()!==id;});saveStage();if(typeof syncDelStage==='function')syncDelStage(id);}}catch(_e){}
       saveNF();
-      try{if(typeof syncDelEtiqueta==='function')syncDelEtiqueta(id);}catch(_e){}
+      var excluiuNuvem=false;try{excluiuNuvem=typeof syncDelEtiqueta==='function'?await syncDelEtiqueta(id,key):false;}catch(_e){}
       try{if(typeof syncDelBobina==='function')syncDelBobina(id);}catch(_e){}
       try{logAct('nf-etiqueta-excluir',label+' · '+id);}catch(_e){}
-      toast('Etiqueta '+id+' excluída');
+      toast(excluiuNuvem?'Etiqueta '+id+' excluída e sincronizada em todos os aparelhos':'Etiqueta '+id+' excluída somente neste aparelho. Verifique a internet.',excluiuNuvem);
       refresh();renderNF();
     }
     function calc(){
@@ -5459,6 +5459,7 @@ async function fiscalApi(action,payload){
  if(!r.ok||!d.ok)throw new Error(d.error||('Falha HTTP '+r.status));
  return true;
 }
+async function syncDocumentoFiscal(key){key=String(key||'').trim();if(!key)return false;var rows=Object.keys(ETQ).filter(function(id){return ETQ[id]&&String(ETQ[id].nf||'')===key;}).map(function(id){return etqRow(ETQ[id]);});await fiscalApi('reconcile_labels',{doc_key:key,rows:rows});return true;}
 
 /* ===== ENVIO EM LOTE DAS ETIQUETAS DE UMA NF/ROMANEIO =====
    Antes o import disparava 1 upsert POR etiqueta (200 requisições simultâneas). Numa rede
@@ -5466,7 +5467,7 @@ async function fiscalApi(action,payload){
    Agora sobe em blocos de 200, em sequência, e CONFERE no fim quantas chegaram — reenviando
    as que faltaram. */
 async function syncEtiquetasLote(ids,tag){
- if(!supa||!ids||!ids.length)return false;
+ if(!ids||!ids.length)return false;
  var rows=ids.map(function(id){return ETQ[id]?etqRow(ETQ[id]):null;}).filter(Boolean);
  if(!rows.length)return false;
  window._bulkUp=(window._bulkUp||0)+1;
@@ -5506,6 +5507,7 @@ async function syncEtiquetasLote(ids,tag){
    }
    try{delete window._DIAG.etqFail;}catch(e){}
    try{rows.forEach(function(r){if(ETQ[r.id])ETQ[r.id]._uat=r.updated_at;});}catch(e){}
+   var docs={};rows.forEach(function(r){if(r.doc_key)docs[r.doc_key]=1;});for(var dk in docs)await syncDocumentoFiscal(dk);
    if(typeof toast==='function')toast(rows.length+' etiqueta(s) na nuvem ✓');
   }catch(e){}
  }finally{window._bulkUp=Math.max(0,(window._bulkUp||1)-1);}
@@ -5574,7 +5576,7 @@ async function syncDelEtiquetasLote(ids){if(!ids||!ids.length)return true;
   if(lastErr)throw lastErr;
  }
  return true;}
-async function syncDelEtiqueta(id,_t){if(!id)return false;if(!_t){try{window._etqDelMark(id);}catch(e){}}try{await fiscalApi('delete_labels',{ids:[id]});return true;}catch(err){if((_t||0)<3){await new Promise(function(ok){setTimeout(ok,1000*((_t||0)+1));});return syncDelEtiqueta(id,(_t||0)+1);}toast('Etiqueta excluída somente neste aparelho: '+String(err&&err.message||err),false);return false;}}
+async function syncDelEtiqueta(id,docKey,_t){if(!id)return false;if(!_t){try{window._etqDelMark(id);}catch(e){}}try{await fiscalApi('delete_labels',{ids:[id]});if(docKey)await syncDocumentoFiscal(docKey);return true;}catch(err){if((_t||0)<3){await new Promise(function(ok){setTimeout(ok,1000*((_t||0)+1));});return syncDelEtiqueta(id,docKey,(_t||0)+1);}toast('Etiqueta excluída somente neste aparelho: '+String(err&&err.message||err),false);return false;}}
 function syncDelBobina(id,_t){if(!supa||!id)return;supa.from('bobinas').delete().eq('etiqueta',id).then(function(r){if(r&&r.error&&(_t||0)<3){setTimeout(function(){syncDelBobina(id,(_t||0)+1);},1000*((_t||0)+1));}},function(){if((_t||0)<3){setTimeout(function(){syncDelBobina(id,(_t||0)+1);},1000*((_t||0)+1));}});}
 async function syncNota(n,_try){if(!n||!n.key)return false;try{await fiscalApi('upsert_note',{row:{key:n.key,data:n,updated_at:new Date().toISOString()}});return true;}catch(err){window._syncErrs.rom++;window._syncErrs.lastErr='notas: '+String(err&&err.message||'erro');if((_try||0)<2){await new Promise(function(ok){setTimeout(ok,1200*((_try||0)+1));});return syncNota(n,(_try||0)+1);}toast('NF salva apenas neste aparelho: '+String(err&&err.message||err),false);return false;}}
 /* Mantém na nuvem um marcador de exclusão. Assim, aparelhos que estavam

@@ -3924,11 +3924,8 @@ updateStageBadge();
     if(!isSuper()){toast('Somente o administrador pode excluir Nota Fiscal',false);return;}
     var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;});
     var n=NFS[key]||{};
-    /* trava anti-exclusão acidental: exige DIGITAR o número (o Enter do leitor não confirma sozinho) */
     var _alvo=String(n.nNF||key);
-    var _dig=prompt('EXCLUIR a NF '+_alvo+' e suas '+ids.length+' etiqueta(s)?\n\nIsto NÃO pode ser desfeito.\nPara confirmar, digite o número da NF: '+_alvo);
-    if(_dig==null)return;
-    if(String(_dig).trim()!==_alvo.trim()){toast('Número não confere — exclusão cancelada',false);return;}
+    if(!confirm('Excluir a NF '+_alvo+' e suas '+ids.length+' etiqueta(s)?\n\nA exclusão será aplicada em todos os aparelhos.'))return;
     criticalBackup('nf',{nota:n,etiquetas:ids.map(function(id){return ETQ[id];}).filter(Boolean)});
     toast('Excluindo NF e etiquetas da nuvem…');
     try{
@@ -4247,11 +4244,8 @@ updateStageBadge();
     if(!isSuper()){toast('Somente o administrador pode excluir romaneio',false);return;}
     var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;});
     var n=ROMS[key]||{};
-    /* trava anti-exclusão acidental: exige DIGITAR o número (o Enter do leitor não confirma sozinho) */
     var _alvo=String(n.nRomaneio||key);
-    var _dig=prompt('EXCLUIR o romaneio '+_alvo+' e suas '+ids.length+' etiqueta(s)?\n\nIsto NÃO pode ser desfeito.\nPara confirmar, digite o número do romaneio: '+_alvo);
-    if(_dig==null)return;
-    if(String(_dig).trim()!==_alvo.trim()){toast('Número não confere — exclusão cancelada',false);return;}
+    if(!confirm('Excluir o romaneio '+_alvo+' e suas '+ids.length+' etiqueta(s)?\n\nA exclusão será aplicada em todos os aparelhos.'))return;
     criticalBackup('romaneio',{romaneio:n,etiquetas:ids.map(function(id){return ETQ[id];}).filter(Boolean)});
     toast('Excluindo romaneio e etiquetas da nuvem…');
     try{

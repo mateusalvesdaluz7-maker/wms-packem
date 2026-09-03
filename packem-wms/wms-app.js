@@ -6064,6 +6064,18 @@ async function pullNFIncremental(){
  return true;
 }
 
+/* Confere exclusões sem depender do socket nem da marca d'água. É uma leitura pequena
+   (somente documentos), executada enquanto a aba fiscal está aberta. */
+async function pullNFExclusoes(){
+ if(!supa)return false;var a=await Promise.all([supa.from('notas_fiscais').select('key,data,updated_at'),supa.from('romaneios').select('key,data,updated_at')]);
+ var nf=(a[0]&&a[0].data)||[],rom=(a[1]&&a[1].data)||[];var mudou=false;
+ nf.forEach(function(r){if(r.data&&r.data.deleted&&NFS[r.key]){delete NFS[r.key];Object.keys(ETQ).forEach(function(id){if(ETQ[id].nf===r.key)delete ETQ[id];});mudou=true;}});
+ rom.forEach(function(r){if(r.key!==NF_CANON_KEY&&r.data&&r.data.deleted&&ROMS[r.key]){delete ROMS[r.key];Object.keys(ETQ).forEach(function(id){if(ETQ[id].nf===r.key)delete ETQ[id];});mudou=true;}});
+ if(mudou){saveNF();if(typeof renderNF==='function'&&!document.querySelector('#drawer.show'))renderNF();if(typeof updateStageBadge==='function')updateStageBadge();}
+ return true;
+}
+window.pullNFExclusoes=pullNFExclusoes;
+
 async function pullNF(force){
  if(!supa||_nfPulling)return false;
  if(navigator.onLine===false)return false;
@@ -6222,7 +6234,7 @@ async function pullLight(){
   /* aba Nota Fiscal aberta = mantém as NFs/romaneios dos outros PCs chegando ao vivo.
      (não bloqueia o pull leve: dispara em paralelo e o throttle de 6s evita rajada) */
   try{var _vnf=document.querySelector('.view.active');
-   if(_vnf&&_vnf.id==='v-nf'&&!document.querySelector('#drawer.show')){pullNF();}
+   if(_vnf&&_vnf.id==='v-nf'&&!document.querySelector('#drawer.show')){pullNF();pullNFExclusoes();}
   }catch(e){}
   try{window._DIAG.lightMs=Date.now()-_lt0;window._DIAG.lightOk=true;window._DIAG.lightErr='';}catch(e){}
   return true;

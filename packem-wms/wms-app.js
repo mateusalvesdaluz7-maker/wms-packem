@@ -3701,7 +3701,13 @@ updateStageBadge();
       +(_rz.docs>0?('<div class="nfHeroBar"><i style="width:'+_pctAll+'%"></i></div>'
         +'<div class="nfHeroBarLbl"><span>Progresso geral de recebimento</span><span>'+fmt(_kgEntAll)+' de '+fmt(_kgTotAll)+' kg · '+_pctAll+'%</span></div>'):'')
       +'</div>';
-    el.innerHTML=_offWarn+syncWarn+_hero
+    var _localSelector='<div id="nfLocalSeg" class="nfStatusFilters" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 14px">'
+      +'<strong style="margin-right:4px">Exibindo depósito:</strong>'
+      +'<button type="button" class="'+(nfLocal==='PRE'?'btn brand':'gbtn')+'" data-loc="PRE" style="justify-content:center;min-width:130px">PRE <b style="margin-left:6px">'+_cPre+'</b></button>'
+      +'<button type="button" class="'+(nfLocal==='TEXTIL'?'btn brand':'gbtn')+'" data-loc="TEXTIL" style="justify-content:center;min-width:130px">Têxtil <b style="margin-left:6px">'+_cTex+'</b></button>'
+      +'<span style="color:var(--muted);font-size:.78rem">Todos os aparelhos precisam selecionar o mesmo depósito para comparar a mesma lista.</span>'
+      +'</div>';
+    el.innerHTML=_offWarn+syncWarn+_localSelector+_hero
       +'<div class="nfActionsPanel"><div class="nfActionsHead"><b>Nova entrada · '+nfLocalLabel(nfLocal)+'</b><span>Escolha uma forma de lançamento para iniciar o recebimento.</span></div><div class="nfImportGrid">'
       +'<div class="panel nfImportCard"><div class="ph"><span class="pdot"></span>Nota fiscal (XML ou PDF)</div>'
       +'<div style="color:var(--muted);font-size:.82rem;margin-bottom:14px">XML da NF-e (mais preciso) ou PDF da DANFE. Item, quantidade, peso e lote lidos automaticamente.</div>'

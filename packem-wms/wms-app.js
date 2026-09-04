@@ -265,6 +265,7 @@ $('#logBtn').onclick=async()=>{try{
   try{applyPerms();}catch(e){console.error('applyPerms',e);}
   try{refreshUser();}catch(e){console.error('refreshUser',e);}
   try{go('v-home');}catch(e){console.error('go home',e);try{go('v-recv');}catch(e2){}}
+  try{startFiscalSync();pullNF(true);}catch(e){console.warn('Início fiscal',e);}
   $('#logPass').value='';
 }catch(err){console.error('login',err);logErr('Erro ao entrar — atualize a página (Ctrl+Shift+R) e tente de novo');}};
 $('#logUser').addEventListener('input',()=>{$('#logHint').textContent='';});
@@ -5486,7 +5487,8 @@ async function fiscalDirect(action,payload){
 }
 async function fiscalApi(action,payload){
  var body=Object.assign({action:action},payload||{});if(/^read_/.test(action))body.token=window._fiscalToken||'';
- var apiErr=null;try{var r=await fetch('/api/fiscal-sync',{method:'POST',headers:{'Content-Type':'application/json','X-WMS-Request':'fiscal-'+Date.now().toString(36)},body:JSON.stringify(body)});var d=await r.json().catch(function(){return {};});if(!r.ok||!d.ok)throw new Error(d.error||('Falha HTTP '+r.status));return d.data===undefined?true:d.data;}catch(e){apiErr=e;}
+ var apiErr=null,paths=['/wms-data/fiscal-sync','/api/fiscal-sync'];
+ for(var pi=0;pi<paths.length;pi++)try{var r=await fetch(paths[pi],{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','X-WMS-Request':'fiscal-'+Date.now().toString(36)},body:JSON.stringify(body)});var d=await r.json().catch(function(){return {};});if(!r.ok||!d.ok)throw new Error(d.error||('Falha HTTP '+r.status));return d.data===undefined?true:d.data;}catch(e){apiErr=e;}
  if(action==='login'||/^read_/.test(action))throw apiErr;
  try{return await fiscalDirect(action,payload);}catch(directErr){throw new Error('API: '+String(apiErr&&apiErr.message||apiErr)+' · Supabase: '+String(directErr&&directErr.message||directErr));}
 }
@@ -6184,15 +6186,17 @@ function autoSyncTick(){
  }catch(e){_syncing=false;}
 }
 let _autoSyncTimer=null;
-function startAutoSync(){
- clearInterval(_autoSyncTimer);_autoSyncTimer=setInterval(autoSyncTick,20000);
- /* A Nota Fiscal usa a API central mesmo se a rede bloquear o cliente direto antigo. */
+function startFiscalSync(){
  clearInterval(window.__fiscalSnapshotTimer);
  window.__fiscalSnapshotTimer=setInterval(function(){
   if(document.hidden||!session||navigator.onLine===false)return;
   var v=document.querySelector('.view.active');
   if(v&&v.id==='v-nf'&&!document.querySelector('#drawer.show'))pullNF();
  },10000);
+}
+function startAutoSync(){
+ clearInterval(_autoSyncTimer);_autoSyncTimer=setInterval(autoSyncTick,20000);
+ startFiscalSync();
 }
 /* wraps p/ gravar cada ação na nuvem */
 (function(){
@@ -6306,6 +6310,8 @@ async function checkNet(){
  _netChecking=false;
 }
 /* inicia */
+/* A Nota Fiscal não depende da biblioteca externa do Supabase para iniciar. */
+startFiscalSync();
 loadSupa().then(()=>{
   try{
     supa=window.supabase.createClient(SUPA_URL,SUPA_KEY);
@@ -6328,7 +6334,7 @@ loadSupa().then(()=>{
   setTimeout(function(){try{loadSupa().then(function(){location.reload();},function(){});}catch(e){}},8000);
 });
 /* ao voltar pra aba (celular/tablet que estava em segundo plano): puxa na hora e religa o realtime se precisar */
-document.addEventListener('visibilitychange',function(){if(!document.hidden&&supa){checkNet();try{pullAll();}catch(e){}if(!_rtOk){try{startRealtime();}catch(e){}}}});
+document.addEventListener('visibilitychange',function(){if(!document.hidden){try{if(session)pullNF(true);}catch(e){}if(supa){checkNet();try{pullAll();}catch(e){}if(!_rtOk){try{startRealtime();}catch(e){}}}}});
 /* ao reconectar a internet: destrava, puxa e religa o realtime */
 window.addEventListener('online',function(){setNet('sync');checkNet();if(supa){try{pullAll();}catch(e){}try{startRealtime();}catch(e){}}});
 /* ao cair a internet: congela a tela na hora */

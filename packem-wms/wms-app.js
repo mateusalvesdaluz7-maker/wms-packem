@@ -5486,7 +5486,7 @@ async function fiscalDirect(action,payload){
 }
 async function fiscalApi(action,payload){
  var body=Object.assign({action:action},payload||{});if(/^read_/.test(action))body.token=window._fiscalToken||'';
- var apiErr=null;try{var r=await fetch('/wms-data/fiscal-sync',{method:'POST',headers:{'Content-Type':'application/json','X-WMS-Request':'fiscal-'+Date.now().toString(36)},body:JSON.stringify(body)});var d=await r.json().catch(function(){return {};});if(!r.ok||!d.ok)throw new Error(d.error||('Falha HTTP '+r.status));return d.data===undefined?true:d.data;}catch(e){apiErr=e;}
+ var apiErr=null;try{var r=await fetch('/api/fiscal-sync',{method:'POST',headers:{'Content-Type':'application/json','X-WMS-Request':'fiscal-'+Date.now().toString(36)},body:JSON.stringify(body)});var d=await r.json().catch(function(){return {};});if(!r.ok||!d.ok)throw new Error(d.error||('Falha HTTP '+r.status));return d.data===undefined?true:d.data;}catch(e){apiErr=e;}
  if(action==='login'||/^read_/.test(action))throw apiErr;
  try{return await fiscalDirect(action,payload);}catch(directErr){throw new Error('API: '+String(apiErr&&apiErr.message||apiErr)+' · Supabase: '+String(directErr&&directErr.message||directErr));}
 }
@@ -6353,7 +6353,7 @@ async function checkNet(){
   if(!navigator.onLine){netBlockShow();setNet('off');_netChecking=false;return;}
   // testa a API do próprio WMS; alguns computadores bloqueiam o domínio direto do Supabase
   var ctrl=new AbortController();var to=setTimeout(function(){ctrl.abort();},6000);
-  var ping=await fetch('/wms-data/fiscal-sync',{method:'GET',cache:'no-store',signal:ctrl.signal});
+  var ping=await fetch('/api/fiscal-sync',{method:'GET',cache:'no-store',signal:ctrl.signal});
   if(!ping.ok)throw new Error('API indisponível');
   clearTimeout(to);
   netBlockHide();

@@ -258,6 +258,7 @@ $('#logBtn').onclick=async()=>{try{
   /* Credencial protegida mantida somente na memória para a API fiscal confirmar que
      este aparelho tem uma sessão válida. Não é gravada no navegador. */
   window._fiscalAuth={u:f.u,p:p};
+  try{var _fa=await fiscalApi('login',{auth:window._fiscalAuth});window._fiscalToken=_fa&&_fa.token||'';}catch(_fiscalLogin){window._fiscalToken='';}
   try{logAct('login',f.u);}catch(e){}
   $('#login').style.display='none';
   try{applyPerms();}catch(e){console.error('applyPerms',e);}
@@ -268,7 +269,7 @@ $('#logBtn').onclick=async()=>{try{
 $('#logUser').addEventListener('input',()=>{$('#logHint').textContent='';});
 $('#logPass').addEventListener('input',()=>{$('#logHint').textContent='';});
 $('#logPass').addEventListener('keydown',e=>{if(e.key==='Enter')$('#logBtn').click();});
-$('#logoutBtn').onclick=()=>{logAct('logout',session.u);session=null;try{applyPerms();}catch(e){}showLogin();};
+$('#logoutBtn').onclick=()=>{logAct('logout',session.u);session=null;window._fiscalToken='';window._fiscalAuth=null;try{applyPerms();}catch(e){}showLogin();};
 function refreshUser(){$('#uName').textContent=session?session.u:'—';$('#uRole').textContent=session?session.role:'';}
 function applyPerms(){const sup=isSuper();try{if(typeof window.ensureAdmin3D==='function')window.ensureAdmin3D();}catch(e){}$$('.adminOnly').forEach(e=>e.style.display=sup?'':'none');const allow=allowedViews();$$('.nav').forEach(n=>{const v=n.dataset.view;if(v==='v-3d'&&!sup){n.style.display='none';return;}if(allow){n.style.display=(allow.indexOf(v)>=0)?'':'none';}else if(!n.classList.contains('adminOnly')){n.style.display='';}});if(!sup&&cfg&&cfg.warehouse!=='70'){cfg.warehouse='70';try{DB.saveCfg(cfg);}catch(e){}}}
 
@@ -5483,8 +5484,9 @@ async function fiscalDirect(action,payload){
  if(r&&r.error)throw new Error(r.error.message||r.error.code||'Supabase recusou a alteração');return true;
 }
 async function fiscalApi(action,payload){
- var body=Object.assign({action:action},payload||{});if(/^read_/.test(action))body.auth=window._fiscalAuth||{};
+ var body=Object.assign({action:action},payload||{});if(/^read_/.test(action))body.token=window._fiscalToken||'';
  var apiErr=null;try{var r=await fetch('/wms-data/fiscal-sync',{method:'POST',headers:{'Content-Type':'application/json','X-WMS-Request':'fiscal-'+Date.now().toString(36)},body:JSON.stringify(body)});var d=await r.json().catch(function(){return {};});if(!r.ok||!d.ok)throw new Error(d.error||('Falha HTTP '+r.status));return d.data===undefined?true:d.data;}catch(e){apiErr=e;}
+ if(action==='login'||/^read_/.test(action))throw apiErr;
  try{return await fiscalDirect(action,payload);}catch(directErr){throw new Error('API: '+String(apiErr&&apiErr.message||apiErr)+' · Supabase: '+String(directErr&&directErr.message||directErr));}
 }
 async function syncDocumentoFiscal(key){key=String(key||'').trim();if(!key)return false;var rows=Object.keys(ETQ).filter(function(id){return ETQ[id]&&String(ETQ[id].nf||'')===key;}).map(function(id){return etqRow(ETQ[id]);});await fiscalApi('reconcile_labels',{doc_key:key,rows:rows});return true;}
@@ -6100,6 +6102,7 @@ window.pullNFExclusoes=pullNFExclusoes;
 
 async function pullNF(force){
  if(!supa||_nfPulling)return false;
+ if(!session||!window._fiscalToken)return false;
  if(navigator.onLine===false)return false;
  var now=Date.now();
  if(!force && now-(window._nfPullAt||0)<8000)return true; /* throttle: no máximo 1 pull de NF a cada 8s */
@@ -6347,9 +6350,10 @@ async function checkNet(){
  if(_netChecking)return;_netChecking=true;
  try{
   if(!navigator.onLine){netBlockShow();setNet('off');_netChecking=false;return;}
-  // tenta um HEAD rápido; se falhar, considera offline
+  // testa a API do próprio WMS; alguns computadores bloqueiam o domínio direto do Supabase
   var ctrl=new AbortController();var to=setTimeout(function(){ctrl.abort();},6000);
-  await fetch(SUPA_URL+'/rest/v1/',{method:'HEAD',headers:{apikey:SUPA_KEY},signal:ctrl.signal});
+  var ping=await fetch('/wms-data/fiscal-sync',{method:'GET',cache:'no-store',signal:ctrl.signal});
+  if(!ping.ok)throw new Error('API indisponível');
   clearTimeout(to);
   netBlockHide();
  }catch(e){

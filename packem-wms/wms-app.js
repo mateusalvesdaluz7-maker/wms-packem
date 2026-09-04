@@ -258,7 +258,7 @@ $('#logBtn').onclick=async()=>{try{
   /* Credencial protegida mantida somente na memória para a API fiscal confirmar que
      este aparelho tem uma sessão válida. Não é gravada no navegador. */
   window._fiscalAuth={u:f.u,p:p};
-  try{var _fa=await fiscalApi('login',{auth:window._fiscalAuth});window._fiscalToken=_fa&&_fa.token||'';}catch(_fiscalLogin){window._fiscalToken='';}
+  try{var _fa=await fiscalApi('login',{auth:window._fiscalAuth});window._fiscalToken=_fa&&_fa.token||'';}catch(_fiscalLogin){window._fiscalToken='';logErr('Não foi possível conectar a Nota Fiscal. Tente entrar novamente.');session=null;return;}
   try{logAct('login',f.u);}catch(e){}
   $('#login').style.display='none';
   try{applyPerms();}catch(e){console.error('applyPerms',e);}

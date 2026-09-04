@@ -3078,13 +3078,10 @@ updateStageBadge();
         }
         fromCloud[r.id]=cloudObj;
       });
-      /* MERGE: a nuvem tem prioridade, mas mantém etiquetas locais que ainda não subiram
-         (evita 'sumir' quando um aparelho gerou e ainda não sincronizou) */
+      /* No snapshot completo, a nuvem é a única fonte oficial da aba fiscal. */
       if(autoritativo){
-        var escopo={};(rowsNotas||[]).forEach(function(r){if(r.key)escopo[r.key]=1;});(rowsRom||[]).forEach(function(r){if(r.key&&r.key!==CONV_CLOUD_KEY&&r.key!==NF_CANON_KEY)escopo[r.key]=1;});
-        /* preserva só etiquetas que não pertencem aos documentos fiscais conferidos
-           (ex.: etiqueta avulsa de vaga). O cache antigo de NF/romaneio não volta. */
-        Object.keys(ETQ).forEach(function(id){var k=ETQ[id]&&ETQ[id].nf;if(!escopo[k]&&!fromCloud[id])fromCloud[id]=ETQ[id];});
+        /* Preserva somente etiquetas fora do fiscal, como as etiquetas de vaga. */
+        Object.keys(ETQ).forEach(function(id){var e=ETQ[id]||{},k=String(e.nf||'');if((!k||k==='__vaga__'||e.addr)&&!fromCloud[id])fromCloud[id]=e;});
         ETQ=fromCloud;_nfPub();
       }else if(rowsEtq&&rowsEtq.length){
         Object.keys(ETQ).forEach(function(id){if(!fromCloud[id]&&!(typeof window._etqDelActive==='function'&&window._etqDelActive(id)))fromCloud[id]=ETQ[id];});
@@ -3092,8 +3089,8 @@ updateStageBadge();
         /* reenvia (sem travar a UI) os bipes que a nuvem ainda não tinha */
         if(_reSubir.length){try{if(typeof syncEtiquetasLote==='function')syncEtiquetasLote(_reSubir,'status');else if(typeof syncEtiqueta==='function')_reSubir.forEach(function(id){if(ETQ[id])syncEtiqueta(ETQ[id]);});}catch(e){}}
       }
-      if(rowsNotas&&rowsNotas.length){var newNFS={};(rowsNotas||[]).forEach(function(r){if(r.data&&r.data.deleted){Object.keys(ETQ).forEach(function(id){if(ETQ[id].nf===r.key)delete ETQ[id];});}else if(r.data)newNFS[r.key]=r.data;});Object.keys(NFS).forEach(function(k){if(!newNFS[k]&&!(rowsNotas||[]).some(function(r){return r.key===k&&r.data&&r.data.deleted;}))newNFS[k]=NFS[k];});NFS=newNFS;}
-      if(rowsRom&&rowsRom.length){var newROMS={};(rowsRom||[]).forEach(function(r){if(r.key===CONV_CLOUD_KEY){if(r.data)convApplyPayload(r.data,true);return;}if(r.key===NF_CANON_KEY)return;if(r.data&&r.data.deleted){Object.keys(ETQ).forEach(function(id){if(ETQ[id].nf===r.key)delete ETQ[id];});}else if(r.data)newROMS[r.key]=r.data;});Object.keys(ROMS).forEach(function(k){if(k!==CONV_CLOUD_KEY&&k!==NF_CANON_KEY&&!newROMS[k]&&!(rowsRom||[]).some(function(r){return r.key===k&&r.data&&r.data.deleted;}))newROMS[k]=ROMS[k];});ROMS=newROMS;}
+      if(autoritativo||rowsNotas&&rowsNotas.length){var newNFS={};(rowsNotas||[]).forEach(function(r){if(!(r.data&&r.data.deleted)&&r.data)newNFS[r.key]=r.data;});if(!autoritativo)Object.keys(NFS).forEach(function(k){if(!newNFS[k]&&!(rowsNotas||[]).some(function(r){return r.key===k&&r.data&&r.data.deleted;}))newNFS[k]=NFS[k];});NFS=newNFS;}
+      if(autoritativo||rowsRom&&rowsRom.length){var newROMS={};(rowsRom||[]).forEach(function(r){if(r.key===CONV_CLOUD_KEY){if(r.data)convApplyPayload(r.data,true);return;}if(r.key===NF_CANON_KEY)return;if(!(r.data&&r.data.deleted)&&r.data)newROMS[r.key]=r.data;});if(!autoritativo)Object.keys(ROMS).forEach(function(k){if(k!==CONV_CLOUD_KEY&&k!==NF_CANON_KEY&&!newROMS[k]&&!(rowsRom||[]).some(function(r){return r.key===k&&r.data&&r.data.deleted;}))newROMS[k]=ROMS[k];});ROMS=newROMS;}
       try{if(typeof window.fixDupEtq==='function')window.fixDupEtq();}catch(e){}
       saveNF();
       /* NÃO redesenha a tela se o usuário está no meio de importar/editar uma NF ou romaneio,
@@ -4002,7 +3999,7 @@ updateStageBadge();
   }
 
   /* ---- gerar etiquetas (1 por volume) ---- */
-  function genLabels(){
+  async function genLabels(){
     if(!nfParsed)return;
     /* aplica o cabeçalho editado na prévia (nº, série, emitente, chave) */
     try{
@@ -4049,10 +4046,18 @@ updateStageBadge();
     if(!created.length){toast('Defina ao menos 1 etiqueta',false);return;}
     NFS[nfParsed.key]={key:nfParsed.key,nNF:nfParsed.nNF,serie:nfParsed.serie,emit:nfParsed.emit,chave:nfParsed.chave,local:nfLocal,at:nowISO(),by:session.u,total:created.length,labelIds:created.slice()};
     saveNF();logAct('nf-etiquetas','NF '+nfParsed.nNF+' · '+created.length+' etiquetas');
-    if(typeof syncNota==='function')syncNota(NFS[nfParsed.key]);
-    if(typeof syncEtiquetasLote==='function')syncEtiquetasLote(created,'nf');
-    else if(typeof syncEtiqueta==='function')created.forEach(function(id){syncEtiqueta(ETQ[id]);});
-    toast(created.length+' etiquetas geradas · salvas no sistema');
+    var _nfSyncOk=false;
+    try{
+      var _labelsOk=typeof syncEtiquetasLote==='function'?await syncEtiquetasLote(created,'nf'):false;
+      if(_labelsOk!==true)throw new Error('etiquetas não confirmadas');
+      if(typeof syncNota==='function'&&await syncNota(NFS[nfParsed.key])!==true)throw new Error('nota não confirmada');
+      _nfSyncOk=true;
+    }catch(_syncErr){
+      try{await fiscalApi('reconcile_labels',{doc_key:nfParsed.key,rows:[]});}catch(_cleanupErr){}
+      created.forEach(function(id){delete ETQ[id];});delete NFS[nfParsed.key];saveNF();
+      toast('A NF não foi salva porque a nuvem não confirmou. Verifique a conexão e tente novamente.',false);renderNF();return;
+    }
+    toast(created.length+' etiquetas geradas · sincronizadas em todos os aparelhos');
     var key=nfParsed.key; renderNF();
     try{openLabelSheet(key);}catch(e){toast('Etiquetas salvas. A impressão não abriu — reimprima depois pela lista.',false);}
   }
@@ -4119,7 +4124,7 @@ updateStageBadge();
   }
 
   /* ---- gerar etiquetas do romaneio (1 por bobina) ---- */
-  function genRomLabels(){
+  async function genRomLabels(){
     if(!romParsed)return;
     if(ROMS[romParsed.key]){toast('Romaneio já gerado — use reimprimir',false);return;}
     /* preserva etiquetas anteriores do romaneio até revisão explícita */
@@ -4159,10 +4164,16 @@ updateStageBadge();
     ROMS[romParsed.key]={key:romParsed.key,nRomaneio:hdr.nRomaneio,nfe:hdr.nfe,dataSaida:hdr.dataSaida,cliente:hdr.cliente,local:nfLocal,at:nowISO(),by:session.u,total:created.length,labelIds:created.slice()};
     saveNF();logAct('romaneio-etiquetas','Romaneio '+hdr.nRomaneio+' · '+created.length+' etiquetas');
     window._syncErrs={etq:0,rom:0,lastErr:''}; /* zera antes de sincronizar (não carrega erro velho de impressão) */
-    if(typeof syncRomaneio==='function')syncRomaneio(ROMS[romParsed.key]);
-    if(typeof syncEtiquetasLote==='function')syncEtiquetasLote(created,'rom');
-    else if(typeof syncEtiqueta==='function')created.forEach(function(id){syncEtiqueta(ETQ[id]);});
-    toast(created.length+' etiquetas geradas · salvas no sistema');
+    try{
+      var _romLabelsOk=typeof syncEtiquetasLote==='function'?await syncEtiquetasLote(created,'rom'):false;
+      if(_romLabelsOk!==true)throw new Error('etiquetas não confirmadas');
+      if(typeof syncRomaneio==='function'&&await syncRomaneio(ROMS[romParsed.key])!==true)throw new Error('romaneio não confirmado');
+    }catch(_syncErr){
+      try{await fiscalApi('reconcile_labels',{doc_key:romParsed.key,rows:[]});}catch(_cleanupErr){}
+      created.forEach(function(id){delete ETQ[id];});delete ROMS[romParsed.key];saveNF();
+      toast('O romaneio não foi salvo porque a nuvem não confirmou. Verifique a conexão e tente novamente.',false);renderNF();return;
+    }
+    toast(created.length+' etiquetas geradas · sincronizadas em todos os aparelhos');
     var key=romParsed.key; romParsed=null; renderNF();
     setTimeout(function(){try{if(typeof renderNF==='function'&&document.querySelector('.view.active')&&document.querySelector('.view.active').id==='v-nf')renderNF();}catch(e){}},3000);
     try{openRomLabelSheet(key);}catch(e){toast('Etiquetas salvas. A impressão não abriu — você pode reimprimir depois pela lista.',false);}
@@ -4300,14 +4311,15 @@ updateStageBadge();
       if(e.status==='entrada'||e.status==='saida'){toast('Esta etiqueta já possui movimentação e não pode ser excluída pela Nota Fiscal.',false);return;}
       if(!confirm('Excluir somente esta etiqueta?\n\nID: '+id+'\nCódigo: '+String(e.cProd||e.bobina||'')+'\nPeso: '+fmt(e.kg||0)+' kg\n\nAs outras etiquetas da nota serão mantidas.'))return;
       criticalBackup('etiqueta',{documento:key,etiqueta:e});
+      var excluiuNuvem=false;try{excluiuNuvem=typeof syncDelEtiqueta==='function'?await syncDelEtiqueta(id,key):false;}catch(_e){}
+      if(!excluiuNuvem){toast('A etiqueta foi mantida porque a nuvem não confirmou a exclusão. Verifique a internet.',false);return;}
       delete ETQ[id];
       try{if(typeof BOB!=='undefined'&&BOB[id]){delete BOB[id];saveBOB();}}catch(_e){}
       try{if(typeof STAGE!=='undefined'){STAGE=STAGE.filter(function(s){return String(s.et||'').trim().toUpperCase()!==id;});saveStage();if(typeof syncDelStage==='function')syncDelStage(id);}}catch(_e){}
       saveNF();
-      var excluiuNuvem=false;try{excluiuNuvem=typeof syncDelEtiqueta==='function'?await syncDelEtiqueta(id,key):false;}catch(_e){}
       try{if(typeof syncDelBobina==='function')syncDelBobina(id);}catch(_e){}
       try{logAct('nf-etiqueta-excluir',label+' · '+id);}catch(_e){}
-      toast(excluiuNuvem?'Etiqueta '+id+' excluída e sincronizada em todos os aparelhos':'Etiqueta '+id+' excluída somente neste aparelho. Verifique a internet.',excluiuNuvem);
+      toast('Etiqueta '+id+' excluída e sincronizada em todos os aparelhos');
       refresh();renderNF();
     }
     function calc(){
@@ -5477,7 +5489,7 @@ async function syncEtiquetasLote(ids,tag){
  var rows=ids.map(function(id){return ETQ[id]?etqRow(ETQ[id]):null;}).filter(Boolean);
  if(!rows.length)return false;
  window._bulkUp=(window._bulkUp||0)+1;
- var falhou=0,ultErro='';
+ var falhou=0,ultErro='',confirmado=false;
  try{
   for(var i=0;i<rows.length;i+=200){
    var bloco=rows.slice(i,i+200);
@@ -5514,10 +5526,11 @@ async function syncEtiquetasLote(ids,tag){
    try{delete window._DIAG.etqFail;}catch(e){}
    try{rows.forEach(function(r){if(ETQ[r.id])ETQ[r.id]._uat=r.updated_at;});}catch(e){}
    var docs={};rows.forEach(function(r){if(r.doc_key)docs[r.doc_key]=1;});for(var dk in docs)await syncDocumentoFiscal(dk);
+   confirmado=true;
    if(typeof toast==='function')toast(rows.length+' etiqueta(s) na nuvem ✓');
-  }catch(e){}
+  }catch(e){ultErro=String((e&&e.message)||e);window._syncErrs.etq+=rows.length;window._syncErrs.lastErr='confirmação: '+ultErro;}
  }finally{window._bulkUp=Math.max(0,(window._bulkUp||1)-1);}
- return falhou===0;
+ return falhou===0&&confirmado;
 }
 window.syncEtiquetasLote=syncEtiquetasLote;
 
@@ -5582,7 +5595,7 @@ async function syncDelEtiquetasLote(ids){if(!ids||!ids.length)return true;
   if(lastErr)throw lastErr;
  }
  return true;}
-async function syncDelEtiqueta(id,docKey,_t){if(!id)return false;if(!_t){try{window._etqDelMark(id);}catch(e){}}try{await fiscalApi('delete_labels',{ids:[id]});if(docKey)await syncDocumentoFiscal(docKey);return true;}catch(err){if((_t||0)<3){await new Promise(function(ok){setTimeout(ok,1000*((_t||0)+1));});return syncDelEtiqueta(id,docKey,(_t||0)+1);}toast('Etiqueta excluída somente neste aparelho: '+String(err&&err.message||err),false);return false;}}
+async function syncDelEtiqueta(id,docKey,_t){if(!id)return false;if(!_t){try{window._etqDelMark(id);}catch(e){}}try{await fiscalApi('delete_labels',{ids:[id]});return true;}catch(err){if((_t||0)<3){await new Promise(function(ok){setTimeout(ok,1000*((_t||0)+1));});return syncDelEtiqueta(id,docKey,(_t||0)+1);}try{delete window._etqDelMap[String(id).trim().toUpperCase()];localStorage.setItem('wmsx_etqDel',JSON.stringify(window._etqDelMap));}catch(e){}toast('A nuvem não confirmou a exclusão: '+String(err&&err.message||err),false);return false;}}
 function syncDelBobina(id,_t){if(!supa||!id)return;supa.from('bobinas').delete().eq('etiqueta',id).then(function(r){if(r&&r.error&&(_t||0)<3){setTimeout(function(){syncDelBobina(id,(_t||0)+1);},1000*((_t||0)+1));}},function(){if((_t||0)<3){setTimeout(function(){syncDelBobina(id,(_t||0)+1);},1000*((_t||0)+1));}});}
 async function syncNota(n,_try){if(!n||!n.key)return false;try{await fiscalApi('upsert_note',{row:{key:n.key,data:n,updated_at:new Date().toISOString()}});return true;}catch(err){window._syncErrs.rom++;window._syncErrs.lastErr='notas: '+String(err&&err.message||'erro');if((_try||0)<2){await new Promise(function(ok){setTimeout(ok,1200*((_try||0)+1));});return syncNota(n,(_try||0)+1);}toast('NF salva apenas neste aparelho: '+String(err&&err.message||err),false);return false;}}
 /* Mantém na nuvem um marcador de exclusão. Assim, aparelhos que estavam
@@ -5648,8 +5661,7 @@ async function publishNFBase(){
 window.publishNFBase=publishNFBase;
 async function pushAll(btn){if(!supa){toast('Sem conexão com a nuvem',false);return;}if(btn){btn.disabled=true;btn.textContent='Enviando…';}setNet('sync');
  try{
-  var fiscal=await publishNFBase();
-  if(!fiscal){toast('Envio cancelado — nada da base fiscal foi alterado');setNet('on');if(btn){btn.disabled=false;btn.textContent='↥ Enviar p/ nuvem';}return;}
+  /* A aba fiscal salva cada operação diretamente na nuvem. */
   await chunkUp('espacos',S.map(spRow));
   await chunkUp('bobinas',Object.keys(BOB).map(et=>({etiqueta:et,pr:BOB[et].pr,descricao:BOB[et].desc||'',pl:Number(BOB[et].pl)||0})));
   await chunkUp('locais',Object.keys(LOC).map(et=>({etiqueta:et,code:LOC[et]})));
@@ -5657,7 +5669,7 @@ async function pushAll(btn){if(!supa){toast('Sem conexão com a nuvem',false);re
   await chunkUp('valores',VL.map(v=>({codigo:v.codigo,valor:Number(v.valor)||0,descricao:v.descricao||'',un:(v.un||'KG')})));
   await chunkUp('usuarios',US.map(u=>({u:u.u,p:u.p,role:window.wmsEncodeUserRole(u),active:u.active!==false})));
   await chunkUp('movimentos',MV.slice(0,5000).map(m=>({id:m.id,action:m.action,w:m.w,code:m.code,pr:m.pr,q:Number(m.q)||0,u:m.u,et:m.et||'',before_q:Number(m.before)||0,after_q:Number(m.after)||0,at:m.at,by_user:m.by||''})));
-  toast('Tudo enviado e confirmado na nuvem ✓ · Fiscal: '+fiscal.nf+' NF, '+fiscal.rom+' romaneio(s), '+fiscal.etq+' etiqueta(s)');setNet('on');
+  toast('Estoque e cadastros enviados e confirmados na nuvem ✓ · Nota Fiscal sincroniza automaticamente');setNet('on');
  }catch(e){console.error('pushAll',e);toast('Envio incompleto: '+String((e&&e.message)||e),false);setNet('off');}
  if(btn){btn.disabled=false;btn.textContent='↥ Enviar p/ nuvem';}}
 /* ===== DIAGNÓSTICO DE CONEXÃO (clique no chip de status pra abrir) ===== */
@@ -6105,8 +6117,6 @@ async function pullNF(force){
   var keys={};
   (ntf||[]).forEach(function(r){if(r.key)keys[r.key]=1;});
   (rom||[]).forEach(function(r){if(r.key&&r.key!==NF_CANON_KEY)keys[r.key]=1;});
-  Object.keys(NFS||{}).forEach(function(k){keys[k]=1;});
-  Object.keys(ROMS||{}).forEach(function(k){keys[k]=1;});
   var ks=Object.keys(keys);
   /* ===== VARREDURA COMPLETA BARATA =====
      Antes: select('*') de TODAS as etiquetas (~4,8 MB por varredura).
@@ -6118,7 +6128,7 @@ async function pullNF(force){
    var lote=ks.slice(i,i+20),de=0;
    for(;;){
     var q=await supa.from('etiquetas').select('id,updated_at').in('doc_key',lote).order('id',{ascending:true}).range(de,de+999);
-    if(!q||q.error){try{window._DIAG.pgErr['etiquetas']={msg:((q&&q.error&&q.error.message)||'erro'),code:(q&&q.error&&q.error.code)||'',at:new Date().toLocaleTimeString()};}catch(e){}break;}
+    if(!q||q.error){try{window._DIAG.pgErr['etiquetas']={msg:((q&&q.error&&q.error.message)||'erro'),code:(q&&q.error&&q.error.code)||'',at:new Date().toLocaleTimeString()};}catch(e){}throw new Error('Falha ao conferir todas as etiquetas da nuvem');}
     var d=q.data||[];
     d.forEach(function(r){idsNuvem[r.id]=r.updated_at||'';});
     if(d.length<1000)break;
@@ -6136,20 +6146,9 @@ async function pullNF(force){
   });
   for(var f=0;f<faltamAqui.length;f+=300){
    var qf=await supa.from('etiquetas').select('*').in('id',faltamAqui.slice(f,f+300));
-   if(qf&&qf.data)etq=etq.concat(qf.data);
+   if(!qf||qf.error)throw new Error('Falha ao baixar etiquetas atualizadas da nuvem');
+   if(qf.data)etq=etq.concat(qf.data);
   }
-  /* EXCLUSÕES: o que existe aqui mas sumiu da nuvem (e não é recém-criado local) */
-  try{
-   var apagadas=Object.keys(ETQ).filter(function(id){
-    var k=ETQ[id].nf;
-    if(!k||!keys[k])return false;               /* documento desconhecido: não mexe */
-    if(idsNuvem[id])return false;               /* está na nuvem: ok */
-    if((window._fixDone||{})[k])return false;   /* acabamos de subir este doc: não apaga */
-    return false;                                /* conservador: NUNCA apaga por ausência.
-       Apagar por ausência é perigoso (uma varredura incompleta destruiria dados). A exclusão
-       real já é propagada pelo realtime + pelo _etqDelMark. */
-   });
-  }catch(e){}
   /* mantém o que já está aqui e é conhecido pela nuvem, sem re-baixar (Set: O(n), não O(n²)) */
   var jaTem={};etq.forEach(function(r){jaTem[r.id]=1;});
   Object.keys(idsNuvem).forEach(function(id){
@@ -6163,41 +6162,11 @@ async function pullNF(force){
    if(_wm)window._nfWM=_wm;
    window._DIAG.nfFull=etq.length+' etq · '+(ntf||[]).length+' nf · '+(rom||[]).length+' rom @'+new Date().toLocaleTimeString();
   }catch(e){}
-  var _nfOficial=(rom||[]).some(function(r){return r.key===NF_CANON_KEY&&r.data&&r.data.canonical;});
-  if(typeof window.nfPullCloud==='function')window.nfPullCloud(etq,ntf,rom,_nfOficial);
+  if(typeof window.nfPullCloud==='function')window.nfPullCloud(etq,ntf,rom,true);
   /* grava a marca d'água POR ETIQUETA (o updated_at que a nuvem tem AGORA) pra o próximo
      ciclo saber exatamente o que mudou e não re-baixar o que já está igual */
   try{Object.keys(idsNuvem).forEach(function(id){if(ETQ[id])ETQ[id]._uat=idsNuvem[id]||ETQ[id]._uat||'';});}catch(e){}
 
-  /* ===== AUTO-REPARO =====
-     Se um documento tem etiquetas AQUI que não existem na nuvem (ex: o import de 5h atrás,
-     feito com o código velho que disparava 78 upserts em paralelo e perdia quase todos),
-     o app sobe sozinho o que está faltando. Uma vez por documento por sessão. */
-  try{
-   window._fixDone=window._fixDone||{};
-   var naNuvem={},cloudPorDoc={};
-   (etq||[]).forEach(function(r){naNuvem[r.id]=1;cloudPorDoc[r.doc_key]=(cloudPorDoc[r.doc_key]||0)+1;});
-   var localPorDoc={},faltamPorDoc={};
-   Object.keys(ETQ).forEach(function(id){
-    var k=ETQ[id].nf;if(!k||!keys[k])return;
-    if(typeof window._etqDelActive==='function'&&window._etqDelActive(id))return;
-    localPorDoc[k]=(localPorDoc[k]||0)+1;
-    if(!naNuvem[id]){(faltamPorDoc[k]=faltamPorDoc[k]||[]).push(id);}
-   });
-   var repara=[];
-   Object.keys(faltamPorDoc).forEach(function(k){
-    if(window._fixDone[k])return;
-    /* só repara se a nuvem tem MENOS que o local — nunca ressuscita o que foi apagado de propósito */
-    if((cloudPorDoc[k]||0)>=(localPorDoc[k]||0))return;
-    window._fixDone[k]=1;
-    repara=repara.concat(faltamPorDoc[k]);
-   });
-   if(repara.length&&!window._autoFix){
-    window._autoFix=1;
-    if(typeof toast==='function')toast('Reparando: subindo '+repara.length+' etiqueta(s) que faltavam na nuvem…');
-    syncEtiquetasLote(repara,'auto').then(function(){window._autoFix=0;},function(){window._autoFix=0;});
-   }
-  }catch(e){}
   _nfPulling=false;return true;
  }catch(e){_nfPulling=false;return false;}
 }

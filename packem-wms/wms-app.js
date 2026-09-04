@@ -8434,8 +8434,8 @@ let currentMeta = {};
 const STORE_KEY = 'packem_romaneios_v1';
 const STORE_BACKUP_KEY = 'packem_romaneios_backup_v1';
 const AUDIT_KEY = 'packem_romaneios_audit_v1';
-const EXPEDICAO_EDITORES=['admin','joyce.peixoto','gabriel.manke','vitor.hugo'];
-function expFullAccess(){const nome=String((typeof session!=='undefined'&&session&&session.u)||'').toLowerCase();return EXPEDICAO_EDITORES.indexOf(nome)>=0;}
+const EXPEDICAO_EDITORES=['admin','joyce','joyce.peixoto','gabriel.manke','vitor.hugo'];
+function expFullAccess(){const nome=String((typeof session!=='undefined'&&session&&session.u)||'').trim().toLowerCase();return EXPEDICAO_EDITORES.indexOf(nome)>=0;}
 window.expFullAccess=expFullAccess;
 function auditEvent(action,detail,rid){
   try{
@@ -8484,6 +8484,7 @@ function openAuditModal(){
 }
 function closeAuditModal(){const m=document.getElementById('auditModal');if(m)m.classList.add('hidden');}
 function saveStoreLocal(){ try{ const prev=localStorage.getItem(STORE_KEY); if(prev) localStorage.setItem(STORE_BACKUP_KEY,prev); localStorage.setItem(STORE_KEY, JSON.stringify({romaneios, currentId})); }catch(e){} }
+function saveStoreAuthoritative(){try{const raw=JSON.stringify({romaneios,currentId});localStorage.setItem(STORE_KEY,raw);localStorage.setItem(STORE_BACKUP_KEY,raw);}catch(e){}}
 function saveStore(){ if(currentId!=null){ const r=romaneios.find(x=>x.id===currentId); if(r) r._upd=Date.now(); } saveStoreLocal(); supaPush(); }
 function validRomaneio(r){ return !!(r&&r.id!=null&&r.meta&&String(r.meta.loteMain||'').trim()&&Array.isArray(r.items)&&r.items.length); }
 function loadStore(){
@@ -8501,7 +8502,7 @@ function loadStore(){
 function syncActive(){ const r=romaneios.find(x=>x.id===currentId); if(r){ r.items=items; r.meta=currentMeta; r._upd=Date.now(); } saveStore(); }
 
 /* ============ SINCRONIZAÇÃO ONLINE (Supabase) ============ */
-const APP_VER='v21';
+const APP_VER='v22';
 const SUPA_URL='https://aekqhtutrfwjoebsebeq.supabase.co';
 const SUPA_KEY='sb_publishable_fx7cQutj5eGGFFrPGA7yBA_GtFkaVXN';
 const SUPA_REST=SUPA_URL+'/rest/v1/wms_expedicao_romaneios';
@@ -8546,6 +8547,12 @@ function scheduleSupaRetry(){ if(supaPushT) clearTimeout(supaPushT); supaPushT=s
 async function supaPushNow(){
   if(!romaneios.length) return;
   try{
+    /* Cancelamento é monotônico: um PC atrasado nunca pode reabrir no banco um lote
+       que outro aparelho já cancelou. Confere o estado remoto antes de cada envio. */
+    try{
+      const chk=await fetch(SUPA_REST+'?select=dados&dados-%3E%3Ecancelado=eq.true',{headers:supaHeaders()});
+      if(chk.ok){const cancelados=await chk.json(),map={};cancelados.forEach(x=>{const d=x&&x.dados;if(d&&d.id!=null)map[String(d.id)]=d;});romaneios.forEach((loc,i)=>{const rem=map[String(loc.id)];if(rem&&!loc.cancelado){romaneios[i]=mergeRemoteRomaneio(loc,rem);}});}
+    }catch(_cancelCheck){}
     const now=new Date().toISOString();
     const body=romaneios.filter(r=>!supaDeleted[String(r.id)]).map(r=>({id:String(r.id), dados:r, updated_at:r._upd?new Date(r._upd).toISOString():now}));
     if(!body.length){ supaOnline=true; return; }
@@ -8620,15 +8627,13 @@ async function supaPull(full){
     const remoteAll=rows.map(x=>x.dados).filter(r=>r&&r.id!=null);
     /* Registros vazios ou incompletos nunca entram na operação. Lápides de exclusão continuam válidas. */
     const remote=remoteAll.filter(r=>r._del||validRomaneio(r));
-    let changed=false;
+    let changed=false,remoteDeleted=false;
     let activeRemoved=false;
     remote.forEach(rr=>{
       if(String(rr.id).indexOf('_diag')===0) return;
       if(rr._del){
         const idx=romaneios.findIndex(x=>String(x.id)===String(rr.id));
-        const loc = idx>=0 ? romaneios[idx] : null;
-        /* Exclusão remota nunca apaga automaticamente a cópia deste aparelho. */
-        if(loc){ delete supaDeleted[String(rr.id)]; loc._synced=false; if(!loc._remoteDeleteIgnored){auditEvent('exclusao_remota_ignorada','O banco pediu exclusão; a cópia local foi preservada.',loc.id);loc._remoteDeleteIgnored=true;} changed=true; }
+        if(idx>=0){romaneios.splice(idx,1);delete supaDeleted[String(rr.id)];if(String(currentId)===String(rr.id)){currentId=null;items=[];currentMeta={};activeRemoved=true;}changed=true;remoteDeleted=true;}
         return;
       }
       if(supaDeleted[String(rr.id)]) return;
@@ -8645,7 +8650,7 @@ async function supaPull(full){
     if(changed){
       if(activeRemoved){ try{ banner('warn','🗑️','Romaneio excluído','Este romaneio foi excluído em outro aparelho'); }catch(e){} try{ if(romaneios.length) gotoLotes(); else gotoUpload(); }catch(e){} }
       if(currentId!=null){ const cur=romaneios.find(x=>x.id===currentId); if(cur){ items=cur.items||items; currentMeta=cur.meta||currentMeta; } }
-      saveStoreLocal();
+      if(remoteDeleted)saveStoreAuthoritative();else saveStoreLocal();
       try{ renderLotes(); }catch(e){}
       try{ const w=document.getElementById('screen-work'); if(w && !w.classList.contains('hidden')){ renderItems(); updateProgress(); } }catch(e){}
       const up=document.getElementById('screen-upload'); if(up && !up.classList.contains('hidden') && romaneios.length){ try{ gotoLotes(); }catch(e){} }

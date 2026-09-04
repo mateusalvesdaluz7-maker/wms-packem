@@ -255,6 +255,9 @@ $('#logBtn').onclick=async()=>{try{
   if(!f){logErr('Usuário ou senha incorretos — tente de novo');$('#logPass').value='';$('#logPass').focus();return;}
   $('#logHint').textContent='';$('#logHint').style.color='';
   session={u:f.u,role:f.role};
+  /* Credencial protegida mantida somente na memória para a API fiscal confirmar que
+     este aparelho tem uma sessão válida. Não é gravada no navegador. */
+  window._fiscalAuth={u:f.u,p:f.p};
   try{logAct('login',f.u);}catch(e){}
   $('#login').style.display='none';
   try{applyPerms();}catch(e){console.error('applyPerms',e);}
@@ -5480,7 +5483,8 @@ async function fiscalDirect(action,payload){
  if(r&&r.error)throw new Error(r.error.message||r.error.code||'Supabase recusou a alteração');return true;
 }
 async function fiscalApi(action,payload){
- var apiErr=null;try{var r=await fetch('/wms-data/fiscal-sync',{method:'POST',headers:{'Content-Type':'application/json','X-WMS-Request':'fiscal-'+Date.now().toString(36)},body:JSON.stringify(Object.assign({action:action},payload||{}))});var d=await r.json().catch(function(){return {};});if(!r.ok||!d.ok)throw new Error(d.error||('Falha HTTP '+r.status));return true;}catch(e){apiErr=e;}
+ var body=Object.assign({action:action},payload||{});if(/^read_/.test(action))body.auth=window._fiscalAuth||{};
+ var apiErr=null;try{var r=await fetch('/wms-data/fiscal-sync',{method:'POST',headers:{'Content-Type':'application/json','X-WMS-Request':'fiscal-'+Date.now().toString(36)},body:JSON.stringify(body)});var d=await r.json().catch(function(){return {};});if(!r.ok||!d.ok)throw new Error(d.error||('Falha HTTP '+r.status));return d.data===undefined?true:d.data;}catch(e){apiErr=e;}
  try{return await fiscalDirect(action,payload);}catch(directErr){throw new Error('API: '+String(apiErr&&apiErr.message||apiErr)+' · Supabase: '+String(directErr&&directErr.message||directErr));}
 }
 async function syncDocumentoFiscal(key){key=String(key||'').trim();if(!key)return false;var rows=Object.keys(ETQ).filter(function(id){return ETQ[id]&&String(ETQ[id].nf||'')===key;}).map(function(id){return etqRow(ETQ[id]);});await fiscalApi('reconcile_labels',{doc_key:key,rows:rows});return true;}
@@ -6114,8 +6118,11 @@ async function pullNF(force){
  _nfPulling=true;
  window._nfFullAt=now;
  try{
-  const ntf=await pgAll('notas_fiscais',null,15000);
-  const rom=await pgAll('romaneios',null,15000);
+  /* Snapshot central autenticado: todos os aparelhos recebem exatamente os mesmos
+     documentos, mesmo quando a leitura pública direta do Supabase é bloqueada. */
+  var docs=await fiscalApi('read_documents',{});
+  const ntf=(docs&&docs.notes)||[];
+  const rom=(docs&&docs.roms)||[];
   /* ===== BUSCA POR DOCUMENTO =====
      Em vez de varrer a tabela inteira de etiquetas (que era paginada sem ordem e vinha
      incompleta), agora pergunta direto: "me dá TODAS as etiquetas destes documentos".
@@ -6133,9 +6140,8 @@ async function pullNF(force){
   for(var i=0;i<ks.length;i+=20){
    var lote=ks.slice(i,i+20),de=0;
    for(;;){
-    var q=await supa.from('etiquetas').select('id,updated_at').in('doc_key',lote).order('id',{ascending:true}).range(de,de+999);
-    if(!q||q.error){try{window._DIAG.pgErr['etiquetas']={msg:((q&&q.error&&q.error.message)||'erro'),code:(q&&q.error&&q.error.code)||'',at:new Date().toLocaleTimeString()};}catch(e){}throw new Error('Falha ao conferir todas as etiquetas da nuvem');}
-    var d=q.data||[];
+    var d=await fiscalApi('read_label_index',{doc_keys:lote,from:de});
+    if(!Array.isArray(d))throw new Error('Falha ao conferir todas as etiquetas da nuvem');
     d.forEach(function(r){idsNuvem[r.id]=r.updated_at||'';});
     if(d.length<1000)break;
     de+=1000;
@@ -6151,9 +6157,9 @@ async function pullNF(force){
    return !!cu && cu>lu;
   });
   for(var f=0;f<faltamAqui.length;f+=300){
-   var qf=await supa.from('etiquetas').select('*').in('id',faltamAqui.slice(f,f+300));
-   if(!qf||qf.error)throw new Error('Falha ao baixar etiquetas atualizadas da nuvem');
-   if(qf.data)etq=etq.concat(qf.data);
+   var qf=await fiscalApi('read_labels_by_ids',{ids:faltamAqui.slice(f,f+300)});
+   if(!Array.isArray(qf))throw new Error('Falha ao baixar etiquetas atualizadas da nuvem');
+   etq=etq.concat(qf);
   }
   /* mantém o que já está aqui e é conhecido pela nuvem, sem re-baixar (Set: O(n), não O(n²)) */
   var jaTem={};etq.forEach(function(r){jaTem[r.id]=1;});
@@ -6174,7 +6180,7 @@ async function pullNF(force){
   try{Object.keys(idsNuvem).forEach(function(id){if(ETQ[id])ETQ[id]._uat=idsNuvem[id]||ETQ[id]._uat||'';});}catch(e){}
 
   _nfPulling=false;return true;
- }catch(e){_nfPulling=false;return false;}
+ }catch(e){_nfPulling=false;try{window._DIAG.nfErro=String(e&&e.message||e);setNet('off');toast('Nota Fiscal não conseguiu ler a nuvem: '+String(e&&e.message||e),false);}catch(_){}return false;}
 }
 window.pullNF=pullNF;
 

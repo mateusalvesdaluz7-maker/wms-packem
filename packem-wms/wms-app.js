@@ -6114,13 +6114,16 @@ async function pullNF(force){
      Supabase é a fonte oficial: nenhum cache deste PC/celular completa ou ressuscita dados. */
   var snap=await fiscalApi('read_snapshot',{});
   if(!snap||!Array.isArray(snap.notes)||!Array.isArray(snap.roms)||!Array.isArray(snap.labels))throw new Error('Fotografia fiscal incompleta');
+  var sig=[snap.notes.length,snap.roms.length,snap.labels.length].concat([snap.notes,snap.roms,snap.labels].map(function(arr){return arr.reduce(function(m,r){return String(r.updated_at||'')>m?String(r.updated_at||''):m;},'');})).join('|');
+  if(!force&&window._nfSnapshotSig===sig){setNet('on');_nfPulling=false;return true;}
+  window._nfSnapshotSig=sig;
   if(typeof window.nfPullCloud==='function')window.nfPullCloud(snap.labels,snap.notes,snap.roms,true);
   var wm='';[snap.labels,snap.notes,snap.roms].forEach(function(arr){arr.forEach(function(row){var u=row.updated_at||'';if(u>wm)wm=u;});});
   window._nfWM=wm;window._nfFullAt=now;
   try{window._DIAG.nfFull=snap.labels.length+' etq · '+snap.notes.length+' nf · '+snap.roms.length+' rom · fonte oficial';delete window._DIAG.nfErro;}catch(e){}
   setNet('on');_nfPulling=false;return true;
  }catch(e){
-  _nfPulling=false;try{window._DIAG.nfErro=String(e&&e.message||e);setNet('off');toast('Nota Fiscal não conseguiu ler a fonte oficial: '+String(e&&e.message||e),false);}catch(_){}return false;
+  _nfPulling=false;try{window._DIAG.nfErro=String(e&&e.message||e);if(window._nfLastErrorToast!==String(e&&e.message||e)){window._nfLastErrorToast=String(e&&e.message||e);toast('Nota Fiscal não conseguiu ler a fonte oficial: '+String(e&&e.message||e),false);}}catch(_){}return false;
  }
 }window.pullNF=pullNF;
 

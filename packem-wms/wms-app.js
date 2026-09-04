@@ -3069,7 +3069,7 @@ updateStageBadge();
       var _stRank=function(s){s=String(s||'');return s==='saida'?2:(s==='entrada'?1:0);};
       var _reSubir=[]; /* etiquetas cujo status AQUI é mais forte que o da nuvem: reenviar */
       (rowsEtq||[]).forEach(function(r){
-        if(typeof window._etqDelActive==='function'&&window._etqDelActive(r.id))return; /* recém-excluída: NÃO rebaixa da nuvem */
+        if(!autoritativo&&typeof window._etqDelActive==='function'&&window._etqDelActive(r.id))return;
         var cloudObj={id:r.id,nf:r.doc_key||'',nNF:r.n_nf||'',nRomaneio:r.n_romaneio||'',nNFe:r.n_nf||'',cliente:r.cliente||'',bobina:r.bobina||'',op:r.op||'',lote:r.lote||'',addr:r.addr||'',gramatura:r.gramatura||'',xProd:r.gramatura||'',cProd:r.c_prod||'',uCom:r.u_com||'',kg:Number(r.kg)||0,pesoBruto:Number(r.peso_bruto)||0,vol:Number(r.vol)||0,volTot:Number(r.vol_tot)||0,idx:Number(r.idx)||0,status:r.status||'',hist:r.hist||[],_uat:r.updated_at||''};
         /* STATUS MONOTÔNICO: uma etiqueta só AVANÇA (gerada→entrada→saida). Se a nuvem tenta
            REBAIXAR um status que aqui já está mais forte, mantém o forte E marca pra reenviar.
@@ -3086,7 +3086,7 @@ updateStageBadge();
       /* No snapshot completo, a nuvem é a única fonte oficial da aba fiscal. */
       if(autoritativo){
         /* Preserva somente etiquetas fora do fiscal, como as etiquetas de vaga. */
-        Object.keys(ETQ).forEach(function(id){var e=ETQ[id]||{},k=String(e.nf||'');if((!k||k==='__vaga__'||e.addr)&&!fromCloud[id])fromCloud[id]=e;});
+        Object.keys(ETQ).forEach(function(id){var e=ETQ[id]||{},k=String(e.nf||'');if((!k||k==='__vaga__')&&!fromCloud[id])fromCloud[id]=e;});
         ETQ=fromCloud;_nfPub();
       }else if(rowsEtq&&rowsEtq.length){
         Object.keys(ETQ).forEach(function(id){if(!fromCloud[id]&&!(typeof window._etqDelActive==='function'&&window._etqDelActive(id)))fromCloud[id]=ETQ[id];});
@@ -6102,91 +6102,25 @@ async function pullNFExclusoes(){
 window.pullNFExclusoes=pullNFExclusoes;
 
 async function pullNF(force){
- if(!supa||_nfPulling)return false;
- if(!session||!window._fiscalToken)return false;
+ if(_nfPulling||!session)return false;
  if(navigator.onLine===false)return false;
  var now=Date.now();
- if(!force && now-(window._nfPullAt||0)<8000)return true; /* throttle: no máximo 1 pull de NF a cada 8s */
- window._nfPullAt=now;
-
- /* varredura COMPLETA só ao abrir a aba (force) ou a cada 5 min — é ela que detecta exclusões.
-    Nos outros ciclos, só o incremental (praticamente 0 bytes quando nada mudou). */
- var precisaFull = force || !window._nfWM || (now-(window._nfFullAt||0)>300000);
- if(!precisaFull){
-  _nfPulling=true;
-  try{var ok=await pullNFIncremental();_nfPulling=false;if(ok)return true;}catch(e){_nfPulling=false;}
-  /* se o incremental falhar, cai pro completo abaixo */
-  if(_nfPulling)return false;
- }
-
- _nfPulling=true;
- window._nfFullAt=now;
+ if(!force&&now-(window._nfPullAt||0)<10000)return true;
+ window._nfPullAt=now;_nfPulling=true;
  try{
-  /* Snapshot central autenticado: todos os aparelhos recebem exatamente os mesmos
-     documentos, mesmo quando a leitura pública direta do Supabase é bloqueada. */
-  var docs=await fiscalApi('read_documents',{});
-  const ntf=(docs&&docs.notes)||[];
-  const rom=(docs&&docs.roms)||[];
-  /* ===== BUSCA POR DOCUMENTO =====
-     Em vez de varrer a tabela inteira de etiquetas (que era paginada sem ordem e vinha
-     incompleta), agora pergunta direto: "me dá TODAS as etiquetas destes documentos".
-     É determinístico — nenhum romaneio volta zerado. */
-  var keys={};
-  (ntf||[]).forEach(function(r){if(r.key)keys[r.key]=1;});
-  (rom||[]).forEach(function(r){if(r.key&&r.key!==NF_CANON_KEY)keys[r.key]=1;});
-  var ks=Object.keys(keys);
-  /* ===== VARREDURA COMPLETA BARATA =====
-     Antes: select('*') de TODAS as etiquetas (~4,8 MB por varredura).
-     Agora: baixa só o INVENTÁRIO DE IDs (id + updated_at ≈ 60 bytes/linha, ~20× menor) e depois
-     busca a linha inteira APENAS das etiquetas que este PC ainda não tem.
-     Na operação normal (nada novo), isso baixa ~250 KB em vez de 4,8 MB. */
-  var idsNuvem={},etq=[];
-  for(var i=0;i<ks.length;i+=20){
-   var lote=ks.slice(i,i+20),de=0;
-   for(;;){
-    var d=await fiscalApi('read_label_index',{doc_keys:lote,from:de});
-    if(!Array.isArray(d))throw new Error('Falha ao conferir todas as etiquetas da nuvem');
-    d.forEach(function(r){idsNuvem[r.id]=r.updated_at||'';});
-    if(d.length<1000)break;
-    de+=1000;
-   }
-  }
-  /* quais linhas eu preciso mesmo baixar? as que FALTAM aqui + as que MUDARAM na nuvem
-     (updated_at mais novo que o que este PC já tem). Sem o "mudaram", uma etiqueta já
-     baixada NUNCA atualizava de status: se fosse bipada como "entrada" noutro PC, aqui
-     continuava "em aberto" pra sempre (bug da NF concluída num PC e aberta no outro). */
-  var faltamAqui=Object.keys(idsNuvem).filter(function(id){
-   if(!ETQ[id])return true;
-   var cu=idsNuvem[id]||'', lu=(ETQ[id]&&ETQ[id]._uat)||'';
-   return !!cu && cu>lu;
-  });
-  for(var f=0;f<faltamAqui.length;f+=300){
-   var qf=await fiscalApi('read_labels_by_ids',{ids:faltamAqui.slice(f,f+300)});
-   if(!Array.isArray(qf))throw new Error('Falha ao baixar etiquetas atualizadas da nuvem');
-   etq=etq.concat(qf);
-  }
-  /* mantém o que já está aqui e é conhecido pela nuvem, sem re-baixar (Set: O(n), não O(n²)) */
-  var jaTem={};etq.forEach(function(r){jaTem[r.id]=1;});
-  Object.keys(idsNuvem).forEach(function(id){
-   if(ETQ[id]&&!jaTem[id])etq.push(etqRow(ETQ[id]));
-  });
-  try{window._DIAG.pgOk['etiquetas']=etq.length;delete window._DIAG.pgErr['etiquetas'];}catch(e){}
-  /* registra a marca d'água: a partir daqui os próximos ciclos só baixam o que for MAIS NOVO */
-  try{
-   var _wm='';
-   [etq,ntf,rom].forEach(function(arr){(arr||[]).forEach(function(r){var u=r.updated_at||'';if(u>_wm)_wm=u;});});
-   if(_wm)window._nfWM=_wm;
-   window._DIAG.nfFull=etq.length+' etq · '+(ntf||[]).length+' nf · '+(rom||[]).length+' rom @'+new Date().toLocaleTimeString();
-  }catch(e){}
-  if(typeof window.nfPullCloud==='function')window.nfPullCloud(etq,ntf,rom,true);
-  /* grava a marca d'água POR ETIQUETA (o updated_at que a nuvem tem AGORA) pra o próximo
-     ciclo saber exatamente o que mudou e não re-baixar o que já está igual */
-  try{Object.keys(idsNuvem).forEach(function(id){if(ETQ[id])ETQ[id]._uat=idsNuvem[id]||ETQ[id]._uat||'';});}catch(e){}
-
-  _nfPulling=false;return true;
- }catch(e){_nfPulling=false;try{window._DIAG.nfErro=String(e&&e.message||e);setNet('off');toast('Nota Fiscal não conseguiu ler a nuvem: '+String(e&&e.message||e),false);}catch(_){}return false;}
-}
-window.pullNF=pullNF;
+  /* O servidor lê uma fotografia completa e paginada das três tabelas fiscais.
+     Supabase é a fonte oficial: nenhum cache deste PC/celular completa ou ressuscita dados. */
+  var snap=await fiscalApi('read_snapshot',{});
+  if(!snap||!Array.isArray(snap.notes)||!Array.isArray(snap.roms)||!Array.isArray(snap.labels))throw new Error('Fotografia fiscal incompleta');
+  if(typeof window.nfPullCloud==='function')window.nfPullCloud(snap.labels,snap.notes,snap.roms,true);
+  var wm='';[snap.labels,snap.notes,snap.roms].forEach(function(arr){arr.forEach(function(row){var u=row.updated_at||'';if(u>wm)wm=u;});});
+  window._nfWM=wm;window._nfFullAt=now;
+  try{window._DIAG.nfFull=snap.labels.length+' etq · '+snap.notes.length+' nf · '+snap.roms.length+' rom · fonte oficial';delete window._DIAG.nfErro;}catch(e){}
+  setNet('on');_nfPulling=false;return true;
+ }catch(e){
+  _nfPulling=false;try{window._DIAG.nfErro=String(e&&e.message||e);setNet('off');toast('Nota Fiscal não conseguiu ler a fonte oficial: '+String(e&&e.message||e),false);}catch(_){}return false;
+ }
+}window.pullNF=pullNF;
 
 async function pullLight(){
  var _lt0=Date.now();
@@ -6250,7 +6184,16 @@ function autoSyncTick(){
  }catch(e){_syncing=false;}
 }
 let _autoSyncTimer=null;
-function startAutoSync(){clearInterval(_autoSyncTimer);_autoSyncTimer=setInterval(autoSyncTick,20000);}
+function startAutoSync(){
+ clearInterval(_autoSyncTimer);_autoSyncTimer=setInterval(autoSyncTick,20000);
+ /* A Nota Fiscal usa a API central mesmo se a rede bloquear o cliente direto antigo. */
+ clearInterval(window.__fiscalSnapshotTimer);
+ window.__fiscalSnapshotTimer=setInterval(function(){
+  if(document.hidden||!session||navigator.onLine===false)return;
+  var v=document.querySelector('.view.active');
+  if(v&&v.id==='v-nf'&&!document.querySelector('#drawer.show'))pullNF();
+ },10000);
+}
 /* wraps p/ gravar cada ação na nuvem */
 (function(){
  const _cm=confirmMov;confirmMov=function(){const n0=MV.length;_cm();if(MV.length>n0){const m=MV[0];syncMov(m);const sp=findSpace(m.code);if(sp)syncSpace(sp);if(m.et){if(m.action==='entrada'){syncLoc(m.et,m.code);}else if(m.action==='saida'){

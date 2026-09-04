@@ -257,7 +257,7 @@ $('#logBtn').onclick=async()=>{try{
   session={u:f.u,role:f.role};
   /* Credencial protegida mantida somente na memória para a API fiscal confirmar que
      este aparelho tem uma sessão válida. Não é gravada no navegador. */
-  window._fiscalAuth={u:f.u,p:f.p};
+  window._fiscalAuth={u:f.u,p:p};
   try{logAct('login',f.u);}catch(e){}
   $('#login').style.display='none';
   try{applyPerms();}catch(e){console.error('applyPerms',e);}

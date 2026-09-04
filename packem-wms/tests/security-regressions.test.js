@@ -450,8 +450,8 @@ test('Enviar para nuvem nunca publica o cache fiscal de um computador desatualiz
 test('Varredura completa substitui o cache fiscal pela fonte oficial da nuvem',function(){
  assert.match(app,/window\.nfPullCloud=function\(rowsEtq,rowsNotas,rowsRom,autoritativo\)/);
  assert.match(app,/if\(autoritativo\)\{/);
- assert.match(app,/if\(\(!k\|\|k==='__vaga__'\|\|e\.addr\)&&!fromCloud\[id\]/);
- assert.match(app,/window\.nfPullCloud\(etq,ntf,rom,true\)/);
+ assert.match(app,/if\(\(!k\|\|k==='__vaga__'\)&&!fromCloud\[id\]/);
+ assert.match(app,/window\.nfPullCloud\(snap\.labels,snap\.notes,snap\.roms,true\)/);
  const pull=app.slice(app.indexOf('async function pullNF(force)'),app.indexOf('window.pullNF=pullNF;'));
  assert.doesNotMatch(pull,/Object\.keys\(NFS\|\|\{\}\)\.forEach\(function\(k\)\{keys\[k\]=1/);
  assert.doesNotMatch(pull,/AUTO-REPARO/);
@@ -470,7 +470,7 @@ test('Exclusão de romaneio também permanece sincronizável',function(){
 
 test('Alterações fiscais normais passam pela API do servidor',function(){
  assert.match(app,/async function fiscalApi\(action,payload\)/);
- assert.match(app,/fetch\('\/wms-data\/fiscal-sync'/);
+ assert.match(app,/paths=\['\/wms-data\/fiscal-sync','\/api\/fiscal-sync'\]/);
  assert.match(app,/fiscalApi\('upsert_labels'/);
  assert.match(app,/fiscalApi\('upsert_note'/);
  assert.match(app,/fiscalApi\('upsert_rom'/);

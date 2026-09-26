@@ -1799,19 +1799,21 @@ async function bobFetch(et){
   try{if(BOB[et]&&BOB[et].pr)return BOB[et];}catch(e){}
   try{if(typeof window.etqLookup==='function'){var le=window.etqLookup(et);if(le&&le.pr){var lo={pr:le.pr,desc:le.desc||'',pl:Number(le.pl)||0};BOB[et]=lo;return lo;}}}catch(e){}
   try{if(typeof STAGE!=='undefined'){var st=STAGE.find(function(s){return String(s.et||'').trim().toUpperCase()===et;});if(st&&st.pr){var so={pr:st.pr,desc:st.desc||'',pl:Number(st.pl)||0};BOB[et]=so;return so;}}}catch(e){}
-  if(!supa)return null;
+  if(!supa)throw new Error('Sem conexão com a nuvem para consultar a etiqueta');
   if(_bobFetchPending[et])return _bobFetchPending[et];
   _bobFetchPending[et]=(async function(){
-    try{
-      var limite=new Promise(function(res){setTimeout(function(){res([null,null]);},3500);});
-      var consultas=Promise.all([
+      var limite=new Promise(function(_,rej){setTimeout(function(){rej(new Error('Tempo esgotado ao consultar o catálogo na nuvem'));},3500);});
+      var consultas=Promise.allSettled([
         supa.from('bobinas').select('etiqueta,pr,descricao,pl').eq('etiqueta',et).limit(1),
         supa.from('etiquetas').select('id,c_prod,bobina,n_romaneio,gramatura,kg').eq('id',et).limit(1)
       ]);
-      var rr=await Promise.race([consultas,limite]),r=rr&&rr[0],r2=rr&&rr[1];
+      var rr=await Promise.race([consultas,limite]);
+      var r=rr[0].status==='fulfilled'?rr[0].value:null,r2=rr[1].status==='fulfilled'?rr[1].value:null;
       if(r&&r.data&&r.data.length){var row=r.data[0],o={pr:row.pr,desc:row.descricao||'',pl:Number(row.pl)||0};BOB[et]=o;try{saveBOB();}catch(e){}return o;}
       if(r2&&r2.data&&r2.data.length){var e=r2.data[0],pr2=(e.c_prod||e.bobina||e.n_romaneio||''),desc2=(e.gramatura||''),pl2=Number(e.kg)||0;if(pr2){var o2={pr:String(pr2),desc:String(desc2),pl:pl2};BOB[et]=o2;try{saveBOB();}catch(e){}return o2;}}
-    }catch(e){}
+      var erro=(rr[0].status==='rejected'?rr[0].reason:(r&&r.error))||(rr[1].status==='rejected'?rr[1].reason:(r2&&r2.error));
+      if(erro)throw new Error('Falha ao consultar o catálogo na nuvem: '+String((erro&&erro.message)||erro));
+      if(!r||!Array.isArray(r.data)||!r2||!Array.isArray(r2.data))throw new Error('Resposta incompleta do catálogo na nuvem');
     return null;
   })();
   try{return await _bobFetchPending[et];}finally{delete _bobFetchPending[et];}
@@ -1949,9 +1951,47 @@ function renderMapping(){const rows=impRows;if(!rows||!rows.length)return;
   '<button class="btn brand" id="mapDo" style="width:100%;height:48px">Importar com estas colunas</button></div>';
  $('#impHrow').onchange=renderMapping;['mapEt','mapPr','mapDe','mapPl'].forEach(id=>$('#'+id).onchange=mapPreview);$('#mapDo').onclick=doImport;mapPreview();}
 function mapPreview(){const rows=impRows,hi=Math.max(0,parseInt($('#impHrow').value,10)-1),ie=+$('#mapEt').value,ip=+$('#mapPr').value,idd=+$('#mapDe').value,iq=+$('#mapPl').value;let html='',c=0;for(let i=hi+1;i<rows.length&&c<4;i++){const r=rows[i]||[];if(!String(r[ie]||'').trim())continue;html+='<div>'+String(r[ie]||'')+' · '+String(r[ip]||'')+' · '+String(r[idd]||'').slice(0,22)+' · <b style="color:var(--in)">'+fmt(brNum(r[iq]))+' kg</b></div>';c++;}$('#mapPrev').innerHTML=html||'<div>sem linhas de exemplo</div>';}
-function doImport(){var _delta=[];try{const rows=impRows,hi=Math.max(0,parseInt($('#impHrow').value,10)-1),ie=+$('#mapEt').value,ip=+$('#mapPr').value,idd=+$('#mapDe').value,iq=+$('#mapPl').value;let n=0,comPeso=0,jaExistiam=0;var _apAt=nowISO(),_apBy=(typeof session!=='undefined'&&session?session.u:'');for(let i=hi+1;i<rows.length;i++){const r=rows[i]||[];const et=String(r[ie]||'').trim().toUpperCase();const pr=String(r[ip]||'').trim();if(!et||!pr)continue;const pl=brNum(r[iq]);const de=String(r[idd]||'').trim();if(pl>0)comPeso++;const _prev=BOB[et];const _novoOuMudou=(!_prev)||(_prev.pr!==pr)||((_prev.desc||'')!==de)||((Number(_prev.pl)||0)!==pl);BOB[et]={pr,desc:de,pl,apAt:_apAt,apBy:_apBy};if(_novoOuMudou)_delta.push(et);else jaExistiam++;n++;}saveBOB();if(typeof syncBobDelta==='function')syncBobDelta(_delta);$('#impMap').innerHTML='';finishImport(n);if(jaExistiam>0)toast(_delta.length+' nova(s)/alterada(s) enviada(s) · '+jaExistiam+' já estavam salvas (mantidas)');if(n>0&&comPeso===0)toast('Importado, mas o peso veio zerado — confira a coluna Quantidade Produzida',false);}catch(err){try{if(typeof syncBobDelta==='function')syncBobDelta(_delta);}catch(_){}try{toast('Deu erro ao importar ('+((err&&err.message)||err)+'). O que entrou foi enviado — toque em "Enviar p/ nuvem".',false);}catch(_){}}}
-function finishImport(n){if(n>0){toast(n+' etiquetas importadas');logAct('import',n+' etiquetas');$('#impStatus').innerHTML='<p style="color:var(--in);font-size:.82rem;margin:10px 0 0;font-weight:600">✓ '+n+' etiquetas no catálogo</p>';}renderBobCatalog();}
-function bobImportUI(){return '<div class="panel" style="max-width:680px;text-align:center;border-style:dashed"><div style="color:var(--brand);font-size:2rem;display:flex;justify-content:center;margin-bottom:10px">'+ICONS.down+'</div><div style="font-weight:700;font-family:var(--disp)">Importar arquivo de etiquetas</div><p style="color:var(--muted);font-size:.82rem;margin:6px auto 16px;max-width:460px">Jogue a planilha de apontamentos (.xlsx) ou CSV. O sistema lê <b>Etiqueta</b>, <b>Produto</b> (0303…), <b>Descrição</b> e <b>Quantidade Produzida</b> (a coluna verde).</p><button class="btn brand" id="impBtn">Selecionar arquivo</button><input type="file" id="impFile" accept=".xlsx,.xls,.csv" hidden></div><div id="impStatus"></div><div id="impMap"></div><div class="toolbar" style="margin-top:18px"><div class="search"><span class="si">'+ICONS.search+'</span><input id="bobSearch" placeholder="buscar etiqueta ou produto"></div><span class="count" id="bobCount"></span></div><div class="tbl-wrap"><table class="tbl" id="bobTable"></table></div>';}
+async function doImport(){
+ const btn=$('#mapDo'),status=$('#impStatus');if(btn.disabled)return;btn.disabled=true;
+ let n=0,comPeso=0,localSalvo=false;
+ try{
+  if(!window._bobReady)throw new Error('Aguarde o catálogo deste aparelho carregar');
+  const rows=impRows,hi=Math.max(0,parseInt($('#impHrow').value,10)-1),ie=+$('#mapEt').value,ip=+$('#mapPr').value,idd=+$('#mapDe').value,iq=+$('#mapPl').value;
+  if(!rows||!rows.length)throw new Error('Selecione o arquivo novamente');
+  const ids=new Set(),apAt=nowISO(),apBy=(typeof session!=='undefined'&&session?session.u:'');
+  for(let i=hi+1;i<rows.length;i++){
+   const r=rows[i]||[],et=String(r[ie]||'').trim().toUpperCase(),pr=String(r[ip]||'').trim();if(!et||!pr)continue;
+   const pl=brNum(r[iq]),desc=String(r[idd]||'').trim(),prev=BOB[et];
+   BOB[et]=Object.assign({},prev||{},{pr:pr,desc:desc,pl:pl,apAt:apAt,apBy:apBy});
+   ids.add(et);if(pl>0)comPeso++;
+  }
+  n=ids.size;if(!n)throw new Error('O arquivo não contém etiquetas e produtos válidos');
+  saveBOB();await _bobIDB.set('bob',BOB);localSalvo=true;
+  renderBobCatalog();status.textContent=n+' etiqueta(s) salvas neste aparelho. Enviando à nuvem: 0/'+n+'…';
+  await syncBobDelta(Array.from(ids),function(done){status.textContent=n+' etiqueta(s) salvas neste aparelho. Confirmadas na nuvem: '+done+'/'+n+'…';});
+  $('#impMap').innerHTML='';finishImport(n);
+  if(comPeso===0)toast('Importado, mas o peso veio zerado — confira a coluna Quantidade Produzida',false);
+ }catch(err){
+  status.textContent=localSalvo?n+' etiqueta(s) salvas neste aparelho; envio incompleto à nuvem. Importe novamente para tentar de novo.':'Importação não concluída neste aparelho.';
+  toast('Importação incompleta: '+String((err&&err.message)||err),false);
+ }finally{btn.disabled=false;}
+}
+function finishImport(n){if(n>0){toast(n+' etiquetas confirmadas na nuvem');logAct('import',n+' etiquetas confirmadas na nuvem');$('#impStatus').textContent='✓ '+n+' etiquetas salvas neste aparelho e confirmadas na nuvem';}renderBobCatalog();}
+function bobImportUI(){return '<div class="panel" style="max-width:680px;text-align:center;border-style:dashed"><div style="color:var(--brand);font-size:2rem;display:flex;justify-content:center;margin-bottom:10px">'+ICONS.down+'</div><div style="font-weight:700;font-family:var(--disp)">Importar arquivo de etiquetas</div><p style="color:var(--muted);font-size:.82rem;margin:6px auto 16px;max-width:460px">Jogue a planilha de apontamentos (.xlsx) ou CSV. O sistema lê <b>Etiqueta</b>, <b>Produto</b> (0303…), <b>Descrição</b> e <b>Quantidade Produzida</b> (a coluna verde).</p><button class="btn brand" id="impBtn">Selecionar arquivo</button><input type="file" id="impFile" accept=".xlsx,.xls,.csv" hidden><div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px"><button class="gbtn" id="bobRestoreCloud">Recuperar na nuvem as etiquetas importadas neste aparelho</button><p style="color:var(--muted);font-size:.75rem;margin:8px 0 0">Adiciona as etiquetas importadas que faltam na nuvem e mantém os cadastros que já existem lá.</p><div id="bobRestoreStatus" style="font-size:.78rem;margin-top:8px"></div></div></div><div id="impStatus"></div><div id="impMap"></div><div class="toolbar" style="margin-top:18px"><div class="search"><span class="si">'+ICONS.search+'</span><input id="bobSearch" placeholder="buscar etiqueta ou produto"></div><span class="count" id="bobCount"></span></div><div class="tbl-wrap"><table class="tbl" id="bobTable"></table></div>';}
+async function restoreBobMissing(){
+ const btn=$('#bobRestoreCloud'),status=$('#bobRestoreStatus');if(btn.disabled)return;btn.disabled=true;
+ try{
+  if(!window._bobReady)throw new Error('Aguarde o catálogo deste aparelho carregar');
+  if(!supa)throw new Error('Sem conexão com a nuvem');
+  const rows=Object.keys(BOB).filter(et=>BOB[et]&&BOB[et].pr&&BOB[et].apAt).map(et=>({etiqueta:et,pr:BOB[et].pr,descricao:BOB[et].desc||'',pl:Number(BOB[et].pl)||0}));
+  if(!rows.length)throw new Error('Este aparelho não tem etiquetas para recuperar');
+  status.textContent='Conferindo 0/'+rows.length+' etiquetas na nuvem…';
+  await chunkUp('bobinas',rows,{onConflict:'etiqueta',ignoreDuplicates:true},function(done){status.textContent='Conferindo '+done+'/'+rows.length+' etiquetas na nuvem…';});
+  status.textContent='✓ '+rows.length+' etiquetas locais conferidas. Ausentes adicionadas; existentes preservadas.';
+  toast('Recuperação das etiquetas na nuvem confirmada');
+ }catch(err){status.textContent='Recuperação incompleta. Tente novamente quando a conexão estiver estável.';toast('Recuperação incompleta: '+String((err&&err.message)||err),false);}
+ finally{btn.disabled=false;}
+}
 function printBobLabel(et){const o=BOB[et];if(!o){toast('Etiqueta não encontrada',false);return;}
  let host=document.getElementById('bobPrintHost');if(host)host.remove();
  host=document.createElement('div');host.id='bobPrintHost';
@@ -1981,7 +2021,7 @@ function renderBobCatalog(){const sb=$('#bobSearch');const q=norm(sb?sb.value:''
  t.innerHTML='<thead><tr><th>Etiqueta</th><th>Produto</th><th class="num">Peso líq. (kg)</th><th>Descrição</th><th>Situação</th><th style="text-align:center">Imprimir</th></tr></thead><tbody>'+(arr.length?arr.slice(0,500).map(x=>'<tr><td class="mono">'+x.et+'</td><td class="mono">'+x.pr+'</td><td class="num"><b style="color:var(--ink)">'+fmt(x.pl||0)+'</b></td><td style="color:var(--muted);max-width:280px;overflow:hidden;text-overflow:ellipsis">'+(x.desc||'—')+'</td><td>'+(LOC[x.et]?'<span class="pill in">em '+LOC[x.et]+'</span>':'<span class="pill muted">disponível</span>')+'</td><td style="text-align:center"><button class="gbtn" style="padding:5px 11px;font-size:.72rem" onclick="printBobLabel(\''+x.et+'\')">'+(typeof ICONS!=='undefined'&&ICONS.print?ICONS.print:'')+' imprimir</button></td></tr>').join(''):'<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">Nenhuma etiqueta importada ainda. Clique em “Selecionar arquivo”.</td></tr>')+'</tbody>';}
 function addManualBob(){const et=String(($('#mbEt').value||'')).trim().toUpperCase();const pr=String(($('#mbPr').value||'')).trim();const desc=String(($('#mbDe').value||'')).trim();const pl=brNum($('#mbPl').value);if(!et){toast('Informe a etiqueta',false);$('#mbEt').focus();return;}if(!pr){toast('Informe o produto',false);$('#mbPr').focus();return;}const existed=!!BOB[et];BOB[et]={pr,desc,pl};saveBOB();if(typeof syncBobAll==='function')syncBobAll();logAct('import',(existed?'editou':'cadastrou')+' etiqueta '+et);['mbEt','mbPr','mbDe','mbPl'].forEach(id=>{const e=$('#'+id);if(e)e.value='';});$('#mbEt').focus();renderBobCatalog();toast(existed?'Etiqueta '+et+' atualizada':'Etiqueta '+et+' cadastrada');}
 function wireManualBob(){const b=$('#mbAdd');if(b)b.onclick=addManualBob;['mbEt','mbPr','mbDe','mbPl'].forEach(id=>{const e=$('#'+id);if(e)e.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();addManualBob();}});});}
-(function(){const lb=$('#lblBob');if(lb){lb.innerHTML=bobImportUI();$('#impBtn').onclick=()=>$('#impFile').click();$('#impFile').onchange=e=>{if(e.target.files[0])handleImport(e.target.files[0]);};$('#bobSearch').addEventListener('input',renderBobCatalog);wireManualBob();renderBobCatalog();}
+(function(){const lb=$('#lblBob');if(lb){lb.innerHTML=bobImportUI();$('#impBtn').onclick=()=>$('#impFile').click();$('#impFile').onchange=e=>{if(e.target.files[0])handleImport(e.target.files[0]);};$('#bobRestoreCloud').onclick=restoreBobMissing;$('#bobSearch').addEventListener('input',renderBobCatalog);wireManualBob();renderBobCatalog();}
  const tb=document.querySelectorAll('#lblTabs button');if(tb[0])tb[0].textContent='Endereços (imprimir)';if(tb[1])tb[1].textContent='Bobinas (importar)';})();
 const _rlbl=render;render=function(id){const x=_rlbl(id);if(id==='v-labels'){setTimeout(renderBobCatalog,0);try{if(window._bobReady&&Object.keys(BOB).length<100&&typeof supa!=='undefined'&&supa&&navigator.onLine!==false&&!window._catLoading){window._catLoading=true;pgAll('bobinas').then(function(bo){window._catLoading=false;if(bo&&bo.length){var nb={};bo.forEach(function(r){nb[r.etiqueta]={pr:r.pr,desc:r.descricao||'',pl:Number(r.pl)||0};});if(Object.keys(nb).length>=Object.keys(BOB).length){BOB=nb;saveBOB();try{renderBobCatalog();}catch(e){}}}},function(){window._catLoading=false;});}}catch(e){}}return x;};
 
@@ -2028,7 +2068,7 @@ function placeBobina(et,pr,pl,c){pl=Number(pl);if(!Number.isFinite(pl)||pl<=0){t
     }catch(e){}
   }
  return true;}
-async function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){b=await bobFetch(et);}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
+async function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){try{b=await bobFetch(et);}catch(e){toast('Não foi possível consultar a etiqueta '+et+' na nuvem. Verifique a conexão e tente novamente.',false);return;}}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
   var _it={et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u};
   var _ja=STAGE.find(function(s){return norm(s.et)===et;});
   if(_ja){toast('Etiqueta '+et+' já está no Recebimento',false);renderRecv();return true;}
@@ -2450,7 +2490,7 @@ updateStageBadge();
     if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);
     const et=norm(v);if(!et)return;
     var b=BOB[et];if(!b&&typeof window.etqLookup==='function')b=window.etqLookup(et);
-    if(!b){b=await bobFetch(et);}
+    if(!b){try{b=await bobFetch(et);}catch(e){toast('Não foi possível consultar a etiqueta '+et+' na nuvem. Tente novamente.',false);return;}}
     if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
     var _kc=_eCh(et);
     try{delete _delCh[_kc];_bipCh[_kc]=Date.now();}catch(e){}/* destrava antes de checar (fim do tombstone preso) */
@@ -2703,7 +2743,7 @@ updateStageBadge();
     if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);
     const et=norm(v);if(!et)return;
     var b=BOB[et];if(!b&&typeof window.etqLookup==='function')b=window.etqLookup(et);
-    if(!b){b=await bobFetch(et);}
+    if(!b){try{b=await bobFetch(et);}catch(e){toast('Não foi possível consultar a etiqueta '+et+' na nuvem. Tente novamente.',false);return;}}
     if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
     var _k=_e70(et);
     /* DESTRAVA primeiro: se a etiqueta ficou presa numa exclusão pendente (tombstone) de um
@@ -5637,14 +5677,15 @@ window.resyncTudoNF=function(){
   },4000);
 };
 function syncBobAll(){if(!supa)return;const rows=Object.keys(BOB).map(et=>({etiqueta:et,pr:BOB[et].pr,descricao:BOB[et].desc||'',pl:Number(BOB[et].pl)||0}));chunkUp('bobinas',rows);toast('Sincronizando catálogo na nuvem…');}
-function syncBobDelta(list){if(!supa||!list||!list.length)return;const rows=list.map(et=>BOB[et]?({etiqueta:et,pr:BOB[et].pr,descricao:BOB[et].desc||'',pl:Number(BOB[et].pl)||0}):null).filter(Boolean);if(!rows.length)return;chunkUp('bobinas',rows);toast('Enviando '+rows.length+' etiqueta(s) nova(s)/alterada(s) à nuvem…');}
-async function chunkUp(table,rows){if(!supa)throw new Error('Sem conexão com a nuvem');
+async function syncBobDelta(list,onProgress){if(!supa)throw new Error('Sem conexão com a nuvem');if(!list||!list.length)return 0;const rows=list.map(et=>BOB[et]?({etiqueta:et,pr:BOB[et].pr,descricao:BOB[et].desc||'',pl:Number(BOB[et].pl)||0}):null).filter(Boolean);if(!rows.length)return 0;await chunkUp('bobinas',rows,null,onProgress);return rows.length;}
+async function chunkUp(table,rows,options,onProgress){if(!supa)throw new Error('Sem conexão com a nuvem');
  /* upload em massa: cada bloco precisa ser confirmado; falhas não podem virar sucesso visual */
  window._bulkUp=(window._bulkUp||0)+1;
  try{
   for(let i=0;i<rows.length;i+=400){
-   var r=await supa.from(table).upsert(rows.slice(i,i+400));
-   if(r&&r.error)throw new Error(table+': '+(r.error.message||r.error.code||'falha ao gravar'));
+   var bloco=rows.slice(i,i+400),q=supa.from(table),r=await (options?q.upsert(bloco,options):q.upsert(bloco));
+   if(!r||r.error)throw new Error(table+': '+((r&&r.error&&(r.error.message||r.error.code))||'falha ao gravar'));
+   if(typeof onProgress==='function')onProgress(i+bloco.length,rows.length);
   }
   return true;
  }finally{window._bulkUp=Math.max(0,(window._bulkUp||1)-1);}}
@@ -14192,14 +14233,14 @@ window.editUser=editUser;
     if(!window._bobReady){
       await new Promise(function(resolve){var ini=Date.now(),t=setInterval(function(){if(window._bobReady||Date.now()-ini>2500){clearInterval(t);resolve();}},40);});
     }
-    var b=(typeof BOB!=='undefined'&&BOB[et])||null,e=(typeof ETQ!=='undefined'&&ETQ[et])||null;
+    var b=(typeof BOB!=='undefined'&&BOB[et])||null,e=(typeof ETQ!=='undefined'&&ETQ[et])||null,fetchFalhou=false;
     if(!b&&typeof window.bobFetch==='function'){
-      try{b=await window.bobFetch(et);}catch(_fetchErr){}
+      try{b=await window.bobFetch(et);}catch(_fetchErr){fetchFalhou=true;}
       if(b){try{if(typeof saveBOB==='function')saveBOB();}catch(_saveErr){}}
     }
     e=(typeof ETQ!=='undefined'&&ETQ[et])||e||null;
     var mov=[];try{mov=(MV||[]).filter(function(m){return norm(m.et||'')===et;}).sort(function(a,b){return Date.parse(b.at||0)-Date.parse(a.at||0);});}catch(_e){}
-    if(!b&&!e&&!mov.length){out.innerHTML='<div class="ec-empty"><b>Etiqueta '+h(et)+' não encontrada</b><br><span>Confira o número ou importe o cadastro de etiquetas.</span></div>';return;}
+    if(!b&&!e&&!mov.length){out.innerHTML=fetchFalhou?'<div class="ec-empty"><b>Não foi possível consultar a etiqueta '+h(et)+' na nuvem.</b><br><span>Verifique a conexão e tente novamente.</span></div>':'<div class="ec-empty"><b>Etiqueta '+h(et)+' não encontrada</b><br><span>Confira o número ou importe o cadastro de etiquetas.</span></div>';return;}
     var pr=(b&&b.pr)||(e&&e.cProd)||(mov[0]&&mov[0].pr)||'',desc=(b&&b.desc)||(e&&e.xProd)||(typeof descOf==='function'?descOf(pr):'')||'Descrição não informada';
     var qtd=Number((b&&b.pl)||(e&&e.kg)||(mov[0]&&mov[0].q)||0),un=(typeof unitOf==='function'?unitOf(pr):'KG');
     var entrada=mov.find(function(m){return m.action==='entrada'||m.action==='recebimento'||m.action==='armazenar';})||null;

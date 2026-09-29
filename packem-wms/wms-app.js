@@ -577,6 +577,7 @@ function renderBoard(){
     <div class="bd-filters">
       ${whs.length>1?`<div class="bd-seg whpick">${whs.map(w=>`<button class="${w===wh?'on':''}" data-wh="${w}">${whLabel(w)}</button>`).join('')}</div>`:''}
       ${allStreets.length?`<label class="bd-sel"><span>Rua</span><select id="bdRua"><option value="">Todas (${allStreets.length})</option>${allStreets.map(s=>`<option value="${s}" ${boardStreet===s?'selected':''}>Rua ${s}</option>`).join('')}</select></label>`:''}
+      <button class="gbtn" id="bdStreetLabels" ${(!byStreet||(_streetTrackingBusy&&_streetTrackingBusy[wh+'|'+boardStreet]))?'disabled':''} title="Selecione uma rua para gerar o rastreio de todas as vagas ocupadas, em todos os níveis">${ICONS.print} Gerar etiquetas da rua</button>
       ${(byStreet||!levels.length)?'':`<label class="bd-sel"><span>Nível</span><select id="bdLvl">${levels.map(l=>`<option value="${l}" ${Number(l)===Number(boardLevel)?'selected':''}>Nível ${l}</option>`).join('')}</select></label>`}
       <div class="bd-leg">
         <span><i style="background:#15A34A"></i>Vago</span>
@@ -585,6 +586,7 @@ function renderBoard(){
         <span><i style="background:#7f1d1d"></i>+40d</span>
       </div>
       ${(typeof isSuper==='function'&&isSuper())?`<button class="bd-zerar adminOnly" id="bdZerar" title="Esvaziar todas as vagas deste armazém — só admin, pede senha">⌫ Zerar mapa</button>`:''}
+      <span id="bdStreetLabelStatus" role="status" aria-live="polite" style="font-size:.78rem;color:var(--muted);flex-basis:100%"></span>
     </div>
 
     <div class="board" id="boardBox"></div>
@@ -658,6 +660,11 @@ function renderBoard(){
   $$('#v-board .whpick button').forEach(b=>b.onclick=()=>{cfg.warehouse=b.dataset.wh;try{DB.saveCfg(cfg);}catch(e){}boardWH=null;boardStreet=null;boardLevel=null;renderBoard();});
   /* rua e nível viraram <select> (eram 27 botões): menos ruído, mesma função */
   var _br=$('#bdRua'); if(_br)_br.onchange=function(){boardStreet=_br.value||null;renderBoard();};
+  var _bp=$('#bdStreetLabels');if(_bp)_bp.onclick=async function(){
+    var st=boardStreet,w=wh;_bp.disabled=true;
+    try{await printStreetTrackingLabels(st,w,function(done,total){var status=$('#bdStreetLabelStatus');if(status)status.textContent='Rua '+st+' · preparando vagas '+done+' de '+total;});}
+    finally{_bp.disabled=!boardStreet;var status=$('#bdStreetLabelStatus');if(status)status.textContent='';}
+  };
   var _bl=$('#bdLvl'); if(_bl)_bl.onchange=function(){boardLevel=Number(_bl.value);renderBoard();};
   var _bz=$('#bdZerar'); if(_bz)_bz.onclick=boardZerarMapa;
   /* bipagem rápida entrada/saída no mapa */
@@ -926,8 +933,8 @@ function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdm
     }
     x.pr=prod;x.q=after;x.src=norm($('#spSrc').value);x.o=true;x.upd=ts;x.by=user;
     if(delta>0){
-      var seq=0,et,base='R'+Date.now().toString(36).toUpperCase().slice(-6)+Math.random().toString(36).toUpperCase().slice(2,5);
-      do{seq++;et=(seq===1?base:base+'-'+String(seq).padStart(2,'0'));}while((typeof ETQ!=='undefined'&&ETQ&&ETQ[et])||(typeof BOB!=='undefined'&&BOB&&BOB[et]));
+      var seq=0,et,base='RV'+Date.now().toString(36).toUpperCase().slice(-6)+Math.random().toString(36).toUpperCase().slice(2,5);
+      do{seq++;et=(seq===1?base:base+String(seq).padStart(2,'0'));}while((typeof ETQ!=='undefined'&&ETQ&&ETQ[et])||(typeof BOB!=='undefined'&&BOB&&BOB[et]));
       var desc=(typeof descOf==='function'?descOf(prod):'')||prod;
       if(typeof ETQ!=='undefined'&&ETQ){ETQ[et]={id:et,nf:'__vaga__',nNF:'',cProd:prod,xProd:desc,lote:'',uCom:unitOf(x),kg:delta,addr:addr,vol:1,volTot:1,status:'armazenada',created_date:ts,at:ts,hist:[{ev:'entrada',at:ts,by:user,addr:addr}]};try{if(typeof regBobFromEtq==='function')regBobFromEtq(et,ETQ[et]);}catch(e){}}
       if(typeof BOB!=='undefined'&&BOB){if(!BOB[et])BOB[et]={pr:prod,pl:delta,rem:delta,desc:desc,at:ts};else{BOB[et].pr=prod;BOB[et].pl=delta;BOB[et].rem=delta;BOB[et].at=BOB[et].at||ts;}}
@@ -2050,7 +2057,19 @@ function placeBobina(et,pr,pl,c){pl=Number(pl);if(!Number.isFinite(pl)||pl<=0){t
    if(!noStage){if(typeof window.wmsAvisarEtiquetaOcupada==='function')window.wmsAvisarEtiquetaOcupada(et,{local:'Prateleira - 70',detalhe:LOC[et]},'Prateleira - 70 ('+c+')');else toast('Bobina '+et+' já está em '+LOC[et]+'. Faça a SAÍDA dela antes de armazenar em outro lugar.',false);return false;}
    const _old=freeStored(et);if(_old)toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');
  }
- if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}const before=Number(sp.q)||0;sp.pr=pr;sp.q=before+(Number(pl)||0);sp.o=true;sp.u='KG';sp.upd=nowISO();sp.by=session.u;if(et){LOC[et]=c;saveLOC();}MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:'KG',et:et||'',before,after:sp.q,at:nowISO(),by:session.u}); /* log local enxuto: o histórico completo fica na nuvem */persist();if(typeof syncSpace==='function')syncSpace(sp);logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}
+ if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}
+ const before=Number(sp.q)||0;
+ const etiqueta=(et&&typeof ETQ!=='undefined')?ETQ[et]:null;
+ const unidade=(etiqueta&&normUnit(etiqueta.uCom))||(typeof unitOfReal==='function'?unitOfReal(pr):'KG')||'KG';
+ sp.pr=pr;sp.q=before+pl;sp.o=true;sp.u=unidade;sp.upd=nowISO();sp.by=session.u;
+ if(et){
+   LOC[et]=c;saveLOC();
+   /* Uma reentrada restaura o saldo do MESMO rastreio. Sem isso a geração
+      interpreta o saldo zero deixado pela saída como material sem etiqueta. */
+   if(typeof BOB!=='undefined'&&BOB[et]){BOB[et].rem=pl;saveBOB();}
+ }
+ MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:unidade,et:et||'',before,after:sp.q,at:nowISO(),by:session.u}); /* log local enxuto: o histórico completo fica na nuvem */
+ persist();if(typeof syncSpace==='function')syncSpace(sp);logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}
  /* armazenou na prateleira → tira do chão (não pode ficar em dois lugares; a prateleira é a entrada mais recente) */
   if(et){
     try{if(typeof window.f70HasEt==='function'&&window.f70HasEt(et)&&typeof window.f70Saida==='function'){window.f70Saida(et);toast('Saiu do Chão 70 · '+et);}}catch(e){}
@@ -6242,6 +6261,124 @@ function startAutoSync(){
  clearInterval(_autoSyncTimer);_autoSyncTimer=setInterval(autoSyncTick,20000);
  startFiscalSync();
 }
+/* Etiquetas de TODO o saldo da vaga, sem criar outra entrada de estoque. */
+function spaceTrackingPlan(x,ids){
+  var addr=code(x),qty=Number(x.q),product=norm(x.pr),unit=unitOf(x),labels=[],sum=0;
+  if(!x.o||!product||!Number.isFinite(qty)||qty<=0)throw new Error('A vaga está sem saldo para gerar etiquetas.');
+  ids=Array.from(new Set(ids||Object.keys(LOC).filter(function(et){return norm(LOC[et])===norm(addr);}))).sort();
+  ids.forEach(function(id){
+    var b=BOB[id]||{},e=(typeof ETQ!=='undefined'&&ETQ[id])||{},pr=norm(b.pr||e.cProd||'');
+    var q=Number(b.rem!=null?b.rem:(b.pl!=null?b.pl:e.kg));
+    if(!pr||!Number.isFinite(q))throw new Error('Não foi possível conferir a etiqueta '+id+'. Tente novamente após sincronizar.');
+    if(q<=0)return;
+    if(pr!==product)throw new Error('A etiqueta '+id+' contém outro produto. Confira a vaga antes de imprimir.');
+    labels.push(Object.assign({},e,{id:id,cProd:product,xProd:b.desc||e.xProd||descOf(product)||'',kg:q,uCom:unit,addr:addr}));sum+=q;
+  });
+  var missing=Math.round((qty-sum)*1000000)/1000000;
+  if(missing < -0.0001)throw new Error('As etiquetas somam mais que o saldo da vaga. Confira os saldos antes de imprimir.');
+  return {labels:labels,missing:missing>0.0001?missing:0,addr:addr,product:product,unit:unit};
+}
+function spaceTrackingId(x,plan){
+  /* Mesmo saldo/mesmas etiquetas em dois aparelhos produzem o MESMO ID.
+     Uma repetição após falha de rede não cria outro rastreio para o mesmo saldo. */
+  var key=[x.id,plan.addr,plan.product,plan.unit,x.upd||'',Number(x.q),plan.missing,plan.labels.map(function(e){return e.id;}).sort().join(',')].join('|');
+  var a=2166136261,b=2246822507;
+  for(var i=0;i<key.length;i++){a=Math.imul(a^key.charCodeAt(i),16777619);b=Math.imul(b^key.charCodeAt(i),3266489909);}
+  return 'RV'+(a>>>0).toString(16).padStart(8,'0').toUpperCase()+(b>>>0).toString(16).padStart(8,'0').toUpperCase();
+}
+var _spaceTrackingBusy={};
+async function printSpaceTrackingLabels(id,options){
+  options=options||{};
+  if(_spaceTrackingBusy[id]){if(options.collectOnly)throw new Error('Esta vaga já está gerando etiquetas. Aguarde e tente novamente.');return;}
+  _spaceTrackingBusy[id]=true;
+  try{
+    var x=S.find(function(s){return s.id===id;});if(!x)throw new Error('Vaga não encontrada.');
+    if(!supa)throw new Error('Conecte à nuvem para conferir o saldo e gerar as etiquetas.');
+    if(window._bobReady===false||window._nfReady===false)throw new Error('O catálogo ainda está carregando. Aguarde e tente novamente.');
+    var stamp=[x.pr,x.q,x.upd].join('|'),addr=code(x);
+    var reads=await Promise.all([
+      supa.from('espacos').select('id,pr,q,o').eq('id',id),
+      supa.from('locais').select('etiqueta,code').eq('code',addr)
+    ]);
+    reads.forEach(function(r){if(!r||r.error||!Array.isArray(r.data))throw new Error('Não foi possível conferir a vaga na nuvem. Tente novamente.');});
+    var row=reads[0].data[0];
+    if(!row||!row.o||!Number.isFinite(Number(row.q))||norm(row.pr)!==norm(x.pr)||Math.abs(Number(row.q)-Number(x.q))>0.0001)throw new Error('A vaga está sincronizando. Aguarde a atualização e tente novamente.');
+    /* Não inferir saldo manual de uma lista truncada pelo limite do Supabase. */
+    if(reads[1].data.length>=1000)throw new Error('Esta vaga tem muitas etiquetas. Confira o cadastro antes de imprimir.');
+    var ids=Array.from(new Set(reads[1].data.map(function(r){return norm(r.etiqueta);}))).filter(Boolean);
+    await Promise.all(ids.map(function(et){return bobFetch(et);}));
+    x=S.find(function(s){return s.id===id;});
+    if(!x||[x.pr,x.q,x.upd].join('|')!==stamp)throw new Error('O saldo da vaga mudou. Abra a vaga novamente para gerar as etiquetas.');
+    var plan=spaceTrackingPlan(x,ids),created=null;
+    if(plan.missing>0){
+      var et=spaceTrackingId(x,plan),existing=ETQ[et],ts=nowISO();
+      if(existing&&(norm(existing.cProd)!==plan.product||norm(existing.addr)!==norm(addr)||Math.abs(Number(existing.kg)-plan.missing)>0.0001))throw new Error('Conflito no ID de rastreio. Confira o cadastro antes de imprimir.');
+      created=existing||{id:et,nf:'__vaga__',nNF:'',cProd:plan.product,xProd:descOf(plan.product)||plan.product,lote:'',uCom:plan.unit,kg:plan.missing,addr:addr,vol:1,volTot:1,status:'armazenada',at:ts,hist:[{ev:'rastreio-vaga',at:ts,by:session.u,addr:addr}]};
+      ETQ[et]=created;BOB[et]={pr:created.cProd,desc:created.xProd,pl:created.kg,rem:created.kg,at:created.at};LOC[et]=addr;
+      saveNF();saveBOB();saveLOC();
+      /* Só imprimir depois de confirmar o cadastro e o vínculo na nuvem.
+         Não altera S, não soma estoque e não fabrica um movimento de entrada. */
+      if(!await syncEtiqueta(created))throw new Error('Falha ao salvar o rastreio. Tente gerar novamente.');
+      var saved=await supa.from('bobinas').upsert({etiqueta:et,pr:created.cProd,descricao:created.xProd,pl:created.kg});if(saved.error)throw new Error('Falha ao salvar a etiqueta no catálogo. Tente gerar novamente.');
+      saved=await supa.from('locais').upsert({etiqueta:et,code:addr});if(saved.error)throw new Error('Falha ao vincular a etiqueta à vaga. Tente gerar novamente.');
+      plan.labels.push(Object.assign({},created,{uCom:plan.unit,addr:addr}));
+      logAct('rastreio-vaga',et+' · '+plan.missing+' '+plan.unit+' · '+addr);
+    }
+    x=S.find(function(s){return s.id===id;});
+    if(!x||[x.pr,x.q,x.upd].join('|')!==stamp)throw new Error('O saldo mudou durante a geração. Abra a vaga novamente antes de imprimir.');
+    if(created){ETQ[created.id]=created;saveNF();}
+    if(!plan.labels.length)throw new Error('Nenhuma etiqueta disponível para imprimir.');
+    plan.labels.forEach(function(e){LOC[e.id]=addr;});saveLOC();
+    if(!options.collectOnly){
+      closeDrawer();printZebraRast(plan.labels,ZSIZES.z100,'retrato');
+      toast(plan.labels.length+' etiqueta(s) de rastreio · saldo completo da vaga '+addr);
+    }
+    return plan.labels;
+  }catch(e){if(options.collectOnly)throw e;toast(e.message||'Não foi possível gerar as etiquetas da vaga.',false);}
+  finally{delete _spaceTrackingBusy[id];}
+}
+function streetTrackingRows(street,warehouse){
+  return (Array.isArray(S)?S:[]).filter(function(x){return x&&String(x.w)===String(warehouse)&&norm(x.s)===norm(street)&&spaceAtiva(x)&&x.o&&x.pr&&Number(x.q)>0;})
+    .sort(function(a,b){return Number(a.p)-Number(b.p)||Number(a.l)-Number(b.l)||String(a.id).localeCompare(String(b.id));});
+}
+function streetTrackingStamp(rows){return JSON.stringify(rows.map(function(x){return [x.id,x.pr,x.q,x.upd||''];}));}
+var _streetTrackingBusy={};
+async function printStreetTrackingLabels(street,warehouse,onProgress){
+  street=norm(street);warehouse=String(warehouse||'70');
+  if(!street){toast('Selecione uma rua para gerar as etiquetas.',false);return;}
+  var key=warehouse+'|'+street;if(_streetTrackingBusy[key])return;
+  _streetTrackingBusy[key]=true;
+  try{
+    var rows=streetTrackingRows(street,warehouse),stamp=streetTrackingStamp(rows);
+    if(!rows.length)throw new Error('A rua '+street+' não tem vagas ocupadas com saldo.');
+    if(!supa)throw new Error('Conecte à nuvem para gerar as etiquetas da rua.');
+    /* Conferir a rua completa também identifica vagas ocupadas ainda ausentes no cache. */
+    var cloud=await supa.from('espacos').select('id,pr,q,o,src').eq('w',warehouse).eq('s',street);
+    if(!cloud||cloud.error||!Array.isArray(cloud.data)||cloud.data.length>=1000)throw new Error('Não foi possível conferir a rua inteira na nuvem. Tente novamente.');
+    var cloudIds=cloud.data.filter(function(x){return spaceAtiva(x)&&x.o&&x.pr&&Number(x.q)>0;}).map(function(x){return String(x.id);}).sort();
+    if(JSON.stringify(cloudIds)!==JSON.stringify(rows.map(function(x){return String(x.id);}).sort()))throw new Error('A rua está sincronizando. Aguarde a atualização e tente novamente.');
+    var next=0,done=0,results=[],failed=null;
+    if(onProgress)onProgress(0,rows.length);
+    /* Três vagas por vez: não abrir uma janela de impressão para cada vaga.
+       Esperar todos os trabalhos em voo antes de liberar o lote após uma falha. */
+    async function worker(){
+      while(!failed&&next<rows.length){
+        var i=next++,x=rows[i];
+        try{results[i]=await printSpaceTrackingLabels(x.id,{collectOnly:true});done++;if(onProgress)onProgress(done,rows.length);}
+        catch(e){failed=new Error('Vaga '+code(x)+': '+(e.message||'falha ao preparar a etiqueta'));}
+      }
+    }
+    await Promise.all([worker(),worker(),worker()]);
+    if(failed)throw failed;
+    if(streetTrackingStamp(streetTrackingRows(street,warehouse))!==stamp)throw new Error('O saldo da rua mudou durante a geração. Gere novamente para imprimir os dados atualizados.');
+    var labels=[],seen={};
+    results.forEach(function(arr){arr.forEach(function(e){if(seen[e.id])throw new Error('A etiqueta '+e.id+' aparece em mais de uma vaga. Confira os vínculos antes de imprimir.');seen[e.id]=true;labels.push(e);});});
+    printZebraRast(labels,ZSIZES.z100,'retrato');
+    toast(labels.length+' etiqueta(s) de rastreio · '+rows.length+' vaga(s) · rua '+street);
+    return labels;
+  }catch(e){toast(e.message||'Não foi possível gerar as etiquetas da rua.',false);}
+  finally{delete _streetTrackingBusy[key];}
+}
 /* wraps p/ gravar cada ação na nuvem */
 (function(){
  const _cm=confirmMov;confirmMov=function(){const n0=MV.length;_cm();if(MV.length>n0){const m=MV[0];syncMov(m);const sp=findSpace(m.code);if(sp)syncSpace(sp);if(m.et){if(m.action==='entrada'){syncLoc(m.et,m.code);}else if(m.action==='saida'){
@@ -6255,7 +6392,7 @@ function startAutoSync(){
  const _sp=commitProducao;commitProducao=function(et){const n0=MV.length;_sp(et);syncDelStage(et);if(MV.length>n0)syncMov(MV[0]);};
  const _os=openSpace;openSpace=function(id){_os(id);const sv=document.getElementById('spSave');if(sv){const _o=sv.onclick;sv.onclick=()=>{_o&&_o();const x=S.find(s=>s.id===id);if(x)syncSpace(x);};}const sf=document.getElementById('spFree');if(sf){const _f=sf.onclick;sf.onclick=()=>{_f&&_f();const x=S.find(s=>s.id===id);if(x)syncSpace(x);}}
   const x=S.find(s=>s.id===id);const lb=document.getElementById('spLabel');
-  if(lb&&x&&x.o&&x.pr&&x.q>0&&!document.getElementById('spRast')){const rb=document.createElement('button'),addr=code(x),existentes=Object.keys(typeof LOC!=='undefined'&&LOC?LOC:{}).filter(function(et){return norm(LOC[et])===norm(addr);});rb.id='spRast';rb.className='btn brand';rb.style.cssText='width:100%;height:48px;margin-top:10px';rb.innerHTML=existentes.length?(ICONS.print+' Reimprimir etiqueta da vaga'):(ICONS.tag+' Gerar etiqueta de rastreio');rb.onclick=()=>{closeDrawer();var atuais=Object.keys(typeof LOC!=='undefined'&&LOC?LOC:{}).filter(function(et){return norm(LOC[et])===norm(addr);});if(atuais.length){if(typeof printBobLabel==='function'){printBobLabel(atuais[0]);toast('Etiqueta '+atuais[0]+' aberta para reimpressão');}else toast('Recarregue a página (Ctrl+Shift+R)',false);return;}if(typeof window.nfMakeLabel==='function'){var nova=window.nfMakeLabel({cProd:x.pr,kg:x.q,addr:addr});if(nova){try{LOC[nova]=addr;saveLOC();if(typeof syncLoc==='function')syncLoc(nova,addr);}catch(e){}}}else toast('Recarregue a página (Ctrl+Shift+R)',false);};lb.after(rb);}
+  if(lb&&x&&x.o&&x.pr&&x.q>0&&!document.getElementById('spRast')){const rb=document.createElement('button');rb.id='spRast';rb.className='btn brand';rb.style.cssText='width:100%;height:48px;margin-top:10px';rb.innerHTML=ICONS.print+' Gerar etiquetas da vaga';rb.onclick=async()=>{rb.disabled=true;try{await printSpaceTrackingLabels(id);}finally{rb.disabled=false;}};lb.after(rb);}
   if(lb&&x&&!document.getElementById('spZebra')){const b=document.createElement('button');b.id='spZebra';b.className='gbtn';b.style.cssText='width:100%;justify-content:center;margin-top:10px';b.innerHTML=ICONS.print+' Imprimir na Zebra (100×150)';b.onclick=()=>printZebra([code(x)],x.w,ZSIZES.z150);(document.getElementById('spRast')||lb).after(b);}};
 })();
 /* injeta indicador + botão migrar no topo */
@@ -7830,7 +7967,13 @@ function pwaInit(){try{const mf={name:'Packem WMS · Dep 70',short_name:'Packem 
 }
 
 /* ===== IMPRESSÃO ROBUSTA VIA IFRAME + QR COM FALLBACK OFFLINE ===== */
-qrSvg=function(text){text=String(text);if(!window.qrcode)return bc39(text);try{var qr=window.qrcode(0,'M');qr.addData(text);qr.make();var n=qr.getModuleCount(),cell=4,margin=2,size=(n+margin*2)*cell;
+qrSvg=function(text){text=String(text);if(!window.qrcode)return bc39(text);try{var qr=window.qrcode(0,'M');
+ /* Descrições como ALÇA precisam de UTF-8 para o leitor recuperar o texto
+    completo, inclusive o ID que abre o QR. Mantém o encoder anterior fora desta geração. */
+ var originalBytes=window.qrcode.stringToBytes;
+ var utf8=window.qrcode.stringToBytesFuncs&&window.qrcode.stringToBytesFuncs['UTF-8'];
+ try{if(utf8)window.qrcode.stringToBytes=utf8;qr.addData(text);}finally{window.qrcode.stringToBytes=originalBytes;}
+ qr.make();var n=qr.getModuleCount(),cell=4,margin=2,size=(n+margin*2)*cell;
  /* PERF: um único <path> em vez de centenas de <rect>. Com 200 etiquetas isso corta o DOM do
     iframe de impressão de ~140 mil nós pra ~1 mil — era isso que travava a aba e cortava o lote. */
  var d='';for(var y=0;y<n;y++){var x=0;while(x<n){if(qr.isDark(y,x)){var x0=x;while(x<n&&qr.isDark(y,x))x++;d+='M'+((x0+margin)*cell)+' '+((y+margin)*cell)+'h'+((x-x0)*cell)+'v'+cell+'h-'+((x-x0)*cell)+'z';}else x++;}}
@@ -7942,6 +8085,7 @@ function rastUnit(e,desc){
  var d=rastNoAcc(desc).replace(/^[^A-Z]+/,'');
  return /^ALCA|^CADARC/.test(d)?'MT':'KG';
 }
+function rastLabelAddress(e){return (typeof LOC!=='undefined'&&LOC[e.id])||e.addr||'';}
 function rastQRPayload(e){
  /* ===== QR DE LINHA ÚNICA =====
     O formato antigo usava \n entre os campos. Leitor de código de barras é um
@@ -7957,7 +8101,8 @@ function rastQRPayload(e){
  if(e.cProd)L.push('Cod: '+e.cProd);
  if(d)L.push(d);
  if(e.kg>0)L.push(fmt(e.kg)+' '+unit);
- if(e.addr)L.push('Vaga: '+e.addr); else if(e.nNF)L.push('NF: '+e.nNF);
+ var addr=rastLabelAddress(e);
+ if(addr)L.push('Vaga: '+addr); else if(e.nNF)L.push('NF: '+e.nNF);
  if(e.lote)L.push('Lote: '+e.lote);
  return L.join(' | ');
 }
@@ -7974,7 +8119,7 @@ function zEtqCard(e,dim,H,u,kind){
  /* se cProd e bobina estiverem vazios, aí sim usa o id como último recurso */
  if(!codigoGrande)codigoGrande=rastEsc(e.id||'');
  var loteLine=(e.lote)?('<div class="zlote" style="font-size:'+f(0.05)+';padding:'+f(0.01)+' '+f(0.028)+'">LOTE '+rastEsc(e.lote)+'</div>'):'';
- var qrPayload=isRom?romQRPayload(e):rastQRPayload(e);
+ var qrPayload=isRom?romQRPayload(e):rastQRPayload(e),addr=rastLabelAddress(e);
  return '<div class="zlbl" style="width:'+W+u+';height:'+H+u+'">'
   +'<div class="zbar" style="height:'+f(0.028)+'"></div>'
   +'<div class="zwm" style="width:'+f(0.82)+';aspect-ratio:1/1"></div>'
@@ -7987,6 +8132,7 @@ function zEtqCard(e,dim,H,u,kind){
    +(e.kg>0?'<div class="zkgbig" style="font-size:'+f(0.155)+'">'+fmt(e.kg)+' '+unit+'</div>':'')
    +'<div class="zqr" style="width:'+f(0.3)+';margin-top:'+f(0.008)+'">'+qrSvg(qrPayload)+'</div>'
    +(e.id?'<div class="zeid" style="font-size:'+f(0.05)+';font-family:monospace;letter-spacing:'+f(0.004)+';margin-top:'+f(0.006)+';font-weight:700">ID: '+rastEsc(e.id)+'</div>':'')
+   +(addr?'<div class="zaddr" style="font-size:'+f(0.055)+';margin-top:'+f(0.008)+';font-weight:800">ENDEREÇO: '+rastEsc(addr)+'</div>':'')
   +'</div></div></div>';
 }
 function zEtqCSS(dim){
@@ -8014,7 +8160,8 @@ function zEtqCSS(dim){
   +'.zlbl .zqr{display:flex;align-items:center;justify-content:center}.zlbl .zqr svg{width:100%;height:auto;display:block}svg.qr{max-width:100%;height:auto}'
   +'.zlbl .zds{color:#0a0c10;font-weight:800;line-height:1.05;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;padding:0 1mm}'
   +'.zlbl .zlote{font-weight:800;color:#0a0c10;background:#f0f0f0;border-radius:1.4mm;letter-spacing:.2mm;display:inline-block}'
-  +'.zlbl .zkgbig{font-weight:900;color:#0a0c10;line-height:1;letter-spacing:-.3mm;font-family:"Arial Black",Arial,sans-serif;white-space:nowrap}';
+  +'.zlbl .zkgbig{font-weight:900;color:#0a0c10;line-height:1;letter-spacing:-.3mm;font-family:"Arial Black",Arial,sans-serif;white-space:nowrap}'
+  +'.zlbl .zeid,.zlbl .zaddr{max-width:100%;overflow-wrap:anywhere;line-height:1.1}';
 }
 /* ===== IMPRESSÃO EM BLOCOS =====
    A mensagem "Falha na impressão · Verifique a impressora" é do WINDOWS, não do navegador.
@@ -8088,25 +8235,14 @@ function romQRPayload(e){
  if(e.pesoBruto>0)L.push(fmt(e.pesoBruto)+' kg bruto');
  return L.join(' | '); /* linha única — ver comentário em rastQRPayload */
 }
-printBobLabel=function(et){var o=BOB[et];if(!o){toast('Etiqueta não encontrada',false);return;}
- var _bd=((typeof window.convDescByCod==='function'&&window.convDescByCod(o.pr))||o.desc||'');
- var body='<div class="bobprn"><div class="bpbar"></div><div class="bpin">'
-  +'<div class="bphead"><img src="'+PACKEM_IMG+'" class="bplogo"><div class="bpbt">PACKEM<span>BOBINA</span></div></div>'
-  +'<div class="bpet">'+et+'</div>'+bc39(et)
-  +'<div class="bppr">'+(o.pr||'')+'</div>'
-  +((o.pl>0)?'<div class="bpw">'+fmt(o.pl)+' KG</div>':'')
-  +(_bd?'<div class="bpd">'+_bd+'</div>':'')+'</div></div>';
- var css='*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:100mm 150mm;margin:0}'
-  +'.bobprn{width:100mm;height:150mm;display:flex;flex-direction:column;color:#000;font-family:Arial,Helvetica,sans-serif}'
-  +'.bpbar{height:6mm;background:#EA5A0C}'
-  +'.bpin{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:6mm;gap:3mm}'
-  +'.bphead{display:flex;align-items:center;gap:3mm}.bplogo{width:14mm;height:14mm;border-radius:2mm;object-fit:cover}'
-  +'.bpbt{font-weight:800;font-size:6mm;text-align:left;display:flex;flex-direction:column;line-height:1}.bpbt span{font-weight:700;font-size:3mm;color:#666;letter-spacing:1mm;margin-top:1mm}'
-  +'.bpet{font-family:"Courier New",monospace;font-weight:800;font-size:11mm;letter-spacing:.5mm;margin-top:2mm}'
-  +'svg.bc{width:84mm;height:24mm}'
-  +'.bppr{font-family:"Courier New",monospace;font-weight:700;font-size:7mm;word-break:break-all}'
-  +'.bpw{font-weight:800;font-size:10mm}.bpd{font-size:4mm;color:#333;max-width:86mm}';
- printDoc(body,css);};
+printBobLabel=function(et){
+ var o=BOB[et]||{},e=(typeof ETQ!=='undefined'&&ETQ[et])||{};
+ if(!o.pr&&!e.cProd){toast('Etiqueta não encontrada',false);return;}
+ var pr=o.pr||e.cProd,addr=rastLabelAddress({id:et,addr:e.addr}),q=Number(addr&&o.rem!=null?o.rem:(o.pl!=null?o.pl:e.kg));
+ var sp=addr&&typeof findSpace==='function'?findSpace(addr):null;
+ var label=Object.assign({},e,{id:et,cProd:pr,xProd:o.desc||e.xProd||nfDescByCode(pr)||'',kg:q,uCom:sp?unitOf(sp):(e.uCom||unitOf(pr)),addr:addr});
+ printZebraRast([label],ZSIZES.z100,'retrato');
+};
 printGuide=function(o){var rows=(o.rows||[]).map(function(a,i){return '<tr><td>'+(i+1)+'</td><td class="m">'+a.code+'</td><td class="r">'+fmt(a.take)+' kg</td><td></td></tr>';}).join('');
  var body='<div class="sg"><div class="sgh"><img src="'+PACKEM_IMG+'" class="sgl"><div><div class="sgt">GUIA DE SEPARAÇÃO</div><div class="sgs">Packem WMS · '+(typeof whLabel==='function'?whLabel(cfg.warehouse):'Dep 70')+'</div></div>'+(o.reqNum?'<div class="sgn">'+o.reqNum+'</div>':'')+'</div>'+(o.dest?'<div class="sgdest"><span>LEVAR PARA</span><b>'+o.dest+'</b></div>':'')+'<div class="sgitem"><div><span>ITEM</span><b>'+o.prod+'</b>'+(o.mat?'<div class="mt">'+o.mat+'</div>':'')+'</div><div><span>PEDIDO</span><b>'+o.qtyLabel+'</b></div></div><table class="sgtbl"><thead><tr><th>#</th><th>Endereço</th><th class="r">Retirar</th><th>Conferido</th></tr></thead><tbody>'+rows+'</tbody><tfoot><tr><td></td><td>Total disponível listado</td><td class="r">'+fmt(o.totalKg||0)+' kg</td><td></td></tr></tfoot></table><div class="sgsign"><div>Separado por: ______________________</div><div>Conferido por: ______________________</div></div><div class="sgft">Gerado em '+new Date().toLocaleString('pt-BR')+' · Packem WMS</div></div>';
  var css='*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:A4;margin:14mm}'
@@ -8283,6 +8419,8 @@ function _intakeToRast(it){
     cProd: it.pr||'',
     xProd: it.desc||'',
     kg: Number(it.pl)||0,
+    uCom: it.uCom||it.un||unitOf(it.pr),
+    addr: it.addr||(typeof LOC!=='undefined'&&LOC[it.et])||'',
     bobina: it.et||'',
     nf: '__vaga__'
   };

@@ -117,3 +117,32 @@ test('reimpressão de bobina usa modelo de rastreio e mantém ID, endereço e sa
   ctx.printBobLabel('T20358969');
   assert.equal(printed[0].id,'T20358969');assert.equal(printed[0].kg,3200);assert.equal(printed[0].uCom,'MT');assert.equal(printed[0].addr,'I-70-1');
 });
+
+test('saída completa seguida de nova entrada manual gera outro RV, mesmo com colisão de código',async()=>{
+  const t=setup({qty:0}),ctx=t.context;
+  const elements={spSave:{},spProd:{value:'0303010066'},spQty:{value:'150'},spSrc:{value:''},'.view.active':{id:'v-board'}};
+  ctx.$=selector=>elements[selector.replace(/^#/, '')];ctx.x=t.space;ctx.spScannedEt='';ctx.MV=[];ctx.cfg={warehouse:'70'};
+  ctx.uid=()=>String(ctx.MV.length+1);ctx.persist=()=>{};ctx.render=()=>{};
+  ctx.syncMov=()=>{};ctx.syncLoc=(et,code)=>ctx.supa.from('locais').upsert({etiqueta:et,code});
+  ctx.syncSpace=sp=>{t.cloud.espacos=[{...sp}];};
+  ctx.Date=class extends Date{static now(){return 1790685000000;}};
+  ctx.Math=Object.create(Math);ctx.Math.random=()=>0.123456789;
+  const start=app.indexOf("  $('#spSave').onclick=()=>{");
+  vm.runInContext(app.slice(start,app.indexOf("  $('#spFree').onclick",start)),ctx);
+  elements.spSave.onclick();
+  const first=ctx.MV[0].et;assert.match(first,/^RV[0-9A-Z]{8,}$/);
+  await ctx.printSpaceTrackingLabels(t.space.id);
+  assert.equal(t.printed[0][0].id,first);
+  // A saída remove o vínculo ativo e preserva o cadastro antigo para o histórico.
+  delete ctx.LOC[first];t.cloud.locais=[];ctx.BOB[first].rem=0;
+  Object.assign(t.space,{pr:'',q:0,o:false});elements.spQty.value='225';
+  elements.spSave.onclick();
+  const second=ctx.MV[0].et;
+  assert.match(second,/^RV[0-9A-Z]{8,}$/);assert.notEqual(second,first);
+  assert.equal(ctx.LOC[first],undefined);assert.equal(ctx.LOC[second],'I-70-1');
+  await ctx.printSpaceTrackingLabels(t.space.id);
+  await ctx.printSpaceTrackingLabels(t.space.id);
+  assert.equal(t.printed[1][0].id,second);assert.equal(t.printed[2][0].id,second);
+  assert.equal(t.printed[2].length,1);assert.equal(t.printed[2][0].kg,225);
+  assert.equal(Object.keys(ctx.ETQ).length,2);assert.equal(t.space.q,225);
+});

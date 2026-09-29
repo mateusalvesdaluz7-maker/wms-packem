@@ -926,8 +926,8 @@ function openSpace(id){const x=S.find(s=>s.id===id);if(!x)return;const adm=isAdm
     }
     x.pr=prod;x.q=after;x.src=norm($('#spSrc').value);x.o=true;x.upd=ts;x.by=user;
     if(delta>0){
-      var seq=0,et,base='R'+Date.now().toString(36).toUpperCase().slice(-6)+Math.random().toString(36).toUpperCase().slice(2,5);
-      do{seq++;et=(seq===1?base:base+'-'+String(seq).padStart(2,'0'));}while((typeof ETQ!=='undefined'&&ETQ&&ETQ[et])||(typeof BOB!=='undefined'&&BOB&&BOB[et]));
+      var seq=0,et,base='RV'+Date.now().toString(36).toUpperCase().slice(-6)+Math.random().toString(36).toUpperCase().slice(2,5);
+      do{seq++;et=(seq===1?base:base+String(seq).padStart(2,'0'));}while((typeof ETQ!=='undefined'&&ETQ&&ETQ[et])||(typeof BOB!=='undefined'&&BOB&&BOB[et]));
       var desc=(typeof descOf==='function'?descOf(prod):'')||prod;
       if(typeof ETQ!=='undefined'&&ETQ){ETQ[et]={id:et,nf:'__vaga__',nNF:'',cProd:prod,xProd:desc,lote:'',uCom:unitOf(x),kg:delta,addr:addr,vol:1,volTot:1,status:'armazenada',created_date:ts,at:ts,hist:[{ev:'entrada',at:ts,by:user,addr:addr}]};try{if(typeof regBobFromEtq==='function')regBobFromEtq(et,ETQ[et]);}catch(e){}}
       if(typeof BOB!=='undefined'&&BOB){if(!BOB[et])BOB[et]={pr:prod,pl:delta,rem:delta,desc:desc,at:ts};else{BOB[et].pr=prod;BOB[et].pl=delta;BOB[et].rem=delta;BOB[et].at=BOB[et].at||ts;}}

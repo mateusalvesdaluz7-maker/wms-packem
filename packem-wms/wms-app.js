@@ -577,6 +577,7 @@ function renderBoard(){
     <div class="bd-filters">
       ${whs.length>1?`<div class="bd-seg whpick">${whs.map(w=>`<button class="${w===wh?'on':''}" data-wh="${w}">${whLabel(w)}</button>`).join('')}</div>`:''}
       ${allStreets.length?`<label class="bd-sel"><span>Rua</span><select id="bdRua"><option value="">Todas (${allStreets.length})</option>${allStreets.map(s=>`<option value="${s}" ${boardStreet===s?'selected':''}>Rua ${s}</option>`).join('')}</select></label>`:''}
+      <button class="gbtn" id="bdStreetLabels" ${(!byStreet||(_streetTrackingBusy&&_streetTrackingBusy[wh+'|'+boardStreet]))?'disabled':''} title="Selecione uma rua para gerar o rastreio de todas as vagas ocupadas, em todos os níveis">${ICONS.print} Gerar etiquetas da rua</button>
       ${(byStreet||!levels.length)?'':`<label class="bd-sel"><span>Nível</span><select id="bdLvl">${levels.map(l=>`<option value="${l}" ${Number(l)===Number(boardLevel)?'selected':''}>Nível ${l}</option>`).join('')}</select></label>`}
       <div class="bd-leg">
         <span><i style="background:#15A34A"></i>Vago</span>
@@ -585,6 +586,7 @@ function renderBoard(){
         <span><i style="background:#7f1d1d"></i>+40d</span>
       </div>
       ${(typeof isSuper==='function'&&isSuper())?`<button class="bd-zerar adminOnly" id="bdZerar" title="Esvaziar todas as vagas deste armazém — só admin, pede senha">⌫ Zerar mapa</button>`:''}
+      <span id="bdStreetLabelStatus" role="status" aria-live="polite" style="font-size:.78rem;color:var(--muted);flex-basis:100%"></span>
     </div>
 
     <div class="board" id="boardBox"></div>
@@ -658,6 +660,11 @@ function renderBoard(){
   $$('#v-board .whpick button').forEach(b=>b.onclick=()=>{cfg.warehouse=b.dataset.wh;try{DB.saveCfg(cfg);}catch(e){}boardWH=null;boardStreet=null;boardLevel=null;renderBoard();});
   /* rua e nível viraram <select> (eram 27 botões): menos ruído, mesma função */
   var _br=$('#bdRua'); if(_br)_br.onchange=function(){boardStreet=_br.value||null;renderBoard();};
+  var _bp=$('#bdStreetLabels');if(_bp)_bp.onclick=async function(){
+    var st=boardStreet,w=wh;_bp.disabled=true;
+    try{await printStreetTrackingLabels(st,w,function(done,total){var status=$('#bdStreetLabelStatus');if(status)status.textContent='Rua '+st+' · preparando vagas '+done+' de '+total;});}
+    finally{_bp.disabled=!boardStreet;var status=$('#bdStreetLabelStatus');if(status)status.textContent='';}
+  };
   var _bl=$('#bdLvl'); if(_bl)_bl.onchange=function(){boardLevel=Number(_bl.value);renderBoard();};
   var _bz=$('#bdZerar'); if(_bz)_bz.onclick=boardZerarMapa;
   /* bipagem rápida entrada/saída no mapa */
@@ -6268,8 +6275,9 @@ function spaceTrackingId(x,plan){
   return 'RV'+(a>>>0).toString(16).padStart(8,'0').toUpperCase()+(b>>>0).toString(16).padStart(8,'0').toUpperCase();
 }
 var _spaceTrackingBusy={};
-async function printSpaceTrackingLabels(id){
-  if(_spaceTrackingBusy[id])return;
+async function printSpaceTrackingLabels(id,options){
+  options=options||{};
+  if(_spaceTrackingBusy[id]){if(options.collectOnly)throw new Error('Esta vaga já está gerando etiquetas. Aguarde e tente novamente.');return;}
   _spaceTrackingBusy[id]=true;
   try{
     var x=S.find(function(s){return s.id===id;});if(!x)throw new Error('Vaga não encontrada.');
@@ -6309,11 +6317,55 @@ async function printSpaceTrackingLabels(id){
     if(created){ETQ[created.id]=created;saveNF();}
     if(!plan.labels.length)throw new Error('Nenhuma etiqueta disponível para imprimir.');
     plan.labels.forEach(function(e){LOC[e.id]=addr;});saveLOC();
-    closeDrawer();printZebraRast(plan.labels,ZSIZES.z100,'retrato');
-    toast(plan.labels.length+' etiqueta(s) de rastreio · saldo completo da vaga '+addr);
+    if(!options.collectOnly){
+      closeDrawer();printZebraRast(plan.labels,ZSIZES.z100,'retrato');
+      toast(plan.labels.length+' etiqueta(s) de rastreio · saldo completo da vaga '+addr);
+    }
     return plan.labels;
-  }catch(e){toast(e.message||'Não foi possível gerar as etiquetas da vaga.',false);}
+  }catch(e){if(options.collectOnly)throw e;toast(e.message||'Não foi possível gerar as etiquetas da vaga.',false);}
   finally{delete _spaceTrackingBusy[id];}
+}
+function streetTrackingRows(street,warehouse){
+  return (Array.isArray(S)?S:[]).filter(function(x){return x&&String(x.w)===String(warehouse)&&norm(x.s)===norm(street)&&spaceAtiva(x)&&x.o&&x.pr&&Number(x.q)>0;})
+    .sort(function(a,b){return Number(a.p)-Number(b.p)||Number(a.l)-Number(b.l)||String(a.id).localeCompare(String(b.id));});
+}
+function streetTrackingStamp(rows){return JSON.stringify(rows.map(function(x){return [x.id,x.pr,x.q,x.upd||''];}));}
+var _streetTrackingBusy={};
+async function printStreetTrackingLabels(street,warehouse,onProgress){
+  street=norm(street);warehouse=String(warehouse||'70');
+  if(!street){toast('Selecione uma rua para gerar as etiquetas.',false);return;}
+  var key=warehouse+'|'+street;if(_streetTrackingBusy[key])return;
+  _streetTrackingBusy[key]=true;
+  try{
+    var rows=streetTrackingRows(street,warehouse),stamp=streetTrackingStamp(rows);
+    if(!rows.length)throw new Error('A rua '+street+' não tem vagas ocupadas com saldo.');
+    if(!supa)throw new Error('Conecte à nuvem para gerar as etiquetas da rua.');
+    /* Conferir a rua completa também identifica vagas ocupadas ainda ausentes no cache. */
+    var cloud=await supa.from('espacos').select('id,pr,q,o,src').eq('w',warehouse).eq('s',street);
+    if(!cloud||cloud.error||!Array.isArray(cloud.data)||cloud.data.length>=1000)throw new Error('Não foi possível conferir a rua inteira na nuvem. Tente novamente.');
+    var cloudIds=cloud.data.filter(function(x){return spaceAtiva(x)&&x.o&&x.pr&&Number(x.q)>0;}).map(function(x){return String(x.id);}).sort();
+    if(JSON.stringify(cloudIds)!==JSON.stringify(rows.map(function(x){return String(x.id);}).sort()))throw new Error('A rua está sincronizando. Aguarde a atualização e tente novamente.');
+    var next=0,done=0,results=[],failed=null;
+    if(onProgress)onProgress(0,rows.length);
+    /* Três vagas por vez: não abrir uma janela de impressão para cada vaga.
+       Esperar todos os trabalhos em voo antes de liberar o lote após uma falha. */
+    async function worker(){
+      while(!failed&&next<rows.length){
+        var i=next++,x=rows[i];
+        try{results[i]=await printSpaceTrackingLabels(x.id,{collectOnly:true});done++;if(onProgress)onProgress(done,rows.length);}
+        catch(e){failed=new Error('Vaga '+code(x)+': '+(e.message||'falha ao preparar a etiqueta'));}
+      }
+    }
+    await Promise.all([worker(),worker(),worker()]);
+    if(failed)throw failed;
+    if(streetTrackingStamp(streetTrackingRows(street,warehouse))!==stamp)throw new Error('O saldo da rua mudou durante a geração. Gere novamente para imprimir os dados atualizados.');
+    var labels=[],seen={};
+    results.forEach(function(arr){arr.forEach(function(e){if(seen[e.id])throw new Error('A etiqueta '+e.id+' aparece em mais de uma vaga. Confira os vínculos antes de imprimir.');seen[e.id]=true;labels.push(e);});});
+    printZebraRast(labels,ZSIZES.z100,'retrato');
+    toast(labels.length+' etiqueta(s) de rastreio · '+rows.length+' vaga(s) · rua '+street);
+    return labels;
+  }catch(e){toast(e.message||'Não foi possível gerar as etiquetas da rua.',false);}
+  finally{delete _streetTrackingBusy[key];}
 }
 /* wraps p/ gravar cada ação na nuvem */
 (function(){

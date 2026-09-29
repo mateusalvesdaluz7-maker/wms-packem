@@ -7,19 +7,19 @@ const vm = require('node:vm');
 const app = fs.readFileSync(path.join(__dirname, '..', 'wms-app.js'), 'utf8');
 
 function setup({qty = 150, bob = {}, labels = {}, locations = {}, unit = 'KG', failTable, cloudBob = {}} = {}) {
-  const space = {id:'70_I_70_1',pr:'0303010066',q:qty,o:true,upd:'2026-09-29T12:00:00Z'};
+  const space = {id:'70_I_70_1',w:'70',s:'I',p:70,l:1,pr:'0303010066',q:qty,o:true,upd:'2026-09-29T12:00:00Z'};
   const cloud = {espacos:[{...space}],locais:Object.entries(locations).map(([etiqueta,code])=>({etiqueta,code})),etiquetas:[],bobinas:[]};
   const printed = [], toasts = [], writes = [];
   const context = {
     window:{},S:[space],BOB:structuredClone(bob),ETQ:structuredClone(labels),LOC:{...locations},supa:{
       from(table){return {
-        select(){return {eq(key,value){return Promise.resolve({data:cloud[table].filter(r=>r[key]===value)});}};},
+        select(){const filters=[];return {eq(key,value){filters.push([key,value]);return this;},then(resolve,reject){return Promise.resolve({data:cloud[table].filter(r=>filters.every(([key,value])=>r[key]===value))}).then(resolve,reject);}};},
         async upsert(row){writes.push(table);if(table===failTable)return {error:{message:'rede'}};
           const key=table==='etiquetas'?'id':'etiqueta',index=cloud[table].findIndex(r=>r[key]===row[key]);
           if(index>=0)cloud[table][index]={...row};else cloud[table].push({...row});return {error:null};}
       };}
     },
-    norm:s=>String(s||'').trim().toUpperCase(),code:()=> 'I-70-1',unitOf:()=>unit,descOf:()=> 'FITA PET 1950 DTEX 2MM CRISTAL',
+    norm:s=>String(s||'').trim().toUpperCase(),code:x=>[x.s,x.p,x.l].join('-'),unitOf:()=>unit,descOf:()=> 'FITA PET 1950 DTEX 2MM CRISTAL',spaceAtiva:x=>x.src!=='__WMS_SLOT_DISABLED__',
     nowISO:()=> '2026-09-29T12:30:00Z',session:{u:'admin'},
     saveNF(){},saveBOB(){},saveLOC(){},logAct(){},closeDrawer(){},
     etqRow:e=>({id:e.id,c_prod:e.cProd,kg:e.kg,addr:e.addr}),
@@ -145,4 +145,77 @@ test('saída completa seguida de nova entrada manual gera outro RV, mesmo com co
   assert.equal(t.printed[1][0].id,second);assert.equal(t.printed[2][0].id,second);
   assert.equal(t.printed[2].length,1);assert.equal(t.printed[2][0].kg,225);
   assert.equal(Object.keys(ctx.ETQ).length,2);assert.equal(t.space.q,225);
+});
+
+test('rua inteira inclui todos os níveis e saldo manual, sem incluir outra rua ou depósito',async()=>{
+  const t=setup({bob:{T1:{pr:'0303010066',pl:100}},locations:{T1:'I-70-1'}});
+  const base={...t.space};
+  t.context.S.push(
+    {...base,id:'70_I_80_4',p:80,l:4,q:60},
+    {...base,id:'70_J_70_1',s:'J',q:90},
+    {...base,id:'novo_I_70_1',w:'novo',q:99},
+    {...base,id:'70_I_90_1',p:90,o:false,q:0},
+    {...base,id:'70_I_100_1',p:100,q:35,src:'__WMS_SLOT_DISABLED__'}
+  );
+  t.cloud.espacos=structuredClone(t.context.S);
+  const before=JSON.stringify(t.context.S),progress=[];
+  await t.context.printStreetTrackingLabels('I','70',(done,total)=>progress.push([done,total]));
+  assert.equal(t.printed.length,1);assert.equal(t.printed[0].length,3);
+  assert.deepEqual([...new Set(t.printed[0].map(e=>e.addr))],['I-70-1','I-80-4']);
+  assert.equal(t.printed[0].reduce((sum,e)=>sum+e.kg,0),210);
+  assert.equal(t.printed[0].filter(e=>e.id.startsWith('RV')).length,2);
+  assert.deepEqual(progress.at(-1),[2,2]);assert.equal(JSON.stringify(t.context.S),before);
+  await t.context.printStreetTrackingLabels('I','70');
+  assert.deepEqual(t.printed[1].map(e=>e.id).sort(),t.printed[0].map(e=>e.id).sort());
+  assert.equal(Object.keys(t.context.ETQ).length,2);
+});
+
+test('rua vazia ou não selecionada não imprime etiquetas de outras ruas',async()=>{
+  const t=setup();
+  await t.context.printStreetTrackingLabels('','70');
+  await t.context.printStreetTrackingLabels('J','70');
+  assert.equal(t.printed.length,0);assert.equal(t.writes.length,0);
+});
+
+test('cache incompleto da rua bloqueia o lote antes de gerar rastreios',async()=>{
+  const t=setup();t.cloud.espacos.push({...t.space,id:'70_I_80_1',p:80});
+  await t.context.printStreetTrackingLabels('I','70');
+  assert.equal(t.printed.length,0);assert.equal(t.writes.length,0);assert.match(t.toasts.at(-1),/sincronizando/);
+});
+
+test('falha em uma vaga impede impressão parcial e informa o endereço',async()=>{
+  const t=setup({bob:{T1:{pr:'OUTRO',pl:150}},locations:{T1:'I-70-1'}});
+  t.context.S.push({...t.space,id:'70_I_80_1',p:80,q:60});t.cloud.espacos=structuredClone(t.context.S);
+  const before=JSON.stringify(t.context.S);
+  await t.context.printStreetTrackingLabels('I','70');
+  assert.equal(t.printed.length,0);assert.match(t.toasts.at(-1),/Vaga I-70-1/);assert.equal(JSON.stringify(t.context.S),before);
+  assert.equal(t.context._streetTrackingBusy['70|I'],undefined);
+});
+
+test('novo saldo durante a geração impede impressão desatualizada da rua',async()=>{
+  const t=setup({bob:{T1:{pr:'0303010066',pl:150}},locations:{T1:'I-70-1'}});
+  await t.context.printStreetTrackingLabels('I','70',(done)=>{if(done===1)t.context.S.push({...t.space,id:'70_I_80_1',p:80});});
+  assert.equal(t.printed.length,0);assert.match(t.toasts.at(-1),/saldo da rua mudou/);
+});
+
+test('lote aguarda todas as vagas e duplo clique não abre duas impressões',async()=>{
+  const t=setup({bob:{T1:{pr:'0303010066',pl:150}},locations:{T1:'I-70-1'}});
+  let release;t.context.bobFetch=()=>new Promise(resolve=>{release=resolve;});
+  const pending=t.context.printStreetTrackingLabels('I','70');
+  await new Promise(setImmediate);assert.equal(t.printed.length,0);
+  await t.context.printStreetTrackingLabels('I','70');
+  release(t.context.BOB.T1);await pending;
+  assert.equal(t.printed.length,1);
+});
+
+test('rua com mais de 300 etiquetas envia o lote completo para a impressão em blocos',async()=>{
+  const t=setup();t.context.S=[];t.cloud.locais=[];
+  for(let i=0;i<301;i++){
+    const x={...t.space,id:'I_'+i,p:i+1,q:1,l:(i%5)+1};t.context.S.push(x);
+    const id='T'+i;t.context.BOB[id]={pr:x.pr,pl:1};t.context.LOC[id]=t.context.code(x);t.cloud.locais.push({etiqueta:id,code:t.context.code(x)});
+  }
+  t.cloud.espacos=structuredClone(t.context.S);
+  await t.context.printStreetTrackingLabels('I','70');
+  assert.equal(t.printed.length,1);assert.equal(t.printed[0].length,301);assert.equal(new Set(t.printed[0].map(e=>e.id)).size,301);
+  assert.equal(t.writes.length,0);
 });

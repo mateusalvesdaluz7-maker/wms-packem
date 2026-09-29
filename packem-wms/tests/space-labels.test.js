@@ -6,6 +6,25 @@ const test = require('node:test');
 const vm = require('node:vm');
 const app = fs.readFileSync(path.join(__dirname, '..', 'wms-app.js'), 'utf8');
 
+function setupScanner(t) {
+  const ctx=t.context;
+  Object.assign(ctx,{MV:[],STAGE:[],cfg:{warehouse:'70'},isAdmin:()=>true,
+    findSpace:addr=>ctx.S.find(x=>ctx.code(x)===addr),fmt:q=>String(q).replace('.',','),
+    normUnit:u=>u,nfDescByCode:()=>'',uid:()=>String(ctx.MV.length+1),persist(){},renderBoard(){},
+    syncSpace:sp=>{const i=t.cloud.espacos.findIndex(x=>x.id===sp.id);t.cloud.espacos[i]={...sp};},
+    syncMov(){},syncDelLoc:et=>{t.cloud.locais=t.cloud.locais.filter(x=>x.etiqueta!==et);},
+    syncLoc:(et,code)=>ctx.supa.from('locais').upsert({etiqueta:et,code})
+  });
+  ctx.window.etqLookup=id=>{const e=ctx.ETQ[id];return e?{pr:e.cProd,pl:e.kg,desc:e.xProd}:null;};
+  vm.runInContext(app.slice(app.indexOf('window.cleanScanCode=function('),app.indexOf('/* ===== LEITOR POR CÂMERA')),ctx);
+  const parseStart=app.indexOf('parseBobina=function(');
+  vm.runInContext(app.slice(parseStart,app.indexOf("$('#mBob').addEventListener('input'",parseStart)),ctx);
+  vm.runInContext(app.slice(app.indexOf('function placeBobina('),app.indexOf('async function recvAdd(')),ctx);
+  vm.runInContext(app.slice(app.indexOf('async function boardQuickMove('),app.indexOf('function renderBoard(){')),ctx);
+  vm.runInContext(app.slice(app.indexOf('function rastEsc('),app.indexOf('function zEtqCSS(')),ctx);
+  return ctx;
+}
+
 function setup({qty = 150, bob = {}, labels = {}, locations = {}, unit = 'KG', failTable, cloudBob = {}} = {}) {
   const space = {id:'70_I_70_1',w:'70',s:'I',p:70,l:1,pr:'0303010066',q:qty,o:true,upd:'2026-09-29T12:00:00Z'};
   const cloud = {espacos:[{...space}],locais:Object.entries(locations).map(([etiqueta,code])=>({etiqueta,code})),etiquetas:[],bobinas:[]};
@@ -218,4 +237,64 @@ test('rua com mais de 300 etiquetas envia o lote completo para a impressão em b
   await t.context.printStreetTrackingLabels('I','70');
   assert.equal(t.printed.length,1);assert.equal(t.printed[0].length,301);assert.equal(new Set(t.printed[0].map(e=>e.id)).size,301);
   assert.equal(t.writes.length,0);
+});
+
+test('QR de T e RV resolve produto, quantidade e endereço; entrada repetida não duplica estoque',async()=>{
+  for(const id of ['T20358969','RV48769DCF02A83E2B']){
+    const t=setup({qty:371.5,bob:{[id]:{pr:'0303010066',pl:371.5,rem:371.5}},locations:{[id]:'I-70-1'}});
+    const ctx=setupScanner(t);
+    ctx.S.push({...t.space,id:'70_I_80_1',p:80,q:0,pr:'',o:false});t.cloud.espacos=structuredClone(ctx.S);
+    await ctx.printSpaceTrackingLabels(t.space.id);
+    const payload=ctx.rastQRPayload(t.printed[0][0]),parsed=ctx.parseBobina(payload);
+    assert.equal(parsed.et,id);assert.equal(parsed.pr,'0303010066');assert.equal(parsed.peso,371.5);
+    assert.equal(ctx.window.cleanScanCode(payload,'addr'),'I-70-1');assert.doesNotMatch(payload,/[\r\n]/);
+    await ctx.boardQuickMove('entrada','I-70-1',payload);
+    await ctx.boardQuickMove('entrada','I-80-1',payload);
+    assert.equal(t.space.q,371.5);assert.equal(ctx.S[1].q,0);assert.equal(ctx.MV.length,0);
+    assert.equal(Object.keys(ctx.LOC).length,1);
+  }
+});
+
+test('saída e reentrada por QR preservam T/RV, saldo e identidade na reimpressão',async()=>{
+  for(const id of ['T20358969','RV48769DCF02A83E2B']){
+    const t=setup({qty:371.5,bob:{[id]:{pr:'0303010066',pl:371.5,rem:371.5}},locations:{[id]:'I-70-1'}});
+    const ctx=setupScanner(t);
+    await ctx.printSpaceTrackingLabels(t.space.id);
+    const payload=ctx.rastQRPayload(t.printed[0][0]);
+    await ctx.boardQuickMove('saida','I-70-1',payload);
+    assert.equal(t.space.q,0);assert.equal(ctx.LOC[id],undefined);assert.equal(ctx.BOB[id].rem,0);
+    await ctx.boardQuickMove('entrada','I-70-1',payload);
+    assert.equal(t.space.q,371.5);assert.equal(ctx.LOC[id],'I-70-1');assert.equal(ctx.MV[0].et,id);
+    await ctx.syncLoc(id,'I-70-1');
+    await ctx.printSpaceTrackingLabels(t.space.id);
+    assert.deepEqual(t.printed[1].map(e=>e.id),[id]);assert.equal(t.printed[1][0].kg,371.5);
+    assert.equal(ctx.BOB[id].rem,371.5);assert.equal(Object.keys(ctx.BOB).length,1);
+  }
+});
+
+test('QR manual em metros conserva unidade após saída e reentrada',async()=>{
+  const t=setup({qty:6720,unit:'MT'}),ctx=setupScanner(t);
+  await ctx.printSpaceTrackingLabels(t.space.id);
+  const first=t.printed[0][0],payload=ctx.rastQRPayload(first);
+  assert.match(payload,/6720 MT/);
+  await ctx.boardQuickMove('saida','I-70-1',payload);
+  await ctx.boardQuickMove('entrada','I-70-1',payload);
+  await ctx.syncLoc(first.id,'I-70-1');
+  await ctx.printSpaceTrackingLabels(t.space.id);
+  assert.equal(t.printed[1][0].id,first.id);assert.equal(t.printed[1][0].uCom,'MT');
+  assert.equal(t.space.u,'MT');assert.equal(ctx.MV[0].u,'MT');
+});
+
+test('QR com descrição acentuada fornece bytes UTF-8 legíveis e conserva o ID',()=>{
+  let bytes;
+  const qrcode=()=>({addData:s=>{bytes=qrcode.stringToBytes(s);},make(){},getModuleCount:()=>1,isDark:()=>true});
+  const defaultEncoder=s=>Array.from(s,c=>c.charCodeAt(0)&255);
+  qrcode.stringToBytes=defaultEncoder;qrcode.stringToBytesFuncs={'UTF-8':s=>Array.from(Buffer.from(s,'utf8'))};
+  const ctx={window:{qrcode},bc39:()=>{throw new Error('QR caiu no código de barras');}};
+  vm.createContext(ctx);
+  vm.runInContext(app.slice(app.indexOf('qrSvg=function(text)'),app.indexOf('function printDoc(bodyHTML')),ctx);
+  const payload='RV48769DCF02A83E2B | Cod: 0303410001 | ALÇA PP 1000KGF 70MM BRANCA | 6720 MT | Vaga: I-70-1';
+  assert.match(ctx.qrSvg(payload),/<svg class="qr"/);
+  assert.equal(new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(bytes)),payload);
+  assert.equal(qrcode.stringToBytes,defaultEncoder);
 });

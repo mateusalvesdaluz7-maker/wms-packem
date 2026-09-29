@@ -2057,7 +2057,19 @@ function placeBobina(et,pr,pl,c){pl=Number(pl);if(!Number.isFinite(pl)||pl<=0){t
    if(!noStage){if(typeof window.wmsAvisarEtiquetaOcupada==='function')window.wmsAvisarEtiquetaOcupada(et,{local:'Prateleira - 70',detalhe:LOC[et]},'Prateleira - 70 ('+c+')');else toast('Bobina '+et+' já está em '+LOC[et]+'. Faça a SAÍDA dela antes de armazenar em outro lugar.',false);return false;}
    const _old=freeStored(et);if(_old)toast('Bobina '+et+' retornou de '+_old+' — armazenando de novo');
  }
- if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}const before=Number(sp.q)||0;sp.pr=pr;sp.q=before+(Number(pl)||0);sp.o=true;sp.u='KG';sp.upd=nowISO();sp.by=session.u;if(et){LOC[et]=c;saveLOC();}MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:'KG',et:et||'',before,after:sp.q,at:nowISO(),by:session.u}); /* log local enxuto: o histórico completo fica na nuvem */persist();if(typeof syncSpace==='function')syncSpace(sp);logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}
+ if(sp.o&&sp.pr&&sp.pr!==pr){toast('Posição ocupada por '+sp.pr,false);return false;}
+ const before=Number(sp.q)||0;
+ const etiqueta=(et&&typeof ETQ!=='undefined')?ETQ[et]:null;
+ const unidade=(etiqueta&&normUnit(etiqueta.uCom))||(typeof unitOfReal==='function'?unitOfReal(pr):'KG')||'KG';
+ sp.pr=pr;sp.q=before+pl;sp.o=true;sp.u=unidade;sp.upd=nowISO();sp.by=session.u;
+ if(et){
+   LOC[et]=c;saveLOC();
+   /* Uma reentrada restaura o saldo do MESMO rastreio. Sem isso a geração
+      interpreta o saldo zero deixado pela saída como material sem etiqueta. */
+   if(typeof BOB!=='undefined'&&BOB[et]){BOB[et].rem=pl;saveBOB();}
+ }
+ MV.unshift({id:uid(),action:'entrada',w:cfg.warehouse,code:c,pr,q:pl,u:unidade,et:et||'',before,after:sp.q,at:nowISO(),by:session.u}); /* log local enxuto: o histórico completo fica na nuvem */
+ persist();if(typeof syncSpace==='function')syncSpace(sp);logAct('entrada',(et?et+' · ':'')+pr+' +'+pl+' @ '+c);try{enqueue3dTask(c,'in');}catch(e){}
  /* armazenou na prateleira → tira do chão (não pode ficar em dois lugares; a prateleira é a entrada mais recente) */
   if(et){
     try{if(typeof window.f70HasEt==='function'&&window.f70HasEt(et)&&typeof window.f70Saida==='function'){window.f70Saida(et);toast('Saiu do Chão 70 · '+et);}}catch(e){}
@@ -7955,7 +7967,13 @@ function pwaInit(){try{const mf={name:'Packem WMS · Dep 70',short_name:'Packem 
 }
 
 /* ===== IMPRESSÃO ROBUSTA VIA IFRAME + QR COM FALLBACK OFFLINE ===== */
-qrSvg=function(text){text=String(text);if(!window.qrcode)return bc39(text);try{var qr=window.qrcode(0,'M');qr.addData(text);qr.make();var n=qr.getModuleCount(),cell=4,margin=2,size=(n+margin*2)*cell;
+qrSvg=function(text){text=String(text);if(!window.qrcode)return bc39(text);try{var qr=window.qrcode(0,'M');
+ /* Descrições como ALÇA precisam de UTF-8 para o leitor recuperar o texto
+    completo, inclusive o ID que abre o QR. Mantém o encoder anterior fora desta geração. */
+ var originalBytes=window.qrcode.stringToBytes;
+ var utf8=window.qrcode.stringToBytesFuncs&&window.qrcode.stringToBytesFuncs['UTF-8'];
+ try{if(utf8)window.qrcode.stringToBytes=utf8;qr.addData(text);}finally{window.qrcode.stringToBytes=originalBytes;}
+ qr.make();var n=qr.getModuleCount(),cell=4,margin=2,size=(n+margin*2)*cell;
  /* PERF: um único <path> em vez de centenas de <rect>. Com 200 etiquetas isso corta o DOM do
     iframe de impressão de ~140 mil nós pra ~1 mil — era isso que travava a aba e cortava o lote. */
  var d='';for(var y=0;y<n;y++){var x=0;while(x<n){if(qr.isDark(y,x)){var x0=x;while(x<n&&qr.isDark(y,x))x++;d+='M'+((x0+margin)*cell)+' '+((y+margin)*cell)+'h'+((x-x0)*cell)+'v'+cell+'h-'+((x-x0)*cell)+'z';}else x++;}}

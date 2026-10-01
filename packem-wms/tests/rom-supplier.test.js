@@ -1,0 +1,129 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const vm=require('node:vm');
+const test=require('node:test');
+const app=fs.readFileSync(path.join(__dirname,'..','wms-app.js'),'utf8');
+
+function source(start,end){
+  const a=app.indexOf(start),b=app.indexOf(end,a);
+  assert.ok(a>=0&&b>a,'trecho do aplicativo não encontrado: '+start);
+  return app.slice(a,b);
+}
+const norm=s=>String(s==null?'':s).trim().toUpperCase();
+const da=s=>norm(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const brNum=s=>Number(String(s==null?'':s).replace(',','.'))||0;
+
+function sheetRows(){
+  const rows=Array.from({length:17},()=>Array(55).fill(''));
+  rows[5][28]='Nº ROMANEIO:';rows[5][37]='1419';
+  rows[13][1]='Seq.';rows[13][2]='COD. PROD.';rows[13][5]='Nº DA BOBINA';
+  rows[13][10]='LOTE';rows[13][13]='GRAMATURA';rows[13][18]='PESO BRUTO';rows[13][22]='PESO LIQUIDO';
+  rows[13][28]='Seq.';rows[13][29]='COD. PROD.';rows[13][32]='Nº DA BOBINA';
+  rows[13][37]='LOTE';rows[13][40]='GRAMATURA';rows[13][45]='PESO BRUTO';rows[13][49]='PESO LIQUIDO';
+  rows[14][1]='001';rows[14][2]='11894';rows[14][5]='2600000001';rows[14][10]='4392';
+  rows[14][13]='ART MAT PLAST 156GM² 360CM';rows[14][18]=322.5;rows[14][22]=318.66;
+  rows[15][1]='002';rows[15][2]='11894';rows[15][5]='2600000002';rows[15][10]='4392';
+  rows[15][13]='ART MAT PLAST 156GM² 360CM';rows[15][18]=308;rows[15][22]=304.16;
+  return rows;
+}
+
+function parseFixture(){
+  const ctx={window:{},session:{u:'admin'},da,brNum,norm};
+  vm.createContext(ctx);
+  vm.runInContext(source('  var CONV_MAP=', '  var CONV_BY_COD='),ctx);
+  vm.runInContext(source('  function convNorm(', '  var CONV_CLOUD_KEY='),ctx);
+  vm.runInContext(source('  function convExtraiMedidas(', '  /* recebe a descrição da NF'),ctx);
+  vm.runInContext(source('  function convLookup(', '  window.convLookup=convLookup;'),ctx);
+  vm.runInContext(source('  function romCell(', '  /* ---- NF manual'),ctx);
+  return {ctx,parsed:ctx.parseRomaneioXLSX(sheetRows())};
+}
+
+test('romaneio conserva número físico e separa código Packem convertido',()=>{
+  const {parsed}=parseFixture();
+  assert.equal(parsed.ok,true);assert.equal(parsed.nRomaneio,'1419');assert.equal(parsed.items.length,2);
+  assert.equal(parsed.items[0].bobina,'2600000001');assert.equal(parsed.items[0].codFornecedor,'11894');
+  assert.equal(parsed.items[0].cProd,'0303450156');assert.equal(parsed.items[0].pesoLiquido,318.66);
+  assert.match(parsed.items[0].descPackem,/^TEC\./);
+  assert.equal(parsed.items[1].cProd,'0303450156');
+});
+
+function registerFixture(parsed){
+  const calls={prints:0,drawer:0,bob:[],toasts:[],synced:[]};
+  const ctx={window:{},ETQ:{},ROMS:{},romParsed:parsed,nfLocal:'PRE',session:{u:'admin'},
+    document:{getElementById:()=>null,querySelector:()=>null},norm,brNum,nowISO:()=> '2026-10-01T12:00:00Z',
+    saveNF(){},logAct(){},renderNF(){},setTimeout(){},toast:s=>calls.toasts.push(s),
+    regBobFromEtq:(id,e)=>calls.bob.push([id,e.cProd]),
+    syncEtiquetasLote:async ids=>{calls.synced.push([...ids]);return true;},syncRomaneio:async()=>true,
+    openRomBipDrawer:()=>{calls.drawer++;},openRomLabelSheet:()=>{calls.prints++;}
+  };
+  vm.createContext(ctx);
+  vm.runInContext(source('  async function genRomLabels(){','  function openRomLabelSheet('),ctx);
+  return {ctx,calls};
+}
+
+test('registrar romaneio usa o código de barras existente e abre a conferência sem imprimir',async()=>{
+  const {parsed}=parseFixture(),{ctx,calls}=registerFixture(parsed);
+  await ctx.genRomLabels();
+  assert.deepEqual(Object.keys(ctx.ETQ).sort(),['2600000001','2600000002']);
+  assert.equal(ctx.ETQ['2600000001'].bobina,'2600000001');
+  assert.equal(ctx.ETQ['2600000001'].cProd,'0303450156');
+  assert.equal(ctx.ETQ['2600000001'].kg,318.66);
+  assert.equal(ctx.ROMS[parsed.key].supplierLabels,true);
+  assert.equal(ctx.ROMS[parsed.key].supplierSource['2600000001'].code,'11894');
+  assert.equal(calls.drawer,1);assert.equal(calls.prints,0);assert.equal(calls.synced[0].length,2);
+  assert.equal(calls.bob.length,2);
+});
+
+test('bobina repetida ou sem conversão bloqueia o romaneio inteiro antes do envio',async()=>{
+  for(const change of [p=>{p.items[1].bobina=p.items[0].bobina;},p=>{p.items[1].cProd='';},p=>{p.items[1].codFornecedor='';}]){
+    const {parsed}=parseFixture();change(parsed);
+    const {ctx,calls}=registerFixture(parsed);await ctx.genRomLabels();
+    assert.equal(Object.keys(ctx.ETQ).length,0);assert.equal(calls.synced.length,0);
+    assert.equal(calls.prints,0);assert.ok(calls.toasts.length);
+  }
+});
+
+test('scanner resolve bobina e bloqueia produto fornecedor divergente no código de barras',()=>{
+  const ctx={window:{},ETQ:{},ROMS:{'ROM-1419':{supplierLabels:true,supplierSource:{'2600000001':{code:'11894'},'2600000002':{code:'11894'}}}},norm};
+  for(const id of ['2600000001','2600000002'])ctx.ETQ[id]={id,bobina:id,nf:'ROM-1419',nRomaneio:'1419',cProd:'0303450156'};
+  vm.createContext(ctx);
+  vm.runInContext(source('  function resolveRomSupplierScan(', '  window.resolveRomSupplierScan=resolveRomSupplierScan;'),ctx);
+  assert.equal(ctx.resolveRomSupplierScan('2600000001').incomplete,true);
+  assert.equal(ctx.resolveRomSupplierScan('414885260000000151189405379S2S204').id,'2600000001');
+  const wrong=ctx.resolveRomSupplierScan('41488526000000015119705379S2S204');
+  assert.equal(wrong.mismatch,true);assert.equal(wrong.id,'2600000001');assert.equal(wrong.expected,'11894');
+  assert.equal(ctx.resolveRomSupplierScan('260000000199').mismatch,true);
+  assert.equal(ctx.resolveRomSupplierScan('26000000012600000002').ambiguous,true);
+  assert.equal(ctx.resolveRomSupplierScan('2600999999'),null);
+});
+
+test('bipagem do fornecedor recebe uma vez com o código Packem convertido',()=>{
+  const ctx={window:{},ETQ:{},ROMS:{'ROM-1419':{supplierLabels:true,local:'TEXTIL',nRomaneio:'1419',supplierSource:{'2600000001':{code:'11894'}}}},NFS:{},
+    STAGE:[],norm,fmt:q=>String(q).replace('.',','),nowISO:()=> '2026-10-01T12:00:00Z',session:{u:'admin'},
+    saveNF(){},logAct(){},syncEtiqueta(){},renderNF(){},toast(){},document:{querySelector:()=>null}};
+  ctx.ETQ['2600000001']={id:'2600000001',nf:'ROM-1419',nRomaneio:'1419',bobina:'2600000001',cProd:'0303450156',xProd:'TEC.TUBULAR PP 156G 360CM',kg:318.66,status:'gerada',hist:[]};
+  let received=0;ctx.window.f70Entrada=it=>{received++;assert.equal(it.et,'2600000001');assert.equal(it.pr,'0303450156');return true;};
+  vm.createContext(ctx);
+  vm.runInContext(source('  function resolveRomSupplierScan(', '  window.resolveRomSupplierScan=resolveRomSupplierScan;'),ctx);
+  vm.runInContext(source('  function nfRecvBip(v){','  /* Etiquetas pertencentes à geração atual'),ctx);
+  ctx.nfRecvBip('41488526000000015119705379S2S204');
+  assert.equal(received,0);assert.equal(ctx.ETQ['2600000001'].status,'gerada');
+  ctx.nfRecvBip('414885260000000151189405379S2S204');
+  ctx.nfRecvBip('2600000001');
+  assert.equal(received,1);assert.equal(ctx.ETQ['2600000001'].status,'entrada');
+  assert.equal(ctx.ETQ['2600000001'].hist.length,1);
+});
+
+test('Recebimento geral encaminha o fornecedor ao fluxo fiscal e não imprime',async()=>{
+  const calls={received:[],printed:0,toasts:[]};
+  const ctx={window:{resolveRomSupplierScan:v=>v==='BOBINA'?{id:'2600000001',supplier:true}:{incomplete:true,id:'2600000001'},nfRecvBip:v=>calls.received.push(v)},isAdmin:()=>true,toast:s=>calls.toasts.push(s),stationPrint:()=>{calls.printed++;}};
+  vm.createContext(ctx);
+  vm.runInContext(source('async function recvAdd(v){','function renderRecv(){'),ctx);
+  await ctx.recvAdd('2600000001');
+  await ctx.recvAdd('BOBINA');
+  assert.deepEqual(calls.received,['BOBINA']);
+  assert.equal(calls.printed,0);
+  assert.equal(calls.toasts.length,1);
+});

@@ -1991,7 +1991,7 @@ function renderSupplierCatalog(){
   +'<p style="color:var(--muted);font-size:.82rem;margin:6px auto 16px;max-width:550px">Jogue a planilha do romaneio (.xlsx). O sistema lê o número físico, converte para o código Packem e salva cada bobina no catálogo, igual à aba Bobinas (importar).</p>'
   +'<button class="btn brand" id="supplierPick">Selecionar planilha</button><input type="file" id="supplierFile" accept=".xlsx,.xls" hidden>'
   +'</div><div id="supplierStatus" style="margin-top:10px;color:var(--muted)">'+supplierEsc(supplierImportStatus)+'</div>'
-  +'<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Ler para o Recebimento</div><p style="font-size:.8rem;color:var(--muted)">Na câmera, enquadre o número grande da bobina e toque em Capturar. Também é possível usar QR Code, código de barras ou digitar. A entrada aparecerá no Recebimento para escolher o destino.</p><div class="fld"><input class="input code" id="supplierScan" autocomplete="off" placeholder="Número físico da bobina ou código de barras"></div><button class="gbtn" id="supplierGoRecv" style="margin-top:10px">Abrir Recebimento</button></div>'
+  +'<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Ler para o Recebimento</div><p style="font-size:.8rem;color:var(--muted)">Na câmera, enquadre o número grande da bobina e toque em Capturar. Também é possível usar QR Code ou digitar. A entrada aparecerá no Recebimento para escolher o destino.</p><div class="fld"><input class="input code" id="supplierScan" autocomplete="off" placeholder="Número físico da bobina"></div><button class="gbtn" id="supplierGoRecv" style="margin-top:10px">Abrir Recebimento</button></div>'
   +(p?'<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Conferir antes de importar · '+p.items.length+' bobinas</div>'
    +'<p style="font-size:.8rem;color:var(--muted)">Romaneio '+supplierEsc(p.nRomaneio||'sem número')+' · ajuste o código Packem ou a descrição, se necessário.</p>'
    +'<div class="tbl-wrap" style="max-height:460px;overflow:auto"><table class="tbl"><thead><tr><th>Bobina física</th><th>Código Packem</th><th>Descrição</th><th>Peso líq. (kg)</th></tr></thead><tbody>'
@@ -2632,7 +2632,7 @@ updateStageBadge();
     const cb=$('#floorClear');if(cb)cb.onclick=floorClear;
     var feb=$('#floorExport');if(feb)feb.onclick=function(){if(typeof exportChao==='function')exportChao('f');};
     var fsb=$('#floorSaidaBtn');if(fsb)fsb.onclick=function(){if(typeof abrirSaidaChao==='function')abrirSaidaChao('f');};
-    renderFloorList();
+    renderFloorList();if(window.prepareBobbinNumberReader)window.prepareBobbinNumberReader();
   };
   function renderFloorList(){
     const el=$('#floorList');if(!el)return;
@@ -2908,7 +2908,7 @@ updateStageBadge();
     var eb0=$('#f70Export');if(eb0)eb0.onclick=function(){if(typeof exportChao==='function')exportChao('f70');};
     var fsb70i=$('#f70SaidaBtn');if(fsb70i)fsb70i.onclick=function(){if(typeof abrirSaidaChao==='function')abrirSaidaChao('f70');};
     var fnd=$('#f70Find');if(fnd){fnd.addEventListener('input',function(){renderF70List(fnd.value);});}
-    renderF70List();
+    renderF70List();if(window.prepareBobbinNumberReader)window.prepareBobbinNumberReader();
   };
   function renderF70List(q){
     const el=$('#f70List');if(!el)return;
@@ -3711,7 +3711,7 @@ updateStageBadge();
         +'<thead><tr style="text-align:left;color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.5px">'
         +'<th style="padding:4px">Seq</th><th style="padding:4px">Bobina física</th><th style="padding:4px">Código Packem</th><th style="padding:4px">OP</th><th style="padding:4px">Lote</th><th style="padding:4px">Descrição</th><th style="padding:4px;text-align:right">P.Bruto</th><th style="padding:4px;text-align:right">P.Líquido</th></tr></thead>'
         +'<tbody>'+rrows+'</tbody></table></div>'
-        +'<div style="color:var(--faint);font-size:.72rem;margin-top:8px">A conferência compara a bobina física da planilha com o código de barras da etiqueta recebida.</div>'
+        +'<div style="color:var(--faint);font-size:.72rem;margin-top:8px">A conferência compara o número físico da bobina com a planilha importada.</div>'
         +'<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">'
         +(rdup?'<span style="flex:1;color:var(--muted);align-self:center">Romaneio já registrado · bipe as etiquetas na lista abaixo</span>'
               :'<button class="gbtn" id="romGen" style="flex:1;justify-content:center">Registrar romaneio ('+totBob+' bobinas)</button>')
@@ -3872,7 +3872,7 @@ updateStageBadge();
         +'<p style="color:var(--muted);font-size:.82rem">Se faltar um código convertido, atualize aqui a planilha CODIGO NORTE E MP.xlsx.</p>'
         +'<input type="file" id="romConvFile" accept=".xlsx,.xls" style="display:none"><button type="button" class="gbtn" id="romConvPick">Atualizar tabela de conversão</button></div>'
         +romPreview
-        +(romaneios.length?'<div class="panel nfScanPanel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Bipar etiqueta do fornecedor</div><div class="fld nfScanField"><input class="input code" id="romRecvScan" autocomplete="off" placeholder="Bipe o código de barras ou a bobina entre $"></div></div>':'')
+        +(romaneios.length?'<div class="panel nfScanPanel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Ler etiqueta do fornecedor</div><div class="fld nfScanField"><input class="input code" id="romRecvScan" autocomplete="off" placeholder="Número físico da bobina"></div></div>':'')
         +romList;
     }
 
@@ -3971,7 +3971,7 @@ updateStageBadge();
     var romScan=document.getElementById('romRecvScan');
     if(romScan){
       romScan.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=romScan.value;romScan.value='';nfRecvBip(v);}});
-      if(typeof addCam==='function')addCam('romRecvScan',{continuous:true,title:'Bipar etiqueta do fornecedor',scanModes:true,defaultMode:'barcode',onResult:function(v){nfRecvBip(v);}});
+      if(typeof addCam==='function')addCam('romRecvScan',{continuous:true,title:'Ler etiqueta do fornecedor',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'ocr',onResult:function(v){nfRecvBip(v);}});
     }
     if(nfParsed){
       /* base de sugestões (código + descrição) a partir do cadastro de Produtos e bobinas */
@@ -4528,7 +4528,7 @@ updateStageBadge();
       +'<div style="height:8px;border-radius:5px;background:var(--line,rgba(255,255,255,.1));overflow:hidden"><div id="rbdBar" style="height:100%;width:'+st.pct+'%;background:'+(st.ent>=st.tot&&st.tot>0?'#16a34a':'var(--brand)')+';border-radius:5px;transition:width .3s"></div></div>'
       +'<div id="rbdSummary" style="display:flex;justify-content:space-between;color:var(--faint);font-size:.74rem;margin-top:5px"><span>'+st.ent+'/'+st.tot+' etiquetas</span><span>'+fmt(st.kgEnt)+' de '+fmt(st.kgTot)+' kg ('+st.pct+'%)</span></div>'
       +'</div>'
-      +'<div class="fld"><input class="input code" id="rbdScan" autocomplete="off" placeholder="'+(isRom&&doc.supplierLabels?'Bipe o código de barras do fornecedor':'Bipe ou digite o código da etiqueta')+'"></div>'
+      +'<div class="fld"><input class="input code" id="rbdScan" autocomplete="off" placeholder="'+(isRom&&doc.supplierLabels?'Leia o número físico da bobina':'Leia ou digite o código da etiqueta')+'"></div>'
       +(isRom&&doc.supplierLabels?'':'<button class="btn" id="rbdPrint" type="button" style="width:100%;justify-content:center">'+(ICONS.print||'')+' Imprimir / reimprimir etiquetas</button>')
       +'<div id="rbdList" style="margin-top:10px;max-height:48vh;overflow-y:auto">'+st.rows+'</div>';
     openDrawer((ICONS.tag||'')+' '+label,body);
@@ -4548,7 +4548,7 @@ updateStageBadge();
     var inp=document.getElementById('rbdScan');
     if(inp){
       inp.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=inp.value;inp.value='';nfRecvBip(v);refresh();}});
-      if(typeof addCam==='function')addCam('rbdScan',{continuous:true,title:label,scanModes:!!(isRom&&doc.supplierLabels),defaultMode:isRom&&doc.supplierLabels?'barcode':'qr',onResult:function(v){nfRecvBip(v);refresh();}});
+      if(typeof addCam==='function')addCam('rbdScan',{continuous:true,title:label,scanModes:!!(isRom&&doc.supplierLabels),supplierOcr:!!(isRom&&doc.supplierLabels),autoOcr:!!(isRom&&doc.supplierLabels),defaultMode:isRom&&doc.supplierLabels?'ocr':'qr',onResult:function(v){nfRecvBip(v);refresh();}});
       setTimeout(function(){try{inp.focus({preventScroll:true});}catch(e){try{inp.focus();}catch(_){}}},30);
     }
   }
@@ -5522,8 +5522,9 @@ window.cleanScanCode=function(v,kind){
  ICONS.cam='<svg class="i" viewBox="0 0 24 24"><path d="M3 9a2 2 0 0 1 2-2h1.5L8 5h8l1.5 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.3"/></svg>';
  const css='.scan{position:fixed;inset:0;z-index:300;background:#000;display:none;flex-direction:column}.scan.show{display:flex}.scanhead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;color:#fff;font-family:var(--disp);font-weight:700;font-size:1.05rem}.scanhead button{background:rgba(255,255,255,.16);color:#fff;border:none;width:40px;height:40px;border-radius:11px;font-size:1.2rem}.scanModes{display:flex;gap:8px;padding:0 14px 10px;background:#000}.scanModes[hidden]{display:none}.scanModes button{flex:1;border:1px solid rgba(255,255,255,.35);border-radius:9px;background:#202020;color:#fff;padding:10px;font-weight:800}.scanModes button.on{background:var(--brand);border-color:var(--brand)}.scanTools{display:flex;align-items:center;justify-content:center;gap:12px;padding:8px 14px;background:#000;color:#fff}.scanTools[hidden],.scanTools [hidden]{display:none}.scanTools button{background:#252525;border:1px solid #777;border-radius:8px;color:#fff;padding:9px 12px;font-weight:700}.scanTools button.on{background:var(--brand);border-color:var(--brand)}.scanTools label{display:flex;align-items:center;gap:8px;font-size:.85rem}.scanTools input{width:115px;accent-color:var(--brand)}#scanReader{flex:1;width:100%;background:#000;overflow:hidden}#scanReader video{width:100%!important;height:100%!important;object-fit:cover}#scanReader img{display:none}.scanhint{color:#fff;text-align:center;padding:14px 16px;font-size:.92rem;opacity:.92;min-height:20px}.scanFb{position:absolute;left:12px;right:12px;top:70px;z-index:5;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;transform:translateY(-8px);transition:opacity .12s,transform .12s}.scanFb.show{opacity:1;transform:translateY(0)}.scanFb .fbcard{width:100%;max-width:520px;border-radius:16px;padding:16px 18px;text-align:center;font-family:var(--disp);font-weight:800;font-size:1.15rem;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;gap:10px}.scanFb.ok .fbcard{background:linear-gradient(135deg,#16a34a,#15803d)}.scanFb.err .fbcard{background:linear-gradient(135deg,#dc2626,#b91c1c);animation:fbshake .35s}.scanFb .fbico{font-size:1.5rem;line-height:1}@keyframes fbshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}.cambtn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:9px;background:var(--brand);color:#fff;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(234,90,12,.3);z-index:3}.cambtn .i{width:20px;height:20px}';
  const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
- const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX">Fechar ✕</button></div><div class="scanModes" id="scanModes" hidden><button type="button" data-scanmode="ocr" hidden>Número impresso</button><button type="button" data-scanmode="qr">QR Code</button><button type="button" data-scanmode="barcode">Código de barras</button></div><div class="scanTools" id="scanTools" hidden><button type="button" id="scanTorch" hidden>Luz</button><label id="scanZoomWrap" hidden>Zoom <input type="range" id="scanZoom" min="1" max="3" step="0.1" value="1"></label></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><button type="button" id="scanOcrCapture" hidden style="margin:8px 14px;background:var(--brand);color:#fff;border:0;border-radius:10px;padding:15px;font-weight:800;font-size:1rem">Capturar número da bobina</button><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
- let h5=null,O=null,lastV='',lastT=0,active=false,starting=false,nativeTimer=null,nativeSeq=0,nativeBusy=false,torchOn=false,ocrStream=null,ocrSeq=0,ocrWorkerPromise=null,ocrPaused=false;
+ const guideCss=document.createElement('style');guideCss.textContent='.scanNumberGuide{position:absolute;pointer-events:none;box-sizing:border-box;border:2px dashed #fff;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.18),inset 0 0 0 1px rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center}.scanNumberGuide span{margin-top:-29px;background:rgba(0,0,0,.76);color:#fff;padding:4px 9px;border-radius:6px;font-size:.78rem;font-weight:700}';document.head.appendChild(guideCss);
+ const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX">Fechar ✕</button></div><div class="scanModes" id="scanModes" hidden><button type="button" data-scanmode="ocr" hidden>Número impresso</button><button type="button" data-scanmode="qr">QR Code</button></div><div class="scanTools" id="scanTools" hidden><button type="button" id="scanTorch" hidden>Luz</button><label id="scanZoomWrap" hidden>Zoom <input type="range" id="scanZoom" min="1" max="3" step="0.1" value="1"></label></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><button type="button" id="scanOcrCapture" hidden style="margin:8px 14px;background:var(--brand);color:#fff;border:0;border-radius:10px;padding:15px;font-weight:800;font-size:1rem">Capturar número da bobina</button><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
+ let h5=null,O=null,lastV='',lastT=0,active=false,starting=false,torchOn=false,ocrStream=null,ocrSeq=0,ocrWorkerPromise=null,ocrPaused=false,ocrGuideObserver=null;
  function hint(t){const h=document.getElementById('scanHint');if(h)h.textContent=t;}
  function scanTrack(){var v=document.querySelector('#scanReader video');return v&&v.srcObject&&v.srcObject.getVideoTracks?v.srcObject.getVideoTracks()[0]:null;}
  /* Ajusta a câmera quando o aparelho aceita foco contínuo e mais resolução. */
@@ -5531,7 +5532,7 @@ window.cleanScanCode=function(v,kind){
    var track=scanTrack();if(!track||!track.getCapabilities)return;
    var cap=track.getCapabilities();var adv=[];
    if(cap.focusMode&&cap.focusMode.indexOf('continuous')>=0)adv.push({focusMode:'continuous'});
-   var target=O&&O.scanModes&&O.scanMode==='barcode'?1920:1280;
+   var target=1280;
    if(cap.width&&cap.width.max>=target)adv.push({width:target});
    if(adv.length)track.applyConstraints({advanced:adv}).catch(function(){});
  }catch(e){}}
@@ -5541,31 +5542,29 @@ window.cleanScanCode=function(v,kind){
   torch.hidden=!cap.torch;zoomWrap.hidden=!(cap.zoom&&cap.zoom.max>cap.zoom.min);box.hidden=torch.hidden&&zoomWrap.hidden;
   if(!zoomWrap.hidden){zoom.min=cap.zoom.min;zoom.max=cap.zoom.max;zoom.step=cap.zoom.step||0.1;var settings=track.getSettings?track.getSettings():{};zoom.value=settings.zoom||cap.zoom.min;}
  }
- function stopNativeBarcode(){nativeSeq++;if(nativeTimer){clearInterval(nativeTimer);nativeTimer=null;}nativeBusy=false;}
- async function startNativeBarcode(){
-  stopNativeBarcode();if(!window.BarcodeDetector||!O||!O.scanModes||O.scanMode!=='barcode')return;
-  var seq=nativeSeq,formats;
-  try{formats=await window.BarcodeDetector.getSupportedFormats();}catch(e){return;}
-  if(seq!==nativeSeq||!active)return;
-  formats=['code_128','code_39','code_93','itf','codabar','ean_13','ean_8','upc_a','upc_e'].filter(function(f){return formats.indexOf(f)>=0;});
-  if(!formats.length)return;
-  var detector;try{detector=new window.BarcodeDetector({formats:formats});}catch(e){return;}
-  nativeTimer=setInterval(async function(){
-   if(seq!==nativeSeq||!active||nativeBusy)return;
-   var video=document.querySelector('#scanReader video');if(!video||video.readyState<2)return;
-   nativeBusy=true;
-   try{var found=await detector.detect(video);if(seq===nativeSeq&&active)found.forEach(function(code){if(code.rawValue)hit(code.rawValue);});}catch(e){}finally{nativeBusy=false;}
-  },250);
- }
  document.getElementById('scanTorch').onclick=async function(){var track=scanTrack();if(!track)return;try{await track.applyConstraints({advanced:[{torch:!torchOn}]});torchOn=!torchOn;this.classList.toggle('on',torchOn);this.textContent=torchOn?'Desligar luz':'Ligar luz';}catch(e){hint('A luz não está disponível nesta câmera.');}};
  document.getElementById('scanZoom').oninput=function(){var track=scanTrack();if(track)track.applyConstraints({advanced:[{zoom:Number(this.value)}]}).catch(function(){});};
  function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.type='square';o.frequency.setValueAtTime(920,a.currentTime);o.frequency.setValueAtTime(1180,a.currentTime+0.06);g.gain.setValueAtTime(0.0001,a.currentTime);g.gain.exponentialRampToValueAtTime(0.35,a.currentTime+0.012);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+0.17);o.start();setTimeout(()=>{try{o.stop();a.close();}catch(e){}},190);}catch(e){}}
  function loadH5(){if(window.Html5Qrcode)return Promise.resolve();return new Promise(function(res,rej){var urls=['https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js','https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js'],i=0;function next(){if(i>=urls.length){rej(new Error('biblioteca da câmera indisponível'));return;}var s=document.createElement('script');s.src=urls[i++];s.onload=function(){if(window.Html5Qrcode)res();else{s.remove();next();}};s.onerror=function(){s.remove();next();};document.head.appendChild(s);}next();});}
  function supplierOcrIds(text){return Array.from(new Set((String(text||'').match(/(?:^|\D)\d{10}(?!\d)/g)||[]).map(function(x){return x.match(/\d{10}$/)[0];})));}
  function ocrRotate(source,deg){var c=document.createElement('canvas'),side=deg%180!==0;c.width=side?source.height:source.width;c.height=side?source.width:source.height;var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.translate(c.width/2,c.height/2);x.rotate(deg*Math.PI/180);x.drawImage(source,-source.width/2,-source.height/2);return c;}
+ function ocrCenter(source){var c=document.createElement('canvas'),w=Math.round(source.width*.82),h=Math.round(source.height*.20);c.width=w;c.height=h;c.getContext('2d').drawImage(source,Math.round((source.width-w)/2),Math.round((source.height-h)/2),w,h,0,0,w,h);return c;}
  function supplierOcrWorker(){if(!ocrWorkerPromise){ocrWorkerPromise=(async function(){if(!window.Tesseract)throw new Error('Leitor de números indisponível. Verifique a conexão.');var w=await Tesseract.createWorker('eng');await w.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:'11'});return w;})().catch(function(e){ocrWorkerPromise=null;throw e;});}return ocrWorkerPromise;}
- function stopSupplierOcr(){ocrSeq++;if(ocrStream){ocrStream.getTracks().forEach(function(t){t.stop();});ocrStream=null;}document.getElementById('scanOcrCapture').disabled=false;}
- async function startSupplierOcr(){stopSupplierOcr();ocrPaused=false;var video=document.createElement('video');video.autoplay=true;video.playsInline=true;video.muted=true;video.style.cssText='width:100%;height:100%;object-fit:contain;background:#000';document.getElementById('scanReader').replaceChildren(video);ocrStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});if(!active||!modal.classList.contains('show')){stopSupplierOcr();return;}video.srcObject=ocrStream;await video.play();setupScanTools();hint(O&&O.autoOcr?'Aponte para o número grande da bobina. A leitura começa automaticamente.':'Enquadre o número grande da bobina, com boa luz, e toque em Capturar.');if(O&&O.autoOcr){var seq=ocrSeq;setTimeout(function(){if(seq===ocrSeq&&active)captureSupplierOcr();},600);}}
+ window.prepareBobbinNumberReader=function(){supplierOcrWorker().catch(function(){});};
+ function stopSupplierOcr(){ocrSeq++;if(ocrGuideObserver){ocrGuideObserver.disconnect();ocrGuideObserver=null;}if(ocrStream){ocrStream.getTracks().forEach(function(t){t.stop();});ocrStream=null;}document.getElementById('scanOcrCapture').disabled=false;}
+ async function startSupplierOcr(){
+  stopSupplierOcr();ocrPaused=false;supplierOcrWorker().catch(function(){});
+  var reader=document.getElementById('scanReader'),video=document.createElement('video'),guide=document.createElement('div');
+  video.autoplay=true;video.playsInline=true;video.muted=true;video.style.cssText='width:100%;height:100%;object-fit:contain;background:#000';
+  guide.className='scanNumberGuide';guide.innerHTML='<span>Enquadre o número aqui</span>';reader.style.position='relative';reader.replaceChildren(video,guide);
+  ocrStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
+  if(!active||!modal.classList.contains('show')){stopSupplierOcr();return;}
+  video.srcObject=ocrStream;await video.play();
+  function layoutGuide(){if(!video.videoWidth||!reader.clientWidth||!reader.clientHeight)return;var scale=Math.min(reader.clientWidth/video.videoWidth,reader.clientHeight/video.videoHeight),w=video.videoWidth*scale,h=video.videoHeight*scale;guide.style.left=((reader.clientWidth-w)/2+w*.09)+'px';guide.style.top=((reader.clientHeight-h)/2+h*.40)+'px';guide.style.width=(w*.82)+'px';guide.style.height=(h*.20)+'px';}
+  layoutGuide();if(window.ResizeObserver){ocrGuideObserver=new ResizeObserver(layoutGuide);ocrGuideObserver.observe(reader);}
+  setupScanTools();hint(O&&O.autoOcr?'Enquadre o número na área marcada. A leitura é automática.':'Enquadre o número na área marcada e toque em Capturar.');
+  if(O&&O.autoOcr){var seq=ocrSeq;setTimeout(function(){if(seq===ocrSeq&&active)captureSupplierOcr();},600);}
+ }
  async function captureSupplierOcr(){
   var video=document.querySelector('#scanReader video'),button=document.getElementById('scanOcrCapture');
   if(!active||!O||O.scanMode!=='ocr'||!video||video.readyState<2||button.disabled)return;
@@ -5574,12 +5573,20 @@ window.cleanScanCode=function(v,kind){
   source.getContext('2d').drawImage(video,0,0,source.width,source.height);
   hint('Lendo número impresso no aparelho…');
   try{
-   var worker=await supplierOcrWorker(),found=[];
-   for(var deg of [0,180,90,270]){
+   var worker=await supplierOcrWorker(),found=[],center=ocrCenter(source);
+   for(var fastDeg of [0,180]){
     if(seq!==ocrSeq||!active)return;
-    var result=await worker.recognize(ocrRotate(source,deg));
-    supplierOcrIds(result.data.text).forEach(function(id){if(!found.includes(id))found.push(id);});
+    var fast=await worker.recognize(ocrRotate(center,fastDeg));
+    supplierOcrIds(fast.data.text).forEach(function(id){if(!found.includes(id))found.push(id);});
     if(found.some(function(id){return !!BOB[id];}))break;
+   }
+   if(!found.some(function(id){return !!BOB[id];})){
+    for(var deg of [0,180,90,270]){
+     if(seq!==ocrSeq||!active)return;
+     var result=await worker.recognize(ocrRotate(source,deg));
+     supplierOcrIds(result.data.text).forEach(function(id){if(!found.includes(id))found.push(id);});
+     if(found.some(function(id){return !!BOB[id];}))break;
+    }
    }
    if(seq!==ocrSeq||!active)return;
    var known=found.filter(function(id){return !!BOB[id];}),choices=known.length?known:found;
@@ -5595,18 +5602,16 @@ window.cleanScanCode=function(v,kind){
  }
  document.getElementById('scanOcrCapture').onclick=captureSupplierOcr;
  function updateScanMode(){var box=document.getElementById('scanModes');if(!box)return;box.hidden=!(O&&O.scanModes);box.querySelectorAll('[data-scanmode]').forEach(function(b){if(b.getAttribute('data-scanmode')==='ocr')b.hidden=!(O&&O.supplierOcr);b.classList.toggle('on',!!O&&O.scanMode===b.getAttribute('data-scanmode'));});document.getElementById('scanOcrCapture').hidden=!(O&&O.scanMode==='ocr'&&!O.autoOcr);}
- function newReader(){var opts={verbose:false},f=window.Html5QrcodeSupportedFormats;if(O&&O.scanModes&&f){opts.formatsToSupport=O.scanMode==='barcode'?[f.CODE_128,f.CODE_39,f.CODE_93,f.ITF,f.CODABAR,f.EAN_13,f.EAN_8,f.UPC_A,f.UPC_E].filter(Boolean):[f.QR_CODE];}return new Html5Qrcode('scanReader',opts);}
+ function newReader(){var opts={verbose:false},f=window.Html5QrcodeSupportedFormats;if(f)opts.formatsToSupport=[f.QR_CODE];return new Html5Qrcode('scanReader',opts);}
  async function open(){if(starting)return;starting=true;modal.classList.add('show');active=true;hint('Carregando câmera…');
   try{if(O&&O.scanMode==='ocr'){await startSupplierOcr();starting=false;return;}await loadH5();
    if(!modal.classList.contains('show')){starting=false;return;}
    document.getElementById('scanReader').innerHTML='';
-   var barcode=!!(O&&O.scanModes&&O.scanMode==='barcode');
-   const config={fps:barcode?15:20,aspectRatio:barcode?1.7778:1.3333,rememberLastUsedCamera:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true}};
-   /* Barra comprida: analisa o quadro inteiro. A faixa antiga cortava o código. */
-   if(!barcode)config.qrbox=(w,hh)=>{const m=Math.min(w,hh),s=Math.max(180,Math.floor(m*0.8));return {width:s,height:s};};
+   const config={fps:20,aspectRatio:1.3333,rememberLastUsedCamera:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true}};
+   config.qrbox=(w,hh)=>{const m=Math.min(w,hh),s=Math.max(180,Math.floor(m*0.8));return {width:s,height:s};};
    /* tenta abrir a câmera de forma SEGURA: uma config por vez, recriando a instância limpa entre
       as tentativas + pausa curta — evita o erro "already under transition" (colisão de start duplo). */
-   var _tries=barcode?[{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},{facingMode:'environment'},{facingMode:'user'}]:[{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},{facingMode:'environment'},{facingMode:'user'}];
+   var _tries=[{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},{facingMode:'environment'},{facingMode:'user'}];
    var _ok=false,_err=null;
    for(var _ti=0;_ti<_tries.length&&!_ok;_ti++){
      if(!modal.classList.contains('show')){starting=false;return;}
@@ -5622,8 +5627,7 @@ window.cleanScanCode=function(v,kind){
    if(!modal.classList.contains('show')){try{await h5.stop();await h5.clear();}catch(e){}h5=null;starting=false;return;}
    try{_tuneCam(h5);}catch(e){}
    try{setupScanTools();}catch(e){}
-   if(barcode)startNativeBarcode();
-   hint(O&&O.scanModes?(barcode?'Mostre o código inteiro, com boa luz. Para códigos longos, vire o celular na horizontal.':'Aponte para o QR Code'):'Aponte para o QR ou código de barras');
+   hint('Aponte para o QR Code');
   }catch(e){
    var nm=(e&&e.name)||'';var msg=(e&&e.message)||String(e||'');
     var isSecure=(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1');
@@ -5641,14 +5645,14 @@ window.cleanScanCode=function(v,kind){
   starting=false;}
  function fill(val){if(O.onResult){try{O.onResult(val);}catch(e){try{console.warn('scan onResult',e);}catch(_){}}return;}const el=document.getElementById(O.inputId);if(!el)return;el.value=val;el.dispatchEvent(new Event('input'));if(O.enter)el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));}
  function hit(val){val=(val||'').trim();if(!val||!active)return;var clean=(typeof window.cleanScanCode==='function')?window.cleanScanCode(val,O&&O.scanKind):val;var resolved=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(clean):null;var key=resolved&&resolved.id||clean;const now=Date.now();if(O.continuous){if(key===lastV&&now-lastT<4000)return;lastV=key;lastT=now;beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);hint('Código capturado: '+key);}else{beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);close();}}
- function close(){active=false;stopNativeBarcode();stopSupplierOcr();modal.classList.remove('show');document.getElementById('scanTools').hidden=true;lastV='';if(h5){const x=h5;h5=null;try{x.stop().then(()=>{try{x.clear();}catch(e){}}).catch(()=>{try{x.clear();}catch(e){}});}catch(e){}}}
- async function changeScanMode(mode){if(!O||!O.scanModes||starting||O.scanMode===mode)return;starting=true;active=false;stopNativeBarcode();stopSupplierOcr();O.scanMode=mode;updateScanMode();document.getElementById('scanTools').hidden=true;hint('Trocando modo da câmera…');var old=h5;h5=null;if(old){try{await old.stop();}catch(e){}try{await old.clear();}catch(e){}}if(!modal.classList.contains('show')){starting=false;return;}starting=false;open();}
+ function close(){active=false;stopSupplierOcr();modal.classList.remove('show');document.getElementById('scanTools').hidden=true;lastV='';if(h5){const x=h5;h5=null;try{x.stop().then(()=>{try{x.clear();}catch(e){}}).catch(()=>{try{x.clear();}catch(e){}});}catch(e){}}}
+ async function changeScanMode(mode){if(!O||!O.scanModes||starting||O.scanMode===mode)return;starting=true;active=false;stopSupplierOcr();O.scanMode=mode;updateScanMode();document.getElementById('scanTools').hidden=true;hint('Trocando modo da câmera…');var old=h5;h5=null;if(old){try{await old.stop();}catch(e){}try{await old.clear();}catch(e){}}if(!modal.classList.contains('show')){starting=false;return;}starting=false;open();}
  document.querySelectorAll('#scanModes [data-scanmode]').forEach(function(b){b.onclick=function(){changeScanMode(b.getAttribute('data-scanmode'));};});
  document.getElementById('scanX').onclick=close;
- window.scanInto=function(inputId,opts){O=Object.assign({inputId},opts||{});O.scanMode=O.supplierOcr&&O.defaultMode==='ocr'?'ocr':O.defaultMode==='barcode'?'barcode':'qr';updateScanMode();document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};
+ window.scanInto=function(inputId,opts){O=Object.assign({inputId},opts||{});O.scanMode=O.supplierOcr&&O.defaultMode==='ocr'?'ocr':'qr';updateScanMode();document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};
  window.addCam=function(inputId,opts){const el=document.getElementById(inputId);if(!el||el.type==='hidden'||el.dataset.cam)return;el.dataset.cam='1';const w=document.createElement('div');w.className='camfield';w.style.position='relative';w.style.width='100%';el.parentNode.insertBefore(w,el);w.appendChild(el);el.style.width='100%';el.style.boxSizing='border-box';el.style.paddingRight='54px';const b=document.createElement('button');b.type='button';b.className='cambtn';b.innerHTML=ICONS.cam;b.title='Escanear com câmera';b.onclick=()=>scanInto(inputId,opts||{});w.appendChild(b);try{scanLock(el);}catch(e){} };
  addCam('mBob',{enter:true,title:'Escanear bobina'});addCam('mLoc',{enter:true,title:'Escanear endereço',scanKind:'addr'});
- const _rrv=renderRecv;renderRecv=function(){_rrv();addCam('recvScan',{continuous:true,onResult:recvAdd,title:'Escanear bobinas',scanModes:true,defaultMode:'barcode'});};
+ const _rrv=renderRecv;renderRecv=function(){_rrv();addCam('recvScan',{continuous:true,onResult:recvAdd,title:'Ler bobinas',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'ocr'});};
  const _saz=stageArmazenar;stageArmazenar=function(et){_saz(et);setTimeout(()=>addCam('azLoc',{enter:false,title:'Escanear endereço',scanKind:'addr'}),60);};
 })();
 

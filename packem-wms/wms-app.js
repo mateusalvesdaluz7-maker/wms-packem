@@ -1822,7 +1822,7 @@ window.bobFetch=bobFetch;
 /* Registra uma etiqueta RASTREÁVEL (gerada na Nota Fiscal/Romaneio/Vaga) dentro do catálogo BOB,
    pra ela funcionar em TUDO (receber, armazenar, mover, separar, chão) igual a bobina normal.
    Não sobrescreve um cadastro melhor já existente. */
-function regBobFromEtq(id,e){try{
+function regBobFromEtq(id,e,skipCloud){try{
   id=String(id||'').trim().toUpperCase();if(!id||!e)return;
   var pr=String(e.cProd||e.bobina||e.nRomaneio||id).trim();
   var desc=String(e.xProd||e.gramatura||(e.nNF?('NF '+e.nNF):'')||'').trim();
@@ -1830,7 +1830,7 @@ function regBobFromEtq(id,e){try{
   var cur=BOB[id];
   if(cur&&cur.pr&&(cur.pl>0||!pl)) return; /* já tem cadastro bom: não piora */
   BOB[id]={pr:pr,desc:desc,pl:pl};saveBOB();
-  try{if(typeof supa!=='undefined'&&supa&&typeof chunkUp==='function')chunkUp('bobinas',[{etiqueta:id,pr:pr,descricao:desc,pl:pl}]);}catch(_){}
+  try{if(!skipCloud&&typeof supa!=='undefined'&&supa&&typeof chunkUp==='function')chunkUp('bobinas',[{etiqueta:id,pr:pr,descricao:desc,pl:pl}]);}catch(_){}
 }catch(err){}}
 function saveLOC(){try{localStorage.setItem('wmsx_loc',JSON.stringify(LOC));}catch(e){}}
 function brNum(v){if(typeof v==='number')return v;if(v==null)return 0;let s=String(v).trim().replace(/[^\d.,-]/g,'');if(!s)return 0;const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.');if(lc>-1&&ld>-1){if(lc>ld)s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'');}else if(lc>-1){s=s.replace(/,/g,'.');}return parseFloat(s)||0;}
@@ -3906,7 +3906,7 @@ updateStageBadge();
     var romScan=document.getElementById('romRecvScan');
     if(romScan){
       romScan.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=romScan.value;romScan.value='';nfRecvBip(v);}});
-      if(typeof addCam==='function')addCam('romRecvScan',{continuous:true,title:'Bipar etiqueta do fornecedor',onResult:function(v){nfRecvBip(v);}});
+      if(typeof addCam==='function')addCam('romRecvScan',{continuous:true,title:'Bipar etiqueta do fornecedor',scanModes:true,defaultMode:'barcode',onResult:function(v){nfRecvBip(v);}});
     }
     if(nfParsed){
       /* base de sugestões (código + descrição) a partir do cadastro de Produtos e bobinas */
@@ -4267,6 +4267,8 @@ updateStageBadge();
       if(!/^\d{9,12}$/.test(p.cProd)||p.cProd===p.id){toast('Linha '+(i+1)+': informe o código Packem convertido',false);return;}
       if(!(p.pesoLiquido>0)){toast('Linha '+(i+1)+': confira o peso líquido',false);return;}
       if(seen[p.id]||ETQ[p.id]){toast('Bobina '+p.id+' já cadastrada. Confira o romaneio antes de registrar.',false);return;}
+      var existing=BOB[p.id];
+      if(existing&&(norm(existing.pr)!==p.cProd||Math.abs((Number(existing.pl)||0)-p.pesoLiquido)>0.01)){toast('Bobina '+p.id+' já existe no catálogo com outro produto ou peso. Confira antes de registrar.',false);return;}
       seen[p.id]=true;
     }
     var supplierSource={};
@@ -4287,8 +4289,10 @@ updateStageBadge();
       created.forEach(function(id){delete ETQ[id];});delete ROMS[romParsed.key];saveNF();
       toast('O romaneio não foi salvo porque a nuvem não confirmou. Verifique a conexão e tente novamente.',false);renderNF();return;
     }
-    created.forEach(function(id){try{if(typeof regBobFromEtq==='function')regBobFromEtq(id,ETQ[id]);}catch(e){}});
-    toast(created.length+' bobinas cadastradas · bipe as etiquetas do fornecedor');
+    created.forEach(function(id){try{if(typeof regBobFromEtq==='function')regBobFromEtq(id,ETQ[id],true);}catch(e){}});
+    try{if(typeof syncBobDelta!=='function')throw new Error('sincronização indisponível');await syncBobDelta(created);}
+    catch(_bobErr){toast('Romaneio salvo, mas o catálogo de bobinas não foi confirmado na nuvem. Use ↥ no romaneio para reenviar.',false);var _key=romParsed.key;romParsed=null;renderNF();try{openRomBipDrawer(_key);}catch(e){}return;}
+    toast(created.length+' bobinas cadastradas na nuvem · bipe as etiquetas do fornecedor');
     var key=romParsed.key; romParsed=null; renderNF();
     setTimeout(function(){try{if(typeof renderNF==='function'&&document.querySelector('.view.active')&&document.querySelector('.view.active').id==='v-nf')renderNF();}catch(e){}},3000);
     try{openRomBipDrawer(key);}catch(e){toast('Romaneio salvo. Abra-o na lista para conferir as bobinas.',false);}
@@ -4488,7 +4492,7 @@ updateStageBadge();
     var inp=document.getElementById('rbdScan');
     if(inp){
       inp.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=inp.value;inp.value='';nfRecvBip(v);refresh();}});
-      if(typeof addCam==='function')addCam('rbdScan',{continuous:true,title:label,onResult:function(v){nfRecvBip(v);refresh();}});
+      if(typeof addCam==='function')addCam('rbdScan',{continuous:true,title:label,scanModes:!!(isRom&&doc.supplierLabels),defaultMode:isRom&&doc.supplierLabels?'barcode':'qr',onResult:function(v){nfRecvBip(v);refresh();}});
       setTimeout(function(){try{inp.focus({preventScroll:true});}catch(e){try{inp.focus();}catch(_){}}},30);
     }
   }
@@ -5460,9 +5464,9 @@ window.cleanScanCode=function(v,kind){
 /* ===== LEITOR POR CÂMERA (html5-qrcode) ===== */
 (function(){
  ICONS.cam='<svg class="i" viewBox="0 0 24 24"><path d="M3 9a2 2 0 0 1 2-2h1.5L8 5h8l1.5 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.3"/></svg>';
- const css='.scan{position:fixed;inset:0;z-index:300;background:#000;display:none;flex-direction:column}.scan.show{display:flex}.scanhead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;color:#fff;font-family:var(--disp);font-weight:700;font-size:1.05rem}.scanhead button{background:rgba(255,255,255,.16);color:#fff;border:none;width:40px;height:40px;border-radius:11px;font-size:1.2rem}#scanReader{flex:1;width:100%;background:#000;overflow:hidden}#scanReader video{width:100%!important;height:100%!important;object-fit:cover}#scanReader img{display:none}.scanhint{color:#fff;text-align:center;padding:14px 16px;font-size:.92rem;opacity:.92;min-height:20px}.scanFb{position:absolute;left:12px;right:12px;top:70px;z-index:5;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;transform:translateY(-8px);transition:opacity .12s,transform .12s}.scanFb.show{opacity:1;transform:translateY(0)}.scanFb .fbcard{width:100%;max-width:520px;border-radius:16px;padding:16px 18px;text-align:center;font-family:var(--disp);font-weight:800;font-size:1.15rem;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;gap:10px}.scanFb.ok .fbcard{background:linear-gradient(135deg,#16a34a,#15803d)}.scanFb.err .fbcard{background:linear-gradient(135deg,#dc2626,#b91c1c);animation:fbshake .35s}.scanFb .fbico{font-size:1.5rem;line-height:1}@keyframes fbshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}.cambtn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:9px;background:var(--brand);color:#fff;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(234,90,12,.3);z-index:3}.cambtn .i{width:20px;height:20px}';
+ const css='.scan{position:fixed;inset:0;z-index:300;background:#000;display:none;flex-direction:column}.scan.show{display:flex}.scanhead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;color:#fff;font-family:var(--disp);font-weight:700;font-size:1.05rem}.scanhead button{background:rgba(255,255,255,.16);color:#fff;border:none;width:40px;height:40px;border-radius:11px;font-size:1.2rem}.scanModes{display:flex;gap:8px;padding:0 14px 10px;background:#000}.scanModes[hidden]{display:none}.scanModes button{flex:1;border:1px solid rgba(255,255,255,.35);border-radius:9px;background:#202020;color:#fff;padding:10px;font-weight:800}.scanModes button.on{background:var(--brand);border-color:var(--brand)}#scanReader{flex:1;width:100%;background:#000;overflow:hidden}#scanReader video{width:100%!important;height:100%!important;object-fit:cover}#scanReader img{display:none}.scanhint{color:#fff;text-align:center;padding:14px 16px;font-size:.92rem;opacity:.92;min-height:20px}.scanFb{position:absolute;left:12px;right:12px;top:70px;z-index:5;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;transform:translateY(-8px);transition:opacity .12s,transform .12s}.scanFb.show{opacity:1;transform:translateY(0)}.scanFb .fbcard{width:100%;max-width:520px;border-radius:16px;padding:16px 18px;text-align:center;font-family:var(--disp);font-weight:800;font-size:1.15rem;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;gap:10px}.scanFb.ok .fbcard{background:linear-gradient(135deg,#16a34a,#15803d)}.scanFb.err .fbcard{background:linear-gradient(135deg,#dc2626,#b91c1c);animation:fbshake .35s}.scanFb .fbico{font-size:1.5rem;line-height:1}@keyframes fbshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}.cambtn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:9px;background:var(--brand);color:#fff;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(234,90,12,.3);z-index:3}.cambtn .i{width:20px;height:20px}';
  const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
- const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX">Fechar ✕</button></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
+ const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX">Fechar ✕</button></div><div class="scanModes" id="scanModes" hidden><button type="button" data-scanmode="qr">QR Code</button><button type="button" data-scanmode="barcode">Código de barras</button></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
  let h5=null,O=null,lastV='',lastT=0,active=false,starting=false;
  function hint(t){const h=document.getElementById('scanHint');if(h)h.textContent=t;}
  /* ajusta a câmera depois de aberta: foco contínuo pra ler QR nítido de perto e de longe */
@@ -5476,11 +5480,13 @@ window.cleanScanCode=function(v,kind){
  }catch(e){}}
  function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.type='square';o.frequency.setValueAtTime(920,a.currentTime);o.frequency.setValueAtTime(1180,a.currentTime+0.06);g.gain.setValueAtTime(0.0001,a.currentTime);g.gain.exponentialRampToValueAtTime(0.35,a.currentTime+0.012);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+0.17);o.start();setTimeout(()=>{try{o.stop();a.close();}catch(e){}},190);}catch(e){}}
  function loadH5(){return window.Html5Qrcode?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';s.onload=res;s.onerror=()=>rej(new Error('cdn'));document.head.appendChild(s);});}
+ function updateScanMode(){var box=document.getElementById('scanModes');if(!box)return;box.hidden=!(O&&O.scanModes);box.querySelectorAll('[data-scanmode]').forEach(function(b){b.classList.toggle('on',!!O&&O.scanMode===b.getAttribute('data-scanmode'));});}
+ function newReader(){var opts={verbose:false},f=window.Html5QrcodeSupportedFormats;if(O&&O.scanModes&&f){opts.formatsToSupport=O.scanMode==='barcode'?[f.CODE_128,f.CODE_39,f.CODE_93,f.ITF,f.CODABAR,f.EAN_13,f.EAN_8,f.UPC_A,f.UPC_E].filter(Boolean):[f.QR_CODE];}return new Html5Qrcode('scanReader',opts);}
  async function open(){if(starting)return;starting=true;modal.classList.add('show');active=true;hint('Carregando câmera…');
   try{await loadH5();
    document.getElementById('scanReader').innerHTML='';
-   h5=new Html5Qrcode('scanReader',{verbose:false});
-   const config={fps:20,qrbox:(w,hh)=>{const m=Math.min(w,hh),s=Math.max(180,Math.floor(m*0.8));return {width:s,height:s};},aspectRatio:1.3333,rememberLastUsedCamera:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true}};
+   h5=newReader();
+   const config={fps:20,qrbox:(w,hh)=>{if(O&&O.scanModes&&O.scanMode==='barcode')return {width:Math.floor(Math.min(w*0.9,480)),height:Math.floor(Math.min(hh*0.3,160))};const m=Math.min(w,hh),s=Math.max(180,Math.floor(m*0.8));return {width:s,height:s};},aspectRatio:1.3333,rememberLastUsedCamera:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true}};
    /* tenta abrir a câmera de forma SEGURA: uma config por vez, recriando a instância limpa entre
       as tentativas + pausa curta — evita o erro "already under transition" (colisão de start duplo). */
    var _tries=[{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},{facingMode:'environment'},{facingMode:'user'}];
@@ -5489,14 +5495,14 @@ window.cleanScanCode=function(v,kind){
      try{
        if(h5){try{await h5.stop();}catch(e){}try{await h5.clear();}catch(e){}}
        document.getElementById('scanReader').innerHTML='';
-       h5=new Html5Qrcode('scanReader',{verbose:false});
+       h5=newReader();
        await h5.start(_tries[_ti],config,function(txt){hit(txt);},function(){});
        _ok=true;
      }catch(_e){_err=_e;await new Promise(function(r){setTimeout(r,350);});}
    }
    if(!_ok)throw (_err||new Error('não abriu'));
    try{_tuneCam(h5);}catch(e){}
-   hint('Aponte para o QR do endereço (ou código da bobina)');
+   hint(O&&O.scanModes?(O.scanMode==='barcode'?'Aponte para o código de barras':'Aponte para o QR Code'):'Aponte para o QR ou código de barras');
   }catch(e){
    var nm=(e&&e.name)||'';var msg=(e&&e.message)||String(e||'');
     var isSecure=(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1');
@@ -5515,8 +5521,10 @@ window.cleanScanCode=function(v,kind){
  function fill(val){if(O.onResult){try{O.onResult(val);}catch(e){try{console.warn('scan onResult',e);}catch(_){}}return;}const el=document.getElementById(O.inputId);if(!el)return;el.value=val;el.dispatchEvent(new Event('input'));if(O.enter)el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));}
  function hit(val){val=(val||'').trim();if(!val||!active)return;var clean=(typeof window.cleanScanCode==='function')?window.cleanScanCode(val,O&&O.scanKind):val;const now=Date.now();if(O.continuous){if(clean===lastV&&now-lastT<1600)return;lastV=clean;lastT=now;beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);hint('Lido: '+clean);}else{beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);close();}}
  function close(){active=false;modal.classList.remove('show');lastV='';if(h5){const x=h5;h5=null;try{x.stop().then(()=>{try{x.clear();}catch(e){}}).catch(()=>{try{x.clear();}catch(e){}});}catch(e){}}}
+ async function changeScanMode(mode){if(!O||!O.scanModes||starting||O.scanMode===mode)return;starting=true;active=false;O.scanMode=mode;updateScanMode();hint('Trocando modo da câmera…');var old=h5;h5=null;if(old){try{await old.stop();}catch(e){}try{await old.clear();}catch(e){}}if(!modal.classList.contains('show')){starting=false;return;}starting=false;open();}
+ document.querySelectorAll('#scanModes [data-scanmode]').forEach(function(b){b.onclick=function(){changeScanMode(b.getAttribute('data-scanmode'));};});
  document.getElementById('scanX').onclick=close;
- window.scanInto=function(inputId,opts){O=Object.assign({inputId},opts||{});document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};
+ window.scanInto=function(inputId,opts){O=Object.assign({inputId},opts||{});O.scanMode=O.defaultMode==='barcode'?'barcode':'qr';updateScanMode();document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};
  window.addCam=function(inputId,opts){const el=document.getElementById(inputId);if(!el||el.type==='hidden'||el.dataset.cam)return;el.dataset.cam='1';const w=document.createElement('div');w.className='camfield';w.style.position='relative';w.style.width='100%';el.parentNode.insertBefore(w,el);w.appendChild(el);el.style.width='100%';el.style.boxSizing='border-box';el.style.paddingRight='54px';const b=document.createElement('button');b.type='button';b.className='cambtn';b.innerHTML=ICONS.cam;b.title='Escanear com câmera';b.onclick=()=>scanInto(inputId,opts||{});w.appendChild(b);try{scanLock(el);}catch(e){} };
  addCam('mBob',{enter:true,title:'Escanear bobina'});addCam('mLoc',{enter:true,title:'Escanear endereço',scanKind:'addr'});
  const _rrv=renderRecv;renderRecv=function(){_rrv();addCam('recvScan',{continuous:true,onResult:recvAdd,title:'Escanear bobinas'});};
@@ -5665,6 +5673,10 @@ async function reenviarDoc(key){
  if(!supa){toast('Sem conexão com a nuvem',false);return;}
  var locais=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===key;});
  toast('Conferindo documento na nuvem…');
+ if(ROMS[key]&&ROMS[key].supplierLabels&&locais.length){
+  locais.forEach(function(id){if(!BOB[id])regBobFromEtq(id,ETQ[id],true);});
+  try{await syncBobDelta(locais);}catch(e){toast('Não foi possível confirmar o catálogo de bobinas na nuvem. Tente ↥ novamente.',false);return;}
+ }
  try{if(NFS[key]&&typeof syncNota==='function')syncNota(NFS[key]);}catch(e){}
  try{if(ROMS[key]&&typeof syncRomaneio==='function')syncRomaneio(ROMS[key]);}catch(e){}
  /* o que a nuvem tem deste documento */

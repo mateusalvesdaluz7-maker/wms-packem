@@ -50,11 +50,12 @@ test('romaneio conserva número físico e separa código Packem convertido',()=>
 });
 
 function registerFixture(parsed){
-  const calls={prints:0,drawer:0,bob:[],toasts:[],synced:[]};
-  const ctx={window:{},ETQ:{},ROMS:{},romParsed:parsed,nfLocal:'PRE',session:{u:'admin'},
+  const calls={prints:0,drawer:0,bob:[],toasts:[],synced:[],catalog:[]};
+  const ctx={window:{},ETQ:{},ROMS:{},BOB:{},romParsed:parsed,nfLocal:'PRE',session:{u:'admin'},
     document:{getElementById:()=>null,querySelector:()=>null},norm,brNum,nowISO:()=> '2026-10-01T12:00:00Z',
     saveNF(){},logAct(){},renderNF(){},setTimeout(){},toast:s=>calls.toasts.push(s),
-    regBobFromEtq:(id,e)=>calls.bob.push([id,e.cProd]),
+    regBobFromEtq:(id,e,skipCloud)=>{calls.bob.push([id,e.cProd,skipCloud]);ctx.BOB[id]={pr:e.cProd,pl:e.kg};},
+    syncBobDelta:async ids=>{calls.catalog.push([...ids]);return ids.length;},
     syncEtiquetasLote:async ids=>{calls.synced.push([...ids]);return true;},syncRomaneio:async()=>true,
     openRomBipDrawer:()=>{calls.drawer++;},openRomLabelSheet:()=>{calls.prints++;}
   };
@@ -74,6 +75,8 @@ test('registrar romaneio usa o código de barras existente e abre a conferência
   assert.equal(ctx.ROMS[parsed.key].supplierSource['2600000001'].code,'11894');
   assert.equal(calls.drawer,1);assert.equal(calls.prints,0);assert.equal(calls.synced[0].length,2);
   assert.equal(calls.bob.length,2);
+  assert.equal(calls.bob[0][2],true);
+  assert.equal(calls.catalog[0].length,2);
 });
 
 test('bobina repetida ou sem conversão bloqueia o romaneio inteiro antes do envio',async()=>{
@@ -83,6 +86,21 @@ test('bobina repetida ou sem conversão bloqueia o romaneio inteiro antes do env
     assert.equal(Object.keys(ctx.ETQ).length,0);assert.equal(calls.synced.length,0);
     assert.equal(calls.prints,0);assert.ok(calls.toasts.length);
   }
+});
+
+test('catálogo conflitante bloqueia registro e falha da nuvem pede reenvio',async()=>{
+  const {parsed}=parseFixture();
+  const {ctx,calls}=registerFixture(parsed);
+  ctx.BOB['2600000001']={pr:'9999999999',pl:318.66};
+  await ctx.genRomLabels();
+  assert.equal(Object.keys(ctx.ETQ).length,0);
+  assert.equal(calls.synced.length,0);
+  delete ctx.BOB['2600000001'];
+  ctx.syncBobDelta=async()=>{throw new Error('offline');};
+  await ctx.genRomLabels();
+  assert.equal(Object.keys(ctx.ETQ).length,2);
+  assert.equal(calls.drawer,1);
+  assert.ok(calls.toasts.some(t=>t.includes('não foi confirmado')));
 });
 
 test('scanner extrai a bobina entre cifrões e localiza o código Packem da planilha',()=>{

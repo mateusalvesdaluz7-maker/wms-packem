@@ -5520,34 +5520,63 @@ window.cleanScanCode=function(v,kind){
 /* ===== LEITOR POR CÂMERA (html5-qrcode) ===== */
 (function(){
  ICONS.cam='<svg class="i" viewBox="0 0 24 24"><path d="M3 9a2 2 0 0 1 2-2h1.5L8 5h8l1.5 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.3"/></svg>';
- const css='.scan{position:fixed;inset:0;z-index:300;background:#000;display:none;flex-direction:column}.scan.show{display:flex}.scanhead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;color:#fff;font-family:var(--disp);font-weight:700;font-size:1.05rem}.scanhead button{background:rgba(255,255,255,.16);color:#fff;border:none;width:40px;height:40px;border-radius:11px;font-size:1.2rem}.scanModes{display:flex;gap:8px;padding:0 14px 10px;background:#000}.scanModes[hidden]{display:none}.scanModes button{flex:1;border:1px solid rgba(255,255,255,.35);border-radius:9px;background:#202020;color:#fff;padding:10px;font-weight:800}.scanModes button.on{background:var(--brand);border-color:var(--brand)}#scanReader{flex:1;width:100%;background:#000;overflow:hidden}#scanReader video{width:100%!important;height:100%!important;object-fit:cover}#scanReader img{display:none}.scanhint{color:#fff;text-align:center;padding:14px 16px;font-size:.92rem;opacity:.92;min-height:20px}.scanFb{position:absolute;left:12px;right:12px;top:70px;z-index:5;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;transform:translateY(-8px);transition:opacity .12s,transform .12s}.scanFb.show{opacity:1;transform:translateY(0)}.scanFb .fbcard{width:100%;max-width:520px;border-radius:16px;padding:16px 18px;text-align:center;font-family:var(--disp);font-weight:800;font-size:1.15rem;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;gap:10px}.scanFb.ok .fbcard{background:linear-gradient(135deg,#16a34a,#15803d)}.scanFb.err .fbcard{background:linear-gradient(135deg,#dc2626,#b91c1c);animation:fbshake .35s}.scanFb .fbico{font-size:1.5rem;line-height:1}@keyframes fbshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}.cambtn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:9px;background:var(--brand);color:#fff;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(234,90,12,.3);z-index:3}.cambtn .i{width:20px;height:20px}';
+ const css='.scan{position:fixed;inset:0;z-index:300;background:#000;display:none;flex-direction:column}.scan.show{display:flex}.scanhead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;color:#fff;font-family:var(--disp);font-weight:700;font-size:1.05rem}.scanhead button{background:rgba(255,255,255,.16);color:#fff;border:none;width:40px;height:40px;border-radius:11px;font-size:1.2rem}.scanModes{display:flex;gap:8px;padding:0 14px 10px;background:#000}.scanModes[hidden]{display:none}.scanModes button{flex:1;border:1px solid rgba(255,255,255,.35);border-radius:9px;background:#202020;color:#fff;padding:10px;font-weight:800}.scanModes button.on{background:var(--brand);border-color:var(--brand)}.scanTools{display:flex;align-items:center;justify-content:center;gap:12px;padding:8px 14px;background:#000;color:#fff}.scanTools[hidden],.scanTools [hidden]{display:none}.scanTools button{background:#252525;border:1px solid #777;border-radius:8px;color:#fff;padding:9px 12px;font-weight:700}.scanTools button.on{background:var(--brand);border-color:var(--brand)}.scanTools label{display:flex;align-items:center;gap:8px;font-size:.85rem}.scanTools input{width:115px;accent-color:var(--brand)}#scanReader{flex:1;width:100%;background:#000;overflow:hidden}#scanReader video{width:100%!important;height:100%!important;object-fit:cover}#scanReader img{display:none}.scanhint{color:#fff;text-align:center;padding:14px 16px;font-size:.92rem;opacity:.92;min-height:20px}.scanFb{position:absolute;left:12px;right:12px;top:70px;z-index:5;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;transform:translateY(-8px);transition:opacity .12s,transform .12s}.scanFb.show{opacity:1;transform:translateY(0)}.scanFb .fbcard{width:100%;max-width:520px;border-radius:16px;padding:16px 18px;text-align:center;font-family:var(--disp);font-weight:800;font-size:1.15rem;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;gap:10px}.scanFb.ok .fbcard{background:linear-gradient(135deg,#16a34a,#15803d)}.scanFb.err .fbcard{background:linear-gradient(135deg,#dc2626,#b91c1c);animation:fbshake .35s}.scanFb .fbico{font-size:1.5rem;line-height:1}@keyframes fbshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}.cambtn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:9px;background:var(--brand);color:#fff;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(234,90,12,.3);z-index:3}.cambtn .i{width:20px;height:20px}';
  const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
- const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX">Fechar ✕</button></div><div class="scanModes" id="scanModes" hidden><button type="button" data-scanmode="qr">QR Code</button><button type="button" data-scanmode="barcode">Código de barras</button></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
- let h5=null,O=null,lastV='',lastT=0,active=false,starting=false;
+ const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX">Fechar ✕</button></div><div class="scanModes" id="scanModes" hidden><button type="button" data-scanmode="qr">QR Code</button><button type="button" data-scanmode="barcode">Código de barras</button></div><div class="scanTools" id="scanTools" hidden><button type="button" id="scanTorch" hidden>Luz</button><label id="scanZoomWrap" hidden>Zoom <input type="range" id="scanZoom" min="1" max="3" step="0.1" value="1"></label></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
+ let h5=null,O=null,lastV='',lastT=0,active=false,starting=false,nativeTimer=null,nativeSeq=0,nativeBusy=false,torchOn=false;
  function hint(t){const h=document.getElementById('scanHint');if(h)h.textContent=t;}
- /* ajusta a câmera depois de aberta: foco contínuo pra ler QR nítido de perto e de longe */
+ function scanTrack(){var v=document.querySelector('#scanReader video');return v&&v.srcObject&&v.srcObject.getVideoTracks?v.srcObject.getVideoTracks()[0]:null;}
+ /* Ajusta a câmera quando o aparelho aceita foco contínuo e mais resolução. */
  function _tuneCam(inst){try{
-   var v=document.querySelector('#scanReader video');if(!v||!v.srcObject)return;
-   var track=v.srcObject.getVideoTracks&&v.srcObject.getVideoTracks()[0];if(!track||!track.getCapabilities)return;
+   var track=scanTrack();if(!track||!track.getCapabilities)return;
    var cap=track.getCapabilities();var adv=[];
    if(cap.focusMode&&cap.focusMode.indexOf('continuous')>=0)adv.push({focusMode:'continuous'});
-   if(cap.width&&cap.width.max>=1280)adv.push({width:Math.min(1280,cap.width.max)});
+   var target=O&&O.scanModes&&O.scanMode==='barcode'?1920:1280;
+   if(cap.width&&cap.width.max>=target)adv.push({width:target});
    if(adv.length)track.applyConstraints({advanced:adv}).catch(function(){});
  }catch(e){}}
+ function setupScanTools(){
+  var track=scanTrack(),cap=track&&track.getCapabilities?track.getCapabilities():{},box=document.getElementById('scanTools'),torch=document.getElementById('scanTorch'),zoomWrap=document.getElementById('scanZoomWrap'),zoom=document.getElementById('scanZoom');
+  torchOn=false;torch.classList.remove('on');torch.textContent='Ligar luz';
+  torch.hidden=!cap.torch;zoomWrap.hidden=!(cap.zoom&&cap.zoom.max>cap.zoom.min);box.hidden=torch.hidden&&zoomWrap.hidden;
+  if(!zoomWrap.hidden){zoom.min=cap.zoom.min;zoom.max=cap.zoom.max;zoom.step=cap.zoom.step||0.1;var settings=track.getSettings?track.getSettings():{};zoom.value=settings.zoom||cap.zoom.min;}
+ }
+ function stopNativeBarcode(){nativeSeq++;if(nativeTimer){clearInterval(nativeTimer);nativeTimer=null;}nativeBusy=false;}
+ async function startNativeBarcode(){
+  stopNativeBarcode();if(!window.BarcodeDetector||!O||!O.scanModes||O.scanMode!=='barcode')return;
+  var seq=nativeSeq,formats;
+  try{formats=await window.BarcodeDetector.getSupportedFormats();}catch(e){return;}
+  if(seq!==nativeSeq||!active)return;
+  formats=['code_128','code_39','code_93','itf','codabar','ean_13','ean_8','upc_a','upc_e'].filter(function(f){return formats.indexOf(f)>=0;});
+  if(!formats.length)return;
+  var detector;try{detector=new window.BarcodeDetector({formats:formats});}catch(e){return;}
+  nativeTimer=setInterval(async function(){
+   if(seq!==nativeSeq||!active||nativeBusy)return;
+   var video=document.querySelector('#scanReader video');if(!video||video.readyState<2)return;
+   nativeBusy=true;
+   try{var found=await detector.detect(video);if(seq===nativeSeq&&active)found.forEach(function(code){if(code.rawValue)hit(code.rawValue);});}catch(e){}finally{nativeBusy=false;}
+  },250);
+ }
+ document.getElementById('scanTorch').onclick=async function(){var track=scanTrack();if(!track)return;try{await track.applyConstraints({advanced:[{torch:!torchOn}]});torchOn=!torchOn;this.classList.toggle('on',torchOn);this.textContent=torchOn?'Desligar luz':'Ligar luz';}catch(e){hint('A luz não está disponível nesta câmera.');}};
+ document.getElementById('scanZoom').oninput=function(){var track=scanTrack();if(track)track.applyConstraints({advanced:[{zoom:Number(this.value)}]}).catch(function(){});};
  function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.type='square';o.frequency.setValueAtTime(920,a.currentTime);o.frequency.setValueAtTime(1180,a.currentTime+0.06);g.gain.setValueAtTime(0.0001,a.currentTime);g.gain.exponentialRampToValueAtTime(0.35,a.currentTime+0.012);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+0.17);o.start();setTimeout(()=>{try{o.stop();a.close();}catch(e){}},190);}catch(e){}}
- function loadH5(){return window.Html5Qrcode?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';s.onload=res;s.onerror=()=>rej(new Error('cdn'));document.head.appendChild(s);});}
+ function loadH5(){if(window.Html5Qrcode)return Promise.resolve();return new Promise(function(res,rej){var urls=['https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js','https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js'],i=0;function next(){if(i>=urls.length){rej(new Error('biblioteca da câmera indisponível'));return;}var s=document.createElement('script');s.src=urls[i++];s.onload=function(){if(window.Html5Qrcode)res();else{s.remove();next();}};s.onerror=function(){s.remove();next();};document.head.appendChild(s);}next();});}
  function updateScanMode(){var box=document.getElementById('scanModes');if(!box)return;box.hidden=!(O&&O.scanModes);box.querySelectorAll('[data-scanmode]').forEach(function(b){b.classList.toggle('on',!!O&&O.scanMode===b.getAttribute('data-scanmode'));});}
  function newReader(){var opts={verbose:false},f=window.Html5QrcodeSupportedFormats;if(O&&O.scanModes&&f){opts.formatsToSupport=O.scanMode==='barcode'?[f.CODE_128,f.CODE_39,f.CODE_93,f.ITF,f.CODABAR,f.EAN_13,f.EAN_8,f.UPC_A,f.UPC_E].filter(Boolean):[f.QR_CODE];}return new Html5Qrcode('scanReader',opts);}
  async function open(){if(starting)return;starting=true;modal.classList.add('show');active=true;hint('Carregando câmera…');
   try{await loadH5();
+   if(!modal.classList.contains('show')){starting=false;return;}
    document.getElementById('scanReader').innerHTML='';
-   h5=newReader();
-   const config={fps:20,qrbox:(w,hh)=>{if(O&&O.scanModes&&O.scanMode==='barcode')return {width:Math.floor(Math.min(w*0.9,480)),height:Math.floor(Math.min(hh*0.3,160))};const m=Math.min(w,hh),s=Math.max(180,Math.floor(m*0.8));return {width:s,height:s};},aspectRatio:1.3333,rememberLastUsedCamera:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true}};
+   var barcode=!!(O&&O.scanModes&&O.scanMode==='barcode');
+   const config={fps:barcode?15:20,aspectRatio:barcode?1.7778:1.3333,rememberLastUsedCamera:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true}};
+   /* Barra comprida: analisa o quadro inteiro. A faixa antiga cortava o código. */
+   if(!barcode)config.qrbox=(w,hh)=>{const m=Math.min(w,hh),s=Math.max(180,Math.floor(m*0.8));return {width:s,height:s};};
    /* tenta abrir a câmera de forma SEGURA: uma config por vez, recriando a instância limpa entre
       as tentativas + pausa curta — evita o erro "already under transition" (colisão de start duplo). */
-   var _tries=[{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},{facingMode:'environment'},{facingMode:'user'}];
+   var _tries=barcode?[{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},{facingMode:'environment'},{facingMode:'user'}]:[{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},{facingMode:'environment'},{facingMode:'user'}];
    var _ok=false,_err=null;
    for(var _ti=0;_ti<_tries.length&&!_ok;_ti++){
+     if(!modal.classList.contains('show')){starting=false;return;}
      try{
        if(h5){try{await h5.stop();}catch(e){}try{await h5.clear();}catch(e){}}
        document.getElementById('scanReader').innerHTML='';
@@ -5557,8 +5586,11 @@ window.cleanScanCode=function(v,kind){
      }catch(_e){_err=_e;await new Promise(function(r){setTimeout(r,350);});}
    }
    if(!_ok)throw (_err||new Error('não abriu'));
+   if(!modal.classList.contains('show')){try{await h5.stop();await h5.clear();}catch(e){}h5=null;starting=false;return;}
    try{_tuneCam(h5);}catch(e){}
-   hint(O&&O.scanModes?(O.scanMode==='barcode'?'Aponte para o código de barras':'Aponte para o QR Code'):'Aponte para o QR ou código de barras');
+   try{setupScanTools();}catch(e){}
+   if(barcode)startNativeBarcode();
+   hint(O&&O.scanModes?(barcode?'Mostre o código inteiro, com boa luz. Para códigos longos, vire o celular na horizontal.':'Aponte para o QR Code'):'Aponte para o QR ou código de barras');
   }catch(e){
    var nm=(e&&e.name)||'';var msg=(e&&e.message)||String(e||'');
     var isSecure=(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1');
@@ -5575,9 +5607,9 @@ window.cleanScanCode=function(v,kind){
   }
   starting=false;}
  function fill(val){if(O.onResult){try{O.onResult(val);}catch(e){try{console.warn('scan onResult',e);}catch(_){}}return;}const el=document.getElementById(O.inputId);if(!el)return;el.value=val;el.dispatchEvent(new Event('input'));if(O.enter)el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));}
- function hit(val){val=(val||'').trim();if(!val||!active)return;var clean=(typeof window.cleanScanCode==='function')?window.cleanScanCode(val,O&&O.scanKind):val;const now=Date.now();if(O.continuous){if(clean===lastV&&now-lastT<1600)return;lastV=clean;lastT=now;beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);hint('Lido: '+clean);}else{beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);close();}}
- function close(){active=false;modal.classList.remove('show');lastV='';if(h5){const x=h5;h5=null;try{x.stop().then(()=>{try{x.clear();}catch(e){}}).catch(()=>{try{x.clear();}catch(e){}});}catch(e){}}}
- async function changeScanMode(mode){if(!O||!O.scanModes||starting||O.scanMode===mode)return;starting=true;active=false;O.scanMode=mode;updateScanMode();hint('Trocando modo da câmera…');var old=h5;h5=null;if(old){try{await old.stop();}catch(e){}try{await old.clear();}catch(e){}}if(!modal.classList.contains('show')){starting=false;return;}starting=false;open();}
+ function hit(val){val=(val||'').trim();if(!val||!active)return;var clean=(typeof window.cleanScanCode==='function')?window.cleanScanCode(val,O&&O.scanKind):val;var resolved=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(clean):null;var key=resolved&&resolved.id||clean;const now=Date.now();if(O.continuous){if(key===lastV&&now-lastT<4000)return;lastV=key;lastT=now;beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);hint('Código capturado: '+key);}else{beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);close();}}
+ function close(){active=false;stopNativeBarcode();modal.classList.remove('show');document.getElementById('scanTools').hidden=true;lastV='';if(h5){const x=h5;h5=null;try{x.stop().then(()=>{try{x.clear();}catch(e){}}).catch(()=>{try{x.clear();}catch(e){}});}catch(e){}}}
+ async function changeScanMode(mode){if(!O||!O.scanModes||starting||O.scanMode===mode)return;starting=true;active=false;stopNativeBarcode();O.scanMode=mode;updateScanMode();document.getElementById('scanTools').hidden=true;hint('Trocando modo da câmera…');var old=h5;h5=null;if(old){try{await old.stop();}catch(e){}try{await old.clear();}catch(e){}}if(!modal.classList.contains('show')){starting=false;return;}starting=false;open();}
  document.querySelectorAll('#scanModes [data-scanmode]').forEach(function(b){b.onclick=function(){changeScanMode(b.getAttribute('data-scanmode'));};});
  document.getElementById('scanX').onclick=close;
  window.scanInto=function(inputId,opts){O=Object.assign({inputId},opts||{});O.scanMode=O.defaultMode==='barcode'?'barcode':'qr';updateScanMode();document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};

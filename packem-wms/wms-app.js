@@ -1265,8 +1265,8 @@ function pareto(arr){if(!arr.length)return '<p style="color:var(--muted)">Sem da
 const C39={'0':'nnnwwnwnn','1':'wnnwnnnnw','2':'nnwwnnnnw','3':'wnwwnnnnn','4':'nnnwwnnnw','5':'wnnwwnnnn','6':'nnwwwnnnn','7':'nnnwnnwnw','8':'wnnwnnwnn','9':'nnwwnnwnn','A':'wnnnnwnnw','B':'nnwnnwnnw','C':'wnwnnwnnn','D':'nnnnwwnnw','E':'wnnnwwnnn','F':'nnwnwwnnn','G':'nnnnnwwnw','H':'wnnnnwwnn','I':'nnwnnwwnn','J':'nnnnwwwnn','K':'wnnnnnnww','L':'nnwnnnnww','M':'wnwnnnnwn','N':'nnnnwnnww','O':'wnnnwnnwn','P':'nnwnwnnwn','Q':'nnnnnnwww','R':'wnnnnnwwn','S':'nnwnnnwwn','T':'nnnnwnwwn','U':'wwnnnnnnw','V':'nwwnnnnnw','W':'wwwnnnnnn','X':'nwnnwnnnw','Y':'wwnnwnnnn','Z':'nwwnwnnnn','-':'nwnnnnwnw','.':'wwnnnnwnn',' ':'nwwnnnwnn','*':'nwnnwnwnn','$':'nwnwnwnnn','/':'nwnwnnnwn','+':'nwnnnwnwn','%':'nnnwnwnwn'};
 function bc39(text){text='*'+text.toUpperCase().replace(/[^0-9A-Z\-. $\/+%]/g,'')+'*';const N=1,W=3,H=50;let x=0,r='';for(const ch of text){const p=C39[ch];if(!p)continue;for(let i=0;i<9;i++){const w=p[i]==='w'?W:N;if(i%2===0)r+=`<rect x="${x}" y="0" width="${w}" height="${H}" fill="#000"/>`;x+=w;}x+=N;}return `<svg class="bc" viewBox="0 0 ${x} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${r}</svg>`;}
 function labelHTML(c,desc,w,bcText){return `<div class="label"><div class="lt">PACKEM · ${whLabel(w).toUpperCase()}</div><div class="lc2">${c}</div>${bc39(bcText||c)}${desc?'<div class="ld">'+desc+'</div>':''}</div>`;}
-$$('#lblTabs button').forEach(b=>b.onclick=()=>{lblTab=b.dataset.t;$$('#lblTabs button').forEach(x=>x.classList.toggle('on',x.dataset.t===lblTab));$('#lblEnd').style.display=lblTab==='end'?'':'none';$('#lblBob').style.display=lblTab==='bob'?'':'none';var _lr=$('#lblRast');if(_lr)_lr.style.display=lblTab==='rast'?'':'none';$('#labelsBox').innerHTML='';$('#printLabels').style.display='none';});
-function renderLabels(){const streets=[...new Set(S.filter(x=>x.w===cfg.warehouse).map(x=>x.s))].sort();$('#lblStreet').innerHTML=streets.map(s=>`<option value="${s}">Rua ${s}</option>`).join('');var _lb=$('#labelsBox');var _temEtq=false;try{_temEtq=_lb&&(_lb.querySelector('.label,.zpv,canvas,svg')||((_lb.textContent||'').trim().length>0&&!/gerando QR/.test(_lb.textContent||'')));}catch(e){}if(!_temEtq){if(_lb)_lb.innerHTML='';var _pl=$('#printLabels');if(_pl)_pl.style.display='none';}}
+$$('#lblTabs button').forEach(b=>b.onclick=()=>{lblTab=b.dataset.t;$$('#lblTabs button').forEach(x=>x.classList.toggle('on',x.dataset.t===lblTab));$('#lblEnd').style.display=lblTab==='end'?'':'none';$('#lblBob').style.display=lblTab==='bob'?'':'none';var _lr=$('#lblRast');if(_lr)_lr.style.display=lblTab==='rast'?'':'none';var _rm=$('#lblRom');if(_rm)_rm.style.display=lblTab==='rom'?'':'none';var _main=$('#lblMainPanel');if(_main)_main.style.display=lblTab==='rom'?'none':'';if(lblTab==='rom'&&typeof window.renderSupplierRomTab==='function')window.renderSupplierRomTab();$('#labelsBox').innerHTML='';$('#printLabels').style.display='none';});
+function renderLabels(){const streets=[...new Set(S.filter(x=>x.w===cfg.warehouse).map(x=>x.s))].sort();$('#lblStreet').innerHTML=streets.map(s=>`<option value="${s}">Rua ${s}</option>`).join('');if(lblTab==='rom'&&typeof window.renderSupplierRomTab==='function')window.renderSupplierRomTab();var _lb=$('#labelsBox');var _temEtq=false;try{_temEtq=_lb&&(_lb.querySelector('.label,.zpv,canvas,svg')||((_lb.textContent||'').trim().length>0&&!/gerando QR/.test(_lb.textContent||'')));}catch(e){}if(!_temEtq){if(_lb)_lb.innerHTML='';var _pl=$('#printLabels');if(_pl)_pl.style.display='none';}}
 $('#genEnd').onclick=()=>{const st=$('#lblStreet').value,scope=$('#lblScope').value;let rows=S.filter(x=>x.w===cfg.warehouse&&x.s===st);if(scope==='ocupados')rows=rows.filter(x=>x.o&&x.pr);rows.sort((a,b)=>a.p-b.p||a.l.localeCompare(b.l));if(!rows.length){toast('Nada para gerar',false);return;}$('#labelsBox').innerHTML=rows.slice(0,300).map(x=>labelHTML(code(x),x.pr||'',cfg.warehouse)).join('');$('#printLabels').style.display='inline-flex';toast(rows.length+' etiquetas');};
 $('#genBob').onclick=()=>{const pr=norm($('#bobProd').value),pe=Number($('#bobPeso').value),cp=Math.max(1,Number($('#bobCopies').value)||1),d=$('#bobDesc').value.trim();if(!pr||!pe){toast('Informe produto e peso',false);return;}let h='';for(let i=0;i<cp;i++)h+=`<div class="label"><div class="lt">PACKEM · BOBINA</div><div class="lc2">${pr}</div>${bc39(pr+'$'+pe)}<div class="ld">${fmt(pe)} KG${d?' · '+d:''}</div></div>`;$('#labelsBox').innerHTML=h;$('#printLabels').style.display='inline-flex';toast(cp+' etiqueta(s)');};
 $('#genBobStock').onclick=()=>{const sel=$('#lblStreet').value;let rows=occSpaces().filter(x=>x.s===sel);if(!rows.length)rows=occSpaces();if(!rows.length){toast('Sem estoque',false);return;}$('#labelsBox').innerHTML=rows.slice(0,300).map(x=>`<div class="label"><div class="lt">PACKEM · BOBINA</div><div class="lc2">${x.pr}</div>${bc39(x.pr+'$'+x.q)}<div class="ld">${fmt(x.q)} KG · ${code(x)}</div></div>`).join('');$('#printLabels').style.display='inline-flex';toast(rows.length+' etiquetas');};
@@ -1835,7 +1835,7 @@ function regBobFromEtq(id,e){try{
 function saveLOC(){try{localStorage.setItem('wmsx_loc',JSON.stringify(LOC));}catch(e){}}
 function brNum(v){if(typeof v==='number')return v;if(v==null)return 0;let s=String(v).trim().replace(/[^\d.,-]/g,'');if(!s)return 0;const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.');if(lc>-1&&ld>-1){if(lc>ld)s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'');}else if(lc>-1){s=s.replace(/,/g,'.');}return parseFloat(s)||0;}
 
-parseBobina=function(v){if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);v=norm(v);if(BOB[v]){/* O saldo restante pode ficar em zero depois de uma SAIDA completa, mas o peso
+parseBobina=function(v){var _fornecedor=(typeof window.resolveRomSupplierScan==='function')?window.resolveRomSupplierScan(v):null;if(_fornecedor&&_fornecedor.ambiguous)return{et:'',pr:'',desc:'',peso:null,pl:null,rem:null};if(_fornecedor&&_fornecedor.id)v=_fornecedor.id;else if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);v=norm(v);if(BOB[v]){/* O saldo restante pode ficar em zero depois de uma SAIDA completa, mas o peso
    original da etiqueta precisa continuar disponivel para uma transferencia/reentrada. */const saldo=(BOB[v].rem!=null?Number(BOB[v].rem):null),original=Number(BOB[v].pl)||0,rem=(saldo!=null?saldo:original),peso=(saldo>0?saldo:original);return{et:v,pr:BOB[v].pr,desc:BOB[v].desc||'',peso:peso,pl:BOB[v].pl,rem:rem};}
   /* etiqueta rastreável (QR guarda o ID): resolve pelo cadastro da NF/romaneio → puxa o PRODUTO real, nunca o id */
   if(typeof window.etqLookup==='function'){var _le=window.etqLookup(v);if(_le){return{et:v,pr:_le.pr||'',desc:_le.desc||'',peso:_le.pl,pl:_le.pl,rem:_le.pl};}}
@@ -2068,7 +2068,7 @@ function placeBobina(et,pr,pl,c){pl=Number(pl);if(!Number.isFinite(pl)||pl<=0){t
     }catch(e){}
   }
  return true;}
-async function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){try{b=await bobFetch(et);}catch(e){toast('Não foi possível consultar a etiqueta '+et+' na nuvem. Verifique a conexão e tente novamente.',false);return;}}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
+async function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}var fornecedor=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(v):null;if(fornecedor&&fornecedor.ambiguous){toast('Código corresponde a mais de uma bobina.',false);return;}if(fornecedor&&fornecedor.supplier){if(typeof window.nfRecvBip==='function')return window.nfRecvBip(v);toast('Conferência do romaneio indisponível. Tente novamente.',false);return;}if(fornecedor&&fornecedor.id)v=fornecedor.id;else if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){try{b=await bobFetch(et);}catch(e){toast('Não foi possível consultar a etiqueta '+et+' na nuvem. Verifique a conexão e tente novamente.',false);return;}}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
   var _it={et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u};
   var _ja=STAGE.find(function(s){return norm(s.et)===et;});
   if(_ja){toast('Etiqueta '+et+' já está no Recebimento',false);renderRecv();return true;}
@@ -2911,6 +2911,27 @@ updateStageBadge();
 
   /* ---- estado / persistência ---- */
   var NFS={}, ETQ={}, ROMS={}, nfParsed=null, romParsed=null, rastMode='entrada';
+  /* O código de barras do fornecedor traz a bobina entre cifrões, por exemplo
+     $2600267407$. Ela é a chave para recuperar o código Packem do romaneio. */
+  function resolveRomSupplierScan(raw){
+    var value=String(raw==null?'':raw).trim().toUpperCase();
+    var direct=norm(value);
+    if(ETQ[direct]){
+      var directLabel=ETQ[direct],directDoc=ROMS[directLabel.nf];
+      return {id:direct,supplier:!!((directDoc&&directDoc.supplierLabels)||(!directDoc&&directLabel.nRomaneio&&directLabel.bobina===direct&&/^\d{8,20}$/.test(direct)))};
+    }
+    var numeric=value.replace(/\D/g,'');
+    if(!numeric)return null;
+    var marked=value.split('$').filter(function(part){return /^\d{8,20}$/.test(part);});
+    var matches=Object.keys(ETQ).filter(function(id){
+      var e=ETQ[id],doc=e&&ROMS[e.nf];
+      return e.nRomaneio&&(!doc||doc.supplierLabels)&&/^\d{8,20}$/.test(id)&&e.bobina===id&&(marked.length?marked.indexOf(id)>=0:numeric.indexOf(id)>=0);
+    });
+    if(matches.length>1)return {ambiguous:true};
+    if(!matches.length)return null;
+    return {id:matches[0],supplier:true};
+  }
+  window.resolveRomSupplierScan=resolveRomSupplierScan;
   /* O depósito precisa ser escolhido conscientemente ao entrar na aba.
      Não assume PRE automaticamente, pois PRE e TÊXTIL são estoques diferentes. */
   var nfLocal='';
@@ -2935,6 +2956,9 @@ updateStageBadge();
      Casa pela DESCRIÇÃO que vem na nota (ex: "167 X 91" → 0303410058 · ALCA PET...).
      Casamento exato (ignora acento, caixa e espaços repetidos). Ambíguos NÃO convertem e avisam. */
   var CONV_MAP={"167 X 91":{"cod":"0303410058","desc":"ALCA PET 1000 KGF 70MM CRISTAL"},"66 X 65":{"cod":"0303480154","desc":"TEC.TUBULAR PP LAM.54G+12GX65CM BR EXT.02"},"137 X 97":{"cod":"0303550015","desc":"TEC.PLANO PP 140G X 97CM - EXT-02"},"66 X 97":{"cod":"0303480152","desc":"TEC. PLANO PP LAM. 54+12G 97CM BRANCO EXT-02"},"155 X 360":{"cod":"0303450156","desc":"TEC.TUBULAR PP 156G 360CM BRANCO EXT 02"},"66 X 45":{"cod":"0303480153","desc":"TEC.TUBULAR PP LAM.54+12G X 45CM BRANCO"},"137 X 105":{"cod":"0303490013","desc":"TEC.PLANO PP 140G 105CM BRANCO"},"155 X 396":{"cod":"0303450157","desc":"TEC.TUBULAR PP 156G 396CM BRANCO EXT-02"},"66 X 55":{"cod":"0303480107","desc":"TEC.TUBULAR PP LAM. 54+12G 55CM BRANCO EXT-01"},"167 X 198":{"cod":"0303450137","desc":"TEC.TUBULAR PET 165G X 392CM CRISTAL R.ALCA"},"97 X 62":{"cod":"0303480151","desc":"TEC.TUB LAM. PET 70+30G 62CM CRISTAL COMPRADO-02"},"167 X 178":{"cod":"0303450132","desc":"TECIDO TUBULAR PET 165GX356CM CRISTAL"},"167 X 100":{"cod":"0303470059","desc":"TEC.PLANO PET 160G 100CM CRISTAL"},"87 X 65":{"cod":"0303480148","desc":"TEC.TUBULAR LAM. PET 70+30G 65CM CRISTAL- INTERNO"},"167 X 97":{"cod":"0303470108","desc":"TEC.PLANO PET 160G 97M CRISTAL"},"177 X 178":{"cod":"0303450132","desc":"TECIDO TUBULAR PET 165GX356CM CRISTAL"},"87 X 103":{"cod":"0303480078","desc":"TEC.PLANO LAM. PET 70+20G 105CM CRISTAL"},"167 X 107":{"cod":"0303470074","desc":"TEC.PLANO PET 160G 105CM CRISTAL"},"54 X 97":{"cod":"0303490095","desc":"TEC.PLANO PP 54G 97CM BRANCO EXT-02"},"54 X 45":{"cod":"0303490098","desc":"TEC.TUBULAR PP 54G 45CM BRANCO EXT-02"},"54 X 55":{"cod":"0303490094","desc":"TEC.TUBULAR PP 54G 55CM BRANCO EXT-02"},"54 X 65":{"cod":"0303490099","desc":"TEC.TUBULAR PP 54G 65CM BRANCO EXT-03"},"POLIPROPILENO":{"cod":"101120035","desc":"POLIPROPILENO PG 480 BR25 - BF"},"POLIPROPILENO H-503 HS":{"cod":"101110007","desc":"POLIPROPILENO HOMOPOLIMERO BRASKEM H503HS-AF"},"POLIETILENO BAIXA DENSIDADE IPHETENE 670":{"cod":"101110033","desc":"POLIETILENO BAIXA DENSIDADE IPHETENE 670"},"POLOPROPILENO COPOLIMERO 2500 E":{"cod":"101000013","desc":"POLIPROPILENO COPOLIMERO 2500 E PETROCUYO"},"PEDB FILME IND - IPETHENE100":{"cod":"101110011","desc":"POLIETILENO BAIXA DENSIDADE IPHETENE 100"},"PEBD COATING 7019EC":{"cod":"101110063","desc":"POLIETILENO BAIXA DENSIDADE COATING - 7019EC"},"POLIPROPILENO RP 144":{"cod":"101110016","desc":"POLIPROPILENO COPOLIMERO BRASKEM PP RP144"},"POLOPROPILENO H107":{"cod":"101110012","desc":"POLIPROPILENO HOMOPOLIMERO BRASKEM H107-AF"},"POLIPROPILENO H 103":{"cod":"101110021","desc":"POLIPROPILENO HOMOPOLIMERO BRASKEM H103-AF"},"MLLDPE 7118A":{"cod":"101210004","desc":""},"METALOCENO 7115A":{"cod":"101120037","desc":"METALOCENO 7115A"},"POLIETILENO BC 818":{"cod":"101110010","desc":"POLIETILENO BAIXA DENSIDADE BRASKEM BC818"},"97 X 97":{"cod":"0303480171","desc":"TEC.TUBULAR LAM.PET 70G+20G 97CM CRISTAL - EXTERNO"},"167 X 180":{"cod":"0303450171","desc":"TECIDO TUBULAR PET 165GX356CM CRISTAL EXTERNO"},"167X180":{"cod":"0303450171","desc":"TECIDO TUBULAR PET 165GX356CM CRISTAL EXTERNO"},"97 X 65":{"cod":"0303480172","desc":"TEC.TUBULAR LAM.PET 70+30G 65CM CRISTAL EXTERNO"},"360 X 220":{"cod":"0303450130","desc":"TEC.TUBULAR PP 220G 360CM BRANCO EXT-01"},"360 X 190":{"cod":"0303450175","desc":"TEC. TUBULAR PP 190G X 360CM BRANCO EXT"},"97 X 45":{"cod":"0303480173","desc":"TEC.TUBULAR LAM.PET 70+30G 45CM CRISTAL EXTERNO"},"136 X 105":{"cod":"0303560001","desc":"TEC.PLANO 140G 105CM BRANCO EXTERNO"},"136 X 97":{"cod":"0303550015","desc":"TEC.PLANO PP 140G X 97CM - EXT-02"},"156 X 396":{"cod":"0303450157","desc":"TEC.TUBULAR PP 156G 396CM BRANCO EXT-02"}};
+  /* A planilha CODIGO NORTE E MP.xlsx atual também traz 156 x 360;
+     o valor 155 x 360 continua válido para os documentos antigos. */
+  CONV_MAP['156 X 360']={cod:'0303450156',desc:'TEC.TUBULAR PP 156G 360CM BRANCO EXT 02'};
   var CONV_AMB={"SUCATA PET":["103580008 - PET FLAKE AZUL","103580003 - PET FLAKE CRISTAL"]};
   var CONV_BY_COD={};
   function convRebuildIndex(){CONV_BY_COD={};try{
@@ -3143,7 +3167,7 @@ updateStageBadge();
          ou com o foco num campo de texto — senão perde o que está digitando */
       var _edt=(typeof nfParsed!=='undefined'&&nfParsed)||(typeof romParsed!=='undefined'&&romParsed);
       var _af=document.activeElement; var _foco=_af&&(_af.tagName==='INPUT'||_af.tagName==='SELECT'||_af.tagName==='TEXTAREA');
-      var act=document.querySelector('.view.active');if(act&&act.id==='v-nf'&&!_edt&&!_foco&&typeof renderNF==='function')renderNF();
+      var act=document.querySelector('.view.active');if(act&&(act.id==='v-nf'||act.id==='v-labels'&&lblTab==='rom')&&!_edt&&!_foco&&typeof renderNF==='function')renderNF();
       if(typeof updateStageBadge==='function')updateStageBadge();
     }catch(e){}
   };
@@ -3166,7 +3190,7 @@ updateStageBadge();
       saveNF();
       var _edt2=(typeof nfParsed!=='undefined'&&nfParsed)||(typeof romParsed!=='undefined'&&romParsed);
       var _af2=document.activeElement; var _foco2=_af2&&(_af2.tagName==='INPUT'||_af2.tagName==='SELECT'||_af2.tagName==='TEXTAREA');
-      var act2=document.querySelector('.view.active');if(act2&&act2.id==='v-nf'&&!_edt2&&!_foco2&&typeof renderNF==='function')renderNF();
+      var act2=document.querySelector('.view.active');if(act2&&(act2.id==='v-nf'||act2.id==='v-labels'&&lblTab==='rom')&&!_edt2&&!_foco2&&typeof renderNF==='function')renderNF();
       if(typeof updateStageBadge==='function')updateStageBadge();
     }catch(e){}
   };
@@ -3367,10 +3391,11 @@ updateStageBadge();
       cols.forEach(function(c0){
         var nextC0=cols.filter(function(x){return x>c0;}).sort(function(a,b){return a-b;})[0];
         var endC=nextC0!=null?nextC0:headerRow.length;
-        var idx={bobina:-1,op:-1,lote:-1,gram:-1,pb:-1,pl:-1};
+        var idx={bobina:-1,codFornecedor:-1,op:-1,lote:-1,gram:-1,pb:-1,pl:-1};
         for(var cc=c0+1;cc<endC;cc++){
           var h=da(romCell(headerRow[cc]));
           if(idx.bobina<0&&h.indexOf('bobina')>-1)idx.bobina=cc;
+          else if(idx.codFornecedor<0&&h.indexOf('cod.')>-1&&h.indexOf('prod')>-1)idx.codFornecedor=cc;
           else if(idx.op<0&&h==='op')idx.op=cc;
           else if(idx.lote<0&&h.indexOf('lote')>-1)idx.lote=cc;
           else if(idx.gram<0&&h.indexOf('gramatura')>-1)idx.gram=cc;
@@ -3378,22 +3403,17 @@ updateStageBadge();
           else if(idx.pl<0&&(h.indexOf('liquido')>-1||h.indexOf('líquido')>-1))idx.pl=cc;
         }
         if(idx.bobina<0)idx.bobina=c0+1;
-        if(idx.op<0)idx.op=c0+2;
-        if(idx.lote<0)idx.lote=c0+3;
-        if(idx.gram<0)idx.gram=c0+4;
-        if(idx.pb<0)idx.pb=c0+5;
-        if(idx.pl<0)idx.pl=c0+6;
         for(var r2=hr+1;r2<rows.length;r2++){
           var row2=rows[r2]||[];
           var seqV=romCell(row2[c0]), bobinaV=romCell(row2[idx.bobina]);
           if(!bobinaV)continue;
           var _gram=romCell(row2[idx.gram]);
-          var _it={seq:seqV||String(items.length+1),bobina:bobinaV,op:romCell(row2[idx.op]),lote:romCell(row2[idx.lote]),gramatura:_gram,pesoBruto:brNum(row2[idx.pb]),pesoLiquido:brNum(row2[idx.pl])};
+          var _it={seq:seqV||String(items.length+1),bobina:bobinaV,codFornecedor:romCell(row2[idx.codFornecedor]),op:romCell(row2[idx.op]),lote:romCell(row2[idx.lote]),gramatura:_gram,pesoBruto:brNum(row2[idx.pb]),pesoLiquido:brNum(row2[idx.pl])};
           /* CONVERSÃO: casa a gramatura/descrição do romaneio na tabela.
-             Se casar: grava o CÓDIGO PACKEM direto no campo bobina (fica fixo, editável) + descrição Packem. */
+             Mantém a bobina física para bipagem e grava o código Packem à parte. */
           try{var cv=convLookup(_gram);
             if(cv&&cv.amb){if(!romConvAvisos.some(function(a){return a.nf===convNorm(_gram);}))romConvAvisos.push({nf:convNorm(_gram),opcoes:cv.opcoes});}
-            else if(cv){_it.cProd=cv.cod;_it.descPackem=cv.desc;_it._convertido=true;_it._nfDescOrig=_gram;_it._bobinaFisica=bobinaV;_it.bobina=cv.cod;}
+            else if(cv){_it.cProd=cv.cod;_it.descPackem=cv.desc;_it._convertido=true;_it._nfDescOrig=_gram;}
           }catch(e){}
           items.push(_it);
         }
@@ -3534,7 +3554,7 @@ updateStageBadge();
     var romaneios=_allRoms.filter(_nfMatchLocal);
     /* resumo p/ faixa do topo: totais de docs, etiquetas, abertos/fechados */
     var _rz={docs:0,etq:0,abertos:0,kgFalta:0};
-    try{[].concat(notas,romaneios).forEach(function(n){var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});if(!ids.length)return;_rz.docs++;_rz.etq+=ids.length;var ent=ids.filter(function(id){return ETQ[id].status==='entrada'||ETQ[id].status==='saida';}).length;var kgTot=ids.reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);var kgEnt=ids.filter(function(id){return ETQ[id].status==='entrada'||ETQ[id].status==='saida';}).reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);if(ent<ids.length){_rz.abertos++;_rz.kgFalta+=Math.max(0,kgTot-kgEnt);}});}catch(e){}
+    try{notas.forEach(function(n){var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});if(!ids.length)return;_rz.docs++;_rz.etq+=ids.length;var ent=ids.filter(function(id){return ETQ[id].status==='entrada'||ETQ[id].status==='saida';}).length;var kgTot=ids.reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);var kgEnt=ids.filter(function(id){return ETQ[id].status==='entrada'||ETQ[id].status==='saida';}).reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);if(ent<ids.length){_rz.abertos++;_rz.kgFalta+=Math.max(0,kgTot-kgEnt);}});}catch(e){}
     var preview='';
     if(nfParsed){
       var rows=nfParsed.items.map(function(it,idx){
@@ -3592,7 +3612,8 @@ updateStageBadge();
       var rrows=romParsed.items.map(function(it,idx){
         return '<tr>'
           +'<td style="padding:6px 4px;color:var(--faint);font-size:.72rem">'+esc(it.seq)+' <button class="gbtn" data-rmrow="'+idx+'" title="Remover esta linha" style="padding:1px 6px;font-size:.65rem;margin-left:4px">✕</button></td>'
-          +'<td style="padding:6px 4px;min-width:130px"><input class="input code" id="rb_'+idx+'" value="'+esc(it.bobina)+'" style="width:100%;font-weight:700'+(it._convertido?';color:#15803d':'')+'" title="'+(it._convertido?'código Packem (convertido de: '+esc(it._nfDescOrig||'')+' · bobina física: '+esc(it._bobinaFisica||'')+')':'número da bobina (id da etiqueta)')+'"></td>'
+          +'<td style="padding:6px 4px;min-width:130px"><input class="input code" id="rb_'+idx+'" value="'+esc(it.bobina)+'" style="width:100%;font-weight:700" title="Número físico na etiqueta do fornecedor">'+(it.codFornecedor?'<div style="font-size:.66rem;color:var(--muted)">Fornecedor: '+esc(it.codFornecedor)+'</div>':'')+'</td>'
+          +'<td style="padding:6px 4px;min-width:130px"><input class="input code" id="rc_'+idx+'" value="'+esc(it.cProd||'')+'" style="width:100%;font-weight:700'+(it.cProd?';color:#15803d':'')+'" placeholder="Código Packem" title="Código Packem da tabela de conversão"></td>'
           +'<td style="padding:6px 4px;min-width:80px"><input class="input" id="ro_'+idx+'" value="'+esc(it.op)+'" style="width:100%" title="OP"></td>'
           +'<td style="padding:6px 4px;min-width:90px"><input class="input" id="rl_'+idx+'" value="'+esc(it.lote)+'" style="width:100%" title="lote"></td>'
           +'<td style="padding:6px 4px;min-width:200px"><input class="input" id="rg_'+idx+'" value="'+esc(it._convertido&&it.descPackem?it.descPackem:it.gramatura)+'" style="width:100%;font-size:.8rem'+(it._convertido?';color:#15803d':'')+'" title="'+(it._convertido?'descrição Packem (convertida de: '+esc(it._nfDescOrig||'')+')':'gramatura / descrição do material')+'"></td>'
@@ -3611,7 +3632,7 @@ updateStageBadge();
         +'</div>';
       romPreview='<div class="panel" style="margin-top:16px">'
         +'<div class="ph"><span class="pdot"></span>Romaneio '+esc(romParsed.nRomaneio||'?')+'</div>'
-        +(rdup?'<div style="background:var(--out-bg,rgba(220,90,90,.12));color:var(--out);border-radius:8px;padding:8px 10px;font-size:.8rem;margin:6px 0">Este romaneio já foi importado e tem etiquetas geradas. Você pode reimprimir abaixo.</div>':'')
+        +(rdup?'<div style="background:var(--out-bg,rgba(220,90,90,.12));color:var(--out);border-radius:8px;padding:8px 10px;font-size:.8rem;margin:6px 0">Este romaneio já foi importado. Abra-o na lista para conferir as bobinas.</div>':'')
         +((romParsed.convAvisos&&romParsed.convAvisos.length)?('<div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:10px 12px;font-size:.78rem;margin:6px 0">⚠️ <b>Conversão manual necessária:</b> '+romParsed.convAvisos.length+' descrição(ões) casam com mais de um código. Corrija na mão antes de gerar:<ul style="margin:6px 0 0 16px;padding:0">'+romParsed.convAvisos.map(function(a){return '<li style="margin:2px 0"><b>"'+esc(a.nf)+'"</b> → '+a.opcoes.map(esc).join(' ou ')+'</li>';}).join('')+'</ul></div>'):'')
         +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
         +'<div class="fld" style="flex:1;min-width:140px;margin:0"><label class="lab">Nº Romaneio</label><input class="input" id="rmHdrNum" value="'+esc(romParsed.nRomaneio||'')+'"></div>'
@@ -3620,15 +3641,15 @@ updateStageBadge();
         +'<div class="fld" style="flex:1;min-width:160px;margin:0"><label class="lab">Cliente</label><input class="input" id="rmHdrCli" value="'+esc(romParsed.cliente||'')+'"></div>'
         +'</div>'
         +rresumo
-        +'<div style="background:rgba(234,90,12,.1);color:var(--brand);border-radius:8px;padding:8px 10px;font-size:.78rem;margin:6px 0 10px">✏️ <b>Tudo editável antes de gerar:</b> confira bobina, OP, lote, gramatura e pesos de cada linha. Cada linha vira <b>1 etiqueta</b>.</div>'
+        +'<div style="background:rgba(234,90,12,.1);color:var(--brand);border-radius:8px;padding:8px 10px;font-size:.78rem;margin:6px 0 10px">Confira o número físico da bobina, o código Packem convertido e os pesos. Depois registre o romaneio e bipe as etiquetas do fornecedor. Nenhuma etiqueta nova será impressa.</div>'
         +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.86rem">'
         +'<thead><tr style="text-align:left;color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.5px">'
-        +'<th style="padding:4px">Seq</th><th style="padding:4px">Bobina</th><th style="padding:4px">OP</th><th style="padding:4px">Lote</th><th style="padding:4px">Gramatura</th><th style="padding:4px;text-align:right">P.Bruto</th><th style="padding:4px;text-align:right">P.Líquido</th></tr></thead>'
+        +'<th style="padding:4px">Seq</th><th style="padding:4px">Bobina física</th><th style="padding:4px">Código Packem</th><th style="padding:4px">OP</th><th style="padding:4px">Lote</th><th style="padding:4px">Descrição</th><th style="padding:4px;text-align:right">P.Bruto</th><th style="padding:4px;text-align:right">P.Líquido</th></tr></thead>'
         +'<tbody>'+rrows+'</tbody></table></div>'
-        +'<div style="color:var(--faint);font-size:.72rem;margin-top:8px">A etiqueta Zebra traz: <b>número do romaneio</b>, <b>lote</b>, <b>gramatura</b> e <b>peso líquido</b> de cada bobina.</div>'
+        +'<div style="color:var(--faint);font-size:.72rem;margin-top:8px">A conferência compara a bobina física da planilha com o código de barras da etiqueta recebida.</div>'
         +'<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">'
-        +(rdup?'<button class="gbtn" id="romReprint" style="flex:1;justify-content:center">'+ICONS.tag+' Reimprimir etiquetas</button>'
-              :'<button class="gbtn" id="romGen" style="flex:1;justify-content:center">'+ICONS.tag+' Gerar etiquetas ('+totBob+')</button>')
+        +(rdup?'<span style="flex:1;color:var(--muted);align-self:center">Romaneio já registrado · bipe as etiquetas na lista abaixo</span>'
+              :'<button class="gbtn" id="romGen" style="flex:1;justify-content:center">Registrar romaneio ('+totBob+' bobinas)</button>')
         +'<button class="btn" id="romCancel">Cancelar</button>'
         +'</div></div>';
     }
@@ -3636,14 +3657,14 @@ updateStageBadge();
     var list='', romList='';
     window._nfDocFilter=window._nfDocFilter||'aberto';
     function nfDocSituacao(n){var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;}),ent=ids.filter(function(id){return ETQ[id].status==='entrada'||ETQ[id].status==='saida';}).length;if(ids.length&&ent>=ids.length)return 'finalizado';if(ent>0)return 'processo';return 'aberto';}
-    var _docsTodos=[].concat(notas,romaneios),_nfSitCount={aberto:0,processo:0,finalizado:0};_docsTodos.forEach(function(n){_nfSitCount[nfDocSituacao(n)]++;});
+    var _docsTodos=notas,_nfSitCount={aberto:0,processo:0,finalizado:0};_docsTodos.forEach(function(n){_nfSitCount[nfDocSituacao(n)]++;});
     function nfDocVisivel(n){return window._nfDocFilter==='todos'||nfDocSituacao(n)===window._nfDocFilter;}
     var _nfMaisNovo=function(a,b){return Date.parse(b.at||b.updated_at||0)-Date.parse(a.at||a.updated_at||0);};
-    var notasLista=notas.filter(nfDocVisivel).sort(_nfMaisNovo),romaneiosLista=romaneios.filter(nfDocVisivel).sort(_nfMaisNovo);
+    var notasLista=notas.filter(nfDocVisivel).sort(_nfMaisNovo),romaneiosLista=romaneios.slice().sort(_nfMaisNovo);
     var nfFilterBar='<div class="nfStatusFilters" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">'+[['aberto','Abertos',_nfSitCount.aberto],['processo','Em processo',_nfSitCount.processo],['finalizado','Finalizados',_nfSitCount.finalizado],['todos','Todos',_docsTodos.length]].map(function(x){var on=window._nfDocFilter===x[0];return '<button type="button" class="'+(on?'btn brand':'gbtn')+'" data-nf-status="'+x[0]+'" style="justify-content:center;min-width:130px">'+x[1]+' <b style="margin-left:6px">'+x[2]+'</b></button>';}).join('')+'</div>';
-    if(!notasLista.length&&!romaneiosLista.length)nfFilterBar+='<div class="panel" style="margin-top:10px;text-align:center;color:var(--muted);padding:24px">Nenhum documento nesta situação.</div>';
+    if(!notasLista.length)nfFilterBar+='<div class="panel" style="margin-top:10px;text-align:center;color:var(--muted);padding:24px">Nenhuma nota fiscal nesta situação.</div>';
     var scanPanel='';
-    if(notas.length||romaneios.length){
+    if(notas.length){
       scanPanel='<div class="panel nfScanPanel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Bipar recebimento</div>'
         +'<div style="color:var(--muted);font-size:.82rem;margin-bottom:12px">Bipe cada etiqueta conforme chega — a barra da nota enche e o item <b>cai no estoque intermediário</b>. Leitor/teclado (Enter) ou câmera.</div>'
         +'<div class="fld nfScanField"><input class="input code" id="nfRecvScan" autocomplete="off" placeholder="Bipe ou digite o código da etiqueta"></div>'
@@ -3703,7 +3724,7 @@ updateStageBadge();
               +'<div class="m">Bipado <b>'+fmt(kgEnt)+'</b> de '+fmt(kgTot)+' kg · '+ent+'/'+ids.length+' etiq'+(sai?' · saída '+sai:'')+' · '+rel(n.at)+'</div>'
             +'</div>'
             +'<div class="nfDocActs">'
-              +'<button class="btn" data-romprint="'+esc(n.key)+'" title="Reimprimir">'+ICONS.print+'</button>'
+              +(n.supplierLabels?'':'<button class="btn" data-romprint="'+esc(n.key)+'" title="Reimprimir">'+ICONS.print+'</button>')
               +'<button class="btn" data-resend="'+esc(n.key)+'" title="Reenviar p/ nuvem">↥</button>'
               +'<button class="btn" data-romdel="'+esc(n.key)+'" title="Excluir">'+ICO_DEL+'</button>'
             +'</div>'
@@ -3732,11 +3753,11 @@ updateStageBadge();
       +'</div>';
     /* progresso geral de bipagem (kg bipado / kg total dos docs abertos+fechados) */
     var _kgTotAll=0,_kgEntAll=0;
-    try{[].concat(notas,romaneios).forEach(function(n){var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});ids.forEach(function(id){var kg=Number(ETQ[id].kg)||0;_kgTotAll+=kg;if(ETQ[id].status==='entrada'||ETQ[id].status==='saida')_kgEntAll+=kg;});});}catch(e){}
+    try{notas.forEach(function(n){var ids=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===n.key;});ids.forEach(function(id){var kg=Number(ETQ[id].kg)||0;_kgTotAll+=kg;if(ETQ[id].status==='entrada'||ETQ[id].status==='saida')_kgEntAll+=kg;});});}catch(e){}
     var _pctAll=_kgTotAll>0?Math.min(100,Math.round(_kgEntAll/_kgTotAll*100)):0;
     var _hero='<div class="nfHero">'
       +'<div class="nfHeroTop">'
-        +'<div class="nfHeroTitle"><div class="k">Operação · Recebimento</div><h1>Nota Fiscal</h1><p>Importe notas e romaneios, bipe cada etiqueta na chegada e acompanhe o fechamento em tempo real.</p></div>'
+        +'<div class="nfHeroTitle"><div class="k">Operação · Recebimento</div><h1>Nota Fiscal</h1><p>Importe a nota fiscal, bipe as etiquetas na chegada e acompanhe o fechamento em tempo real.</p></div>'
         +'<div class="nfHeroStats">'
           +'<div class="nfHeroStat"><b>'+_rz.docs+'</b><span>Documentos</span></div>'
           +'<div class="nfHeroStat"><b>'+_rz.etq+'</b><span>Etiquetas</span></div>'
@@ -3760,11 +3781,6 @@ updateStageBadge();
       +'<input type="file" id="nfFile" accept=".xml,.pdf,text/xml,application/xml,application/pdf" style="display:none">'
       +'<div class="nfDrop" id="nfPick"><div class="nfDropTxt"><b>Selecionar XML ou PDF</b><span>clique ou arraste o arquivo aqui</span></div></div>'
       +'</div>'
-      +'<div class="panel nfImportCard"><div class="ph"><span class="pdot"></span>Romaneio (planilha .xlsx)</div>'
-      +'<div style="color:var(--muted);font-size:.82rem;margin-bottom:14px">Planilha de entrada/saída. Uma etiqueta é gerada para cada bobina do romaneio.</div>'
-      +'<input type="file" id="romFile" accept=".xlsx,.xls" style="display:none">'
-      +'<div class="nfDrop" id="romPick"><div class="nfDropTxt"><b>Selecionar planilha</b><span>clique ou arraste o arquivo .xlsx aqui</span></div></div>'
-      +'</div>'
       +('<div class="panel nfImportCard"><div class="ph"><span class="pdot"></span>Tabela de conversão de códigos</div>'
       +'<div style="color:var(--muted);font-size:.82rem;margin-bottom:14px">Importe o arquivo CODIGO NORTE E MP.xlsx. A nova tabela será usada nas próximas notas e romaneios e sincronizada com os outros aparelhos.</div>'
       +'<input type="file" id="convFile" accept=".xlsx,.xls" style="display:none">'
@@ -3774,13 +3790,34 @@ updateStageBadge();
       +'<div style="color:var(--muted);font-size:.82rem;margin-bottom:14px">Sem XML nem planilha? Digite o nº da NF e os itens. Ao pôr um código já cadastrado em Produtos, a descrição é preenchida sozinha.</div>'
       +'<div class="nfDrop" id="mnfPick"><div class="nfDropTxt"><b>Lançar NF manual</b><span>digitar itens, peso e nº de etiquetas</span></div></div>'
       +'</div>'
-      +'</div></div>'+preview+romPreview+scanPanel+nfFilterBar+list+romList;
+      +'</div></div>'+preview+scanPanel+nfFilterBar+list;
+
+    var romHost=document.getElementById('lblRom');
+    if(romHost){
+      romHost.innerHTML=_offWarn+syncWarn
+        +'<div class="nfHero"><div class="nfHeroTitle"><div class="k">Gestão de Etiquetas · Bobinas</div><h1>Romaneio do fornecedor</h1><p>Importe a planilha e bipe a etiqueta física. A bobina entre $ identifica o código Packem convertido.</p></div></div>'
+        +'<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Depósito de destino</div><div class="nfStatusFilters" id="romLocalSeg" style="display:flex;gap:8px;flex-wrap:wrap">'
+        +'<button type="button" class="'+(nfLocal==='PRE'?'btn brand':'gbtn')+'" data-romloc="PRE">PRE <b>'+_cPre+'</b></button>'
+        +'<button type="button" class="'+(nfLocal==='TEXTIL'?'btn brand':'gbtn')+'" data-romloc="TEXTIL">Têxtil <b>'+_cTex+'</b></button></div></div>'
+        +'<div class="panel nfImportCard" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Importar romaneio (.xlsx)</div>'
+        +'<p style="color:var(--muted);font-size:.82rem">Selecione a planilha com número físico, descrição e peso de cada bobina. Confira a conversão antes de registrar.</p>'
+        +'<input type="file" id="romFile" accept=".xlsx,.xls" style="display:none">'
+        +'<div class="nfDrop" id="romPick"><div class="nfDropTxt"><b>Selecionar planilha</b><span>clique ou arraste o arquivo .xlsx aqui</span></div></div></div>'
+        +'<div class="panel" style="margin-top:12px"><div class="ph"><span class="pdot"></span>Tabela de conversão Packem</div>'
+        +'<p style="color:var(--muted);font-size:.82rem">Se faltar um código convertido, atualize aqui a planilha CODIGO NORTE E MP.xlsx.</p>'
+        +'<input type="file" id="romConvFile" accept=".xlsx,.xls" style="display:none"><button type="button" class="gbtn" id="romConvPick">Atualizar tabela de conversão</button></div>'
+        +romPreview
+        +(romaneios.length?'<div class="panel nfScanPanel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Bipar etiqueta do fornecedor</div><div class="fld nfScanField"><input class="input code" id="romRecvScan" autocomplete="off" placeholder="Bipe o código de barras ou a bobina entre $"></div></div>':'')
+        +romList;
+    }
 
     var fileInp=document.getElementById('nfFile');
     document.querySelectorAll('[data-nf-status]').forEach(function(b){b.onclick=function(){window._nfDocFilter=b.dataset.nfStatus;renderNF();};});
     document.getElementById('nfPick').onclick=function(){fileInp.click();};
     var convFileInp=document.getElementById('convFile'),convPick=document.getElementById('convPick');
     if(convFileInp&&convPick){convPick.onclick=function(){convFileInp.click();};convFileInp.onchange=function(){var f=convFileInp.files&&convFileInp.files[0];if(!f)return;toast('Lendo tabela de conversão…');window.convImportFile(f).then(function(p){toast('Tabela atualizada · '+p.rows+' linha(s)');renderNF();},function(e){toast((e&&e.message)||'Não foi possível importar a tabela.',false);});convFileInp.value='';};}
+    var romConvFile=document.getElementById('romConvFile'),romConvPick=document.getElementById('romConvPick');
+    if(romConvFile&&romConvPick){romConvPick.onclick=function(){romConvFile.click();};romConvFile.onchange=function(){var f=romConvFile.files&&romConvFile.files[0];if(!f)return;toast('Lendo tabela de conversão…');window.convImportFile(f).then(function(p){toast('Tabela atualizada · '+p.rows+' linha(s)');renderNF();},function(e){toast((e&&e.message)||'Não foi possível importar a tabela.',false);});romConvFile.value='';};}
     var _mnfPick=document.getElementById('mnfPick'); if(_mnfPick)_mnfPick.onclick=function(){openManualNF();};
     fileInp.onchange=function(){var f=fileInp.files&&fileInp.files[0];if(!f)return;
       var nm=(f.name||'').toLowerCase(), isPdf=/\.pdf$/.test(nm)||f.type==='application/pdf';
@@ -3802,7 +3839,7 @@ updateStageBadge();
       }
     };
     var romFileInp=document.getElementById('romFile');
-    document.getElementById('romPick').onclick=function(){romFileInp.click();};
+    var romPick=document.getElementById('romPick');if(romPick&&romFileInp)romPick.onclick=function(){romFileInp.click();};
     /* arrastar-e-soltar profissional: solta o arquivo em cima do card e ele importa */
     (function(){
       function wire(dropId,inp){var d=document.getElementById(dropId);if(!d||!inp)return;
@@ -3814,7 +3851,7 @@ updateStageBadge();
       wire('romPick',romFileInp);
     })();
     var _retryBtn=document.getElementById('nfRetrySync');if(_retryBtn)_retryBtn.onclick=function(){if(typeof window.resyncTudoNF==='function')window.resyncTudoNF();setTimeout(function(){if(typeof renderNF==='function')renderNF();},4500);};
-    romFileInp.onchange=function(){var f=romFileInp.files&&romFileInp.files[0];if(!f)return;
+    if(romFileInp)romFileInp.onchange=function(){var f=romFileInp.files&&romFileInp.files[0];if(!f)return;
       toast('Lendo planilha do romaneio…');
       loadXLSX().then(function(){
         var r=new FileReader();
@@ -3844,17 +3881,18 @@ updateStageBadge();
     if(_seg)_seg.querySelectorAll('button').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();setNfLocal(b.getAttribute('data-loc'));renderNF();};});
     /* definir local de uma nota antiga (sem local) */
     el.querySelectorAll('[data-nfsetloc]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();var k=b.getAttribute('data-nfsetloc'),L=b.getAttribute('data-loc');if(NFS[k]){NFS[k].local=L;saveNF();try{if(typeof syncNota==='function')syncNota(NFS[k]);}catch(e){}toast('NF movida para '+nfLocalLabel(L));renderNF();}};});
-    el.querySelectorAll('[data-romsetloc]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();var k=b.getAttribute('data-romsetloc'),L=b.getAttribute('data-loc');if(ROMS[k]){ROMS[k].local=L;saveNF();try{if(typeof syncRomaneio==='function')syncRomaneio(ROMS[k]);}catch(e){}toast('Romaneio movido para '+nfLocalLabel(L));renderNF();}};});
+    if(romHost)romHost.querySelectorAll('[data-romloc]').forEach(function(b){b.onclick=function(){setNfLocal(b.getAttribute('data-romloc'));renderNF();};});
+    if(romHost)romHost.querySelectorAll('[data-romsetloc]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();var k=b.getAttribute('data-romsetloc'),L=b.getAttribute('data-loc');if(ROMS[k]){ROMS[k].local=L;saveNF();try{if(typeof syncRomaneio==='function')syncRomaneio(ROMS[k]);}catch(e){}toast('Romaneio movido para '+nfLocalLabel(L));renderNF();}};});
     el.querySelectorAll('[data-nfedit]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();nfEditNote(b.getAttribute('data-nfedit'));};});
     el.querySelectorAll('[data-nfbip]').forEach(function(b){b.onclick=function(){openRomBipDrawer(b.getAttribute('data-nfbip'));};});
     var romC=document.getElementById('romCancel'); if(romC)romC.onclick=function(){romParsed=null;renderNF();};
     var romG=document.getElementById('romGen'); if(romG)romG.onclick=genRomLabels;
     var romRp=document.getElementById('romReprint'); if(romRp)romRp.onclick=function(){openRomLabelSheet(romParsed.key);};
-    el.querySelectorAll('[data-romprint]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();openRomLabelSheet(b.getAttribute('data-romprint'));};});
-    el.querySelectorAll('[data-resend]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();if(typeof reenviarDoc==='function')reenviarDoc(b.getAttribute('data-resend'));};});
-    el.querySelectorAll('[data-romdel]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();nfDeleteRomaneio(b.getAttribute('data-romdel'));};});
-    el.querySelectorAll('[data-rombip]').forEach(function(b){b.onclick=function(){openRomBipDrawer(b.getAttribute('data-rombip'));};});
-    el.querySelectorAll('[data-rmrow]').forEach(function(b){b.onclick=function(){
+    if(romHost)romHost.querySelectorAll('[data-romprint]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();openRomLabelSheet(b.getAttribute('data-romprint'));};});
+    if(romHost)romHost.querySelectorAll('[data-resend]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();if(typeof reenviarDoc==='function')reenviarDoc(b.getAttribute('data-resend'));};});
+    if(romHost)romHost.querySelectorAll('[data-romdel]').forEach(function(b){b.onclick=function(ev){ev.stopPropagation();nfDeleteRomaneio(b.getAttribute('data-romdel'));};});
+    if(romHost)romHost.querySelectorAll('[data-rombip]').forEach(function(b){b.onclick=function(){openRomBipDrawer(b.getAttribute('data-rombip'));};});
+    if(romHost)romHost.querySelectorAll('[data-rmrow]').forEach(function(b){b.onclick=function(){
       if(!romParsed)return;
       var i=parseInt(b.getAttribute('data-rmrow'),10);
       if(!isNaN(i)){romParsed.items.splice(i,1);renderNF();}
@@ -3864,6 +3902,11 @@ updateStageBadge();
       rsc.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=rsc.value;rsc.value='';nfRecvBip(v);}});
       if(typeof addCam==='function')addCam('nfRecvScan',{continuous:true,title:'Bipar recebimento',onResult:function(v){nfRecvBip(v);}});
       /* sem autofocus: a tela redesenha a cada sync e ficava pulando pro campo de bipe sozinho */
+    }
+    var romScan=document.getElementById('romRecvScan');
+    if(romScan){
+      romScan.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=romScan.value;romScan.value='';nfRecvBip(v);}});
+      if(typeof addCam==='function')addCam('romRecvScan',{continuous:true,title:'Bipar etiqueta do fornecedor',onResult:function(v){nfRecvBip(v);}});
     }
     if(nfParsed){
       /* base de sugestões (código + descrição) a partir do cadastro de Produtos e bobinas */
@@ -3885,6 +3928,18 @@ updateStageBadge();
       });
     }
   }
+  window.renderSupplierRomTab=function(){
+    var host=document.getElementById('lblRom');if(!host)return;
+    if(nfLocal!=='PRE'&&nfLocal!=='TEXTIL'){
+      host.innerHTML='<div class="panel" style="max-width:680px"><div class="ph"><span class="pdot"></span>Depósito do romaneio</div>'
+        +'<p style="color:var(--muted)">Escolha o depósito antes de importar a planilha ou bipar as bobinas.</p>'
+        +'<div class="nfStatusFilters" style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn brand" data-romchoose="PRE">PRE</button><button class="gbtn" data-romchoose="TEXTIL">Têxtil</button></div></div>';
+      host.querySelectorAll('[data-romchoose]').forEach(function(b){b.onclick=function(){setNfLocal(b.getAttribute('data-romchoose'));renderNF();};});
+      return;
+    }
+    renderNF();
+    try{if(typeof pullNF==='function')pullNF(true).then(function(){var a=document.activeElement;if(!romParsed&&!(a&&host.contains(a)&&/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)))renderNF();});}catch(e){}
+  };
   /* autocomplete customizado (substitui o <datalist> nativo que trava com muitos itens) */
   function attachCodeAC(ci,di,fillDesc){
     var box=null;
@@ -3925,7 +3980,10 @@ updateStageBadge();
   /* ---- bipar recebimento da NF: envia para a fila de conferência do Recebimento ---- */
   function nfRecvBip(v){
     var raw=String(v==null?'':v), id='';
-    if(ETQ[norm(raw)])id=norm(raw);
+    var fornecedor=typeof resolveRomSupplierScan==='function'?resolveRomSupplierScan(raw):null;
+    if(fornecedor&&fornecedor.ambiguous){toast('Código de barras corresponde a mais de uma bobina. Confira o número físico.',false);return;}
+    if(fornecedor&&fornecedor.id)id=fornecedor.id;
+    else if(ETQ[norm(raw)])id=norm(raw);
     else{var toks=raw.split(/[\r\n;|,\t]+/).map(function(s){return norm(s);}).filter(Boolean);for(var i=0;i<toks.length;i++){if(ETQ[toks[i]]){id=toks[i];break;}}if(!id){var m=raw.match(/\b([A-Z0-9]{2,}-\d{2,3})\b/i);if(m&&ETQ[norm(m[1])])id=norm(m[1]);}}
     if(!id)id=norm(raw);
     var e=ETQ[id];
@@ -3952,6 +4010,7 @@ updateStageBadge();
     renderNF();
     var act=document.querySelector('.view.active'); if(act&&act.id==='v-recv'&&typeof renderRecv==='function'){renderRecv();if(typeof updateStageBadge==='function')updateStageBadge();}
   }
+  window.nfRecvBip=nfRecvBip;
 
   /* Etiquetas pertencentes à geração atual do documento. Documentos antigos não
      tinham labelIds; nesses casos mantém a busca por doc_key para compatibilidade. */
@@ -4175,10 +4234,10 @@ updateStageBadge();
     var cb=document.getElementById('nfLblClose');if(cb)cb.onclick=function(){closeDrawer();};
   }
 
-  /* ---- gerar etiquetas do romaneio (1 por bobina) ---- */
+  /* ---- registrar bobinas do romaneio usando a etiqueta física do fornecedor ---- */
   async function genRomLabels(){
     if(!romParsed)return;
-    if(ROMS[romParsed.key]){toast('Romaneio já gerado — use reimprimir',false);return;}
+    if(ROMS[romParsed.key]){toast('Romaneio já registrado — abra para conferir as bobinas',false);return;}
     /* preserva etiquetas anteriores do romaneio até revisão explícita */
     var _orfR=Object.keys(ETQ).filter(function(id){return ETQ[id].nf===romParsed.key;});
     if(_orfR.length){toast('Existem '+_orfR.length+' etiqueta(s) anteriores deste romaneio. Nada foi excluído; revise antes de gerar novamente.',false);return;}
@@ -4189,32 +4248,35 @@ updateStageBadge();
       dataSaida:(hD?hD.value:(romParsed.dataSaida||'')).trim(),
       cliente:(hC?hC.value:(romParsed.cliente||'')).trim()
     };
-    var created=[];
+    var created=[],prepared=[],seen={};
     romParsed.items.forEach(function(it,idx){
-      var bI=document.getElementById('rb_'+idx), oI=document.getElementById('ro_'+idx), lI=document.getElementById('rl_'+idx), gI=document.getElementById('rg_'+idx), pbI=document.getElementById('rpb_'+idx), plI=document.getElementById('rpl_'+idx);
-      var bobina=bI?bI.value.trim():it.bobina; if(!bobina)return;
+      var bI=document.getElementById('rb_'+idx), cI=document.getElementById('rc_'+idx), oI=document.getElementById('ro_'+idx), lI=document.getElementById('rl_'+idx), gI=document.getElementById('rg_'+idx), pbI=document.getElementById('rpb_'+idx), plI=document.getElementById('rpl_'+idx);
+      var bobina=norm(bI?bI.value:it.bobina);
       var op=oI?oI.value.trim():(it.op||'');
       var lote=lI?lI.value.trim():(it.lote||'');
-      var gram=gI?gI.value.trim():(it.gramatura||'');
+      var gram=gI?gI.value.trim():(it.descPackem||it.gramatura||'');
       var pesoBruto=pbI?brNum(pbI.value):(it.pesoBruto||0);
       var pesoLiquido=plI?brNum(plI.value):(it.pesoLiquido||0);
-      /* o campo bobina e gramatura já mostram os valores Packem convertidos (e são editáveis) */
-      var _cProd=(it._convertido&&it.cProd)?it.cProd:op;
-      var _xProd=gram; /* usa o que está no campo gramatura (já convertido no preview, ou editado pelo usuário) */
-      /* ID GLOBALMENTE ÚNICO: nunca repete, mesmo em notas/romaneios diferentes com o mesmo produto.
-         Combina o código do produto (visível) + nº romaneio + sequência + carimbo único. */
-      var _codBase=norm(bobina)||'ETQ';
-      var _uniq=Date.now().toString(36).toUpperCase().slice(-5)+Math.random().toString(36).toUpperCase().slice(2,5);
-      var id=_codBase+'-'+(hdr.nRomaneio?norm(hdr.nRomaneio)+'-':'')+String(idx+1).padStart(3,'0')+'-'+_uniq;
-      /* garantia extra: se por acaso colidir (praticamente impossível), acrescenta contador */
-      if(ETQ[id]){var s=2,base=id;while(ETQ[id]){id=base+'-'+s;s++;}}
-      ETQ[id]={id:id,nf:romParsed.key,nRomaneio:hdr.nRomaneio,nNFe:hdr.nfe,cliente:hdr.cliente,bobina:bobina,op:op,lote:lote,gramatura:gram,xProd:_xProd,cProd:_cProd,uCom:'KG',kg:pesoLiquido,pesoBruto:pesoBruto,vol:(idx+1),volTot:romParsed.items.length,idx:(idx+1),status:'gerada',hist:[{ev:'gerada',at:nowISO(),by:session.u}]};
-      try{if(typeof regBobFromEtq==='function')regBobFromEtq(id,ETQ[id]);}catch(e){}
-      created.push(id);
+      var cProd=norm(cI?cI.value:(it.cProd||''));
+      prepared.push({id:bobina,cProd:cProd,codFornecedor:it.codFornecedor||'',gramOriginal:it.gramatura||'',op:op,lote:lote,gram:gram,pesoBruto:pesoBruto,pesoLiquido:pesoLiquido,idx:idx});
     });
-    if(!created.length){toast('Nenhuma bobina válida para gerar',false);return;}
-    ROMS[romParsed.key]={key:romParsed.key,nRomaneio:hdr.nRomaneio,nfe:hdr.nfe,dataSaida:hdr.dataSaida,cliente:hdr.cliente,local:nfLocal,at:nowISO(),by:session.u,total:created.length,labelIds:created.slice()};
-    saveNF();logAct('romaneio-etiquetas','Romaneio '+hdr.nRomaneio+' · '+created.length+' etiquetas');
+    if(!prepared.length){toast('Nenhuma bobina encontrada na planilha',false);return;}
+    for(var i=0;i<prepared.length;i++){
+      var p=prepared[i];
+      if(!/^[A-Z0-9]{8,32}$/.test(p.id)){toast('Linha '+(i+1)+': confira o número físico da bobina',false);return;}
+      if(!/^\d{9,12}$/.test(p.cProd)||p.cProd===p.id){toast('Linha '+(i+1)+': informe o código Packem convertido',false);return;}
+      if(!(p.pesoLiquido>0)){toast('Linha '+(i+1)+': confira o peso líquido',false);return;}
+      if(seen[p.id]||ETQ[p.id]){toast('Bobina '+p.id+' já cadastrada. Confira o romaneio antes de registrar.',false);return;}
+      seen[p.id]=true;
+    }
+    var supplierSource={};
+    prepared.forEach(function(p){
+      supplierSource[p.id]={code:p.codFornecedor,description:p.gramOriginal,kg:p.pesoLiquido};
+      ETQ[p.id]={id:p.id,nf:romParsed.key,nRomaneio:hdr.nRomaneio,nNFe:hdr.nfe,cliente:hdr.cliente,bobina:p.id,op:p.op,lote:p.lote,gramatura:p.gram,xProd:p.gram,cProd:p.cProd,uCom:'KG',kg:p.pesoLiquido,pesoBruto:p.pesoBruto,vol:p.idx+1,volTot:prepared.length,idx:p.idx+1,status:'gerada',hist:[{ev:'importada-etiqueta-fornecedor',at:nowISO(),by:session.u}]};
+      created.push(p.id);
+    });
+    ROMS[romParsed.key]={key:romParsed.key,nRomaneio:hdr.nRomaneio,nfe:hdr.nfe,dataSaida:hdr.dataSaida,cliente:hdr.cliente,local:nfLocal,at:nowISO(),by:session.u,total:created.length,labelIds:created.slice(),supplierLabels:true,supplierSource:supplierSource};
+    saveNF();logAct('romaneio-importado','Romaneio '+hdr.nRomaneio+' · '+created.length+' bobinas do fornecedor');
     window._syncErrs={etq:0,rom:0,lastErr:''}; /* zera antes de sincronizar (não carrega erro velho de impressão) */
     try{
       var _romLabelsOk=typeof syncEtiquetasLote==='function'?await syncEtiquetasLote(created,'rom'):false;
@@ -4225,12 +4287,14 @@ updateStageBadge();
       created.forEach(function(id){delete ETQ[id];});delete ROMS[romParsed.key];saveNF();
       toast('O romaneio não foi salvo porque a nuvem não confirmou. Verifique a conexão e tente novamente.',false);renderNF();return;
     }
-    toast(created.length+' etiquetas geradas · sincronizadas em todos os aparelhos');
+    created.forEach(function(id){try{if(typeof regBobFromEtq==='function')regBobFromEtq(id,ETQ[id]);}catch(e){}});
+    toast(created.length+' bobinas cadastradas · bipe as etiquetas do fornecedor');
     var key=romParsed.key; romParsed=null; renderNF();
     setTimeout(function(){try{if(typeof renderNF==='function'&&document.querySelector('.view.active')&&document.querySelector('.view.active').id==='v-nf')renderNF();}catch(e){}},3000);
-    try{openRomLabelSheet(key);}catch(e){toast('Etiquetas salvas. A impressão não abriu — você pode reimprimir depois pela lista.',false);}
+    try{openRomBipDrawer(key);}catch(e){toast('Romaneio salvo. Abra-o na lista para conferir as bobinas.',false);}
   }
   function openRomLabelSheet(key){
+    if(ROMS[key]&&ROMS[key].supplierLabels){toast('Use as etiquetas do fornecedor neste romaneio.',false);return;}
     var ids=nfDocLabelIds(key).sort(function(a,b){return (ETQ[a].idx||0)-(ETQ[b].idx||0);});
     if(!ids.length){toast('Sem etiquetas',false);return;}
     var arr=ids.map(function(id){return ETQ[id];});
@@ -4346,7 +4410,7 @@ updateStageBadge();
         if(!cod){toast('Informe o código do material',false);return;}
         if(!(kg>0)){toast('Informe um peso maior que zero',false);return;}
         var antesCod=codigoAtual,antesKg=pesoAtual,desc=(typeof window.convDescByCod==='function'?window.convDescByCod(cod):'')||(typeof nfDescByCode==='function'?nfDescByCode(cod):'')||e.xProd||e.gramatura||'';
-        e.cProd=cod;e.bobina=cod;e.kg=kg;if(desc){e.xProd=desc;e.gramatura=desc;}
+        e.cProd=cod;if(!(ROMS[e.nf]&&ROMS[e.nf].supplierLabels))e.bobina=cod;e.kg=kg;if(desc){e.xProd=desc;e.gramatura=desc;}
         e.hist=Array.isArray(e.hist)?e.hist:[];e.hist.push({ev:'corrigida',at:nowISO(),by:(session&&session.u)||'',de_codigo:antesCod,para_codigo:cod,de_kg:antesKg,para_kg:kg});
         try{BOB[String(e.id).trim().toUpperCase()]={pr:cod,desc:desc,pl:kg};saveBOB();}catch(_e){}
         saveNF();var sincronizou=false;try{sincronizou=typeof syncEtiqueta==='function'?await syncEtiqueta(e):false;}catch(_e){}
@@ -4384,11 +4448,13 @@ updateStageBadge();
         var e=ETQ[id],ok=e.status==='entrada';
         var codeDisp=e.bobina||e.cProd||e.id;
         var sub=e.lote?('lote '+e.lote):(e.xProd||e.gramatura||'');
-        var etqId=e.id; /* id único da etiqueta gerada (o que o QR codifica e o que é bipado) */
+        var supplier=isRom&&doc.supplierLabels&&doc.supplierSource&&doc.supplierSource[id];
+        var etqId=e.id; /* etiqueta física do fornecedor ou ID da etiqueta Packem antiga */
         return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line,rgba(255,255,255,.06))">'
           +'<span style="flex:none;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;background:'+(ok?'#16a34a':'var(--line,rgba(255,255,255,.08))')+';color:'+(ok?'#fff':'var(--faint)')+'">'+(ok?'✓':'')+'</span>'
           +'<div style="flex:1;min-width:0"><div class="mono" style="font-weight:700;font-size:.85rem">'+esc(codeDisp)+'</div>'
-            +'<div class="mono" style="color:var(--brand);font-size:.72rem;font-weight:700;margin-top:1px">ID: '+esc(etqId)+'</div>'
+            +'<div class="mono" style="color:var(--brand);font-size:.72rem;font-weight:700;margin-top:1px">'+(isRom&&doc.supplierLabels?'Código Packem: '+esc(e.cProd||''):'ID: '+esc(etqId))+'</div>'
+            +(supplier?'<div style="color:var(--muted);font-size:.7rem">Fornecedor: '+esc(supplier.code||'?')+' · '+esc(supplier.description||'')+'</div>':'')
             +(sub?'<div style="color:var(--faint);font-size:.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(sub)+'</div>':'')+'</div>'
           +'<div style="font-family:var(--mono);font-weight:700;font-size:.8rem;color:'+(ok?'var(--ink)':'var(--muted)')+'">'+fmt(e.kg||0)+' kg</div>'
           +(!ok&&window.nfPodeCorrigirEtiqueta()?'<button class="gbtn" type="button" data-rbd-edit="'+esc(etqId)+'" style="padding:5px 9px;font-size:.68rem;flex:none">Editar</button>':'')
@@ -4402,8 +4468,8 @@ updateStageBadge();
       +'<div style="height:8px;border-radius:5px;background:var(--line,rgba(255,255,255,.1));overflow:hidden"><div id="rbdBar" style="height:100%;width:'+st.pct+'%;background:'+(st.ent>=st.tot&&st.tot>0?'#16a34a':'var(--brand)')+';border-radius:5px;transition:width .3s"></div></div>'
       +'<div id="rbdSummary" style="display:flex;justify-content:space-between;color:var(--faint);font-size:.74rem;margin-top:5px"><span>'+st.ent+'/'+st.tot+' etiquetas</span><span>'+fmt(st.kgEnt)+' de '+fmt(st.kgTot)+' kg ('+st.pct+'%)</span></div>'
       +'</div>'
-      +'<div class="fld"><input class="input code" id="rbdScan" autocomplete="off" placeholder="Bipe ou digite o código da etiqueta"></div>'
-      +'<button class="btn" id="rbdPrint" type="button" style="width:100%;justify-content:center">'+(ICONS.print||'')+' Imprimir / reimprimir etiquetas</button>'
+      +'<div class="fld"><input class="input code" id="rbdScan" autocomplete="off" placeholder="'+(isRom&&doc.supplierLabels?'Bipe o código de barras do fornecedor':'Bipe ou digite o código da etiqueta')+'"></div>'
+      +(isRom&&doc.supplierLabels?'':'<button class="btn" id="rbdPrint" type="button" style="width:100%;justify-content:center">'+(ICONS.print||'')+' Imprimir / reimprimir etiquetas</button>')
       +'<div id="rbdList" style="margin-top:10px;max-height:48vh;overflow-y:auto">'+st.rows+'</div>';
     openDrawer((ICONS.tag||'')+' '+label,body);
     function bindRows(){
@@ -4484,7 +4550,10 @@ updateStageBadge();
   function nfEvent(v,forceMode){
     var raw=String(v==null?'':v);
     var id='';
-    if(ETQ[norm(raw)]) id=norm(raw);
+    var fornecedor=typeof resolveRomSupplierScan==='function'?resolveRomSupplierScan(raw):null;
+    if(fornecedor&&fornecedor.ambiguous){toast('Código de barras corresponde a mais de uma bobina. Confira o número físico.',false);return;}
+    if(fornecedor&&fornecedor.id)id=fornecedor.id;
+    else if(ETQ[norm(raw)]) id=norm(raw);
     else{
       var toks=raw.split(/[\r\n;|,\t]+/).map(function(s){return norm(s);}).filter(Boolean);
       for(var i=0;i<toks.length;i++){if(ETQ[toks[i]]){id=toks[i];break;}}

@@ -77,7 +77,7 @@ test('registrar romaneio usa o código de barras existente e abre a conferência
 });
 
 test('bobina repetida ou sem conversão bloqueia o romaneio inteiro antes do envio',async()=>{
-  for(const change of [p=>{p.items[1].bobina=p.items[0].bobina;},p=>{p.items[1].cProd='';},p=>{p.items[1].codFornecedor='';}]){
+  for(const change of [p=>{p.items[1].bobina=p.items[0].bobina;},p=>{p.items[1].cProd='';}]){
     const {parsed}=parseFixture();change(parsed);
     const {ctx,calls}=registerFixture(parsed);await ctx.genRomLabels();
     assert.equal(Object.keys(ctx.ETQ).length,0);assert.equal(calls.synced.length,0);
@@ -85,21 +85,20 @@ test('bobina repetida ou sem conversão bloqueia o romaneio inteiro antes do env
   }
 });
 
-test('scanner resolve bobina e bloqueia produto fornecedor divergente no código de barras',()=>{
+test('scanner extrai a bobina entre cifrões e localiza o código Packem da planilha',()=>{
   const ctx={window:{},ETQ:{},ROMS:{'ROM-1419':{supplierLabels:true,supplierSource:{'2600000001':{code:'11894'},'2600000002':{code:'11894'}}}},norm};
   for(const id of ['2600000001','2600000002'])ctx.ETQ[id]={id,bobina:id,nf:'ROM-1419',nRomaneio:'1419',cProd:'0303450156'};
   vm.createContext(ctx);
   vm.runInContext(source('  function resolveRomSupplierScan(', '  window.resolveRomSupplierScan=resolveRomSupplierScan;'),ctx);
-  assert.equal(ctx.resolveRomSupplierScan('2600000001').incomplete,true);
-  assert.equal(ctx.resolveRomSupplierScan('414885260000000151189405379S2S204').id,'2600000001');
-  const wrong=ctx.resolveRomSupplierScan('41488526000000015119705379S2S204');
-  assert.equal(wrong.mismatch,true);assert.equal(wrong.id,'2600000001');assert.equal(wrong.expected,'11894');
-  assert.equal(ctx.resolveRomSupplierScan('260000000199').mismatch,true);
-  assert.equal(ctx.resolveRomSupplierScan('26000000012600000002').ambiguous,true);
+  assert.equal(ctx.resolveRomSupplierScan('2600000001').id,'2600000001');
+  assert.equal(ctx.resolveRomSupplierScan('$2600000001$').id,'2600000001');
+  assert.equal(ctx.resolveRomSupplierScan('41488$2600000001$11970$379$2$204').id,'2600000001');
+  assert.equal(ctx.resolveRomSupplierScan('41488526000000015119705379S2S204').id,'2600000001');
+  assert.equal(ctx.resolveRomSupplierScan('$2600000001$$2600000002$').ambiguous,true);
   assert.equal(ctx.resolveRomSupplierScan('2600999999'),null);
 });
 
-test('bipagem do fornecedor recebe uma vez com o código Packem convertido',()=>{
+test('bipagem usa a bobina para receber uma vez com o código Packem convertido',()=>{
   const ctx={window:{},ETQ:{},ROMS:{'ROM-1419':{supplierLabels:true,local:'TEXTIL',nRomaneio:'1419',supplierSource:{'2600000001':{code:'11894'}}}},NFS:{},
     STAGE:[],norm,fmt:q=>String(q).replace('.',','),nowISO:()=> '2026-10-01T12:00:00Z',session:{u:'admin'},
     saveNF(){},logAct(){},syncEtiqueta(){},renderNF(){},toast(){},document:{querySelector:()=>null}};
@@ -108,9 +107,7 @@ test('bipagem do fornecedor recebe uma vez com o código Packem convertido',()=>
   vm.createContext(ctx);
   vm.runInContext(source('  function resolveRomSupplierScan(', '  window.resolveRomSupplierScan=resolveRomSupplierScan;'),ctx);
   vm.runInContext(source('  function nfRecvBip(v){','  /* Etiquetas pertencentes à geração atual'),ctx);
-  ctx.nfRecvBip('41488526000000015119705379S2S204');
-  assert.equal(received,0);assert.equal(ctx.ETQ['2600000001'].status,'gerada');
-  ctx.nfRecvBip('414885260000000151189405379S2S204');
+  ctx.nfRecvBip('41488$2600000001$11970$379$2$204');
   ctx.nfRecvBip('2600000001');
   assert.equal(received,1);assert.equal(ctx.ETQ['2600000001'].status,'entrada');
   assert.equal(ctx.ETQ['2600000001'].hist.length,1);
@@ -118,12 +115,12 @@ test('bipagem do fornecedor recebe uma vez com o código Packem convertido',()=>
 
 test('Recebimento geral encaminha o fornecedor ao fluxo fiscal e não imprime',async()=>{
   const calls={received:[],printed:0,toasts:[]};
-  const ctx={window:{resolveRomSupplierScan:v=>v==='BOBINA'?{id:'2600000001',supplier:true}:{incomplete:true,id:'2600000001'},nfRecvBip:v=>calls.received.push(v)},isAdmin:()=>true,toast:s=>calls.toasts.push(s),stationPrint:()=>{calls.printed++;}};
+  const ctx={window:{resolveRomSupplierScan:v=>v==='$2600000001$'?{id:'2600000001',supplier:true}:{ambiguous:true},nfRecvBip:v=>calls.received.push(v)},isAdmin:()=>true,toast:s=>calls.toasts.push(s),stationPrint:()=>{calls.printed++;}};
   vm.createContext(ctx);
   vm.runInContext(source('async function recvAdd(v){','function renderRecv(){'),ctx);
   await ctx.recvAdd('2600000001');
-  await ctx.recvAdd('BOBINA');
-  assert.deepEqual(calls.received,['BOBINA']);
+  await ctx.recvAdd('$2600000001$');
+  assert.deepEqual(calls.received,['$2600000001$']);
   assert.equal(calls.printed,0);
   assert.equal(calls.toasts.length,1);
 });

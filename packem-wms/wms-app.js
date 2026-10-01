@@ -1835,7 +1835,7 @@ function regBobFromEtq(id,e){try{
 function saveLOC(){try{localStorage.setItem('wmsx_loc',JSON.stringify(LOC));}catch(e){}}
 function brNum(v){if(typeof v==='number')return v;if(v==null)return 0;let s=String(v).trim().replace(/[^\d.,-]/g,'');if(!s)return 0;const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.');if(lc>-1&&ld>-1){if(lc>ld)s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'');}else if(lc>-1){s=s.replace(/,/g,'.');}return parseFloat(s)||0;}
 
-parseBobina=function(v){var _fornecedor=(typeof window.resolveRomSupplierScan==='function')?window.resolveRomSupplierScan(v):null;if(_fornecedor&&(_fornecedor.ambiguous||_fornecedor.mismatch||_fornecedor.incomplete))return{et:'',pr:'',desc:'',peso:null,pl:null,rem:null};if(_fornecedor&&_fornecedor.id)v=_fornecedor.id;else if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);v=norm(v);if(BOB[v]){/* O saldo restante pode ficar em zero depois de uma SAIDA completa, mas o peso
+parseBobina=function(v){var _fornecedor=(typeof window.resolveRomSupplierScan==='function')?window.resolveRomSupplierScan(v):null;if(_fornecedor&&_fornecedor.ambiguous)return{et:'',pr:'',desc:'',peso:null,pl:null,rem:null};if(_fornecedor&&_fornecedor.id)v=_fornecedor.id;else if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);v=norm(v);if(BOB[v]){/* O saldo restante pode ficar em zero depois de uma SAIDA completa, mas o peso
    original da etiqueta precisa continuar disponivel para uma transferencia/reentrada. */const saldo=(BOB[v].rem!=null?Number(BOB[v].rem):null),original=Number(BOB[v].pl)||0,rem=(saldo!=null?saldo:original),peso=(saldo>0?saldo:original);return{et:v,pr:BOB[v].pr,desc:BOB[v].desc||'',peso:peso,pl:BOB[v].pl,rem:rem};}
   /* etiqueta rastreável (QR guarda o ID): resolve pelo cadastro da NF/romaneio → puxa o PRODUTO real, nunca o id */
   if(typeof window.etqLookup==='function'){var _le=window.etqLookup(v);if(_le){return{et:v,pr:_le.pr||'',desc:_le.desc||'',peso:_le.pl,pl:_le.pl,rem:_le.pl};}}
@@ -2068,7 +2068,7 @@ function placeBobina(et,pr,pl,c){pl=Number(pl);if(!Number.isFinite(pl)||pl<=0){t
     }catch(e){}
   }
  return true;}
-async function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}var fornecedor=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(v):null;if(fornecedor&&(fornecedor.ambiguous||fornecedor.incomplete||fornecedor.mismatch)){toast(fornecedor.incomplete?'Bipe o código de barras completo do fornecedor.':(fornecedor.mismatch?'Código do fornecedor diverge do romaneio. Entrada bloqueada.':'Código corresponde a mais de uma bobina.'),false);return;}if(fornecedor&&fornecedor.supplier){if(typeof window.nfRecvBip==='function')return window.nfRecvBip(v);toast('Conferência do romaneio indisponível. Tente novamente.',false);return;}if(fornecedor&&fornecedor.id)v=fornecedor.id;else if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){try{b=await bobFetch(et);}catch(e){toast('Não foi possível consultar a etiqueta '+et+' na nuvem. Verifique a conexão e tente novamente.',false);return;}}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
+async function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}var fornecedor=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(v):null;if(fornecedor&&fornecedor.ambiguous){toast('Código corresponde a mais de uma bobina.',false);return;}if(fornecedor&&fornecedor.supplier){if(typeof window.nfRecvBip==='function')return window.nfRecvBip(v);toast('Conferência do romaneio indisponível. Tente novamente.',false);return;}if(fornecedor&&fornecedor.id)v=fornecedor.id;else if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){try{b=await bobFetch(et);}catch(e){toast('Não foi possível consultar a etiqueta '+et+' na nuvem. Verifique a conexão e tente novamente.',false);return;}}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
   var _it={et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u};
   var _ja=STAGE.find(function(s){return norm(s.et)===et;});
   if(_ja){toast('Etiqueta '+et+' já está no Recebimento',false);renderRecv();return true;}
@@ -2911,30 +2911,25 @@ updateStageBadge();
 
   /* ---- estado / persistência ---- */
   var NFS={}, ETQ={}, ROMS={}, nfParsed=null, romParsed=null, rastMode='entrada';
-  /* O código de barras do fornecedor pode conter outros campos além da bobina.
-     Só aceita um número físico de bobina importado, com correspondência única. */
+  /* O código de barras do fornecedor traz a bobina entre cifrões, por exemplo
+     $2600267407$. Ela é a chave para recuperar o código Packem do romaneio. */
   function resolveRomSupplierScan(raw){
     var value=String(raw==null?'':raw).trim().toUpperCase();
     var direct=norm(value);
     if(ETQ[direct]){
       var directLabel=ETQ[direct],directDoc=ROMS[directLabel.nf];
-      if((directDoc&&directDoc.supplierLabels)||(!directDoc&&directLabel.nRomaneio&&directLabel.bobina===direct&&/^\d{8,20}$/.test(direct)))return {incomplete:true,id:direct};
-      return {id:direct};
+      return {id:direct,supplier:!!((directDoc&&directDoc.supplierLabels)||(!directDoc&&directLabel.nRomaneio&&directLabel.bobina===direct&&/^\d{8,20}$/.test(direct)))};
     }
     var numeric=value.replace(/\D/g,'');
     if(!numeric)return null;
+    var marked=value.split('$').filter(function(part){return /^\d{8,20}$/.test(part);});
     var matches=Object.keys(ETQ).filter(function(id){
       var e=ETQ[id],doc=e&&ROMS[e.nf];
-      return e.nRomaneio&&(!doc||doc.supplierLabels)&&/^\d{8,20}$/.test(id)&&e.bobina===id&&numeric.indexOf(id)>=0;
+      return e.nRomaneio&&(!doc||doc.supplierLabels)&&/^\d{8,20}$/.test(id)&&e.bobina===id&&(marked.length?marked.indexOf(id)>=0:numeric.indexOf(id)>=0);
     });
     if(matches.length>1)return {ambiguous:true};
     if(!matches.length)return null;
-    var id=matches[0],e=ETQ[id],doc=ROMS[e.nf];
-    var source=doc&&doc.supplierSource&&doc.supplierSource[id];
-    var expected=source&&String(source.code||'').replace(/\D/g,'');
-    var other=numeric.replace(id,'');
-    if(!expected||other.indexOf(expected)<0)return {mismatch:true,id:id,expected:expected||''};
-    return {id:id,supplier:true};
+    return {id:matches[0],supplier:true};
   }
   window.resolveRomSupplierScan=resolveRomSupplierScan;
   /* O depósito precisa ser escolhido conscientemente ao entrar na aba.
@@ -3953,8 +3948,6 @@ updateStageBadge();
     var raw=String(v==null?'':v), id='';
     var fornecedor=typeof resolveRomSupplierScan==='function'?resolveRomSupplierScan(raw):null;
     if(fornecedor&&fornecedor.ambiguous){toast('Código de barras corresponde a mais de uma bobina. Confira o número físico.',false);return;}
-    if(fornecedor&&fornecedor.incomplete){toast('Bipe o código de barras completo da bobina '+fornecedor.id+' para conferir também o produto do fornecedor.',false);return;}
-    if(fornecedor&&fornecedor.mismatch){toast('Bobina '+fornecedor.id+': código do fornecedor no código de barras não confere com o romaneio'+(fornecedor.expected?' (esperado '+fornecedor.expected+')':'')+'. Entrada bloqueada.',false);return;}
     if(fornecedor&&fornecedor.id)id=fornecedor.id;
     else if(ETQ[norm(raw)])id=norm(raw);
     else{var toks=raw.split(/[\r\n;|,\t]+/).map(function(s){return norm(s);}).filter(Boolean);for(var i=0;i<toks.length;i++){if(ETQ[toks[i]]){id=toks[i];break;}}if(!id){var m=raw.match(/\b([A-Z0-9]{2,}-\d{2,3})\b/i);if(m&&ETQ[norm(m[1])])id=norm(m[1]);}}
@@ -4238,7 +4231,6 @@ updateStageBadge();
       var p=prepared[i];
       if(!/^[A-Z0-9]{8,32}$/.test(p.id)){toast('Linha '+(i+1)+': confira o número físico da bobina',false);return;}
       if(!/^\d{9,12}$/.test(p.cProd)||p.cProd===p.id){toast('Linha '+(i+1)+': informe o código Packem convertido',false);return;}
-      if(!/^\d{3,12}$/.test(String(p.codFornecedor))){toast('Linha '+(i+1)+': falta o código do produto do fornecedor no romaneio',false);return;}
       if(!(p.pesoLiquido>0)){toast('Linha '+(i+1)+': confira o peso líquido',false);return;}
       if(seen[p.id]||ETQ[p.id]){toast('Bobina '+p.id+' já cadastrada. Confira o romaneio antes de registrar.',false);return;}
       seen[p.id]=true;
@@ -4526,8 +4518,6 @@ updateStageBadge();
     var id='';
     var fornecedor=typeof resolveRomSupplierScan==='function'?resolveRomSupplierScan(raw):null;
     if(fornecedor&&fornecedor.ambiguous){toast('Código de barras corresponde a mais de uma bobina. Confira o número físico.',false);return;}
-    if(fornecedor&&fornecedor.incomplete){toast('Bipe o código de barras completo da bobina '+fornecedor.id+' para conferir o produto do fornecedor.',false);return;}
-    if(fornecedor&&fornecedor.mismatch){toast('Bobina '+fornecedor.id+': código do fornecedor não confere com o romaneio'+(fornecedor.expected?' (esperado '+fornecedor.expected+')':'')+'.',false);return;}
     if(fornecedor&&fornecedor.id)id=fornecedor.id;
     else if(ETQ[norm(raw)]) id=norm(raw);
     else{

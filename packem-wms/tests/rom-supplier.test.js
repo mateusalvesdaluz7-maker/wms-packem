@@ -116,6 +116,33 @@ test('scanner extrai a bobina entre cifrões e localiza o código Packem da plan
   assert.equal(ctx.resolveRomSupplierScan('2600999999'),null);
 });
 
+test('código de barras do fornecedor usa bobina importada no catálogo sem abrir NF',()=>{
+  const ctx={window:{},ETQ:{},ROMS:{},BOB:{'2600256492':{pr:'0303450156',desc:'TEC.TUBULAR PP 156G 360CM',pl:318.66}},norm};
+  vm.createContext(ctx);
+  vm.runInContext(source('  function resolveRomSupplierScan(', '  window.resolveRomSupplierScan=resolveRomSupplierScan;'),ctx);
+  assert.equal(ctx.resolveRomSupplierScan('$2600256492$').id,'2600256492');
+  assert.equal(ctx.resolveRomSupplierScan('$2600256492$').supplier,false);
+  assert.equal(ctx.resolveRomSupplierScan('41488$2600256492$11970$379$2$204').id,'2600256492');
+  assert.equal(ctx.resolveRomSupplierScan('2600256492').id,'2600256492');
+  assert.equal(ctx.resolveRomSupplierScan('$2600999999$').id,'2600999999');
+});
+
+test('importação da planilha salva bobinas no catálogo e confirma na nuvem sem gerar NF',async()=>{
+  const {parsed}=parseFixture(),calls={saved:0,cloud:[],toasts:[]},button={disabled:false,isConnected:true};
+  const ctx={window:{_bobReady:true},BOB:{},supplierSheet:parsed,session:{u:'admin'},norm,nowISO:()=> '2026-10-01T12:00:00Z',
+    document:{getElementById:id=>id==='supplierSave'?button:{textContent:''},querySelector:q=>{const i=Number(q.match(/="(\d+)"/)[1]);return {value:q.includes('code')?parsed.items[i].cProd:parsed.items[i].descPackem};}},
+    saveBOB:()=>{calls.saved++;},_bobIDB:{set:async()=>{}},syncBobDelta:async ids=>{calls.cloud.push([...ids]);return ids.length;},
+    logAct(){},renderSupplierCatalog(){},toast:t=>calls.toasts.push(t)};
+  vm.createContext(ctx);
+  vm.runInContext(source('async function saveSupplierSheet(){','function bobImportUI(){'),ctx);
+  await ctx.saveSupplierSheet();
+  assert.equal(Object.keys(ctx.BOB).length,2);
+  assert.equal(ctx.BOB['2600000001'].pr,'0303450156');
+  assert.equal(ctx.BOB['2600000001'].pl,318.66);
+  assert.equal(calls.saved,1);assert.equal(calls.cloud[0].length,2);
+  assert.equal(ctx.supplierSheet,null);
+});
+
 test('bipagem usa a bobina para receber uma vez com o código Packem convertido',()=>{
   const ctx={window:{},ETQ:{},ROMS:{'ROM-1419':{supplierLabels:true,local:'TEXTIL',nRomaneio:'1419',supplierSource:{'2600000001':{code:'11894'}}}},NFS:{},
     STAGE:[],norm,fmt:q=>String(q).replace('.',','),nowISO:()=> '2026-10-01T12:00:00Z',session:{u:'admin'},
@@ -141,4 +168,19 @@ test('Recebimento geral encaminha o fornecedor ao fluxo fiscal e não imprime',a
   assert.deepEqual(calls.received,['$2600000001$']);
   assert.equal(calls.printed,0);
   assert.equal(calls.toasts.length,1);
+});
+
+test('bobina física do catálogo entra no Recebimento normal sem imprimir etiqueta Packem',async()=>{
+  const calls={nf:0,printed:0,saved:0},ctx={window:{resolveRomSupplierScan:()=>({id:'2600256492',supplier:false}),nfRecvBip:()=>{calls.nf++;}},
+    BOB:{'2600256492':{pr:'0303450156',desc:'TEC.TUBULAR PP 156G 360CM',pl:318.66}},STAGE:[],norm,
+    isAdmin:()=>true,nowISO:()=> '2026-10-01T12:00:00Z',session:{u:'admin'},saveStage:()=>{calls.saved++;},
+    syncStage(){},markLocalWrite(){},renderRecv(){},updateStageBadge(){},toast(){},fmt:x=>String(x),unitOf:()=> 'KG',stationPrint(){calls.printed++;}};
+  vm.createContext(ctx);
+  vm.runInContext(source('async function recvAdd(v){','function renderRecv(){'),ctx);
+  await ctx.recvAdd('41488$2600256492$11970');
+  await ctx.recvAdd('41488$2600256492$11970');
+  assert.equal(ctx.STAGE.length,1);
+  assert.equal(ctx.STAGE[0].et,'2600256492');
+  assert.equal(ctx.STAGE[0].pr,'0303450156');
+  assert.equal(calls.nf,0);assert.equal(calls.printed,0);assert.equal(calls.saved,1);
 });

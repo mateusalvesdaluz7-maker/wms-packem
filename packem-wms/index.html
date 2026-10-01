@@ -310,10 +310,10 @@
       </section>
 
       <section class="view" id="v-labels">
-        <div class="ph-head"><div><p class="eb">Impressão</p><h1>Etiquetas</h1></div>
+        <div class="ph-head"><div><p class="eb">Gestão</p><h1>Etiquetas</h1></div>
           <div class="actions"><button class="gbtn" id="printLabels" style="display:none" data-ic="print"><span></span>Imprimir</button></div></div>
-        <div class="tabs" id="lblTabs"><button data-t="end" class="on">Endereços</button><button data-t="bob">Bobinas</button><button data-t="rast">Rastreável</button></div>
-        <div class="panel" style="max-width:640px">
+        <div class="tabs" id="lblTabs"><button data-t="end" class="on">Endereços</button><button data-t="bob">Bobinas</button><button data-t="rom">Romaneio do fornecedor</button><button data-t="rast">Rastreável</button></div>
+        <div class="panel" id="lblMainPanel" style="max-width:640px">
           <div id="lblEnd">
             <div class="two" style="grid-template-columns:1fr 1fr">
               <label class="fld"><span class="lab">Conteúdo</span><select class="input" id="lblScope"><option value="rua">Todos da rua</option><option value="ocupados">Só ocupados</option></select></label>
@@ -351,6 +351,7 @@
             <div id="rastLast" style="margin-top:12px"></div>
           </div>
         </div>
+        <div id="lblRom" style="display:none"></div>
         <div id="printArea"><div class="labels" id="labelsBox"></div></div>
       </section>
 
@@ -417,7 +418,7 @@
 
 <!-- OCR executado no próprio aparelho. Não usa nem consome a API da OpenAI. -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-<script src="wms-app.js?v=20261001-romaneio-fornecedor1"></script>
+<script src="wms-app.js?v=20261001-romaneio-fornecedor2"></script>
 <script src="wms-abc-consumo.js?v=20260831-autotec15"></script>
 <script src="wms-requisicao.js?v=20260831-interna1"></script>
 </body>

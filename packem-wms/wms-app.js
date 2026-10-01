@@ -1977,6 +1977,64 @@ async function doImport(){
  }finally{btn.disabled=false;}
 }
 function finishImport(n){if(n>0){toast(n+' etiquetas confirmadas na nuvem');logAct('import',n+' etiquetas confirmadas na nuvem');$('#impStatus').textContent='✓ '+n+' etiquetas salvas neste aparelho e confirmadas na nuvem';}renderBobCatalog();}
+/* O romaneio do fornecedor alimenta o mesmo catálogo usado por Bobinas (importar).
+   Nenhuma NF ou etiqueta Packem é criada: a chave é o número físico da bobina. */
+function supplierEsc(v){return String(v==null?'':v).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+let supplierSheet=null,supplierImportStatus='';
+function supplierRows(){return Object.keys(BOB).filter(id=>/^\d{8,20}$/.test(id)).sort().map(id=>Object.assign({id:id},BOB[id]));}
+function renderSupplierCatalog(){
+ const host=document.getElementById('lblRom');if(!host)return;
+ const p=supplierSheet;
+ host.innerHTML='<div class="panel" style="max-width:760px;text-align:center;border-style:dashed">'
+  +'<div style="color:var(--brand);font-size:2rem;margin-bottom:10px">'+ICONS.down+'</div>'
+  +'<div style="font-weight:700;font-family:var(--disp)">Importar bobinas do fornecedor</div>'
+  +'<p style="color:var(--muted);font-size:.82rem;margin:6px auto 16px;max-width:550px">Jogue a planilha do romaneio (.xlsx). O sistema lê o número físico, converte para o código Packem e salva cada bobina no catálogo, igual à aba Bobinas (importar).</p>'
+  +'<button class="btn brand" id="supplierPick">Selecionar planilha</button><input type="file" id="supplierFile" accept=".xlsx,.xls" hidden>'
+  +'</div><div id="supplierStatus" style="margin-top:10px;color:var(--muted)">'+supplierEsc(supplierImportStatus)+'</div>'
+  +'<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Bipar para o Recebimento</div><p style="font-size:.8rem;color:var(--muted)">Use a etiqueta original do fornecedor. A entrada aparecerá no Recebimento para escolher o destino.</p><div class="fld"><input class="input code" id="supplierScan" autocomplete="off" placeholder="Bipe o código de barras ou o número físico da bobina"></div><button class="gbtn" id="supplierGoRecv" style="margin-top:10px">Abrir Recebimento</button></div>'
+  +(p?'<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Conferir antes de importar · '+p.items.length+' bobinas</div>'
+   +'<p style="font-size:.8rem;color:var(--muted)">Romaneio '+supplierEsc(p.nRomaneio||'sem número')+' · ajuste o código Packem ou a descrição, se necessário.</p>'
+   +'<div class="tbl-wrap" style="max-height:460px;overflow:auto"><table class="tbl"><thead><tr><th>Bobina física</th><th>Código Packem</th><th>Descrição</th><th>Peso líq. (kg)</th></tr></thead><tbody>'
+   +p.items.map(function(it,i){return '<tr><td class="mono">'+supplierEsc(it.bobina)+'</td><td><input class="input code" data-supplier-code="'+i+'" value="'+supplierEsc(it.cProd||'')+'" style="min-width:135px"></td><td><input class="input" data-supplier-desc="'+i+'" value="'+supplierEsc(it.descPackem||it.gramatura||'')+'" style="min-width:240px"></td><td class="num">'+fmt(it.pesoLiquido)+'</td></tr>';}).join('')
+   +'</tbody></table></div><button class="btn brand" id="supplierSave" style="margin-top:14px;width:100%">Importar '+p.items.length+' bobinas para o catálogo</button></div>':'')
+  +'<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Bobinas do fornecedor no catálogo</div>'
+  +'<input class="input" id="supplierSearch" placeholder="Buscar número da bobina ou código Packem" style="margin-bottom:10px"><div id="supplierList"></div></div>';
+ const pick=host.querySelector('#supplierPick'),file=host.querySelector('#supplierFile');pick.onclick=function(){file.click();};file.onchange=function(){if(file.files&&file.files[0])readSupplierSheet(file.files[0]);};
+ const drop=pick.closest('.panel');drop.ondragover=function(ev){ev.preventDefault();};drop.ondrop=function(ev){ev.preventDefault();if(ev.dataTransfer&&ev.dataTransfer.files&&ev.dataTransfer.files[0])readSupplierSheet(ev.dataTransfer.files[0]);};
+ const save=host.querySelector('#supplierSave');if(save)save.onclick=saveSupplierSheet;
+ const scan=host.querySelector('#supplierScan');scan.onkeydown=function(ev){if(ev.key==='Enter'){ev.preventDefault();const value=scan.value;scan.value='';recvAdd(value);}};
+ if(typeof addCam==='function')addCam('supplierScan',{continuous:true,title:'Bipar bobina do fornecedor',scanModes:true,defaultMode:'barcode',onResult:recvAdd});
+ host.querySelector('#supplierGoRecv').onclick=function(){go('v-recv');};
+ const search=host.querySelector('#supplierSearch');search.oninput=renderSupplierList;renderSupplierList();
+}
+window.renderSupplierCatalog=renderSupplierCatalog;
+function renderSupplierList(){const host=document.getElementById('supplierList');if(!host)return;const q=norm((document.getElementById('supplierSearch')||{}).value||'');const all=supplierRows(),rows=all.filter(x=>!q||x.id.includes(q)||String(x.pr||'').toUpperCase().includes(q));host.innerHTML='<div class="count" style="margin-bottom:8px">'+all.length+' bobina(s) físicas cadastradas</div><div class="tbl-wrap" style="max-height:400px;overflow:auto"><table class="tbl"><thead><tr><th>Bobina</th><th>Código Packem</th><th>Peso líq. (kg)</th><th>Descrição</th></tr></thead><tbody>'+(rows.length?rows.slice(0,500).map(x=>'<tr><td class="mono">'+supplierEsc(x.id)+'</td><td class="mono">'+supplierEsc(x.pr||'')+'</td><td class="num">'+fmt(x.pl||0)+'</td><td>'+supplierEsc(x.desc||'')+'</td></tr>').join(''):'<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--muted)">Nenhuma bobina encontrada.</td></tr>')+'</tbody></table></div>';}
+function readSupplierSheet(file){
+ if(!/\.xlsx?$/i.test(file.name||'')){toast('Selecione uma planilha .xlsx ou .xls',false);return;}
+ supplierImportStatus='Lendo planilha…';supplierSheet=null;renderSupplierCatalog();
+ loadXLSX().then(function(){const reader=new FileReader();reader.onload=function(){try{const wb=XLSX.read(new Uint8Array(reader.result),{type:'array'}),sn=wb.SheetNames.find(s=>/romaneio/i.test(s))||wb.SheetNames[0],rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''});const p=window.parseRomaneioXLSX(rows);if(!p.ok)throw new Error(p.err);supplierSheet=p;supplierImportStatus=p.items.length+' bobinas lidas. Confira e importe para salvar na nuvem.';renderSupplierCatalog();}catch(err){supplierImportStatus='Não foi possível ler a planilha: '+String((err&&err.message)||err);renderSupplierCatalog();toast(supplierImportStatus,false);}};reader.readAsArrayBuffer(file);}).catch(function(){supplierImportStatus='Não foi possível carregar o leitor de planilhas.';renderSupplierCatalog();toast(supplierImportStatus,false);});
+}
+async function saveSupplierSheet(){
+ const btn=document.getElementById('supplierSave');if(!btn||btn.disabled||!supplierSheet)return;btn.disabled=true;
+ try{
+  if(!window._bobReady)throw new Error('Aguarde o catálogo de bobinas carregar');
+  const prepared=[],seen=new Set();
+  supplierSheet.items.forEach(function(it,i){const id=norm(it.bobina),code=norm((document.querySelector('[data-supplier-code="'+i+'"]')||{}).value),desc=String((document.querySelector('[data-supplier-desc="'+i+'"]')||{}).value||'').trim(),kg=Number(it.pesoLiquido)||0;prepared.push({id:id,code:code,desc:desc,kg:kg});});
+  for(const x of prepared){
+   if(!/^\d{8,20}$/.test(x.id))throw new Error('Número físico inválido: '+x.id);
+   if(!/^\d{9,12}$/.test(x.code)||x.code===x.id)throw new Error('Informe o código Packem da bobina '+x.id);
+   if(!(x.kg>0))throw new Error('Peso líquido inválido da bobina '+x.id);
+   if(seen.has(x.id))throw new Error('Bobina duplicada na planilha: '+x.id);seen.add(x.id);
+   const old=BOB[x.id];if(old&&(norm(old.pr)!==x.code||Math.abs((Number(old.pl)||0)-x.kg)>0.01))throw new Error('Bobina '+x.id+' já existe com outro produto ou peso');
+  }
+  const at=nowISO(),by=session&&session.u||'';
+  prepared.forEach(function(x){BOB[x.id]=Object.assign({},BOB[x.id]||{},{pr:x.code,desc:x.desc,pl:x.kg,apAt:at,apBy:by});});
+  saveBOB();await _bobIDB.set('bob',BOB);
+  supplierImportStatus=prepared.length+' bobinas salvas neste aparelho. Confirmando na nuvem: 0/'+prepared.length+'…';document.getElementById('supplierStatus').textContent=supplierImportStatus;
+  await syncBobDelta(prepared.map(x=>x.id),function(done){supplierImportStatus='Confirmadas na nuvem: '+done+'/'+prepared.length+'…';const st=document.getElementById('supplierStatus');if(st)st.textContent=supplierImportStatus;});
+  supplierImportStatus='✓ '+prepared.length+' bobinas cadastradas e confirmadas na nuvem. Bipe no Recebimento para dar entrada.';supplierSheet=null;logAct('import','Romaneio do fornecedor · '+prepared.length+' bobinas');renderSupplierCatalog();toast(prepared.length+' bobinas do fornecedor importadas');
+ }catch(err){supplierImportStatus='Importação não confirmada: '+String((err&&err.message)||err)+'. Se as bobinas aparecerem na lista, importe novamente para reenviar.';const st=document.getElementById('supplierStatus');if(st)st.textContent=supplierImportStatus;toast(supplierImportStatus,false);}finally{if(btn.isConnected)btn.disabled=false;}
+}
 function bobImportUI(){return '<div class="panel" style="max-width:680px;text-align:center;border-style:dashed"><div style="color:var(--brand);font-size:2rem;display:flex;justify-content:center;margin-bottom:10px">'+ICONS.down+'</div><div style="font-weight:700;font-family:var(--disp)">Importar arquivo de etiquetas</div><p style="color:var(--muted);font-size:.82rem;margin:6px auto 16px;max-width:460px">Jogue a planilha de apontamentos (.xlsx) ou CSV. O sistema lê <b>Etiqueta</b>, <b>Produto</b> (0303…), <b>Descrição</b> e <b>Quantidade Produzida</b> (a coluna verde).</p><button class="btn brand" id="impBtn">Selecionar arquivo</button><input type="file" id="impFile" accept=".xlsx,.xls,.csv" hidden><div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px"><button class="gbtn" id="bobRestoreCloud">Recuperar na nuvem as etiquetas importadas neste aparelho</button><p style="color:var(--muted);font-size:.75rem;margin:8px 0 0">Adiciona as etiquetas importadas que faltam na nuvem e mantém os cadastros que já existem lá.</p><div id="bobRestoreStatus" style="font-size:.78rem;margin-top:8px"></div></div></div><div id="impStatus"></div><div id="impMap"></div><div class="toolbar" style="margin-top:18px"><div class="search"><span class="si">'+ICONS.search+'</span><input id="bobSearch" placeholder="buscar etiqueta ou produto"></div><span class="count" id="bobCount"></span></div><div class="tbl-wrap"><table class="tbl" id="bobTable"></table></div>';}
 async function restoreBobMissing(){
  const btn=$('#bobRestoreCloud'),status=$('#bobRestoreStatus');if(btn.disabled)return;btn.disabled=true;
@@ -2075,7 +2133,7 @@ async function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',fals
   STAGE.unshift(_it);saveStage();
   try{if(typeof syncStage==='function')syncStage(_it);}catch(e){}
   try{markLocalWrite();}catch(e){}
-  renderRecv();updateStageBadge();toast('Puxado para o Recebimento: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});return true;}
+  renderRecv();updateStageBadge();toast('Puxado para o Recebimento: '+et+' · '+fmt(b.pl)+' '+(typeof unitOf==='function'?unitOf(b.pr).toLowerCase():'kg'));if(!/^\d{8,20}$/.test(et))stationPrint({et:et,pr:b.pr,desc:b.desc,pl:b.pl});return true;}
 function renderRecv(){const adm=isAdmin();
  $('#v-recv').innerHTML='<div class="ph-head"><div><p class="eb">Operação · recebimento</p><h1>Recebimento de Materiais</h1></div></div>'+
  '<div class="two">'+
@@ -2095,7 +2153,7 @@ function renderRecv(){const adm=isAdmin();
  renderStageList();}
 function renderStageList(){const el=$('#stageList');if(!el)return;const adm=isAdmin(),strictAdm=(typeof isStrictAdmin==='function'&&isStrictAdmin());
  if(!STAGE.length){el.innerHTML='<div class="empty"><div class="ei">'+ICONS.inbox+'</div><b>Nenhum item aguardando</b><div class="es">Bipe uma etiqueta da NF para puxar código, descrição e quantidade.</div></div>';return;}
- el.innerHTML=STAGE.map(s=>'<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--sh-sm);margin-bottom:12px"><div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:200px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="mono" style="font-weight:800;font-size:1.05rem">'+s.pr+'</span><span class="pill muted">'+s.et+'</span></div><div style="color:var(--ink);font-size:.9rem;margin-top:6px;font-weight:500">'+(s.desc||'—')+'</div><div style="color:var(--faint);font-size:.72rem;margin-top:5px">recebido '+rel(s.at)+(s.by?" · por "+s.by:"")+'</div></div><div style="text-align:right;white-space:nowrap"><div style="font-family:var(--disp);font-weight:800;font-size:1.5rem;line-height:1">'+fmt(s.pl)+' <span style="font-size:.8rem;color:var(--muted);font-weight:600">kg</span></div></div></div>'+(adm?'<div style="display:flex;gap:10px;margin-top:14px"><button class="btn in" data-az="'+s.et+'" style="flex:1">'+ICONS.box+' Armazenar</button><button class="btn out" data-pp="'+s.et+'" style="flex:1">Produção</button>'+(strictAdm?'<button class="gbtn" data-rm="'+s.et+'" style="width:48px;justify-content:center" title="Excluir pendência (somente admin)">✕</button>':'')+'</div><div style="margin-top:10px"><button class="gbtn" data-lbl="'+s.et+'" style="width:100%;justify-content:center">'+ICONS.tag+' Gerar etiqueta</button></div>':'')+'</div>').join('');
+ el.innerHTML=STAGE.map(s=>'<div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--sh-sm);margin-bottom:12px"><div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:200px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="mono" style="font-weight:800;font-size:1.05rem">'+s.pr+'</span><span class="pill muted">'+s.et+'</span></div><div style="color:var(--ink);font-size:.9rem;margin-top:6px;font-weight:500">'+(s.desc||'—')+'</div><div style="color:var(--faint);font-size:.72rem;margin-top:5px">recebido '+rel(s.at)+(s.by?" · por "+s.by:"")+'</div></div><div style="text-align:right;white-space:nowrap"><div style="font-family:var(--disp);font-weight:800;font-size:1.5rem;line-height:1">'+fmt(s.pl)+' <span style="font-size:.8rem;color:var(--muted);font-weight:600">kg</span></div></div></div>'+(adm?'<div style="display:flex;gap:10px;margin-top:14px"><button class="btn in" data-az="'+s.et+'" style="flex:1">'+ICONS.box+' Armazenar</button><button class="btn out" data-pp="'+s.et+'" style="flex:1">Produção</button>'+(strictAdm?'<button class="gbtn" data-rm="'+s.et+'" style="width:48px;justify-content:center" title="Excluir pendência (somente admin)">✕</button>':'')+'</div>'+(/^\d{8,20}$/.test(s.et)?'':'<div style="margin-top:10px"><button class="gbtn" data-lbl="'+s.et+'" style="width:100%;justify-content:center">'+ICONS.tag+' Gerar etiqueta</button></div>'):'')+'</div>').join('');
  el.querySelectorAll('[data-az]').forEach(b=>b.onclick=()=>stageArmazenar(b.dataset.az));
  el.querySelectorAll('[data-pp]').forEach(b=>b.onclick=()=>stageProducao(b.dataset.pp));
  el.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{if(!(typeof isStrictAdmin==='function'&&isStrictAdmin())){toast('Somente admin pode excluir pendência',false);return;}/* Cancela somente a pendência; nenhum depósito físico é alterado. */STAGE=STAGE.filter(x=>x.et!==b.dataset.rm);saveStage();if(typeof syncDelStage==='function')syncDelStage(b.dataset.rm);renderRecv();updateStageBadge();toast('Pendência removida do recebimento');});
@@ -2916,20 +2974,26 @@ updateStageBadge();
   function resolveRomSupplierScan(raw){
     var value=String(raw==null?'':raw).trim().toUpperCase();
     var direct=norm(value);
+    var catalog=(typeof BOB!=='undefined'&&BOB)||{};
     if(ETQ[direct]){
       var directLabel=ETQ[direct],directDoc=ROMS[directLabel.nf];
       return {id:direct,supplier:!!((directDoc&&directDoc.supplierLabels)||(!directDoc&&directLabel.nRomaneio&&directLabel.bobina===direct&&/^\d{8,20}$/.test(direct)))};
     }
+    if(catalog[direct]&&/^\d{8,20}$/.test(direct))return {id:direct,supplier:false};
     var numeric=value.replace(/\D/g,'');
     if(!numeric)return null;
-    var marked=value.split('$').filter(function(part){return /^\d{8,20}$/.test(part);});
+    var marked=value.indexOf('$')>=0?value.split('$').filter(function(part){return /^\d{8,20}$/.test(part);}):[];
+    if(marked.length>1&&new Set(marked).size>1)return {ambiguous:true};
     var matches=Object.keys(ETQ).filter(function(id){
       var e=ETQ[id],doc=e&&ROMS[e.nf];
       return e.nRomaneio&&(!doc||doc.supplierLabels)&&/^\d{8,20}$/.test(id)&&e.bobina===id&&(marked.length?marked.indexOf(id)>=0:numeric.indexOf(id)>=0);
     });
     if(matches.length>1)return {ambiguous:true};
-    if(!matches.length)return null;
-    return {id:matches[0],supplier:true};
+    if(matches.length)return {id:matches[0],supplier:true};
+    if(marked.length)return {id:marked[0],supplier:false};
+    var catalogMatches=Object.keys(catalog).filter(function(id){return /^\d{8,20}$/.test(id)&&numeric.indexOf(id)>=0;});
+    if(catalogMatches.length>1)return {ambiguous:true};
+    return catalogMatches.length?{id:catalogMatches[0],supplier:false}:null;
   }
   window.resolveRomSupplierScan=resolveRomSupplierScan;
   /* O depósito precisa ser escolhido conscientemente ao entrar na aba.
@@ -3424,6 +3488,7 @@ updateStageBadge();
       return {ok:true,key:key,nRomaneio:nRomaneio,nfe:nfe,dataSaida:dataSaida,cliente:cliente,lacre:lacre,booking:booking,items:items,convAvisos:romConvAvisos};
     }catch(e){return {ok:false,err:'Falha ao ler a planilha do romaneio.'};}
   }
+  window.parseRomaneioXLSX=parseRomaneioXLSX;
 
   /* ---- NF manual (digitada à mão) — monta um nfParsed igual ao importado ---- */
   function openManualNF(){
@@ -3793,7 +3858,7 @@ updateStageBadge();
       +'</div></div>'+preview+scanPanel+nfFilterBar+list;
 
     var romHost=document.getElementById('lblRom');
-    if(romHost){
+    if(romHost&&!window.renderSupplierCatalog){
       romHost.innerHTML=_offWarn+syncWarn
         +'<div class="nfHero"><div class="nfHeroTitle"><div class="k">Gestão de Etiquetas · Bobinas</div><h1>Romaneio do fornecedor</h1><p>Importe a planilha e bipe a etiqueta física. A bobina entre $ identifica o código Packem convertido.</p></div></div>'
         +'<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Depósito de destino</div><div class="nfStatusFilters" id="romLocalSeg" style="display:flex;gap:8px;flex-wrap:wrap">'
@@ -3929,16 +3994,7 @@ updateStageBadge();
     }
   }
   window.renderSupplierRomTab=function(){
-    var host=document.getElementById('lblRom');if(!host)return;
-    if(nfLocal!=='PRE'&&nfLocal!=='TEXTIL'){
-      host.innerHTML='<div class="panel" style="max-width:680px"><div class="ph"><span class="pdot"></span>Depósito do romaneio</div>'
-        +'<p style="color:var(--muted)">Escolha o depósito antes de importar a planilha ou bipar as bobinas.</p>'
-        +'<div class="nfStatusFilters" style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn brand" data-romchoose="PRE">PRE</button><button class="gbtn" data-romchoose="TEXTIL">Têxtil</button></div></div>';
-      host.querySelectorAll('[data-romchoose]').forEach(function(b){b.onclick=function(){setNfLocal(b.getAttribute('data-romchoose'));renderNF();};});
-      return;
-    }
-    renderNF();
-    try{if(typeof pullNF==='function')pullNF(true).then(function(){var a=document.activeElement;if(!romParsed&&!(a&&host.contains(a)&&/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)))renderNF();});}catch(e){}
+    if(typeof window.renderSupplierCatalog==='function')window.renderSupplierCatalog();
   };
   /* autocomplete customizado (substitui o <datalist> nativo que trava com muitos itens) */
   function attachCodeAC(ci,di,fillDesc){
@@ -5527,7 +5583,7 @@ window.cleanScanCode=function(v,kind){
  window.scanInto=function(inputId,opts){O=Object.assign({inputId},opts||{});O.scanMode=O.defaultMode==='barcode'?'barcode':'qr';updateScanMode();document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};
  window.addCam=function(inputId,opts){const el=document.getElementById(inputId);if(!el||el.type==='hidden'||el.dataset.cam)return;el.dataset.cam='1';const w=document.createElement('div');w.className='camfield';w.style.position='relative';w.style.width='100%';el.parentNode.insertBefore(w,el);w.appendChild(el);el.style.width='100%';el.style.boxSizing='border-box';el.style.paddingRight='54px';const b=document.createElement('button');b.type='button';b.className='cambtn';b.innerHTML=ICONS.cam;b.title='Escanear com câmera';b.onclick=()=>scanInto(inputId,opts||{});w.appendChild(b);try{scanLock(el);}catch(e){} };
  addCam('mBob',{enter:true,title:'Escanear bobina'});addCam('mLoc',{enter:true,title:'Escanear endereço',scanKind:'addr'});
- const _rrv=renderRecv;renderRecv=function(){_rrv();addCam('recvScan',{continuous:true,onResult:recvAdd,title:'Escanear bobinas'});};
+ const _rrv=renderRecv;renderRecv=function(){_rrv();addCam('recvScan',{continuous:true,onResult:recvAdd,title:'Escanear bobinas',scanModes:true,defaultMode:'barcode'});};
  const _saz=stageArmazenar;stageArmazenar=function(et){_saz(et);setTimeout(()=>addCam('azLoc',{enter:false,title:'Escanear endereço',scanKind:'addr'}),60);};
 })();
 
@@ -14166,6 +14222,7 @@ window.editUser=editUser;
      Nenhuma entrada pode retirar a bobina silenciosamente de outro deposito.
      A transferencia correta e sempre: Saida no local atual -> Entrada no novo local. */
   function etiquetaNormalizada(v){
+    try{var resolved=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(v):null;if(resolved&&resolved.id)v=resolved.id;}catch(e){}
     try{if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);}catch(e){}
     try{return typeof norm==='function'?norm(v):String(v||'').trim().toUpperCase();}catch(e){return String(v||'').trim().toUpperCase();}
   }

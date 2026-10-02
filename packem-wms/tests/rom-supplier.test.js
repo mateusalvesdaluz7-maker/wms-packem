@@ -169,6 +169,22 @@ test('OCR só aceita automaticamente número cadastrado e consulta bobina import
   assert.equal(ctx.supplierOcrKnown('2600262229'),true);
 });
 
+test('OCR de outro romaneio identifica bobina no vídeo sem registrar nova entrada',async()=>{
+  let queries=0;
+  const ctx={window:{},O:{keepOpenOnOcr:true,allowedDocKey:'ROM-1367 - A'},BOB:{},ETQ:{},ROMS:{},ocrCloudMiss:new Set(),
+    supa:{from:name=>{assert.equal(name,'etiquetas');return {select:columns=>{assert.equal(columns,'id,doc_key,status');return {in:(field,ids)=>{queries++;assert.equal(field,'id');assert.ok(Array.from(ids).includes('2600255962'));return Promise.resolve({data:[{id:'2600255962',doc_key:'ROM-1400',status:'entrada'}]});}};}};}}};
+  vm.createContext(ctx);
+  vm.runInContext(source(' function supplierOcrLongCandidates(', ' function supplierOcrKnown('),ctx);
+  vm.runInContext(source(' function supplierOcrKnown(', ' function ocrRotate('),ctx);
+  const candidates=Array.from(ctx.supplierOcrLongCandidates('26002559624'));
+  assert.deepEqual(candidates,['2600255962','6002559624']);
+  assert.deepEqual(Array.from(await ctx.supplierOcrCheckCatalog(candidates)),[]);
+  const other=await ctx.supplierOcrOtherDocument(candidates);
+  assert.equal(other.id,'2600255962');assert.equal(other.doc,'ROM-1400');assert.equal(other.status,'entrada');
+  await ctx.supplierOcrOtherDocument(candidates);
+  assert.equal(queries,1);
+});
+
 test('câmera antecipa as bobinas físicas da nuvem sem baixar o catálogo inteiro',async()=>{
   let table='',pattern='';
   const ctx={window:{},BOB:{},supa:{from:name=>{table=name;return {

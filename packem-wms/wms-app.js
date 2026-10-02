@@ -5511,7 +5511,7 @@ window.cleanScanCode=function(v,kind){
  const css='.scan{position:fixed;inset:0;z-index:300;background:#000;display:none;flex-direction:column}.scan.show{display:flex}.scanhead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;color:#fff;font-family:var(--disp);font-weight:700;font-size:1.05rem}.scanhead button{background:rgba(255,255,255,.16);color:#fff;border:none;width:40px;height:40px;border-radius:11px;font-size:1.2rem}.scanModes{display:flex;gap:8px;padding:0 14px 10px;background:#000}.scanModes[hidden]{display:none}.scanModes button{flex:1;border:1px solid rgba(255,255,255,.35);border-radius:9px;background:#202020;color:#fff;padding:10px;font-weight:800}.scanModes button.on{background:var(--brand);border-color:var(--brand)}.scanTools{display:flex;align-items:center;justify-content:center;gap:12px;padding:8px 14px;background:#000;color:#fff}.scanTools[hidden],.scanTools [hidden]{display:none}.scanTools button{background:#252525;border:1px solid #777;border-radius:8px;color:#fff;padding:9px 12px;font-weight:700}.scanTools button.on{background:var(--brand);border-color:var(--brand)}.scanTools label{display:flex;align-items:center;gap:8px;font-size:.85rem}.scanTools input{width:115px;accent-color:var(--brand)}#scanReader{flex:1;width:100%;background:#000;overflow:hidden}#scanReader video{width:100%!important;height:100%!important;object-fit:cover}#scanReader img{display:none}.scanhint{color:#fff;text-align:center;padding:14px 16px;font-size:.92rem;opacity:.92;min-height:20px}.scanFb{position:absolute;left:12px;right:12px;top:70px;z-index:5;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;transform:translateY(-8px);transition:opacity .12s,transform .12s}.scanFb.show{opacity:1;transform:translateY(0)}.scanFb .fbcard{width:100%;max-width:520px;border-radius:16px;padding:16px 18px;text-align:center;font-family:var(--disp);font-weight:800;font-size:1.15rem;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;gap:10px}.scanFb.ok .fbcard{background:linear-gradient(135deg,#16a34a,#15803d)}.scanFb.err .fbcard{background:linear-gradient(135deg,#dc2626,#b91c1c);animation:fbshake .35s}.scanFb .fbico{font-size:1.5rem;line-height:1}@keyframes fbshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}.cambtn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:9px;background:var(--brand);color:#fff;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(234,90,12,.3);z-index:3}.cambtn .i{width:20px;height:20px}';
  const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
  const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX">Fechar ✕</button></div><div class="scanModes" id="scanModes" hidden><button type="button" data-scanmode="auto" hidden>QR + número</button><button type="button" data-scanmode="ocr" hidden>Número impresso</button><button type="button" data-scanmode="qr">QR Code</button></div><div class="scanTools" id="scanTools" hidden><button type="button" id="scanTorch" hidden>Luz</button><label id="scanZoomWrap" hidden>Zoom <input type="range" id="scanZoom" min="1" max="3" step="0.1" value="1"></label></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><button type="button" id="scanOcrCapture" hidden style="margin:8px 14px;background:var(--brand);color:#fff;border:0;border-radius:10px;padding:15px;font-weight:800;font-size:1rem">Capturar número da bobina</button><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
- let h5=null,h5StopPromise=Promise.resolve(),O=null,lastV='',lastT=0,active=false,starting=false,torchOn=false,ocrStream=null,ocrSeq=0,ocrWorkerPromise=null,ocrPaused=false,ocrPendingId='',ocrPendingAt=0,ocrPreferredRegion=null,scanSeen=new Set(),scanIgnored=new Set();
+ let h5=null,h5StopPromise=Promise.resolve(),O=null,lastV='',lastT=0,active=false,starting=false,torchOn=false,ocrStream=null,ocrSeq=0,ocrWorkerPromise=null,ocrPaused=false,ocrPendingId='',ocrPendingAt=0,ocrPreferredRegion=null,ocrFallbackCursor=0,scanSeen=new Set(),scanIgnored=new Set();
  function hint(t){const h=document.getElementById('scanHint');if(h)h.textContent=t;}
  function scanTrack(){var v=document.querySelector('#scanReader video');return v&&v.srcObject&&v.srcObject.getVideoTracks?v.srcObject.getVideoTracks()[0]:null;}
  /* Ajusta a câmera quando o aparelho aceita foco contínuo e mais resolução. */
@@ -5533,17 +5533,19 @@ window.cleanScanCode=function(v,kind){
  document.getElementById('scanZoom').oninput=function(){var track=scanTrack();if(track)track.applyConstraints({advanced:[{zoom:Number(this.value)}]}).catch(function(){});};
  function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.type='square';o.frequency.setValueAtTime(920,a.currentTime);o.frequency.setValueAtTime(1180,a.currentTime+0.06);g.gain.setValueAtTime(0.0001,a.currentTime);g.gain.exponentialRampToValueAtTime(0.35,a.currentTime+0.012);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+0.17);o.start();setTimeout(()=>{try{o.stop();a.close();}catch(e){}},190);}catch(e){}}
  function loadH5(){if(window.Html5Qrcode)return Promise.resolve();return new Promise(function(res,rej){var urls=['https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js','https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js'],i=0;function next(){if(i>=urls.length){rej(new Error('biblioteca da câmera indisponível'));return;}var s=document.createElement('script');s.src=urls[i++];s.onload=function(){if(window.Html5Qrcode)res();else{s.remove();next();}};s.onerror=function(){s.remove();next();};document.head.appendChild(s);}next();});}
- function supplierOcrIds(text){var found=(String(text||'').match(/(?:^|\D)\d{10}(?!\d)/g)||[]).map(function(x){return x.match(/\d{10}$/)[0];});String(text||'').split(/[\r\n]+/).forEach(function(line){var digits=line.replace(/\D/g,'');if(digits.length===10)found.push(digits);});return Array.from(new Set(found));}
+ function supplierOcrIds(text){var found=[];String(text||'').match(/\d{10,12}/g)?.forEach(function(run){if(run.length===10){found.push(run);return;}/* O OCR às vezes inventa um dígito. Só aceitar uma janela de 10 se ela já existir no romaneio. */for(var i=0;i<=run.length-10;i++){var id=run.slice(i,i+10);if(typeof supplierOcrKnown==='function'&&supplierOcrKnown(id))found.push(id);}});String(text||'').split(/[\r\n]+/).forEach(function(line){var digits=line.replace(/\D/g,'');if(digits.length===10)found.push(digits);});return Array.from(new Set(found));}
  function supplierOcrKnown(id){return O&&O.keepOpenOnOcr?!!(ETQ[id]&&(!O.allowedDocKey||ETQ[id].nf===O.allowedDocKey)&&ROMS[ETQ[id].nf]&&ROMS[ETQ[id].nf].supplierLabels):!!BOB[id];}
  function ocrRotate(source,deg){var c=document.createElement('canvas'),side=deg%180!==0;c.width=side?source.height:source.width;c.height=side?source.width:source.height;var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.translate(c.width/2,c.height/2);x.rotate(deg*Math.PI/180);x.drawImage(source,-source.width/2,-source.height/2);return c;}
  function ocrCenter(source){var c=document.createElement('canvas'),w=Math.round(source.width*.82),h=Math.round(source.height*.20);c.width=w;c.height=h;c.getContext('2d').drawImage(source,Math.round((source.width-w)/2),Math.round((source.height-h)/2),w,h,0,0,w,h);return c;}
  function ocrBand(source,from){var c=document.createElement('canvas'),w=Math.round(source.width*.82),h=Math.round(source.height*.25);c.width=w;c.height=h;c.getContext('2d').drawImage(source,Math.round((source.width-w)/2),Math.round(source.height*from),w,h,0,0,w,h);return c;}
  function ocrWideBand(source,from){var c=document.createElement('canvas'),h=Math.round(source.height*.36);c.width=source.width;c.height=h;c.getContext('2d').drawImage(source,0,Math.round(source.height*from),c.width,h,0,0,c.width,h);return c;}
+ function ocrSide(source,side,deg){var strip=document.createElement('canvas'),w=Math.round(source.width*.34),h=Math.round(source.height*.84);strip.width=w;strip.height=h;strip.getContext('2d').drawImage(source,side==='right'?source.width-w:0,Math.round(source.height*.08),w,h,0,0,w,h);var turned=ocrRotate(strip,deg),scale=Math.min(2,1600/turned.width);if(scale>=1)return scale===1?turned:ocrScale(turned,scale);return turned;}
+ function ocrScale(source,scale){var c=document.createElement('canvas');c.width=Math.round(source.width*scale);c.height=Math.round(source.height*scale);var x=c.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(source,0,0,c.width,c.height);return c;}
  function ocrEnhance(source){var c=document.createElement('canvas'),scale=Math.min(2,Math.max(1,2400/source.width));c.width=Math.round(source.width*scale);c.height=Math.round(source.height*scale);var x=c.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(source,0,0,c.width,c.height);var frame=x.getImageData(0,0,c.width,c.height),data=frame.data,hist=new Uint32Array(256),total=c.width*c.height;for(var i=0;i<data.length;i+=4){var gray=Math.round(data[i]*.299+data[i+1]*.587+data[i+2]*.114);hist[gray]++;data[i]=data[i+1]=data[i+2]=gray;}var low=0,high=255,count=0;for(var a=0;a<256;a++){count+=hist[a];if(count>=total*.08){low=a;break;}}count=0;for(var b=255;b>=0;b--){count+=hist[b];if(count>=total*.08){high=b;break;}}if(high-low>=25){var gain=255/(high-low);for(var j=0;j<data.length;j+=4){var v=Math.max(0,Math.min(255,Math.round((data[j]-low)*gain)));data[j]=data[j+1]=data[j+2]=v;}}x.putImageData(frame,0,0);return c;}
- function ocrRegion(source,region){if(region.kind==='center')return ocrRotate(ocrCenter(source),region.deg);if(region.kind==='enhanced-center')return ocrRotate(ocrEnhance(ocrCenter(source)),region.deg);if(region.kind==='band'||region.kind==='wide-band'){var turned=region.deg?ocrRotate(source,region.deg):source;return ocrRotate(region.kind==='band'?ocrBand(turned,region.from):ocrWideBand(turned,region.from),region.flip);}return ocrRotate(source,region.deg);}
+ function ocrRegion(source,region){if(region.kind==='side')return ocrSide(source,region.side,region.deg);if(region.kind==='center')return ocrRotate(ocrCenter(source),region.deg);if(region.kind==='enhanced-center')return ocrRotate(ocrEnhance(ocrCenter(source)),region.deg);if(region.kind==='band'||region.kind==='wide-band'){var turned=region.deg?ocrRotate(source,region.deg):source;return ocrRotate(region.kind==='band'?ocrBand(turned,region.from):ocrWideBand(turned,region.from),region.flip);}return ocrRotate(source,region.deg);}
  function supplierOcrWorker(){if(!ocrWorkerPromise){ocrWorkerPromise=(async function(){if(!window.Tesseract)throw new Error('Leitor de números indisponível. Verifique a conexão.');var w=await Tesseract.createWorker('eng');await w.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:'11'});return w;})().catch(function(e){ocrWorkerPromise=null;throw e;});}return ocrWorkerPromise;}
  window.prepareBobbinNumberReader=function(){supplierOcrWorker().catch(function(){});};
- function stopSupplierOcr(){ocrSeq++;ocrPendingId='';ocrPendingAt=0;ocrPreferredRegion=null;if(ocrStream){ocrStream.getTracks().forEach(function(t){t.stop();});ocrStream=null;}document.getElementById('scanOcrCapture').disabled=false;}
+ function stopSupplierOcr(){ocrSeq++;ocrPendingId='';ocrPendingAt=0;ocrPreferredRegion=null;ocrFallbackCursor=0;if(ocrStream){ocrStream.getTracks().forEach(function(t){t.stop();});ocrStream=null;}document.getElementById('scanOcrCapture').disabled=false;}
  async function startSupplierOcr(){
   stopSupplierOcr();ocrPaused=false;supplierOcrWorker().catch(function(){});
   var reader=document.getElementById('scanReader'),video=document.createElement('video');
@@ -5565,86 +5567,36 @@ window.cleanScanCode=function(v,kind){
   source.getContext('2d').drawImage(video,0,0,source.width,source.height);
   hint('Lendo número impresso no aparelho…');
   try{
-   var worker=await supplierOcrWorker(),found=[],matchedRegion=null;
-   function collect(result,region){var ids=supplierOcrIds(result.data.text);ids.forEach(function(id){if(!found.includes(id))found.push(id);});if(ids.some(supplierOcrKnown))matchedRegion=region;}
-   /* Confirma primeiro na área que funcionou; repetir a varredura inteira atrasa o próximo bipe. */
-   if(ocrPreferredRegion){
-    await worker.setParameters({tessedit_pageseg_mode:ocrPreferredRegion.kind==='center'||ocrPreferredRegion.kind==='enhanced-center'?'7':'11'});
-    collect(await worker.recognize(ocrRegion(source,ocrPreferredRegion)),ocrPreferredRegion);
-   }
-   if(!found.some(supplierOcrKnown)){
-    await worker.setParameters({tessedit_pageseg_mode:'7'});
-    var center=ocrCenter(source);
-    for(var fastDeg of [0,180]){
-     if(seq!==ocrSeq||!active)return;
-     var fast=await worker.recognize(ocrRotate(center,fastDeg));
-     collect(fast,{kind:'center',deg:fastDeg});
-     if(found.some(supplierOcrKnown))break;
-    }
-   }
-   if(!found.some(supplierOcrKnown)){
-    await worker.setParameters({tessedit_pageseg_mode:'11'});
-    for(var bandDeg of [0,90]){
-     if(seq!==ocrSeq||!active)return;
-     var turned=bandDeg?ocrRotate(source,bandDeg):source;
-     for(var from of [.62,.06,.36]){
-      if(seq!==ocrSeq||!active)return;
-      var band=ocrBand(turned,from),bandResult=await worker.recognize(band);
-      collect(bandResult,{kind:'band',deg:bandDeg,from:from,flip:0});
-      if(found.some(supplierOcrKnown))break;
-      if(seq!==ocrSeq||!active)return;
-      var opposite=await worker.recognize(ocrRotate(band,180));
-      collect(opposite,{kind:'band',deg:bandDeg,from:from,flip:180});
-      if(found.some(supplierOcrKnown))break;
-     }
-     if(found.some(supplierOcrKnown))break;
-    }
-   }
-   if(!found.some(supplierOcrKnown)){
-    await worker.setParameters({tessedit_pageseg_mode:'7'});
-    var enhancedCenter=ocrEnhance(center);
-    for(var enhancedDeg of [0,180]){
-     if(seq!==ocrSeq||!active)return;
-     var enhancedResult=await worker.recognize(ocrRotate(enhancedCenter,enhancedDeg));
-     collect(enhancedResult,{kind:'enhanced-center',deg:enhancedDeg});
-     if(found.some(supplierOcrKnown))break;
-    }
-   }
-   if(!found.some(supplierOcrKnown)){
-    await worker.setParameters({tessedit_pageseg_mode:'11'});
-    /* Três faixas sobrepostas cobrem a câmera inteira, inclusive bordas e cantos. */
-    for(var wideDeg of [0,90]){
-     if(seq!==ocrSeq||!active)return;
-     var wideTurned=wideDeg?ocrRotate(source,wideDeg):source;
-     for(var wideFrom of [0,.32,.64]){
-      if(seq!==ocrSeq||!active)return;
-      var wide=ocrWideBand(wideTurned,wideFrom);
-      collect(await worker.recognize(wide),{kind:'wide-band',deg:wideDeg,from:wideFrom,flip:0});
-      if(found.some(supplierOcrKnown))break;
-      if(seq!==ocrSeq||!active)return;
-      collect(await worker.recognize(ocrRotate(wide,180)),{kind:'wide-band',deg:wideDeg,from:wideFrom,flip:180});
-      if(found.some(supplierOcrKnown))break;
-     }
-     if(found.some(supplierOcrKnown))break;
-    }
-   }
-   if(!found.some(supplierOcrKnown)){
-    await worker.setParameters({tessedit_pageseg_mode:'11'});
-    for(var deg of [0,180,90,270]){
-     if(seq!==ocrSeq||!active)return;
-     var result=await worker.recognize(ocrRotate(source,deg));
-     collect(result,{kind:'full',deg:deg});
-     if(found.some(supplierOcrKnown))break;
-    }
+   var worker=await supplierOcrWorker(),found=[],matchedRegion=null,uncertainRead=false;
+   function collect(result,region){var raw=String(result.data.text||''),ids=supplierOcrIds(raw);ids.forEach(function(id){if(!found.includes(id))found.push(id);});if(ids.some(supplierOcrKnown))matchedRegion=region;if(!ids.length&&/\d{10,12}/.test(raw))uncertainRead=true;}
+   var portrait=source.height>source.width*1.15;
+   var fastRegions=portrait?[{kind:'side',side:'right',deg:270},{kind:'band',deg:0,from:.62,flip:180},{kind:'center',deg:0},{kind:'side',side:'right',deg:90},{kind:'center',deg:180}]:[{kind:'center',deg:0},{kind:'center',deg:180},{kind:'side',side:'right',deg:270},{kind:'side',side:'right',deg:90}];
+   var fallback=[{kind:'side',side:'left',deg:270},{kind:'side',side:'left',deg:90},{kind:'enhanced-center',deg:0},{kind:'enhanced-center',deg:180}];
+   for(var fallbackDeg of [0,90])for(var fallbackFrom of [.62,.06,.36])for(var fallbackFlip of [0,180])fallback.push({kind:'band',deg:fallbackDeg,from:fallbackFrom,flip:fallbackFlip});
+   for(var wideDeg of [0,90])for(var wideFrom of [0,.32,.64])for(var wideFlip of [0,180])fallback.push({kind:'wide-band',deg:wideDeg,from:wideFrom,flip:wideFlip});
+   for(var fullDeg of [0,180,90,270])fallback.push({kind:'full',deg:fullDeg});
+   /* Poucas regiões por quadro mantêm a câmera responsiva; as outras entram nos quadros seguintes. */
+   var regions=ocrPreferredRegion?[ocrPreferredRegion]:[];
+   fastRegions.forEach(function(region){if(!regions.some(function(item){return JSON.stringify(item)===JSON.stringify(region);}))regions.push(region);});
+   var fallbackLimit=O.autoOcr?2:fallback.length;
+   for(var offset=0;offset<fallbackLimit;offset++)regions.push(fallback[(ocrFallbackCursor+offset)%fallback.length]);
+   ocrFallbackCursor=(ocrFallbackCursor+fallbackLimit)%fallback.length;
+   for(var region of regions){
+    if(seq!==ocrSeq||!active)return;
+    await worker.setParameters({tessedit_pageseg_mode:region.kind==='side'||region.kind==='center'||region.kind==='enhanced-center'?'7':'11'});
+    collect(await worker.recognize(ocrRegion(source,region)),region);
+    if(found.some(supplierOcrKnown))break;
+    if(O.autoOcr&&(found.length||uncertainRead))break;
    }
    if(seq!==ocrSeq||!active)return;
    var known=found.filter(supplierOcrKnown),pending=O.keepOpenOnOcr?known.filter(function(id){return !scanSeen.has(id)&&!scanIgnored.has(id);}):known,choices=pending.length?pending:(known.length?known:found);
    var box=document.getElementById('scanHint');box.replaceChildren();
-   if(!choices.length){ocrPendingId='';hint(O.autoOcr?'Procurando os 10 dígitos. Aproxime o número e evite reflexos.':'Não consegui ler os 10 dígitos. Aproxime o número, evite reflexos e capture novamente.');return;}
+   if(!choices.length){ocrPendingId='';nextDelay=uncertainRead?350:150;hint(uncertainRead?'Número visto, mas a leitura ainda não está confiável. Aproxime e mantenha firme.':O.autoOcr?'Procurando os 10 dígitos. Aproxime o número e evite reflexos.':'Não consegui ler os 10 dígitos. Aproxime o número, evite reflexos e capture novamente.');return;}
    if(O.keepOpenOnOcr&&known.length&&!pending.length){ocrPendingId='';hint('Bobina já recebida. Aponte para outra bobina.');return;}
    /* Duas leituras iguais antes de alterar estoque evitam confirmar um dígito visto errado em um quadro. */
    if(pending.length===1&&known.length===1){var readId=pending[0];if(O.autoOcr&&(ocrPendingId!==readId||Date.now()-ocrPendingAt>15000)){ocrPendingId=readId;ocrPendingAt=Date.now();ocrPreferredRegion=matchedRegion;nextDelay=120;hint('Número '+readId+' encontrado. Confirmando leitura…');return;}ocrPendingId='';ocrPreferredRegion=matchedRegion;var received=hit(readId);if(O.keepOpenOnOcr){if(!received&&!scanIgnored.has(readId)){ocrPaused=true;showOcrRetry('Não foi possível receber '+readId+'. Confira o romaneio e toque em Ler novamente.');}else nextDelay=250;return;}if(O.continuous){nextDelay=received?600:1500;return;}close();return;}
    ocrPendingId='';
+   if(O.autoOcr&&!known.length){ocrPendingId='';nextDelay=350;hint('Número '+choices[0]+' não consta neste romaneio. Confira a planilha ou a etiqueta; a câmera continua lendo.');return;}
    if(O.autoOcr)ocrPaused=true;
    var intro=document.createElement('div');intro.textContent=known.length?'Confirme o número da bobina:':'Número encontrado, mas ainda não está no catálogo. Confira a planilha importada:';box.appendChild(intro);
    choices.forEach(function(id){var b=document.createElement('button');b.type='button';b.textContent=id;b.style.cssText='display:inline-block;margin:8px 4px;padding:12px 18px;background:var(--brand);color:#fff;border:0;border-radius:9px;font-weight:800;font-size:1rem';b.onclick=function(){var received=hit(id);if(O.keepOpenOnOcr){if(!received&&!scanIgnored.has(id)){ocrPaused=true;showOcrRetry('Não foi possível receber '+id+'. Confira o romaneio e toque em Ler novamente.');}else{ocrPaused=false;if(O.autoOcr)setTimeout(captureSupplierOcr,500);}}else close();};box.appendChild(b);});

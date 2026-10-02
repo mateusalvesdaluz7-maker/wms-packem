@@ -137,6 +137,33 @@ test('OCR aceita número físico separado por espaços sem inventar ID em códig
   assert.deepEqual(Array.from(ctx.supplierOcrIds('26002677249')),[]);
 });
 
+test('câmera lê número de bobina em qualquer tela e mantém endereço somente no QR',()=>{
+  const title={textContent:''},ctx={window:{},O:null,scanSeen:new Set(),scanIgnored:new Set(),document:{getElementById:()=>title},updateScanMode(){},open(){}};
+  vm.createContext(ctx);
+  vm.runInContext(source(' window.scanInto=function(', ' window.addCam=function('),ctx);
+  ctx.window.scanInto('floorScan',{title:'Ler bobina no Chão'});
+  assert.equal(ctx.O.scanMode,'auto');
+  assert.equal(ctx.O.supplierOcr,true);
+  ctx.window.scanInto('mLoc',{title:'Escanear endereço',scanKind:'addr'});
+  assert.equal(ctx.O.scanMode,'qr');
+  ctx.window.scanInto('rbdScan',{title:'Romaneio',supplierOcr:false});
+  assert.equal(ctx.O.scanMode,'qr');
+});
+
+test('número físico fora do romaneio chega ao fluxo geral, mas não ao documento errado',()=>{
+  const ctx={O:{keepOpenOnOcr:false},BOB:{},ETQ:{},ROMS:{}};
+  vm.createContext(ctx);
+  vm.runInContext(source(' function supplierOcrKnown(', ' function ocrRotate('),ctx);
+  assert.equal(ctx.supplierOcrKnown('2600262229'),true);
+  assert.equal(ctx.supplierOcrKnown('2600262229',true),false);
+  ctx.ETQ['2600262229']={nf:'ROM-OUTRO'};
+  ctx.ROMS['ROM-OUTRO']={supplierLabels:true};
+  ctx.O={keepOpenOnOcr:true,allowedDocKey:'ROM-1367 - A'};
+  assert.equal(ctx.supplierOcrKnown('2600262229'),false);
+  ctx.O.allowedDocKey='ROM-OUTRO';
+  assert.equal(ctx.supplierOcrKnown('2600262229'),true);
+});
+
 test('importação da planilha salva bobinas no catálogo e confirma na nuvem sem gerar NF',async()=>{
   const {parsed}=parseFixture(),calls={saved:0,cloud:[],toasts:[]},button={disabled:false,isConnected:true};
   const ctx={window:{_bobReady:true},BOB:{},supplierSheet:parsed,session:{u:'admin'},norm,nowISO:()=> '2026-10-01T12:00:00Z',

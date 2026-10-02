@@ -51,10 +51,9 @@ function openAIErrorMessage(status, payload) {
   if (status === 401 || code === 'invalid_api_key' || raw.includes('api key')) {
     return 'A chave da OpenAI está inválida ou foi revogada. Atualize OPENAI_API_KEY na Vercel e faça um novo deploy.';
   }
-  if (code === 'insufficient_quota' || type === 'insufficient_quota' || raw.includes('quota') || raw.includes('billing')) {
+  if (status === 429 || code === 'insufficient_quota' || type === 'insufficient_quota' || raw.includes('quota') || raw.includes('billing')) {
     return 'A conta da API OpenAI está sem crédito ou cota. Ative o faturamento ou adicione saldo e tente novamente.';
   }
-  if (status === 429) return 'A leitura por IA atingiu o limite de uso. Tente novamente mais tarde.';
   if (status === 403 || code === 'permission_denied') {
     return 'A chave da OpenAI não tem permissão para usar o modelo de leitura de imagens.';
   }
@@ -72,7 +71,6 @@ module.exports = async function handler(req, res) {
   if (!process.env.OPENAI_API_KEY) return send(res, 503, { error: 'Leitura por foto ainda não foi configurada no servidor.' });
 
   const imageDataUrl = req.body && req.body.imageDataUrl;
-  const numberOnly = req.body && req.body.tipo === 'numero_bobina';
   if (typeof imageDataUrl !== 'string' || !IMAGE_PREFIX.test(imageDataUrl) || imageDataUrl.length > MAX_IMAGE_CHARS) {
     return send(res, 400, { error: 'Envie uma foto JPEG, PNG ou WebP de até aproximadamente 4 MB.' });
   }
@@ -86,21 +84,12 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({
         model: process.env.OPENAI_OCR_MODEL || 'gpt-5.6-luna',
-        ...(numberOnly ? {
-          reasoning: { effort: 'low' }, max_output_tokens: 300,
-          text: { format: { type: 'json_schema', name: 'numero_bobina', strict: true, schema: {
-            type: 'object', properties: { identificador_bobina: { type: ['string', 'null'] } },
-            required: ['identificador_bobina'], additionalProperties: false,
-          } } },
-        } : {}),
         input: [{
           role: 'user',
           content: [
             {
               type: 'input_text',
-              text: numberOnly
-                ? 'Leia apenas o número grande de identificação da bobina NorteBag nesta etiqueta, mesmo que esteja vertical ou invertido. Ele tem exatamente 10 dígitos e começa com 26. Ignore código de barras, datas, ordem de produção, código do produto e pesos. Responda somente JSON válido com a chave identificador_bobina contendo os 10 dígitos exatos como texto, ou null se não puder lê-los com segurança. Não invente dígitos.'
-                : 'Leia esta etiqueta industrial, inclusive se estiver girada. Retorne APENAS JSON válido, sem markdown, com exatamente estas quatro chaves: identificador_bobina (texto ou null), bobina (texto ou null), peso_bruto_kg (número ou null), peso_liquido_kg (número ou null). identificador_bobina é o número grande de identificação da bobina, por exemplo 2600256665. bobina deve juntar a gramatura e a largura no formato "167 x 180" quando a etiqueta mostrar "167GM² 180CM". peso_bruto_kg vem do campo Peso Bruto Kg e peso_liquido_kg vem do campo Peso Líquido Kg. Não use data, ordem de produção, código do produto, volume ou conteúdo do código de barras nesses quatro campos. Não invente: use null quando não estiver legível.',
+              text: 'Leia esta etiqueta industrial, inclusive se estiver girada. Retorne APENAS JSON válido, sem markdown, com exatamente estas quatro chaves: identificador_bobina (texto ou null), bobina (texto ou null), peso_bruto_kg (número ou null), peso_liquido_kg (número ou null). identificador_bobina é o número grande de identificação da bobina, por exemplo 2600256665. bobina deve juntar a gramatura e a largura no formato "167 x 180" quando a etiqueta mostrar "167GM² 180CM". peso_bruto_kg vem do campo Peso Bruto Kg e peso_liquido_kg vem do campo Peso Líquido Kg. Não use data, ordem de produção, código do produto, volume ou conteúdo do código de barras nesses quatro campos. Não invente: use null quando não estiver legível.',
             },
             { type: 'input_image', image_url: imageDataUrl, detail: 'high' },
           ],
@@ -114,10 +103,6 @@ module.exports = async function handler(req, res) {
     }
 
     const read = parseJson(extractText(payload));
-    if (numberOnly) {
-      const id = String(read.identificador_bobina ?? '').trim();
-      return send(res, 200, { identificador_bobina: /^26\d{8}$/.test(id) ? id : null });
-    }
     return send(res, 200, {
       identificador_bobina: textOrNull(read.identificador_bobina),
       bobina: bobinaOrNull(read.bobina),

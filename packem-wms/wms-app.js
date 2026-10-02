@@ -4048,15 +4048,17 @@ updateStageBadge();
     var desc=e.xProd||(typeof nfDescByCode==='function'?nfDescByCode(e.cProd):'')||'';
     var _docLocal=((NFS[e.nf]||ROMS[e.nf]||{}).local)||e.local||'';
     var _it={et:id,pr:e.cProd||id,desc:desc,pl:Number(e.kg)||0,local:_docLocal,at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')};
-    var _tecido=/^TEC\./i.test(String(desc).trim());
+    /* Bobinas do romaneio com etiqueta física entram direto no Chão 70;
+       a regra TEC. continua valendo para notas fiscais comuns. */
+    var _chao70=/^TEC\./i.test(String(desc).trim())||!!(ROMS[e.nf]&&ROMS[e.nf].supplierLabels);
     var _ja=STAGE.find(function(s){return norm(s.et)===id;});
-    if(_tecido){
+    if(_chao70){
       if(typeof window.f70Entrada!=='function'){toast('Chão de Fábrica indisponível. A etiqueta não foi confirmada; tente novamente.',false);return;}
       if(window.f70Entrada(_it,true)!==true){toast('Não foi possível dar entrada no Chão de Fábrica. Confira o local da etiqueta antes de repetir.',false);return;}
     }else if(!_ja){STAGE.unshift(_it);saveStage();try{if(typeof syncStage==='function')syncStage(_it);}catch(_e){}try{if(typeof updateStageBadge==='function')updateStageBadge();}catch(_e){}}
-    e.status='entrada';if(!Array.isArray(e.hist))e.hist=[];e.hist.push({ev:_tecido?'entrada-chao70':'entrada-recebimento',at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')});
-    saveNF();if(typeof logAct==='function')logAct('recebimento-nf',id+(_tecido?' · Chão de Fábrica - 70':' · aguardando destino'));if(typeof syncEtiqueta==='function')syncEtiqueta(e);
-    toast((_tecido?'Entrada no Chão de Fábrica - 70: ':(_ja?'Já estava no Recebimento: ':'Puxado para o Recebimento: '))+id+' · '+fmt(_it.pl)+' kg');
+    e.status='entrada';if(!Array.isArray(e.hist))e.hist=[];e.hist.push({ev:_chao70?'entrada-chao70':'entrada-recebimento',at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')});
+    saveNF();if(typeof logAct==='function')logAct('recebimento-nf',id+(_chao70?' · Chão de Fábrica - 70':' · aguardando destino'));if(typeof syncEtiqueta==='function')syncEtiqueta(e);
+    toast((_chao70?'Entrada no Chão de Fábrica - 70: ':(_ja?'Já estava no Recebimento: ':'Puxado para o Recebimento: '))+id+' · '+fmt(_it.pl)+' kg');
     /* fechou a NF? */
     if(e.nf&&e.nf!=='__vaga__'){
       var ids=Object.keys(ETQ).filter(function(k){return ETQ[k].nf===e.nf;});

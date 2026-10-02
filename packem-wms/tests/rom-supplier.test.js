@@ -132,6 +132,9 @@ test('OCR aceita número físico separado por espaços sem inventar ID em códig
   vm.runInContext(source(' function supplierOcrIds(', ' function supplierOcrKnown('),ctx);
   assert.deepEqual(Array.from(ctx.supplierOcrIds('2600 267724\n11970')),['2600267724']);
   assert.deepEqual(Array.from(ctx.supplierOcrIds('41488526002677245119705361S333204')),[]);
+  ctx.supplierOcrKnown=id=>id==='2600262229';
+  assert.deepEqual(Array.from(ctx.supplierOcrIds('26002622294')),['2600262229']);
+  assert.deepEqual(Array.from(ctx.supplierOcrIds('26002677249')),[]);
 });
 
 test('importação da planilha salva bobinas no catálogo e confirma na nuvem sem gerar NF',async()=>{

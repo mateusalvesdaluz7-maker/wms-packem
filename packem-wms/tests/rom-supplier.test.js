@@ -127,6 +127,13 @@ test('código de barras do fornecedor usa bobina importada no catálogo sem abri
   assert.equal(ctx.resolveRomSupplierScan('$2600999999$').id,'2600999999');
 });
 
+test('OCR aceita número físico separado por espaços sem inventar ID em código longo',()=>{
+  const ctx={};vm.createContext(ctx);
+  vm.runInContext(source(' function supplierOcrIds(', ' function supplierOcrKnown('),ctx);
+  assert.deepEqual(Array.from(ctx.supplierOcrIds('2600 267724\n11970')),['2600267724']);
+  assert.deepEqual(Array.from(ctx.supplierOcrIds('41488526002677245119705361S333204')),[]);
+});
+
 test('importação da planilha salva bobinas no catálogo e confirma na nuvem sem gerar NF',async()=>{
   const {parsed}=parseFixture(),calls={saved:0,cloud:[],toasts:[]},button={disabled:false,isConnected:true};
   const ctx={window:{_bobReady:true},BOB:{},supplierSheet:parsed,session:{u:'admin'},norm,nowISO:()=> '2026-10-01T12:00:00Z',

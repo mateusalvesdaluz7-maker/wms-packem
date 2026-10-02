@@ -3971,7 +3971,7 @@ updateStageBadge();
     var romScan=document.getElementById('romRecvScan');
     if(romScan){
       romScan.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=romScan.value;romScan.value='';nfRecvBip(v);}});
-      if(typeof addCam==='function')addCam('romRecvScan',{continuous:true,title:'Ler etiqueta do fornecedor',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'ocr',onResult:function(v){nfRecvBip(v);}});
+      if(typeof addCam==='function')addCam('romRecvScan',{continuous:true,keepOpenOnOcr:true,title:'Ler etiqueta do fornecedor',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'ocr',onResult:function(v){nfRecvBip(v);}});
     }
     if(nfParsed){
       /* base de sugestões (código + descrição) a partir do cadastro de Produtos e bobinas */
@@ -4550,7 +4550,7 @@ updateStageBadge();
     var inp=document.getElementById('rbdScan');
     if(inp){
       inp.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=inp.value;inp.value='';nfRecvBip(v);refresh();}});
-      if(typeof addCam==='function')addCam('rbdScan',{continuous:true,title:label,scanModes:!!(isRom&&doc.supplierLabels),supplierOcr:!!(isRom&&doc.supplierLabels),autoOcr:!!(isRom&&doc.supplierLabels),defaultMode:isRom&&doc.supplierLabels?'ocr':'qr',onResult:function(v){nfRecvBip(v);refresh();}});
+      if(typeof addCam==='function')addCam('rbdScan',{continuous:true,keepOpenOnOcr:!!(isRom&&doc.supplierLabels),title:label,scanModes:!!(isRom&&doc.supplierLabels),supplierOcr:!!(isRom&&doc.supplierLabels),autoOcr:!!(isRom&&doc.supplierLabels),defaultMode:isRom&&doc.supplierLabels?'ocr':'qr',onResult:function(v){nfRecvBip(v);refresh();}});
       setTimeout(function(){try{inp.focus({preventScroll:true});}catch(e){try{inp.focus();}catch(_){}}},30);
     }
   }
@@ -5526,7 +5526,7 @@ window.cleanScanCode=function(v,kind){
  const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
  const guideCss=document.createElement('style');guideCss.textContent='.scanNumberGuide{position:absolute;pointer-events:none;box-sizing:border-box;border:2px dashed #fff;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.18),inset 0 0 0 1px rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center}.scanNumberGuide span{margin-top:-29px;background:rgba(0,0,0,.76);color:#fff;padding:4px 9px;border-radius:6px;font-size:.78rem;font-weight:700}';document.head.appendChild(guideCss);
  const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX">Fechar ✕</button></div><div class="scanModes" id="scanModes" hidden><button type="button" data-scanmode="ocr" hidden>Número impresso</button><button type="button" data-scanmode="qr">QR Code</button></div><div class="scanTools" id="scanTools" hidden><button type="button" id="scanTorch" hidden>Luz</button><label id="scanZoomWrap" hidden>Zoom <input type="range" id="scanZoom" min="1" max="3" step="0.1" value="1"></label></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><button type="button" id="scanOcrCapture" hidden style="margin:8px 14px;background:var(--brand);color:#fff;border:0;border-radius:10px;padding:15px;font-weight:800;font-size:1rem">Capturar número da bobina</button><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
- let h5=null,O=null,lastV='',lastT=0,active=false,starting=false,torchOn=false,ocrStream=null,ocrSeq=0,ocrWorkerPromise=null,ocrPaused=false,ocrGuideObserver=null;
+ let h5=null,O=null,lastV='',lastT=0,active=false,starting=false,torchOn=false,ocrStream=null,ocrSeq=0,ocrWorkerPromise=null,ocrPaused=false,ocrGuideObserver=null,scanSeen=new Set(),scanIgnored=new Set();
  function hint(t){const h=document.getElementById('scanHint');if(h)h.textContent=t;}
  function scanTrack(){var v=document.querySelector('#scanReader video');return v&&v.srcObject&&v.srcObject.getVideoTracks?v.srcObject.getVideoTracks()[0]:null;}
  /* Ajusta a câmera quando o aparelho aceita foco contínuo e mais resolução. */
@@ -5549,6 +5549,7 @@ window.cleanScanCode=function(v,kind){
  function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.type='square';o.frequency.setValueAtTime(920,a.currentTime);o.frequency.setValueAtTime(1180,a.currentTime+0.06);g.gain.setValueAtTime(0.0001,a.currentTime);g.gain.exponentialRampToValueAtTime(0.35,a.currentTime+0.012);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+0.17);o.start();setTimeout(()=>{try{o.stop();a.close();}catch(e){}},190);}catch(e){}}
  function loadH5(){if(window.Html5Qrcode)return Promise.resolve();return new Promise(function(res,rej){var urls=['https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js','https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js'],i=0;function next(){if(i>=urls.length){rej(new Error('biblioteca da câmera indisponível'));return;}var s=document.createElement('script');s.src=urls[i++];s.onload=function(){if(window.Html5Qrcode)res();else{s.remove();next();}};s.onerror=function(){s.remove();next();};document.head.appendChild(s);}next();});}
  function supplierOcrIds(text){return Array.from(new Set((String(text||'').match(/(?:^|\D)\d{10}(?!\d)/g)||[]).map(function(x){return x.match(/\d{10}$/)[0];})));}
+ function supplierOcrKnown(id){return O&&O.keepOpenOnOcr?!!(ETQ[id]&&ROMS[ETQ[id].nf]&&ROMS[ETQ[id].nf].supplierLabels):!!BOB[id];}
  function ocrRotate(source,deg){var c=document.createElement('canvas'),side=deg%180!==0;c.width=side?source.height:source.width;c.height=side?source.width:source.height;var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.translate(c.width/2,c.height/2);x.rotate(deg*Math.PI/180);x.drawImage(source,-source.width/2,-source.height/2);return c;}
  function ocrCenter(source){var c=document.createElement('canvas'),w=Math.round(source.width*.82),h=Math.round(source.height*.20);c.width=w;c.height=h;c.getContext('2d').drawImage(source,Math.round((source.width-w)/2),Math.round((source.height-h)/2),w,h,0,0,w,h);return c;}
  function supplierOcrWorker(){if(!ocrWorkerPromise){ocrWorkerPromise=(async function(){if(!window.Tesseract)throw new Error('Leitor de números indisponível. Verifique a conexão.');var w=await Tesseract.createWorker('eng');await w.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:'11'});return w;})().catch(function(e){ocrWorkerPromise=null;throw e;});}return ocrWorkerPromise;}
@@ -5580,28 +5581,30 @@ window.cleanScanCode=function(v,kind){
     if(seq!==ocrSeq||!active)return;
     var fast=await worker.recognize(ocrRotate(center,fastDeg));
     supplierOcrIds(fast.data.text).forEach(function(id){if(!found.includes(id))found.push(id);});
-    if(found.some(function(id){return !!BOB[id];}))break;
+    if(found.some(supplierOcrKnown))break;
    }
-   if(!found.some(function(id){return !!BOB[id];})){
+   if(!found.some(supplierOcrKnown)){
     for(var deg of [0,180,90,270]){
      if(seq!==ocrSeq||!active)return;
      var result=await worker.recognize(ocrRotate(source,deg));
      supplierOcrIds(result.data.text).forEach(function(id){if(!found.includes(id))found.push(id);});
-     if(found.some(function(id){return !!BOB[id];}))break;
+     if(found.some(supplierOcrKnown))break;
     }
    }
    if(seq!==ocrSeq||!active)return;
-   var known=found.filter(function(id){return !!BOB[id];}),choices=known.length?known:found;
+   var known=found.filter(supplierOcrKnown),pending=O.keepOpenOnOcr?known.filter(function(id){return !scanSeen.has(id)&&!scanIgnored.has(id);}):known,choices=pending.length?pending:(known.length?known:found);
    var box=document.getElementById('scanHint');box.replaceChildren();
    if(!choices.length){hint(O.autoOcr?'Procurando os 10 dígitos. Aproxime o número e evite reflexos.':'Não consegui ler os 10 dígitos. Aproxime o número, evite reflexos e capture novamente.');return;}
-   if(known.length===1){hit(known[0]);close();return;}
+   if(O.keepOpenOnOcr&&known.length&&!pending.length){hint('Bobina já recebida. Aponte para outra bobina.');return;}
+   if(pending.length===1){var readId=pending[0],received=hit(readId);if(O.keepOpenOnOcr){if(!received&&!scanIgnored.has(readId)){ocrPaused=true;showOcrRetry('Não foi possível receber '+readId+'. Confira o romaneio e toque em Ler novamente.');}return;}close();return;}
    if(O.autoOcr)ocrPaused=true;
    var intro=document.createElement('div');intro.textContent=known.length?'Confirme o número da bobina:':'Número encontrado, mas ainda não está no catálogo. Confira a planilha importada:';box.appendChild(intro);
-   choices.forEach(function(id){var b=document.createElement('button');b.type='button';b.textContent=id;b.style.cssText='display:inline-block;margin:8px 4px;padding:12px 18px;background:var(--brand);color:#fff;border:0;border-radius:9px;font-weight:800;font-size:1rem';b.onclick=function(){hit(id);close();};box.appendChild(b);});
-   if(O.autoOcr){var retry=document.createElement('button');retry.type='button';retry.textContent='Ler novamente';retry.style.cssText='display:block;margin:8px auto;padding:10px 16px;background:#333;color:#fff;border:1px solid #888;border-radius:9px';retry.onclick=function(){ocrPaused=false;captureSupplierOcr();};box.appendChild(retry);}
+   choices.forEach(function(id){var b=document.createElement('button');b.type='button';b.textContent=id;b.style.cssText='display:inline-block;margin:8px 4px;padding:12px 18px;background:var(--brand);color:#fff;border:0;border-radius:9px;font-weight:800;font-size:1rem';b.onclick=function(){var received=hit(id);if(O.keepOpenOnOcr){if(!received&&!scanIgnored.has(id)){ocrPaused=true;showOcrRetry('Não foi possível receber '+id+'. Confira o romaneio e toque em Ler novamente.');}else{ocrPaused=false;if(O.autoOcr)setTimeout(captureSupplierOcr,500);}}else close();};box.appendChild(b);});
+   if(O.autoOcr)showOcrRetry();
   }catch(e){if(seq===ocrSeq&&active)hint('Não consegui ler o número: '+String((e&&e.message)||e));}
   finally{if(seq===ocrSeq){button.disabled=false;if(active&&O&&O.autoOcr&&!ocrPaused&&O.scanMode==='ocr')setTimeout(function(){if(seq===ocrSeq&&active)captureSupplierOcr();},1500);}}
  }
+ function showOcrRetry(message){var box=document.getElementById('scanHint');if(message){box.replaceChildren();var p=document.createElement('div');p.textContent=message;box.appendChild(p);}var retry=document.createElement('button');retry.type='button';retry.textContent='Ler novamente';retry.style.cssText='display:block;margin:8px auto;padding:10px 16px;background:#333;color:#fff;border:1px solid #888;border-radius:9px';retry.onclick=function(){ocrPaused=false;captureSupplierOcr();};box.appendChild(retry);}
  document.getElementById('scanOcrCapture').onclick=captureSupplierOcr;
  function updateScanMode(){var box=document.getElementById('scanModes');if(!box)return;box.hidden=!(O&&O.scanModes);box.querySelectorAll('[data-scanmode]').forEach(function(b){if(b.getAttribute('data-scanmode')==='ocr')b.hidden=!(O&&O.supplierOcr);b.classList.toggle('on',!!O&&O.scanMode===b.getAttribute('data-scanmode'));});document.getElementById('scanOcrCapture').hidden=!(O&&O.scanMode==='ocr'&&!O.autoOcr);}
  function newReader(){var opts={verbose:false},f=window.Html5QrcodeSupportedFormats;if(f)opts.formatsToSupport=[f.QR_CODE];return new Html5Qrcode('scanReader',opts);}
@@ -5646,12 +5649,12 @@ window.cleanScanCode=function(v,kind){
   }
   starting=false;}
  function fill(val){if(O.onResult){try{O.onResult(val);}catch(e){try{console.warn('scan onResult',e);}catch(_){}}return;}const el=document.getElementById(O.inputId);if(!el)return;el.value=val;el.dispatchEvent(new Event('input'));if(O.enter)el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));}
- function hit(val){val=(val||'').trim();if(!val||!active)return;var clean=(typeof window.cleanScanCode==='function')?window.cleanScanCode(val,O&&O.scanKind):val;var resolved=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(clean):null;var key=resolved&&resolved.id||clean;const now=Date.now();if(O.continuous){if(key===lastV&&now-lastT<4000)return;lastV=key;lastT=now;beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);hint('Código capturado: '+key);}else{beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);close();}}
- function close(){active=false;stopSupplierOcr();modal.classList.remove('show');document.getElementById('scanTools').hidden=true;lastV='';if(h5){const x=h5;h5=null;try{x.stop().then(()=>{try{x.clear();}catch(e){}}).catch(()=>{try{x.clear();}catch(e){}});}catch(e){}}}
+ function hit(val){val=(val||'').trim();if(!val||!active)return false;var clean=(typeof window.cleanScanCode==='function')?window.cleanScanCode(val,O&&O.scanKind):val;var resolved=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(clean):null;var key=resolved&&resolved.id||clean;const now=Date.now();if(O.continuous){if(O.keepOpenOnOcr){if(scanSeen.has(key)||scanIgnored.has(key))return false;if(ETQ[key]&&(ETQ[key].status==='entrada'||ETQ[key].status==='saida')){scanIgnored.add(key);hint('Bobina '+key+' já recebida. Aponte para outra.');return false;}}if(key===lastV&&now-lastT<4000)return false;lastV=key;lastT=now;beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);if(O.keepOpenOnOcr){var received=!!(ETQ[key]&&ETQ[key].status==='entrada');if(received){scanSeen.add(key);hint('Recebida '+key+' · '+scanSeen.size+' nesta sessão. Aponte para outra bobina.');}else{lastV='';hint('Não foi possível receber '+key+'. Confira o romaneio.');}return received;}hint('Código capturado: '+key);return true;}else{beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);close();return true;}}
+ function close(){active=false;stopSupplierOcr();modal.classList.remove('show');document.getElementById('scanTools').hidden=true;lastV='';scanSeen.clear();scanIgnored.clear();if(h5){const x=h5;h5=null;try{x.stop().then(()=>{try{x.clear();}catch(e){}}).catch(()=>{try{x.clear();}catch(e){}});}catch(e){}}}
  async function changeScanMode(mode){if(!O||!O.scanModes||starting||O.scanMode===mode)return;starting=true;active=false;stopSupplierOcr();O.scanMode=mode;updateScanMode();document.getElementById('scanTools').hidden=true;hint('Trocando modo da câmera…');var old=h5;h5=null;if(old){try{await old.stop();}catch(e){}try{await old.clear();}catch(e){}}if(!modal.classList.contains('show')){starting=false;return;}starting=false;open();}
  document.querySelectorAll('#scanModes [data-scanmode]').forEach(function(b){b.onclick=function(){changeScanMode(b.getAttribute('data-scanmode'));};});
  document.getElementById('scanX').onclick=close;
- window.scanInto=function(inputId,opts){O=Object.assign({inputId},opts||{});O.scanMode=O.supplierOcr&&O.defaultMode==='ocr'?'ocr':'qr';updateScanMode();document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};
+ window.scanInto=function(inputId,opts){scanSeen.clear();scanIgnored.clear();O=Object.assign({inputId},opts||{});O.scanMode=O.supplierOcr&&O.defaultMode==='ocr'?'ocr':'qr';updateScanMode();document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};
  window.addCam=function(inputId,opts){const el=document.getElementById(inputId);if(!el||el.type==='hidden'||el.dataset.cam)return;el.dataset.cam='1';const w=document.createElement('div');w.className='camfield';w.style.position='relative';w.style.width='100%';el.parentNode.insertBefore(w,el);w.appendChild(el);el.style.width='100%';el.style.boxSizing='border-box';el.style.paddingRight='54px';const b=document.createElement('button');b.type='button';b.className='cambtn';b.innerHTML=ICONS.cam;b.title='Escanear com câmera';b.onclick=()=>scanInto(inputId,opts||{});w.appendChild(b);try{scanLock(el);}catch(e){} };
  addCam('mBob',{enter:true,title:'Escanear bobina'});addCam('mLoc',{enter:true,title:'Escanear endereço',scanKind:'addr'});
  const _rrv=renderRecv;renderRecv=function(){_rrv();addCam('recvScan',{continuous:true,onResult:recvAdd,title:'Ler bobinas',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'ocr'});};

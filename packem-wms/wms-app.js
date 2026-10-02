@@ -5734,7 +5734,14 @@ window.cleanScanCode=function(v,kind){
    if(O&&O.scanMode==='qr')config.qrbox=(w,hh)=>{const m=Math.min(w,hh),s=Math.max(180,Math.floor(m*0.8));return {width:s,height:s};};
    /* tenta abrir a câmera de forma SEGURA: uma config por vez, recriando a instância limpa entre
       as tentativas + pausa curta — evita o erro "already under transition" (colisão de start duplo). */
-   var _tries=[{facingMode:{ideal:'environment'},width:{ideal:O&&O.scanMode==='auto'?1920:1280},height:{ideal:O&&O.scanMode==='auto'?1080:720}},{facingMode:'environment'},{facingMode:'user'}];
+   /* html5-qrcode aceita somente facingMode/deviceId no primeiro argumento.
+      Resolução deve ir em config.videoConstraints; a forma antiga era rejeitada
+      e abria a câmera de reserva sem pedir alta resolução. */
+   var _tries=[
+     {camera:{facingMode:'environment'},videoConstraints:{facingMode:{ideal:'environment'},width:{ideal:O&&O.scanMode==='auto'?1920:1280},height:{ideal:O&&O.scanMode==='auto'?1080:720}}},
+     {camera:{facingMode:'environment'}},
+     {camera:{facingMode:'user'}}
+   ];
    var _ok=false,_err=null;
    for(var _ti=0;_ti<_tries.length&&!_ok;_ti++){
      if(!modal.classList.contains('show')){starting=false;return;}
@@ -5742,7 +5749,9 @@ window.cleanScanCode=function(v,kind){
        if(h5){try{await h5.stop();}catch(e){}try{await h5.clear();}catch(e){}}
        document.getElementById('scanReader').innerHTML='';
        h5=newReader();
-       await h5.start(_tries[_ti],config,function(txt){hit(txt);},function(){});
+       var scanConfig=Object.assign({},config);
+       if(_tries[_ti].videoConstraints)scanConfig.videoConstraints=_tries[_ti].videoConstraints;
+       await h5.start(_tries[_ti].camera,scanConfig,function(txt){hit(txt);},function(){});
        _ok=true;
      }catch(_e){_err=_e;await new Promise(function(r){setTimeout(r,350);});}
    }

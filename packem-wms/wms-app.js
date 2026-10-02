@@ -164,10 +164,17 @@ function scanFeedback(m,ok,scanned){try{
   var modal=document.getElementById('scan');if(!modal||!modal.classList.contains('show'))return;
   var fb=document.getElementById('scanFb');if(!fb)return;
   var bloqueio=(ok===false);
+  /* Um toast de sucesso da entrada não pode apagar o aviso grande do bipe. */
+  if(!scanned&&!bloqueio&&fb.classList.contains('scanned'))return;
   fb.className='scanFb show '+(bloqueio?'err':'ok')+(scanned?' scanned':'');
   fb.innerHTML='<div class="fbcard"><span class="fbico">'+(bloqueio?'⛔':'✓')+'</span><span>'+String(m).replace(/</g,'&lt;')+'</span></div>';
   try{if(!scanned&&navigator.vibrate)navigator.vibrate(bloqueio?[90,60,90]:35);}catch(e){}
   clearTimeout(fb._t);fb._t=setTimeout(function(){fb.className='scanFb';},scanned?2200:bloqueio?2600:1300);
+}catch(e){}}
+function scanResultStatus(m,ok){try{
+  var modal=document.getElementById('scan');if(!modal||!modal.classList.contains('show'))return;
+  var status=document.getElementById('scanLastResult');if(!status)return;
+  status.textContent=m;status.className='scanLastResult '+(ok===false?'err':'ok');status.hidden=false;
 }catch(e){}}
 /* ===== TRAVAMENTO AO CLICAR: RESOLVIDO AQUI =====
    persist() era chamado em TODA ação e serializava 6 listas de uma vez — incluindo o log de
@@ -2548,8 +2555,8 @@ updateStageBadge();
     if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);
     const et=norm(v);if(!et)return;
     var b=BOB[et];if(!b&&typeof window.etqLookup==='function')b=window.etqLookup(et);
-    if(!b){try{b=await bobFetch(et);}catch(e){toast('Não foi possível consultar a etiqueta '+et+' na nuvem. Tente novamente.',false);return;}}
-    if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
+    if(!b){try{b=await bobFetch(et);}catch(e){toast('Não foi possível consultar a etiqueta '+et+' na nuvem. Tente novamente.',false);scanResultStatus('Entrada não feita: falha ao consultar '+et,false);return;}}
+    if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);scanResultStatus('Entrada não feita: '+et+' não está no catálogo',false);return;}
     var _kc=_eCh(et);
     try{delete _delCh[_kc];_bipCh[_kc]=Date.now();}catch(e){}/* destrava antes de checar (fim do tombstone preso) */
     if(floorHasEt(et)){var _ac='';Object.values(FLOOR).forEach(function(g){if(etList(g).some(function(x){return x.et===_kc;}))_ac=g.pr;});renderFloor();toast('Etiqueta '+et+' já contada'+(_ac?(' em '+_ac):'')+' no chão',false);return;}
@@ -2814,6 +2821,7 @@ updateStageBadge();
       var _achou='';Object.values(FLOOR70).forEach(function(g){if(etL(g).some(function(x){return x.et===_k;}))_achou=g.pr;});
       updateF70();
       toast('Etiqueta '+et+' já contada'+(_achou?(' em '+_achou):'')+' no Chão 70',false);
+      scanResultStatus('Já contada no Chão 70: '+et,false);
       return;
     }
     /* Nunca retirar automaticamente de outro depósito. A trava global informa o
@@ -2832,6 +2840,8 @@ updateStageBadge();
     updateF70();/* atualização LEVE: não recria o input nem a câmera (senão a câmera contínua fechava e a tela não atualizava) */
     var _kgT=etL(g).reduce((s,x)=>s+(Number(x.pl)||0),0);
     toast('+1 no Chão 70 · '+pr+' ('+g.qtd+' bob · '+fmt(_kgT)+' kg)');
+    scanFeedback('ENTRADA CONFIRMADA: '+et,true,true);
+    scanResultStatus('✓ Entrada no Chão 70: '+et+' · '+pr,true);
   };
   /* atualiza só os números e a lista, sem reconstruir a tela toda */
   function updateF70(){
@@ -2852,11 +2862,13 @@ updateStageBadge();
     var _kc=_e70(et);
     var achouPr=null,achouPl=0;
     Object.keys(FLOOR70).forEach(function(pr){if(!achouPr){etL(FLOOR70[pr]).forEach(function(x){if(x.et===_kc){achouPr=pr;achouPl=Number(x.pl)||0;}});}});
-    if(!achouPr){toast('Etiqueta '+et+' não está no Chão 70',false);return false;}
+    if(!achouPr){toast('Etiqueta '+et+' não está no Chão 70',false);scanResultStatus('Saída não feita: '+et+' não está no Chão 70',false);return false;}
     f70RemoveEt(achouPr,et,true);
     if(typeof logAct==='function')logAct('saida_chao70',et+' · '+achouPr);
     try{if(typeof MV!=='undefined'){MV.unshift({id:uid(),action:'saida',w:cfg.warehouse,code:'CHÃO 70',pr:achouPr,q:achouPl,u:(typeof unitOf==='function'?unitOf(achouPr):'KG'),et:_kc,before:achouPl,after:0,at:nowISO(),by:session?session.u:''}); /* log local enxuto: o histórico completo fica na nuvem */if(typeof syncMov==='function')syncMov(MV[0]);}}catch(e){}
     toast('Saída · '+et+' ('+achouPr+') removido do Chão 70');
+    scanFeedback('SAÍDA CONFIRMADA: '+et,true,true);
+    scanResultStatus('✓ Saída do Chão 70: '+et+' · '+achouPr,true);
     return true;
   };
   function f70RemoveEt(pr,et,saidaOperacional){if(!saidaOperacional&&!isStrictAdmin()){toast('Somente admin pode remover etiqueta diretamente',false);return false;}et=_e70(et);const g=FLOOR70[pr];if(!g)return false;g.ets=etL(g).filter(x=>x.et!==et);if(!g.ets.length){delete FLOOR70[pr];}else{g.qtd=g.ets.length;g.kg=g.ets.reduce((a,x)=>a+(Number(x.pl)||0),0);}saveF70();try{delete _bip70[et];_bump70(et);}catch(e){}syncDel70(et);updateF70();return true;}
@@ -5513,9 +5525,12 @@ window.cleanScanCode=function(v,kind){
  const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX">Fechar ✕</button></div><div class="scanModes" id="scanModes" hidden><button type="button" data-scanmode="auto" hidden>QR + número</button><button type="button" data-scanmode="ocr" hidden>Número impresso</button><button type="button" data-scanmode="qr">QR Code</button></div><div class="scanTools" id="scanTools" hidden><button type="button" id="scanTorch" hidden>Luz</button><label id="scanZoomWrap" hidden>Zoom <input type="range" id="scanZoom" min="1" max="3" step="0.1" value="1"></label></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><button type="button" id="scanOcrCapture" hidden style="margin:8px 14px;background:var(--brand);color:#fff;border:0;border-radius:10px;padding:15px;font-weight:800;font-size:1rem">Capturar número da bobina</button><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
  let h5=null,h5StopPromise=Promise.resolve(),h5LoadPromise=null,O=null,lastV='',lastT=0,active=false,starting=false,torchOn=false,ocrStream=null,ocrSeq=0,ocrWorkerPromise=null,ocrPaused=false,ocrPendingId='',ocrPendingAt=0,ocrAmbiguousKey='',ocrAmbiguousAt=0,ocrPreferredRegion=null,ocrFastCursor=0,ocrFallbackCursor=0,ocrEmptyFrames=0,ocrMissStreak=0,ocrRejectedScene=null,ocrRejectedAt=0,ocrPhotoLastAt=0,ocrPhotoUnavailable=false,ocrCloudMiss=new Set(),scanSeen=new Set(),scanIgnored=new Set(),scanTargetTimer=null;
  st.textContent+='.scanFb.scanned{top:42%}.scanFb.scanned .fbcard{max-width:420px;min-height:88px;padding:22px;font-size:clamp(1.3rem,5vw,1.7rem)}';
+ st.textContent+='.scanLastResult[hidden]{display:none!important}.scanLastResult{padding:12px 16px;color:#fff;text-align:center;font-weight:800;font-size:1rem;line-height:1.3}.scanLastResult.ok{background:#166534}.scanLastResult.err{background:#991b1b}';
+ var lastStatus=document.createElement('div');lastStatus.id='scanLastResult';lastStatus.className='scanLastResult';lastStatus.hidden=true;lastStatus.setAttribute('role','status');lastStatus.setAttribute('aria-live','polite');modal.insertBefore(lastStatus,document.getElementById('scanOcrCapture'));
  document.getElementById('scanFb').setAttribute('role','status');
  document.getElementById('scanFb').setAttribute('aria-live','polite');
  function hint(t){const h=document.getElementById('scanHint');if(h)h.textContent=t;}
+ function clearScanResultStatus(){var status=document.getElementById('scanLastResult');if(status){status.hidden=true;status.textContent='';}}
  function clearScanTarget(){if(scanTargetTimer)clearTimeout(scanTargetTimer);scanTargetTimer=null;var target=document.getElementById('scanTarget');if(target)target.remove();}
  function ocrNumberBox(result,region,id,source){
   if(!region||!result||!result.data||!/^\d{10}$/.test(id))return null;
@@ -5737,7 +5752,7 @@ window.cleanScanCode=function(v,kind){
  document.getElementById('scanOcrCapture').onclick=captureSupplierOcr;
  function updateScanMode(){var box=document.getElementById('scanModes');if(!box)return;box.hidden=!(O&&O.scanModes);box.querySelectorAll('[data-scanmode]').forEach(function(b){if(b.getAttribute('data-scanmode')==='ocr'||b.getAttribute('data-scanmode')==='auto')b.hidden=!(O&&O.supplierOcr);b.classList.toggle('on',!!O&&O.scanMode===b.getAttribute('data-scanmode'));});document.getElementById('scanOcrCapture').hidden=!(O&&O.scanMode==='ocr'&&!O.autoOcr);}
  function newReader(){var opts={verbose:false},f=window.Html5QrcodeSupportedFormats;if(f)opts.formatsToSupport=[f.QR_CODE];return new Html5Qrcode('scanReader',opts);}
- async function open(){if(starting)return;starting=true;modal.classList.add('show');active=true;hint('Carregando câmera…');if(O&&O.supplierOcr){window.prepareBobbinNumberReader();if(!O.keepOpenOnOcr)prefetchSupplierCatalog();}
+ async function open(){if(starting)return;starting=true;modal.classList.add('show');active=true;clearScanResultStatus();hint('Carregando câmera…');if(O&&O.supplierOcr){window.prepareBobbinNumberReader();if(!O.keepOpenOnOcr)prefetchSupplierCatalog();}
   try{if(O&&O.scanMode==='ocr'){await startSupplierOcr();starting=false;return;}await loadH5();await h5StopPromise;
    if(!modal.classList.contains('show')){starting=false;return;}
    document.getElementById('scanReader').innerHTML='';
@@ -5809,11 +5824,12 @@ window.cleanScanCode=function(v,kind){
    if(key===lastV&&now-lastT<4000)return false;
    lastV=key;lastT=now;beep();if(navigator.vibrate)navigator.vibrate(60);
    scanFeedback('BIPADO: '+key,true,true);
+   scanResultStatus('BIPADO: '+key,true);
    fill(clean);
    if(O.keepOpenOnOcr){
     var received=!!(ETQ[key]&&ETQ[key].status==='entrada');
     if(received){scanSeen.add(key);hint('Recebida '+key+' · '+scanSeen.size+' nesta sessão. Aponte para outra bobina.');}
-    else{lastV='';hint('Não foi possível receber '+key+'. Confira o romaneio.');scanFeedback('Não recebido: '+key,false,true);}
+    else{lastV='';hint('Não foi possível receber '+key+'. Confira o romaneio.');scanFeedback('Não recebido: '+key,false,true);scanResultStatus('Não recebido: '+key,false);}
     return received;
    }
    scanSeen.add(key);

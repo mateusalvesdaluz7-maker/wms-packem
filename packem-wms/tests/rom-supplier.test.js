@@ -225,12 +225,13 @@ test('câmera antecipa as bobinas físicas da nuvem sem baixar o catálogo intei
   assert.equal(ctx.BOB['T20358969'],undefined);
 });
 
-test('número lido pela câmera entra no Chão 70 mesmo sem catálogo local',async()=>{
-  const id='2600255962',messages=[],ctx={window:{cleanScanCode:v=>v},BOB:{},FLOOR70:{},STAGE:[],MV:undefined,
+test('número lido pela câmera entra no Chão 70 e confirma na tela',async()=>{
+  const id='2600255962',messages=[],feedback=[],ctx={window:{cleanScanCode:v=>v},BOB:{},FLOOR70:{},STAGE:[],MV:undefined,
     _del70:{},_bip70:{},_e70:v=>v,_bump70(){},f70HasEt:()=>false,etL:g=>g.ets||[],
     norm,nowISO:()=> '2026-10-02T10:35:00Z',session:{u:'admin'},fmt:String,
     bobFetch:async v=>v===id?{pr:'0303450156',desc:'ART MAT PLAST',pl:309.66}:null,
-    saveF70(){},sync70(){},logAct(){},updateF70(){},toast:s=>messages.push(s)};
+    saveF70(){},sync70(){},logAct(){},updateF70(){},toast:s=>messages.push(s),
+    scanFeedback:(m,ok,scanned)=>feedback.push({m,ok,scanned}),scanResultStatus:(m,ok)=>feedback.push({m,ok})};
   vm.createContext(ctx);
   vm.runInContext(source('  window.floor70Add=async function(v){','  /* atualiza só os números'),ctx);
   await ctx.window.floor70Add(id);
@@ -238,6 +239,8 @@ test('número lido pela câmera entra no Chão 70 mesmo sem catálogo local',asy
   assert.equal(ctx.FLOOR70['0303450156'].kg,309.66);
   assert.equal(ctx.FLOOR70['0303450156'].ets[0].et,id);
   assert.ok(messages.some(s=>s.includes('+1 no Chão 70')));
+  assert.ok(feedback.some(f=>f.m==='ENTRADA CONFIRMADA: '+id&&f.ok&&f.scanned));
+  assert.ok(feedback.some(f=>f.m.includes('✓ Entrada no Chão 70: '+id)&&f.ok));
 });
 
 test('importação da planilha salva bobinas no catálogo e confirma na nuvem sem gerar NF',async()=>{

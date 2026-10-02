@@ -185,6 +185,17 @@ test('OCR de outro romaneio identifica bobina no vídeo sem registrar nova entra
   assert.equal(queries,1);
 });
 
+test('destaque do número acompanha a posição vertical vista na câmera',()=>{
+  const ctx={};vm.createContext(ctx);
+  vm.runInContext(source(' function ocrNumberBox(', ' function scanTrack('),ctx);
+  const symbols=Array.from({length:10},(_,i)=>({confidence:90,bbox:{x0:30+i*26,y0:20,x1:50+i*26,y1:56}}));
+  const result={data:{words:[{text:'2600255978',bbox:{x0:0,y0:0,x1:303,y1:90},symbols}]}};
+  const box=ctx.ocrNumberBox(result,{kind:'focused-side',side:'left',deg:90},'2600255978',{width:408,height:522});
+  assert.ok(box.x<60&&box.x+box.w>80,'o quadro cobre a coluna dos dígitos');
+  assert.ok(box.y<170&&box.y+box.h>380,'o quadro cobre os dez dígitos verticais');
+  assert.ok(box.w<110&&box.h<350,'o quadro não cobre a etiqueta inteira');
+});
+
 test('câmera antecipa as bobinas físicas da nuvem sem baixar o catálogo inteiro',async()=>{
   let table='',pattern='';
   const ctx={window:{},BOB:{},supa:{from:name=>{table=name;return {

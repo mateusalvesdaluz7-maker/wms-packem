@@ -2003,7 +2003,7 @@ function renderSupplierCatalog(){
  const drop=pick.closest('.panel');drop.ondragover=function(ev){ev.preventDefault();};drop.ondrop=function(ev){ev.preventDefault();if(ev.dataTransfer&&ev.dataTransfer.files&&ev.dataTransfer.files[0])readSupplierSheet(ev.dataTransfer.files[0]);};
  const save=host.querySelector('#supplierSave');if(save)save.onclick=saveSupplierSheet;
  const scan=host.querySelector('#supplierScan');scan.onkeydown=function(ev){if(ev.key==='Enter'){ev.preventDefault();const value=scan.value;scan.value='';recvAdd(value);}};
- if(typeof addCam==='function')addCam('supplierScan',{continuous:true,title:'Ler bobina do fornecedor',scanModes:true,supplierOcr:true,defaultMode:'ocr',onResult:recvAdd});
+ if(typeof addCam==='function')addCam('supplierScan',{continuous:true,title:'Ler bobina do fornecedor',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'auto',onResult:recvAdd});
  host.querySelector('#supplierGoRecv').onclick=function(){go('v-recv');};
  const search=host.querySelector('#supplierSearch');search.oninput=renderSupplierList;renderSupplierList();
 }
@@ -2618,7 +2618,7 @@ updateStageBadge();
       var _floorMode=function(){return (window._floorScanMode==='out')?window.floorSaida:window.floorAdd;};
       sc.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();_floorMode()(sc.value);sc.value='';}});
       sc.placeholder=isSuper()?'bipe ou digite':'toque para bipar';scanLock(sc);
-      if(window.addCam)addCam('floorScan',{continuous:true,onResult:function(v){_floorMode()(v);},title:'Ler bobina no Chão',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'ocr'});
+      if(window.addCam)addCam('floorScan',{continuous:true,onResult:function(v){_floorMode()(v);},title:'Ler bobina no Chão',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'auto'});
     }
     /* seletor Entrada/Saída */
     (function(){var seg=document.getElementById('floorModeSeg');if(!seg)return;window._floorScanMode=window._floorScanMode||'add';
@@ -2894,7 +2894,7 @@ updateStageBadge();
       var _f70Mode=function(){return (window._f70ScanMode==='out')?window.f70Saida:floor70Add;};
       sc.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();_f70Mode()(sc.value);sc.value='';}});
       sc.placeholder=isSuper()?'bipe ou digite':'toque para bipar';scanLock(sc);
-      if(window.addCam)addCam('f70Scan',{continuous:true,onResult:function(v){_f70Mode()(v);},title:'Ler bobina no Chão 70',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'ocr'});
+      if(window.addCam)addCam('f70Scan',{continuous:true,onResult:function(v){_f70Mode()(v);},title:'Ler bobina no Chão 70',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'auto'});
     }
     (function(){var seg=document.getElementById('f70ModeSeg');if(!seg)return;window._f70ScanMode=window._f70ScanMode||'add';
       seg.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b.dataset.mode===window._f70ScanMode);b.onclick=function(){window._f70ScanMode=b.dataset.mode;seg.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);});
@@ -3957,7 +3957,7 @@ updateStageBadge();
     var romScan=document.getElementById('romRecvScan');
     if(romScan){
       romScan.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=romScan.value;romScan.value='';nfRecvBip(v);}});
-      if(typeof addCam==='function')addCam('romRecvScan',{continuous:true,keepOpenOnOcr:true,title:'Ler etiqueta do fornecedor',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'ocr',onResult:function(v){nfRecvBip(v);}});
+      if(typeof addCam==='function')addCam('romRecvScan',{continuous:true,keepOpenOnOcr:true,title:'Ler etiqueta do fornecedor',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'auto',onResult:function(v){nfRecvBip(v);}});
     }
     if(nfParsed){
       /* base de sugestões (código + descrição) a partir do cadastro de Produtos e bobinas */
@@ -4536,7 +4536,7 @@ updateStageBadge();
     var inp=document.getElementById('rbdScan');
     if(inp){
       inp.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=inp.value;inp.value='';nfRecvBip(v);refresh();}});
-      if(typeof addCam==='function')addCam('rbdScan',{continuous:true,keepOpenOnOcr:!!(isRom&&doc.supplierLabels),title:label,scanModes:!!(isRom&&doc.supplierLabels),supplierOcr:!!(isRom&&doc.supplierLabels),autoOcr:!!(isRom&&doc.supplierLabels),defaultMode:isRom&&doc.supplierLabels?'ocr':'qr',onResult:function(v){nfRecvBip(v);refresh();}});
+      if(typeof addCam==='function')addCam('rbdScan',{continuous:true,keepOpenOnOcr:!!(isRom&&doc.supplierLabels),allowedDocKey:doc.key,title:label,scanModes:!!(isRom&&doc.supplierLabels),supplierOcr:!!(isRom&&doc.supplierLabels),autoOcr:!!(isRom&&doc.supplierLabels),defaultMode:isRom&&doc.supplierLabels?'auto':'qr',onResult:function(v){nfRecvBip(v);refresh();}});
       setTimeout(function(){try{inp.focus({preventScroll:true});}catch(e){try{inp.focus();}catch(_){}}},30);
     }
   }
@@ -5510,8 +5510,8 @@ window.cleanScanCode=function(v,kind){
  ICONS.cam='<svg class="i" viewBox="0 0 24 24"><path d="M3 9a2 2 0 0 1 2-2h1.5L8 5h8l1.5 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.3"/></svg>';
  const css='.scan{position:fixed;inset:0;z-index:300;background:#000;display:none;flex-direction:column}.scan.show{display:flex}.scanhead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;color:#fff;font-family:var(--disp);font-weight:700;font-size:1.05rem}.scanhead button{background:rgba(255,255,255,.16);color:#fff;border:none;width:40px;height:40px;border-radius:11px;font-size:1.2rem}.scanModes{display:flex;gap:8px;padding:0 14px 10px;background:#000}.scanModes[hidden]{display:none}.scanModes button{flex:1;border:1px solid rgba(255,255,255,.35);border-radius:9px;background:#202020;color:#fff;padding:10px;font-weight:800}.scanModes button.on{background:var(--brand);border-color:var(--brand)}.scanTools{display:flex;align-items:center;justify-content:center;gap:12px;padding:8px 14px;background:#000;color:#fff}.scanTools[hidden],.scanTools [hidden]{display:none}.scanTools button{background:#252525;border:1px solid #777;border-radius:8px;color:#fff;padding:9px 12px;font-weight:700}.scanTools button.on{background:var(--brand);border-color:var(--brand)}.scanTools label{display:flex;align-items:center;gap:8px;font-size:.85rem}.scanTools input{width:115px;accent-color:var(--brand)}#scanReader{flex:1;width:100%;background:#000;overflow:hidden}#scanReader video{width:100%!important;height:100%!important;object-fit:cover}#scanReader img{display:none}.scanhint{color:#fff;text-align:center;padding:14px 16px;font-size:.92rem;opacity:.92;min-height:20px}.scanFb{position:absolute;left:12px;right:12px;top:70px;z-index:5;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;transform:translateY(-8px);transition:opacity .12s,transform .12s}.scanFb.show{opacity:1;transform:translateY(0)}.scanFb .fbcard{width:100%;max-width:520px;border-radius:16px;padding:16px 18px;text-align:center;font-family:var(--disp);font-weight:800;font-size:1.15rem;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;gap:10px}.scanFb.ok .fbcard{background:linear-gradient(135deg,#16a34a,#15803d)}.scanFb.err .fbcard{background:linear-gradient(135deg,#dc2626,#b91c1c);animation:fbshake .35s}.scanFb .fbico{font-size:1.5rem;line-height:1}@keyframes fbshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}.cambtn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:9px;background:var(--brand);color:#fff;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(234,90,12,.3);z-index:3}.cambtn .i{width:20px;height:20px}';
  const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
- const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX">Fechar ✕</button></div><div class="scanModes" id="scanModes" hidden><button type="button" data-scanmode="ocr" hidden>Número impresso</button><button type="button" data-scanmode="qr">QR Code</button></div><div class="scanTools" id="scanTools" hidden><button type="button" id="scanTorch" hidden>Luz</button><label id="scanZoomWrap" hidden>Zoom <input type="range" id="scanZoom" min="1" max="3" step="0.1" value="1"></label></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><button type="button" id="scanOcrCapture" hidden style="margin:8px 14px;background:var(--brand);color:#fff;border:0;border-radius:10px;padding:15px;font-weight:800;font-size:1rem">Capturar número da bobina</button><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
- let h5=null,O=null,lastV='',lastT=0,active=false,starting=false,torchOn=false,ocrStream=null,ocrSeq=0,ocrWorkerPromise=null,ocrPaused=false,ocrPendingId='',ocrPendingAt=0,ocrPreferredRegion=null,scanSeen=new Set(),scanIgnored=new Set();
+ const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX">Fechar ✕</button></div><div class="scanModes" id="scanModes" hidden><button type="button" data-scanmode="auto" hidden>QR + número</button><button type="button" data-scanmode="ocr" hidden>Número impresso</button><button type="button" data-scanmode="qr">QR Code</button></div><div class="scanTools" id="scanTools" hidden><button type="button" id="scanTorch" hidden>Luz</button><label id="scanZoomWrap" hidden>Zoom <input type="range" id="scanZoom" min="1" max="3" step="0.1" value="1"></label></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><button type="button" id="scanOcrCapture" hidden style="margin:8px 14px;background:var(--brand);color:#fff;border:0;border-radius:10px;padding:15px;font-weight:800;font-size:1rem">Capturar número da bobina</button><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
+ let h5=null,h5StopPromise=Promise.resolve(),O=null,lastV='',lastT=0,active=false,starting=false,torchOn=false,ocrStream=null,ocrSeq=0,ocrWorkerPromise=null,ocrPaused=false,ocrPendingId='',ocrPendingAt=0,ocrPreferredRegion=null,scanSeen=new Set(),scanIgnored=new Set();
  function hint(t){const h=document.getElementById('scanHint');if(h)h.textContent=t;}
  function scanTrack(){var v=document.querySelector('#scanReader video');return v&&v.srcObject&&v.srcObject.getVideoTracks?v.srcObject.getVideoTracks()[0]:null;}
  /* Ajusta a câmera quando o aparelho aceita foco contínuo e mais resolução. */
@@ -5534,7 +5534,7 @@ window.cleanScanCode=function(v,kind){
  function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.type='square';o.frequency.setValueAtTime(920,a.currentTime);o.frequency.setValueAtTime(1180,a.currentTime+0.06);g.gain.setValueAtTime(0.0001,a.currentTime);g.gain.exponentialRampToValueAtTime(0.35,a.currentTime+0.012);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+0.17);o.start();setTimeout(()=>{try{o.stop();a.close();}catch(e){}},190);}catch(e){}}
  function loadH5(){if(window.Html5Qrcode)return Promise.resolve();return new Promise(function(res,rej){var urls=['https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js','https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js'],i=0;function next(){if(i>=urls.length){rej(new Error('biblioteca da câmera indisponível'));return;}var s=document.createElement('script');s.src=urls[i++];s.onload=function(){if(window.Html5Qrcode)res();else{s.remove();next();}};s.onerror=function(){s.remove();next();};document.head.appendChild(s);}next();});}
  function supplierOcrIds(text){var found=(String(text||'').match(/(?:^|\D)\d{10}(?!\d)/g)||[]).map(function(x){return x.match(/\d{10}$/)[0];});String(text||'').split(/[\r\n]+/).forEach(function(line){var digits=line.replace(/\D/g,'');if(digits.length===10)found.push(digits);});return Array.from(new Set(found));}
- function supplierOcrKnown(id){return O&&O.keepOpenOnOcr?!!(ETQ[id]&&ROMS[ETQ[id].nf]&&ROMS[ETQ[id].nf].supplierLabels):!!BOB[id];}
+ function supplierOcrKnown(id){return O&&O.keepOpenOnOcr?!!(ETQ[id]&&(!O.allowedDocKey||ETQ[id].nf===O.allowedDocKey)&&ROMS[ETQ[id].nf]&&ROMS[ETQ[id].nf].supplierLabels):!!BOB[id];}
  function ocrRotate(source,deg){var c=document.createElement('canvas'),side=deg%180!==0;c.width=side?source.height:source.width;c.height=side?source.width:source.height;var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.translate(c.width/2,c.height/2);x.rotate(deg*Math.PI/180);x.drawImage(source,-source.width/2,-source.height/2);return c;}
  function ocrCenter(source){var c=document.createElement('canvas'),w=Math.round(source.width*.82),h=Math.round(source.height*.20);c.width=w;c.height=h;c.getContext('2d').drawImage(source,Math.round((source.width-w)/2),Math.round((source.height-h)/2),w,h,0,0,w,h);return c;}
  function ocrBand(source,from){var c=document.createElement('canvas'),w=Math.round(source.width*.82),h=Math.round(source.height*.25);c.width=w;c.height=h;c.getContext('2d').drawImage(source,Math.round((source.width-w)/2),Math.round(source.height*from),w,h,0,0,w,h);return c;}
@@ -5558,7 +5558,8 @@ window.cleanScanCode=function(v,kind){
  }
  async function captureSupplierOcr(){
   var video=document.querySelector('#scanReader video'),button=document.getElementById('scanOcrCapture');
-  if(!active||!O||O.scanMode!=='ocr'||!video||video.readyState<2||button.disabled)return;
+  if(!active||!O||(O.scanMode!=='ocr'&&O.scanMode!=='auto')||!video||button.disabled)return;
+  if(video.readyState<2||!video.videoWidth||!video.videoHeight){setTimeout(captureSupplierOcr,250);return;}
   button.disabled=true;var nextDelay=1500;
   var seq=ocrSeq,source=document.createElement('canvas');source.width=video.videoWidth;source.height=video.videoHeight;
   source.getContext('2d').drawImage(video,0,0,source.width,source.height);
@@ -5642,28 +5643,29 @@ window.cleanScanCode=function(v,kind){
    if(!choices.length){ocrPendingId='';hint(O.autoOcr?'Procurando os 10 dígitos. Aproxime o número e evite reflexos.':'Não consegui ler os 10 dígitos. Aproxime o número, evite reflexos e capture novamente.');return;}
    if(O.keepOpenOnOcr&&known.length&&!pending.length){ocrPendingId='';hint('Bobina já recebida. Aponte para outra bobina.');return;}
    /* Duas leituras iguais antes de alterar estoque evitam confirmar um dígito visto errado em um quadro. */
-   if(pending.length===1){var readId=pending[0];if(O.keepOpenOnOcr&&O.autoOcr&&(ocrPendingId!==readId||Date.now()-ocrPendingAt>6000)){ocrPendingId=readId;ocrPendingAt=Date.now();ocrPreferredRegion=matchedRegion;nextDelay=120;hint('Número '+readId+' encontrado. Confirmando leitura…');return;}ocrPendingId='';ocrPreferredRegion=matchedRegion;var received=hit(readId);if(O.keepOpenOnOcr){if(!received&&!scanIgnored.has(readId)){ocrPaused=true;showOcrRetry('Não foi possível receber '+readId+'. Confira o romaneio e toque em Ler novamente.');}else nextDelay=250;return;}close();return;}
+   if(pending.length===1&&known.length===1){var readId=pending[0];if(O.autoOcr&&(ocrPendingId!==readId||Date.now()-ocrPendingAt>15000)){ocrPendingId=readId;ocrPendingAt=Date.now();ocrPreferredRegion=matchedRegion;nextDelay=120;hint('Número '+readId+' encontrado. Confirmando leitura…');return;}ocrPendingId='';ocrPreferredRegion=matchedRegion;var received=hit(readId);if(O.keepOpenOnOcr){if(!received&&!scanIgnored.has(readId)){ocrPaused=true;showOcrRetry('Não foi possível receber '+readId+'. Confira o romaneio e toque em Ler novamente.');}else nextDelay=250;return;}if(O.continuous){nextDelay=received?600:1500;return;}close();return;}
    ocrPendingId='';
    if(O.autoOcr)ocrPaused=true;
    var intro=document.createElement('div');intro.textContent=known.length?'Confirme o número da bobina:':'Número encontrado, mas ainda não está no catálogo. Confira a planilha importada:';box.appendChild(intro);
    choices.forEach(function(id){var b=document.createElement('button');b.type='button';b.textContent=id;b.style.cssText='display:inline-block;margin:8px 4px;padding:12px 18px;background:var(--brand);color:#fff;border:0;border-radius:9px;font-weight:800;font-size:1rem';b.onclick=function(){var received=hit(id);if(O.keepOpenOnOcr){if(!received&&!scanIgnored.has(id)){ocrPaused=true;showOcrRetry('Não foi possível receber '+id+'. Confira o romaneio e toque em Ler novamente.');}else{ocrPaused=false;if(O.autoOcr)setTimeout(captureSupplierOcr,500);}}else close();};box.appendChild(b);});
    if(O.autoOcr)showOcrRetry();
   }catch(e){if(seq===ocrSeq&&active)hint('Não consegui ler o número: '+String((e&&e.message)||e));}
-  finally{if(seq===ocrSeq){button.disabled=false;if(active&&O&&O.autoOcr&&!ocrPaused&&O.scanMode==='ocr')setTimeout(function(){if(seq===ocrSeq&&active)captureSupplierOcr();},nextDelay);}}
+  finally{if(seq===ocrSeq){button.disabled=false;if(active&&O&&O.autoOcr&&!ocrPaused&&(O.scanMode==='ocr'||O.scanMode==='auto'))setTimeout(function(){if(seq===ocrSeq&&active)captureSupplierOcr();},nextDelay);}}
  }
  function showOcrRetry(message){var box=document.getElementById('scanHint');if(message){box.replaceChildren();var p=document.createElement('div');p.textContent=message;box.appendChild(p);}var retry=document.createElement('button');retry.type='button';retry.textContent='Ler novamente';retry.style.cssText='display:block;margin:8px auto;padding:10px 16px;background:#333;color:#fff;border:1px solid #888;border-radius:9px';retry.onclick=function(){ocrPaused=false;captureSupplierOcr();};box.appendChild(retry);}
  document.getElementById('scanOcrCapture').onclick=captureSupplierOcr;
- function updateScanMode(){var box=document.getElementById('scanModes');if(!box)return;box.hidden=!(O&&O.scanModes);box.querySelectorAll('[data-scanmode]').forEach(function(b){if(b.getAttribute('data-scanmode')==='ocr')b.hidden=!(O&&O.supplierOcr);b.classList.toggle('on',!!O&&O.scanMode===b.getAttribute('data-scanmode'));});document.getElementById('scanOcrCapture').hidden=!(O&&O.scanMode==='ocr'&&!O.autoOcr);}
+ function updateScanMode(){var box=document.getElementById('scanModes');if(!box)return;box.hidden=!(O&&O.scanModes);box.querySelectorAll('[data-scanmode]').forEach(function(b){if(b.getAttribute('data-scanmode')==='ocr'||b.getAttribute('data-scanmode')==='auto')b.hidden=!(O&&O.supplierOcr);b.classList.toggle('on',!!O&&O.scanMode===b.getAttribute('data-scanmode'));});document.getElementById('scanOcrCapture').hidden=!(O&&O.scanMode==='ocr'&&!O.autoOcr);}
  function newReader(){var opts={verbose:false},f=window.Html5QrcodeSupportedFormats;if(f)opts.formatsToSupport=[f.QR_CODE];return new Html5Qrcode('scanReader',opts);}
  async function open(){if(starting)return;starting=true;modal.classList.add('show');active=true;hint('Carregando câmera…');
-  try{if(O&&O.scanMode==='ocr'){await startSupplierOcr();starting=false;return;}await loadH5();
+  try{if(O&&O.scanMode==='ocr'){await startSupplierOcr();starting=false;return;}await loadH5();await h5StopPromise;
    if(!modal.classList.contains('show')){starting=false;return;}
    document.getElementById('scanReader').innerHTML='';
-   const config={fps:20,aspectRatio:1.3333,rememberLastUsedCamera:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true}};
-   config.qrbox=(w,hh)=>{const m=Math.min(w,hh),s=Math.max(180,Math.floor(m*0.8));return {width:s,height:s};};
+   const config={fps:O&&O.scanMode==='auto'?10:20,rememberLastUsedCamera:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true}};
+   if(O&&O.scanMode==='qr')config.aspectRatio=1.3333;
+   if(O&&O.scanMode==='qr')config.qrbox=(w,hh)=>{const m=Math.min(w,hh),s=Math.max(180,Math.floor(m*0.8));return {width:s,height:s};};
    /* tenta abrir a câmera de forma SEGURA: uma config por vez, recriando a instância limpa entre
       as tentativas + pausa curta — evita o erro "already under transition" (colisão de start duplo). */
-   var _tries=[{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},{facingMode:'environment'},{facingMode:'user'}];
+   var _tries=[{facingMode:{ideal:'environment'},width:{ideal:O&&O.scanMode==='auto'?1920:1280},height:{ideal:O&&O.scanMode==='auto'?1080:720}},{facingMode:'environment'},{facingMode:'user'}];
    var _ok=false,_err=null;
    for(var _ti=0;_ti<_tries.length&&!_ok;_ti++){
      if(!modal.classList.contains('show')){starting=false;return;}
@@ -5677,9 +5679,14 @@ window.cleanScanCode=function(v,kind){
    }
    if(!_ok)throw (_err||new Error('não abriu'));
    if(!modal.classList.contains('show')){try{await h5.stop();await h5.clear();}catch(e){}h5=null;starting=false;return;}
-   try{_tuneCam(h5);}catch(e){}
+   if(O&&O.scanMode!=='auto')try{_tuneCam(h5);}catch(e){}
    try{setupScanTools();}catch(e){}
-   hint('Aponte para o QR Code');
+   if(O&&O.scanMode==='auto'){
+    var autoVideo=document.querySelector('#scanReader video');if(autoVideo)autoVideo.style.objectFit='contain';
+    supplierOcrWorker().catch(function(){});
+    hint('Aponte para o QR Code ou para os 10 dígitos da bobina.');
+    if(O.autoOcr){var autoSeq=ocrSeq;setTimeout(function(){if(autoSeq===ocrSeq&&active)captureSupplierOcr();},300);}
+   }else hint('Aponte para o QR Code');
   }catch(e){
    var nm=(e&&e.name)||'';var msg=(e&&e.message)||String(e||'');
     var isSecure=(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1');
@@ -5696,15 +5703,15 @@ window.cleanScanCode=function(v,kind){
   }
   starting=false;}
  function fill(val){if(O.onResult){try{O.onResult(val);}catch(e){try{console.warn('scan onResult',e);}catch(_){}}return;}const el=document.getElementById(O.inputId);if(!el)return;el.value=val;el.dispatchEvent(new Event('input'));if(O.enter)el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));}
- function hit(val){val=(val||'').trim();if(!val||!active)return false;var clean=(typeof window.cleanScanCode==='function')?window.cleanScanCode(val,O&&O.scanKind):val;var resolved=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(clean):null;var key=resolved&&resolved.id||clean;const now=Date.now();if(O.continuous){if(O.keepOpenOnOcr){if(scanSeen.has(key)||scanIgnored.has(key))return false;if(ETQ[key]&&(ETQ[key].status==='entrada'||ETQ[key].status==='saida')){scanIgnored.add(key);hint('Bobina '+key+' já recebida. Aponte para outra.');return false;}}if(key===lastV&&now-lastT<4000)return false;lastV=key;lastT=now;beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);if(O.keepOpenOnOcr){var received=!!(ETQ[key]&&ETQ[key].status==='entrada');if(received){scanSeen.add(key);hint('Recebida '+key+' · '+scanSeen.size+' nesta sessão. Aponte para outra bobina.');}else{lastV='';hint('Não foi possível receber '+key+'. Confira o romaneio.');}return received;}hint('Código capturado: '+key);return true;}else{beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);close();return true;}}
- function close(){active=false;stopSupplierOcr();modal.classList.remove('show');document.getElementById('scanTools').hidden=true;lastV='';scanSeen.clear();scanIgnored.clear();if(h5){const x=h5;h5=null;try{x.stop().then(()=>{try{x.clear();}catch(e){}}).catch(()=>{try{x.clear();}catch(e){}});}catch(e){}}}
+ function hit(val){val=(val||'').trim();if(!val||!active)return false;var clean=(typeof window.cleanScanCode==='function')?window.cleanScanCode(val,O&&O.scanKind):val;var resolved=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(clean):null;var key=resolved&&resolved.id||clean;const now=Date.now();if(O.allowedDocKey&&ETQ[key]&&ETQ[key].nf!==O.allowedDocKey){hint('Etiqueta de outro documento. Aponte para esta nota ou romaneio.');return false;}if(O.continuous){if(O.keepOpenOnOcr){if(!ETQ[key]){hint('Etiqueta '+key+' não está no romaneio. Aponte para outra.');return false;}if(scanSeen.has(key)||scanIgnored.has(key))return false;if(ETQ[key].status==='entrada'||ETQ[key].status==='saida'){scanIgnored.add(key);hint('Bobina '+key+' já recebida. Aponte para outra.');return false;}}if(key===lastV&&now-lastT<4000)return false;lastV=key;lastT=now;beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);if(O.keepOpenOnOcr){var received=!!(ETQ[key]&&ETQ[key].status==='entrada');if(received){scanSeen.add(key);hint('Recebida '+key+' · '+scanSeen.size+' nesta sessão. Aponte para outra bobina.');}else{lastV='';hint('Não foi possível receber '+key+'. Confira o romaneio.');}return received;}hint('Código capturado: '+key);return true;}else{beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);close();return true;}}
+ function close(){active=false;stopSupplierOcr();modal.classList.remove('show');document.getElementById('scanTools').hidden=true;lastV='';scanSeen.clear();scanIgnored.clear();if(h5){const x=h5;h5=null;h5StopPromise=Promise.resolve().then(function(){return x.stop();}).catch(function(){}).then(function(){return x.clear();}).catch(function(){});}}
  async function changeScanMode(mode){if(!O||!O.scanModes||starting||O.scanMode===mode)return;starting=true;active=false;stopSupplierOcr();O.scanMode=mode;updateScanMode();document.getElementById('scanTools').hidden=true;hint('Trocando modo da câmera…');var old=h5;h5=null;if(old){try{await old.stop();}catch(e){}try{await old.clear();}catch(e){}}if(!modal.classList.contains('show')){starting=false;return;}starting=false;open();}
  document.querySelectorAll('#scanModes [data-scanmode]').forEach(function(b){b.onclick=function(){changeScanMode(b.getAttribute('data-scanmode'));};});
  document.getElementById('scanX').onclick=close;
- window.scanInto=function(inputId,opts){scanSeen.clear();scanIgnored.clear();O=Object.assign({inputId},opts||{});O.scanMode=O.supplierOcr&&O.defaultMode==='ocr'?'ocr':'qr';updateScanMode();document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};
+ window.scanInto=function(inputId,opts){scanSeen.clear();scanIgnored.clear();O=Object.assign({inputId},opts||{});O.scanMode=O.supplierOcr&&(O.defaultMode==='auto'||O.defaultMode==='ocr')?O.defaultMode:'qr';updateScanMode();document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};
  window.addCam=function(inputId,opts){const el=document.getElementById(inputId);if(!el||el.type==='hidden'||el.dataset.cam)return;el.dataset.cam='1';const w=document.createElement('div');w.className='camfield';w.style.position='relative';w.style.width='100%';el.parentNode.insertBefore(w,el);w.appendChild(el);el.style.width='100%';el.style.boxSizing='border-box';el.style.paddingRight='54px';const b=document.createElement('button');b.type='button';b.className='cambtn';b.innerHTML=ICONS.cam;b.title='Escanear com câmera';b.onclick=()=>scanInto(inputId,opts||{});w.appendChild(b);try{scanLock(el);}catch(e){} };
  addCam('mBob',{enter:true,title:'Escanear bobina'});addCam('mLoc',{enter:true,title:'Escanear endereço',scanKind:'addr'});
- const _rrv=renderRecv;renderRecv=function(){_rrv();addCam('recvScan',{continuous:true,onResult:recvAdd,title:'Ler bobinas',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'ocr'});};
+ const _rrv=renderRecv;renderRecv=function(){_rrv();addCam('recvScan',{continuous:true,onResult:recvAdd,title:'Ler bobinas',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'auto'});};
  const _saz=stageArmazenar;stageArmazenar=function(et){_saz(et);setTimeout(()=>addCam('azLoc',{enter:false,title:'Escanear endereço',scanKind:'addr'}),60);};
 })();
 

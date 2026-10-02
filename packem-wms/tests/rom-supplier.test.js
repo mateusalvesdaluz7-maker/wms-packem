@@ -127,6 +127,13 @@ test('código de barras do fornecedor usa bobina importada no catálogo sem abri
   assert.equal(ctx.resolveRomSupplierScan('$2600999999$').id,'2600999999');
 });
 
+test('OCR aceita número físico separado por espaços sem inventar ID em código longo',()=>{
+  const ctx={};vm.createContext(ctx);
+  vm.runInContext(source(' function supplierOcrIds(', ' function supplierOcrKnown('),ctx);
+  assert.deepEqual(Array.from(ctx.supplierOcrIds('2600 267724\n11970')),['2600267724']);
+  assert.deepEqual(Array.from(ctx.supplierOcrIds('41488526002677245119705361S333204')),[]);
+});
+
 test('importação da planilha salva bobinas no catálogo e confirma na nuvem sem gerar NF',async()=>{
   const {parsed}=parseFixture(),calls={saved:0,cloud:[],toasts:[]},button={disabled:false,isConnected:true};
   const ctx={window:{_bobReady:true},BOB:{},supplierSheet:parsed,session:{u:'admin'},norm,nowISO:()=> '2026-10-01T12:00:00Z',
@@ -143,19 +150,24 @@ test('importação da planilha salva bobinas no catálogo e confirma na nuvem se
   assert.equal(ctx.supplierSheet,null);
 });
 
-test('bipagem usa a bobina para receber uma vez com o código Packem convertido',()=>{
-  const ctx={window:{},ETQ:{},ROMS:{'ROM-1419':{supplierLabels:true,local:'TEXTIL',nRomaneio:'1419',supplierSource:{'2600000001':{code:'11894'}}}},NFS:{},
+test('bobinas do romaneio entram em sequência no Chão 70, sem duplicar',()=>{
+  const ctx={window:{},ETQ:{},ROMS:{'ROM-1419':{supplierLabels:true,local:'TEXTIL',nRomaneio:'1419',supplierSource:{'2600000001':{code:'11894'},'2600000002':{code:'11894'}}}},NFS:{},
     STAGE:[],norm,fmt:q=>String(q).replace('.',','),nowISO:()=> '2026-10-01T12:00:00Z',session:{u:'admin'},
     saveNF(){},logAct(){},syncEtiqueta(){},renderNF(){},toast(){},document:{querySelector:()=>null}};
-  ctx.ETQ['2600000001']={id:'2600000001',nf:'ROM-1419',nRomaneio:'1419',bobina:'2600000001',cProd:'0303450156',xProd:'TEC.TUBULAR PP 156G 360CM',kg:318.66,status:'gerada',hist:[]};
-  let received=0;ctx.window.f70Entrada=it=>{received++;assert.equal(it.et,'2600000001');assert.equal(it.pr,'0303450156');return true;};
+  ctx.ETQ['2600000001']={id:'2600000001',nf:'ROM-1419',nRomaneio:'1419',bobina:'2600000001',cProd:'0303450156',xProd:'ART MAT PLAST 156G 360CM',kg:318.66,status:'gerada',hist:[]};
+  ctx.ETQ['2600000002']={id:'2600000002',nf:'ROM-1419',nRomaneio:'1419',bobina:'2600000002',cProd:'0303450156',xProd:'ART MAT PLAST 156G 360CM',kg:304.16,status:'gerada',hist:[]};
+  const received=[];ctx.window.f70Entrada=it=>{received.push(it.et);assert.equal(it.pr,'0303450156');return true;};
   vm.createContext(ctx);
   vm.runInContext(source('  function resolveRomSupplierScan(', '  window.resolveRomSupplierScan=resolveRomSupplierScan;'),ctx);
   vm.runInContext(source('  function nfRecvBip(v){','  /* Etiquetas pertencentes à geração atual'),ctx);
   ctx.nfRecvBip('41488$2600000001$11970$379$2$204');
   ctx.nfRecvBip('2600000001');
-  assert.equal(received,1);assert.equal(ctx.ETQ['2600000001'].status,'entrada');
-  assert.equal(ctx.ETQ['2600000001'].hist.length,1);
+  ctx.nfRecvBip('2600000002');
+  assert.deepEqual(received,['2600000001','2600000002']);
+  assert.equal(ctx.ETQ['2600000001'].status,'entrada');
+  assert.equal(ctx.ETQ['2600000002'].status,'entrada');
+  assert.equal(ctx.STAGE.length,0);
+  for(const id of received){assert.equal(ctx.ETQ[id].hist[0].ev,'entrada-chao70');assert.equal(ctx.ETQ[id].hist.length,1);}
 });
 
 test('Recebimento geral encaminha o fornecedor ao fluxo fiscal e não imprime',async()=>{

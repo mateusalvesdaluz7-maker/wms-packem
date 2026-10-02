@@ -5537,13 +5537,20 @@ window.cleanScanCode=function(v,kind){
  window.prepareScanCamera=function(){loadH5().catch(function(){});};
  function supplierOcrIds(text){var found=[];String(text||'').match(/\d{10,12}/g)?.forEach(function(run){if(run.length===10){found.push(run);return;}/* O OCR às vezes inventa um dígito. Só aceitar uma janela de 10 se ela já existir no catálogo. */for(var i=0;i<=run.length-10;i++){var id=run.slice(i,i+10);if(typeof supplierOcrKnown==='function'&&supplierOcrKnown(id,true))found.push(id);}});String(text||'').split(/[\r\n]+/).forEach(function(line){var digits=line.replace(/\D/g,'');if(digits.length===10)found.push(digits);});return Array.from(new Set(found));}
  function supplierOcrLongCandidates(text){var found=[];(String(text||'').match(/(?:^|\D)\d{11,12}(?!\d)/g)||[]).forEach(function(part){var digits=part.replace(/\D/g,'');for(var i=0;i<=digits.length-10;i++){var id=digits.slice(i,i+10);if(!found.includes(id))found.push(id);}});return found;}
- function supplierOcrKnown(id,catalogOnly){if(!/^\d{10}$/.test(id))return false;if(O&&O.keepOpenOnOcr)return !!(ETQ[id]&&(!O.allowedDocKey||ETQ[id].nf===O.allowedDocKey)&&ROMS[ETQ[id].nf]&&ROMS[ETQ[id].nf].supplierLabels);return !catalogOnly||!!(BOB[id]||ETQ[id]);}
+ function supplierOcrKnown(id){if(!/^\d{10}$/.test(id))return false;if(O&&O.keepOpenOnOcr)return !!(ETQ[id]&&(!O.allowedDocKey||ETQ[id].nf===O.allowedDocKey)&&ROMS[ETQ[id].nf]&&ROMS[ETQ[id].nf].supplierLabels);return !!(BOB[id]||ETQ[id]);}
+ async function supplierOcrCheckCatalog(ids){
+  var unique=Array.from(new Set(ids)).filter(function(id){return /^\d{10}$/.test(id);});
+  if(O&&O.keepOpenOnOcr)return unique.filter(supplierOcrKnown);
+  var missing=unique.filter(function(id){return !supplierOcrKnown(id)&&!ocrCloudMiss.has(id);}).slice(0,3);
+  await Promise.all(missing.map(async function(id){try{var row=await bobFetch(id);if(!row)ocrCloudMiss.add(id);}catch(e){/* Falha de rede: permitir nova tentativa no quadro seguinte. */}}));
+  return unique.filter(supplierOcrKnown);
+ }
  function ocrRotate(source,deg){var c=document.createElement('canvas'),side=deg%180!==0;c.width=side?source.height:source.width;c.height=side?source.width:source.height;var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.translate(c.width/2,c.height/2);x.rotate(deg*Math.PI/180);x.drawImage(source,-source.width/2,-source.height/2);return c;}
  function ocrCenter(source){var c=document.createElement('canvas'),w=Math.round(source.width*.82),h=Math.round(source.height*.20);c.width=w;c.height=h;c.getContext('2d').drawImage(source,Math.round((source.width-w)/2),Math.round((source.height-h)/2),w,h,0,0,w,h);return c;}
  function ocrBand(source,from){var c=document.createElement('canvas'),w=Math.round(source.width*.82),h=Math.round(source.height*.25);c.width=w;c.height=h;c.getContext('2d').drawImage(source,Math.round((source.width-w)/2),Math.round(source.height*from),w,h,0,0,w,h);return c;}
  function ocrWideBand(source,from){var c=document.createElement('canvas'),h=Math.round(source.height*.36);c.width=source.width;c.height=h;c.getContext('2d').drawImage(source,0,Math.round(source.height*from),c.width,h,0,0,c.width,h);return c;}
  function ocrSide(source,side,deg){var strip=document.createElement('canvas'),w=Math.round(source.width*.34),h=Math.round(source.height*.84);strip.width=w;strip.height=h;strip.getContext('2d').drawImage(source,side==='right'?source.width-w:0,Math.round(source.height*.08),w,h,0,0,w,h);var turned=ocrRotate(strip,deg),scale=Math.min(2,1600/turned.width);if(scale>=1)return scale===1?turned:ocrScale(turned,scale);return turned;}
- function ocrNarrowSide(source,side,deg,from){var c=document.createElement('canvas'),w=Math.round(source.width*.23),h=Math.round(source.height*.46),x=Math.round(source.width*(side==='right'?.63:.14)),y=Math.round(source.height*from);c.width=w;c.height=h;c.getContext('2d').drawImage(source,x,y,w,h,0,0,w,h);return ocrScale(ocrRotate(c,deg),Math.min(2,1600/h));}
+ function ocrNarrowSide(source,side,deg,from){var c=document.createElement('canvas'),w=Math.round(source.width*.23),h=Math.round(source.height*.46),x=Math.round(source.width*(side==='right'?.63:.14)),y=Math.round(source.height*from);c.width=w;c.height=h;c.getContext('2d').drawImage(source,x,y,w,h,0,0,w,h);return ocrRotate(c,deg);}
  function ocrNarrowBand(source,edge,deg,from){var c=document.createElement('canvas'),w=Math.round(source.width*.54),h=Math.round(source.height*.26),x=Math.round(source.width*from),y=Math.round(source.height*(edge==='bottom'?.64:.10));c.width=w;c.height=h;c.getContext('2d').drawImage(source,x,y,w,h,0,0,w,h);return ocrScale(ocrRotate(c,deg),Math.min(2,1900/w));}
  function ocrMiddleSide(source,side,deg){var c=document.createElement('canvas'),w=Math.round(source.width*.18),h=Math.round(source.height*.32),x=Math.round(source.width*(side==='right'?.58:.24)),y=Math.round(source.height*.40);c.width=w;c.height=h;c.getContext('2d').drawImage(source,x,y,w,h,0,0,w,h);return ocrScale(ocrRotate(c,deg),Math.min(2,1600/h));}
  function ocrMiddleBand(source,edge,deg){var c=document.createElement('canvas'),w=Math.round(source.width*.21),h=Math.round(source.height*.11),x=Math.round(source.width*(edge==='bottom'?.44:.35)),y=Math.round(source.height*(edge==='bottom'?.56:.33));c.width=w;c.height=h;c.getContext('2d').drawImage(source,x,y,w,h,0,0,w,h);return ocrScale(ocrRotate(c,deg),Math.min(4,1800/w));}
@@ -5589,10 +5596,12 @@ window.cleanScanCode=function(v,kind){
   var qrReader=O.scanMode==='auto'?h5:null,qrPaused=false;
   if(qrReader&&typeof qrReader.pause==='function')try{qrReader.pause(false);qrPaused=true;}catch(e){}
   try{
-   var worker=await supplierOcrWorker(),found=[],matchedRegion=null,matchedExact=false,uncertainRead=false,cloudCandidates=[];
-   function collect(result,region){var raw=String(result.data.text||''),ids=supplierOcrIds(raw);ids.forEach(function(id){if(!found.includes(id))found.push(id);});if(ids.some(supplierOcrKnown)){matchedRegion=region;matchedExact=ids.some(function(id){return supplierOcrKnown(id)&&new RegExp('(?:^|\\D)'+id+'(?!\\d)').test(raw);});}if(!ids.length&&/\d{10,12}/.test(raw)){uncertainRead=true;if(!O.keepOpenOnOcr){supplierOcrLongCandidates(raw).forEach(function(candidate){if(!cloudCandidates.some(function(c){return c.id===candidate;}))cloudCandidates.push({id:candidate,region:region});});}}}
+   var worker=await supplierOcrWorker(),found=[],matchedRegion=null,uncertainRead=false,cloudCandidates=[],exactIds=new Set(),idRegions={};
+   function collect(result,region){var raw=String(result.data.text||''),ids=supplierOcrIds(raw);ids.forEach(function(id){if(!found.includes(id))found.push(id);if(!idRegions[id])idRegions[id]=region;if(new RegExp('(?:^|\\D)'+id+'(?!\\d)').test(raw))exactIds.add(id);});if(!ids.length&&/\d{10,12}/.test(raw)){uncertainRead=true;if(!O.keepOpenOnOcr){supplierOcrLongCandidates(raw).forEach(function(candidate){if(!cloudCandidates.some(function(c){return c.id===candidate;}))cloudCandidates.push({id:candidate,region:region});});}}}
    var portrait=source.height>source.width*1.15;
-   var fastRegions=portrait?[{kind:'narrow-side',side:'left',deg:90,from:.37},{kind:'narrow-side',side:'right',deg:270,from:.37},{kind:'middle-side',side:'left',deg:90},{kind:'middle-side',side:'right',deg:270},{kind:'side',side:'right',deg:270},{kind:'band',deg:0,from:.62,flip:180},{kind:'center',deg:0},{kind:'side',side:'right',deg:90},{kind:'center',deg:180}]:[{kind:'narrow-band',edge:'top',deg:0,from:.17},{kind:'narrow-band',edge:'bottom',deg:180,from:.29},{kind:'middle-band',edge:'top',deg:0},{kind:'middle-band',edge:'bottom',deg:180},{kind:'center',deg:0},{kind:'center',deg:180},{kind:'side',side:'right',deg:270},{kind:'side',side:'right',deg:90}];
+   /* As duas disposições reais da etiqueta: número horizontal invertido na base,
+      ou número vertical na lateral. Tentar ambas no primeiro quadro. */
+   var fastRegions=portrait?[{kind:'band',deg:0,from:.62,flip:180},{kind:'narrow-side',side:'left',deg:90,from:.37},{kind:'narrow-side',side:'right',deg:270,from:.37},{kind:'middle-side',side:'left',deg:90},{kind:'middle-side',side:'right',deg:270},{kind:'side',side:'right',deg:270},{kind:'center',deg:0},{kind:'side',side:'right',deg:90},{kind:'center',deg:180}]:[{kind:'narrow-band',edge:'top',deg:0,from:.17},{kind:'narrow-band',edge:'bottom',deg:180,from:.29},{kind:'middle-band',edge:'top',deg:0},{kind:'middle-band',edge:'bottom',deg:180},{kind:'center',deg:0},{kind:'center',deg:180},{kind:'side',side:'right',deg:270},{kind:'side',side:'right',deg:90}];
    var fallback=[{kind:'narrow-band',edge:'top',deg:180,from:.17},{kind:'narrow-band',edge:'bottom',deg:0,from:.29},{kind:'narrow-side',side:'left',deg:90,from:.30},{kind:'narrow-side',side:'right',deg:270,from:.30},{kind:'narrow-side',side:'left',deg:270,from:.37},{kind:'narrow-side',side:'right',deg:90,from:.37},{kind:'side',side:'left',deg:270},{kind:'side',side:'left',deg:90},{kind:'enhanced-center',deg:0},{kind:'enhanced-center',deg:180}];
    for(var fallbackDeg of [0,90])for(var fallbackFrom of [.62,.06,.36])for(var fallbackFlip of [0,180])fallback.push({kind:'band',deg:fallbackDeg,from:fallbackFrom,flip:fallbackFlip});
    for(var wideDeg of [0,90])for(var wideFrom of [0,.32,.64])for(var wideFlip of [0,180])fallback.push({kind:'wide-band',deg:wideDeg,from:wideFrom,flip:wideFlip});
@@ -5607,26 +5616,24 @@ window.cleanScanCode=function(v,kind){
    ocrFallbackCursor=(ocrFallbackCursor+fallbackLimit)%fallback.length;
    for(var region of regions){
     if(seq!==ocrSeq||!active)return;
-    await worker.setParameters({tessedit_pageseg_mode:region.kind==='narrow-side'||region.kind==='narrow-band'||region.kind==='middle-side'||region.kind==='middle-band'||region.kind==='side'||region.kind==='center'||region.kind==='enhanced-center'?'7':'11'});
+    /* PSM 7 descartava o número inteiro quando o recorte trazia uma borda ou parte
+       do código de barras. PSM 6 leu as duas fotos reais da NorteBag. */
+    await worker.setParameters({tessedit_pageseg_mode:region.kind==='full'?'11':'6'});
     var crop=ocrRegion(source,region);collect(await worker.recognize(crop),region);
     if(!found.length&&(photoCaptured||ocrEmptyFrames>0)&&(region.kind==='narrow-side'||region.kind==='narrow-band'||region.kind==='middle-side'||region.kind==='middle-band'))collect(await worker.recognize(ocrThreshold(crop,100)),region);
     if(found.some(supplierOcrKnown))break;
-    if(O.autoOcr&&(found.length||uncertainRead))break;
    }
    if(seq!==ocrSeq||!active)return;
-   if(!found.length&&cloudCandidates.length&&!O.keepOpenOnOcr){
-    var checked=await Promise.allSettled(cloudCandidates.slice(0,3).map(async function(candidate){if(BOB[candidate.id]||ETQ[candidate.id])return candidate; if(ocrCloudMiss.has(candidate.id))return null;try{var row=await bobFetch(candidate.id);if(row)return candidate;ocrCloudMiss.add(candidate.id);}catch(e){}return null;}));
-    if(seq!==ocrSeq||!active)return;
-    var cloudMatches=checked.filter(function(r){return r.status==='fulfilled'&&r.value;}).map(function(r){return r.value;});
-    if(cloudMatches.length===1){found.push(cloudMatches[0].id);matchedRegion=cloudMatches[0].region;matchedExact=false;}
-   }
-   var known=found.filter(supplierOcrKnown),pending=O.keepOpenOnOcr?known.filter(function(id){return !scanSeen.has(id)&&!scanIgnored.has(id);}):known,choices=pending.length?pending:(known.length?known:found);
+   cloudCandidates.forEach(function(candidate){if(!found.includes(candidate.id))found.push(candidate.id);if(!idRegions[candidate.id])idRegions[candidate.id]=candidate.region;});
+   var known=await supplierOcrCheckCatalog(found);
+   if(seq!==ocrSeq||!active)return;
+   var pending=O.keepOpenOnOcr?known.filter(function(id){return !scanSeen.has(id)&&!scanIgnored.has(id);}):known,choices=pending.length?pending:(known.length?known:found);
    var box=document.getElementById('scanHint');box.replaceChildren();
    if(!choices.length){ocrPendingId='';if(O.autoOcr){ocrEmptyFrames++;if(uncertainRead||ocrEmptyFrames>=3){ocrRejectedScene=scene;ocrRejectedAt=Date.now();ocrEmptyFrames=0;}}nextDelay=150;hint(uncertainRead?'Número visto, mas a leitura ainda não está confiável. Aproxime e mantenha firme.':O.autoOcr?'Procurando os 10 dígitos. Aproxime o número e evite reflexos.':'Não consegui ler os 10 dígitos. Aproxime o número, evite reflexos e capture novamente.');return;}
    ocrEmptyFrames=0;
    if(O.keepOpenOnOcr&&known.length&&!pending.length){ocrPendingId='';hint('Bobina já recebida. Aponte para outra bobina.');return;}
    /* Número exato do romaneio entra de imediato; OCR com dígito extra exige segunda leitura. */
-   if(pending.length===1&&known.length===1){var readId=pending[0];if(O.autoOcr&&!matchedExact&&(ocrPendingId!==readId||Date.now()-ocrPendingAt>15000)){ocrPendingId=readId;ocrPendingAt=Date.now();ocrPreferredRegion=matchedRegion;nextDelay=120;hint('Número '+readId+' encontrado. Confirmando leitura…');return;}ocrPendingId='';ocrPreferredRegion=matchedRegion;ocrFastCursor=0;var received=hit(readId);if(O.keepOpenOnOcr){if(!received&&!scanIgnored.has(readId)){ocrPaused=true;showOcrRetry('Não foi possível receber '+readId+'. Confira o romaneio e toque em Ler novamente.');}else nextDelay=250;return;}if(O.continuous){nextDelay=received?600:1500;return;}close();return;}
+   if(pending.length===1&&known.length===1){var readId=pending[0],matchedExact=exactIds.has(readId);matchedRegion=idRegions[readId]||null;if(O.autoOcr&&!matchedExact&&(ocrPendingId!==readId||Date.now()-ocrPendingAt>15000)){ocrPendingId=readId;ocrPendingAt=Date.now();ocrPreferredRegion=matchedRegion;nextDelay=120;hint('Número '+readId+' encontrado. Confirmando leitura…');return;}ocrPendingId='';ocrPreferredRegion=matchedRegion;ocrFastCursor=0;var received=hit(readId);if(O.keepOpenOnOcr){if(!received&&!scanIgnored.has(readId)){ocrPaused=true;showOcrRetry('Não foi possível receber '+readId+'. Confira o romaneio e toque em Ler novamente.');}else nextDelay=250;return;}if(O.continuous){nextDelay=received?600:1500;return;}close();return;}
    ocrPendingId='';
    if(O.autoOcr&&!known.length){ocrPendingId='';ocrRejectedScene=scene;ocrRejectedAt=Date.now();nextDelay=250;hint(O.keepOpenOnOcr?'Número '+choices[0]+' não consta neste romaneio. Confira a planilha ou a etiqueta; a câmera continua lendo.':'Número '+choices[0]+' não reconhecido. A câmera continua lendo.');return;}
    if(O.autoOcr)ocrPaused=true;

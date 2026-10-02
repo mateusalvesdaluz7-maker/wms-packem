@@ -152,18 +152,36 @@ test('câmera lê número de bobina em qualquer tela e mantém endereço somente
   assert.equal(ctx.O.scanMode,'qr');
 });
 
-test('número físico fora do romaneio chega ao fluxo geral, mas não ao documento errado',()=>{
-  const ctx={O:{keepOpenOnOcr:false},BOB:{},ETQ:{},ROMS:{}};
+test('OCR só aceita automaticamente número cadastrado e consulta bobina importada em outro aparelho',async()=>{
+  const ctx={O:{keepOpenOnOcr:false},BOB:{},ETQ:{},ROMS:{},ocrCloudMiss:new Set(),
+    bobFetch:async id=>{if(id==='2600255962'){ctx.BOB[id]={pr:'0303450156',pl:309.66};return ctx.BOB[id];}return null;}};
   vm.createContext(ctx);
   vm.runInContext(source(' function supplierOcrKnown(', ' function ocrRotate('),ctx);
-  assert.equal(ctx.supplierOcrKnown('2600262229'),true);
-  assert.equal(ctx.supplierOcrKnown('2600262229',true),false);
+  assert.equal(ctx.supplierOcrKnown('2600255962'),false);
+  assert.deepEqual(Array.from(await ctx.supplierOcrCheckCatalog(['2600255962','2600999999'])),['2600255962']);
+  assert.equal(ctx.supplierOcrKnown('2600255962'),true);
+  assert.equal(ctx.ocrCloudMiss.has('2600999999'),true);
   ctx.ETQ['2600262229']={nf:'ROM-OUTRO'};
   ctx.ROMS['ROM-OUTRO']={supplierLabels:true};
   ctx.O={keepOpenOnOcr:true,allowedDocKey:'ROM-1367 - A'};
   assert.equal(ctx.supplierOcrKnown('2600262229'),false);
   ctx.O.allowedDocKey='ROM-OUTRO';
   assert.equal(ctx.supplierOcrKnown('2600262229'),true);
+});
+
+test('número lido pela câmera entra no Chão 70 mesmo sem catálogo local',async()=>{
+  const id='2600255962',messages=[],ctx={window:{cleanScanCode:v=>v},BOB:{},FLOOR70:{},STAGE:[],MV:undefined,
+    _del70:{},_bip70:{},_e70:v=>v,_bump70(){},f70HasEt:()=>false,etL:g=>g.ets||[],
+    norm,nowISO:()=> '2026-10-02T10:35:00Z',session:{u:'admin'},fmt:String,
+    bobFetch:async v=>v===id?{pr:'0303450156',desc:'ART MAT PLAST',pl:309.66}:null,
+    saveF70(){},sync70(){},logAct(){},updateF70(){},toast:s=>messages.push(s)};
+  vm.createContext(ctx);
+  vm.runInContext(source('  window.floor70Add=async function(v){','  /* atualiza só os números'),ctx);
+  await ctx.window.floor70Add(id);
+  assert.equal(ctx.FLOOR70['0303450156'].qtd,1);
+  assert.equal(ctx.FLOOR70['0303450156'].kg,309.66);
+  assert.equal(ctx.FLOOR70['0303450156'].ets[0].et,id);
+  assert.ok(messages.some(s=>s.includes('+1 no Chão 70')));
 });
 
 test('importação da planilha salva bobinas no catálogo e confirma na nuvem sem gerar NF',async()=>{

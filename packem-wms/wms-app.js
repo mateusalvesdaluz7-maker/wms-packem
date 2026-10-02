@@ -3856,12 +3856,12 @@ updateStageBadge();
       +'<div style="color:var(--muted);font-size:.82rem;margin-bottom:14px">Sem XML nem planilha? Digite o nº da NF e os itens. Ao pôr um código já cadastrado em Produtos, a descrição é preenchida sozinha.</div>'
       +'<div class="nfDrop" id="mnfPick"><div class="nfDropTxt"><b>Lançar NF manual</b><span>digitar itens, peso e nº de etiquetas</span></div></div>'
       +'</div>'
-      +'</div></div>'+preview+scanPanel+nfFilterBar+list;
+      +'</div></div><div id="nfRomHost"></div>'+preview+scanPanel+nfFilterBar+list;
 
-    var romHost=document.getElementById('lblRom');
-    if(romHost&&!window.renderSupplierCatalog){
+    var romHost=document.getElementById('nfRomHost');
+    if(romHost){
       romHost.innerHTML=_offWarn+syncWarn
-        +'<div class="nfHero"><div class="nfHeroTitle"><div class="k">Gestão de Etiquetas · Bobinas</div><h1>Romaneio do fornecedor</h1><p>Importe a planilha e bipe a etiqueta física. A bobina entre $ identifica o código Packem convertido.</p></div></div>'
+        +'<div class="nfHero"><div class="nfHeroTitle"><div class="k">Nota Fiscal · Conferência</div><h1>Romaneio do fornecedor</h1><p>Importe a planilha aqui e confira cada bobina pela etiqueta física. Cada leitura recebida entra no Chão 70.</p></div></div>'
         +'<div class="panel" style="margin-top:16px"><div class="ph"><span class="pdot"></span>Depósito de destino</div><div class="nfStatusFilters" id="romLocalSeg" style="display:flex;gap:8px;flex-wrap:wrap">'
         +'<button type="button" class="'+(nfLocal==='PRE'?'btn brand':'gbtn')+'" data-romloc="PRE">PRE <b>'+_cPre+'</b></button>'
         +'<button type="button" class="'+(nfLocal==='TEXTIL'?'btn brand':'gbtn')+'" data-romloc="TEXTIL">Têxtil <b>'+_cTex+'</b></button></div></div>'

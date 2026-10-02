@@ -135,6 +135,8 @@ test('OCR aceita número físico separado por espaços sem inventar ID em códig
   ctx.supplierOcrKnown=id=>id==='2600262229';
   assert.deepEqual(Array.from(ctx.supplierOcrIds('26002622294')),['2600262229']);
   assert.deepEqual(Array.from(ctx.supplierOcrIds('26002677249')),[]);
+  assert.deepEqual(Array.from(ctx.supplierOcrLongCandidates('26002622294')),['2600262229','6002622294']);
+  assert.deepEqual(Array.from(ctx.supplierOcrLongCandidates('41488526002622294119705361S333204')),[]);
 });
 
 test('câmera lê número de bobina em qualquer tela e mantém endereço somente no QR',()=>{

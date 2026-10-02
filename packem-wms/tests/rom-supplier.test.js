@@ -196,6 +196,18 @@ test('destaque do número acompanha a posição vertical vista na câmera',()=>{
   assert.ok(box.w<110&&box.h<350,'o quadro não cobre a etiqueta inteira');
 });
 
+test('OCR só considera nítidos os dez dígitos quando cada símbolo confere',()=>{
+  const ctx={};vm.createContext(ctx);
+  vm.runInContext(source(' function ocrStrongNumber(', ' function showScanTarget('),ctx);
+  const id='2600255978',symbols=[...id].map((digit,i)=>({text:digit,confidence:i===0?50:95}));
+  const result={data:{words:[{text:id,symbols}]}};
+  assert.equal(ctx.ocrStrongNumber(result,id),true);
+  symbols[4]={text:id[4],confidence:20};
+  assert.equal(ctx.ocrStrongNumber(result,id),false);
+  symbols[4]={text:'9',confidence:95};
+  assert.equal(ctx.ocrStrongNumber(result,id),false);
+});
+
 test('câmera antecipa as bobinas físicas da nuvem sem baixar o catálogo inteiro',async()=>{
   let table='',pattern='';
   const ctx={window:{},BOB:{},supa:{from:name=>{table=name;return {

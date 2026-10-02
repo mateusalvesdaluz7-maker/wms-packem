@@ -160,14 +160,14 @@ const code=sp=>sp.s+'-'+sp.p+'-'+sp.l;
 const whLabel=w=>w==='70'?'Dep 70':w==='novo'?'Novo':'Chão';
 function toast(m,ok=true){const t=$('#toast');$('#toastMsg').textContent=m;t.className='show '+(ok?'ok':'err');clearTimeout(t._t);t._t=setTimeout(()=>t.className='',2600);try{if(typeof scanFeedback==='function')scanFeedback(m,ok);}catch(e){}}
 /* mostra o aviso GRANDE na tela da câmera quando ela está aberta (senão o toast fica atrás do vídeo e você não vê bipando) */
-function scanFeedback(m,ok){try{
+function scanFeedback(m,ok,scanned){try{
   var modal=document.getElementById('scan');if(!modal||!modal.classList.contains('show'))return;
   var fb=document.getElementById('scanFb');if(!fb)return;
   var bloqueio=(ok===false);
-  fb.className='scanFb show '+(bloqueio?'err':'ok');
+  fb.className='scanFb show '+(bloqueio?'err':'ok')+(scanned?' scanned':'');
   fb.innerHTML='<div class="fbcard"><span class="fbico">'+(bloqueio?'⛔':'✓')+'</span><span>'+String(m).replace(/</g,'&lt;')+'</span></div>';
-  try{if(navigator.vibrate)navigator.vibrate(bloqueio?[90,60,90]:35);}catch(e){}
-  clearTimeout(fb._t);fb._t=setTimeout(function(){fb.className='scanFb';},bloqueio?2600:1300);
+  try{if(!scanned&&navigator.vibrate)navigator.vibrate(bloqueio?[90,60,90]:35);}catch(e){}
+  clearTimeout(fb._t);fb._t=setTimeout(function(){fb.className='scanFb';},scanned?2200:bloqueio?2600:1300);
 }catch(e){}}
 /* ===== TRAVAMENTO AO CLICAR: RESOLVIDO AQUI =====
    persist() era chamado em TODA ação e serializava 6 listas de uma vez — incluindo o log de
@@ -5512,6 +5512,9 @@ window.cleanScanCode=function(v,kind){
  const st=document.createElement('style');st.textContent=css+'#scanReader{position:relative}.scanTarget{display:none;position:absolute;z-index:8;border:3px solid #f59e0b;border-radius:9px;box-shadow:0 0 0 2px rgba(0,0,0,.7),0 0 18px rgba(245,158,11,.7);pointer-events:none;box-sizing:border-box}.scanTarget.show{display:block}.scanTarget.confirmed{border-color:#22c55e;box-shadow:0 0 0 2px rgba(0,0,0,.7),0 0 18px rgba(34,197,94,.8)}.scanTarget.outside{border-color:#ef4444;box-shadow:0 0 0 2px rgba(0,0,0,.7),0 0 18px rgba(239,68,68,.8)}.scanTarget span{position:absolute;left:-3px;bottom:calc(100% + 5px);padding:4px 8px;border-radius:6px;background:#111;color:#fff;font-weight:800;font-size:14px;white-space:nowrap}';document.head.appendChild(st);
  const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX">Fechar ✕</button></div><div class="scanModes" id="scanModes" hidden><button type="button" data-scanmode="auto" hidden>QR + número</button><button type="button" data-scanmode="ocr" hidden>Número impresso</button><button type="button" data-scanmode="qr">QR Code</button></div><div class="scanTools" id="scanTools" hidden><button type="button" id="scanTorch" hidden>Luz</button><label id="scanZoomWrap" hidden>Zoom <input type="range" id="scanZoom" min="1" max="3" step="0.1" value="1"></label></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><button type="button" id="scanOcrCapture" hidden style="margin:8px 14px;background:var(--brand);color:#fff;border:0;border-radius:10px;padding:15px;font-weight:800;font-size:1rem">Capturar número da bobina</button><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
  let h5=null,h5StopPromise=Promise.resolve(),h5LoadPromise=null,O=null,lastV='',lastT=0,active=false,starting=false,torchOn=false,ocrStream=null,ocrSeq=0,ocrWorkerPromise=null,ocrPaused=false,ocrPendingId='',ocrPendingAt=0,ocrAmbiguousKey='',ocrAmbiguousAt=0,ocrPreferredRegion=null,ocrFastCursor=0,ocrFallbackCursor=0,ocrEmptyFrames=0,ocrMissStreak=0,ocrRejectedScene=null,ocrRejectedAt=0,ocrPhotoLastAt=0,ocrPhotoUnavailable=false,ocrCloudMiss=new Set(),scanSeen=new Set(),scanIgnored=new Set(),scanTargetTimer=null;
+ st.textContent+='.scanFb.scanned{top:42%}.scanFb.scanned .fbcard{max-width:420px;min-height:88px;padding:22px;font-size:clamp(1.3rem,5vw,1.7rem)}';
+ document.getElementById('scanFb').setAttribute('role','status');
+ document.getElementById('scanFb').setAttribute('aria-live','polite');
  function hint(t){const h=document.getElementById('scanHint');if(h)h.textContent=t;}
  function clearScanTarget(){if(scanTargetTimer)clearTimeout(scanTargetTimer);scanTargetTimer=null;var target=document.getElementById('scanTarget');if(target)target.remove();}
  function ocrNumberBox(result,region,id,source){
@@ -5790,7 +5793,34 @@ window.cleanScanCode=function(v,kind){
   }
   starting=false;}
  function fill(val){if(O.onResult){try{O.onResult(val);}catch(e){try{console.warn('scan onResult',e);}catch(_){}}return;}const el=document.getElementById(O.inputId);if(!el)return;el.value=val;el.dispatchEvent(new Event('input'));if(O.enter)el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));}
- function hit(val){val=(val||'').trim();if(!val||!active)return false;var clean=(typeof window.cleanScanCode==='function')?window.cleanScanCode(val,O&&O.scanKind):val;var resolved=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(clean):null;var key=resolved&&resolved.id||clean;const now=Date.now();if(O.allowedDocKey&&ETQ[key]&&ETQ[key].nf!==O.allowedDocKey){hint('Etiqueta de outro documento. Aponte para esta nota ou romaneio.');return false;}if(O.continuous){if(O.keepOpenOnOcr){if(!ETQ[key]){hint('Etiqueta '+key+' não está no romaneio. Aponte para outra.');return false;}if(scanSeen.has(key)||scanIgnored.has(key))return false;if(ETQ[key].status==='entrada'||ETQ[key].status==='saida'){scanIgnored.add(key);hint('Bobina '+key+' já recebida. Aponte para outra.');return false;}}if(key===lastV&&now-lastT<4000)return false;lastV=key;lastT=now;beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);if(O.keepOpenOnOcr){var received=!!(ETQ[key]&&ETQ[key].status==='entrada');if(received){scanSeen.add(key);hint('Recebida '+key+' · '+scanSeen.size+' nesta sessão. Aponte para outra bobina.');}else{lastV='';hint('Não foi possível receber '+key+'. Confira o romaneio.');}return received;}hint('Código capturado: '+key);return true;}else{beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);close();return true;}}
+ function hit(val){
+  val=(val||'').trim();if(!val||!active)return false;
+  var clean=(typeof window.cleanScanCode==='function')?window.cleanScanCode(val,O&&O.scanKind):val;
+  var resolved=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(clean):null;
+  var key=resolved&&resolved.id||clean,now=Date.now();
+  if(O.allowedDocKey&&ETQ[key]&&ETQ[key].nf!==O.allowedDocKey){hint('Etiqueta de outro documento. Aponte para esta nota ou romaneio.');return false;}
+  if(O.continuous){
+   if(scanSeen.has(key)){hint('Já bipado: '+key+'. Aponte para outra bobina.');return false;}
+   if(O.keepOpenOnOcr){
+    if(!ETQ[key]){hint('Etiqueta '+key+' não está no romaneio. Aponte para outra.');return false;}
+    if(scanSeen.has(key)||scanIgnored.has(key))return false;
+    if(ETQ[key].status==='entrada'||ETQ[key].status==='saida'){scanIgnored.add(key);hint('Bobina '+key+' já recebida. Aponte para outra.');return false;}
+   }
+   if(key===lastV&&now-lastT<4000)return false;
+   lastV=key;lastT=now;beep();if(navigator.vibrate)navigator.vibrate(60);
+   scanFeedback('BIPADO: '+key,true,true);
+   fill(clean);
+   if(O.keepOpenOnOcr){
+    var received=!!(ETQ[key]&&ETQ[key].status==='entrada');
+    if(received){scanSeen.add(key);hint('Recebida '+key+' · '+scanSeen.size+' nesta sessão. Aponte para outra bobina.');}
+    else{lastV='';hint('Não foi possível receber '+key+'. Confira o romaneio.');scanFeedback('Não recebido: '+key,false,true);}
+    return received;
+   }
+   scanSeen.add(key);
+   hint('Código capturado: '+key);return true;
+  }
+  beep();if(navigator.vibrate)navigator.vibrate(60);fill(clean);close();return true;
+ }
  function close(){active=false;stopSupplierOcr();modal.classList.remove('show');document.getElementById('scanTools').hidden=true;lastV='';scanSeen.clear();scanIgnored.clear();if(h5){const x=h5;h5=null;h5StopPromise=Promise.resolve().then(function(){return x.stop();}).catch(function(){}).then(function(){return x.clear();}).catch(function(){});}}
  async function changeScanMode(mode){if(!O||!O.scanModes||starting||O.scanMode===mode)return;starting=true;active=false;stopSupplierOcr();O.scanMode=mode;updateScanMode();document.getElementById('scanTools').hidden=true;hint('Trocando modo da câmera…');var old=h5;h5=null;if(old){try{await old.stop();}catch(e){}try{await old.clear();}catch(e){}}if(!modal.classList.contains('show')){starting=false;return;}starting=false;open();}
  document.querySelectorAll('#scanModes [data-scanmode]').forEach(function(b){b.onclick=function(){changeScanMode(b.getAttribute('data-scanmode'));};});

@@ -5510,9 +5510,8 @@ window.cleanScanCode=function(v,kind){
  ICONS.cam='<svg class="i" viewBox="0 0 24 24"><path d="M3 9a2 2 0 0 1 2-2h1.5L8 5h8l1.5 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.3"/></svg>';
  const css='.scan{position:fixed;inset:0;z-index:300;background:#000;display:none;flex-direction:column}.scan.show{display:flex}.scanhead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;color:#fff;font-family:var(--disp);font-weight:700;font-size:1.05rem}.scanhead button{background:rgba(255,255,255,.16);color:#fff;border:none;width:40px;height:40px;border-radius:11px;font-size:1.2rem}.scanModes{display:flex;gap:8px;padding:0 14px 10px;background:#000}.scanModes[hidden]{display:none}.scanModes button{flex:1;border:1px solid rgba(255,255,255,.35);border-radius:9px;background:#202020;color:#fff;padding:10px;font-weight:800}.scanModes button.on{background:var(--brand);border-color:var(--brand)}.scanTools{display:flex;align-items:center;justify-content:center;gap:12px;padding:8px 14px;background:#000;color:#fff}.scanTools[hidden],.scanTools [hidden]{display:none}.scanTools button{background:#252525;border:1px solid #777;border-radius:8px;color:#fff;padding:9px 12px;font-weight:700}.scanTools button.on{background:var(--brand);border-color:var(--brand)}.scanTools label{display:flex;align-items:center;gap:8px;font-size:.85rem}.scanTools input{width:115px;accent-color:var(--brand)}#scanReader{flex:1;width:100%;background:#000;overflow:hidden}#scanReader video{width:100%!important;height:100%!important;object-fit:cover}#scanReader img{display:none}.scanhint{color:#fff;text-align:center;padding:14px 16px;font-size:.92rem;opacity:.92;min-height:20px}.scanFb{position:absolute;left:12px;right:12px;top:70px;z-index:5;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;transform:translateY(-8px);transition:opacity .12s,transform .12s}.scanFb.show{opacity:1;transform:translateY(0)}.scanFb .fbcard{width:100%;max-width:520px;border-radius:16px;padding:16px 18px;text-align:center;font-family:var(--disp);font-weight:800;font-size:1.15rem;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;gap:10px}.scanFb.ok .fbcard{background:linear-gradient(135deg,#16a34a,#15803d)}.scanFb.err .fbcard{background:linear-gradient(135deg,#dc2626,#b91c1c);animation:fbshake .35s}.scanFb .fbico{font-size:1.5rem;line-height:1}@keyframes fbshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}.cambtn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:9px;background:var(--brand);color:#fff;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(234,90,12,.3);z-index:3}.cambtn .i{width:20px;height:20px}';
  const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
- const guideCss=document.createElement('style');guideCss.textContent='.scanNumberGuide{position:absolute;pointer-events:none;box-sizing:border-box;border:2px dashed #fff;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.18),inset 0 0 0 1px rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center}.scanNumberGuide span{margin-top:-29px;background:rgba(0,0,0,.76);color:#fff;padding:4px 9px;border-radius:6px;font-size:.78rem;font-weight:700}';document.head.appendChild(guideCss);
  const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX">Fechar ✕</button></div><div class="scanModes" id="scanModes" hidden><button type="button" data-scanmode="ocr" hidden>Número impresso</button><button type="button" data-scanmode="qr">QR Code</button></div><div class="scanTools" id="scanTools" hidden><button type="button" id="scanTorch" hidden>Luz</button><label id="scanZoomWrap" hidden>Zoom <input type="range" id="scanZoom" min="1" max="3" step="0.1" value="1"></label></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><button type="button" id="scanOcrCapture" hidden style="margin:8px 14px;background:var(--brand);color:#fff;border:0;border-radius:10px;padding:15px;font-weight:800;font-size:1rem">Capturar número da bobina</button><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
- let h5=null,O=null,lastV='',lastT=0,active=false,starting=false,torchOn=false,ocrStream=null,ocrSeq=0,ocrWorkerPromise=null,ocrPaused=false,ocrGuideObserver=null,ocrPendingId='',ocrPendingAt=0,ocrPreferredRegion=null,scanSeen=new Set(),scanIgnored=new Set();
+ let h5=null,O=null,lastV='',lastT=0,active=false,starting=false,torchOn=false,ocrStream=null,ocrSeq=0,ocrWorkerPromise=null,ocrPaused=false,ocrPendingId='',ocrPendingAt=0,ocrPreferredRegion=null,scanSeen=new Set(),scanIgnored=new Set();
  function hint(t){const h=document.getElementById('scanHint');if(h)h.textContent=t;}
  function scanTrack(){var v=document.querySelector('#scanReader video');return v&&v.srcObject&&v.srcObject.getVideoTracks?v.srcObject.getVideoTracks()[0]:null;}
  /* Ajusta a câmera quando o aparelho aceita foco contínuo e mais resolução. */
@@ -5539,23 +5538,22 @@ window.cleanScanCode=function(v,kind){
  function ocrRotate(source,deg){var c=document.createElement('canvas'),side=deg%180!==0;c.width=side?source.height:source.width;c.height=side?source.width:source.height;var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.translate(c.width/2,c.height/2);x.rotate(deg*Math.PI/180);x.drawImage(source,-source.width/2,-source.height/2);return c;}
  function ocrCenter(source){var c=document.createElement('canvas'),w=Math.round(source.width*.82),h=Math.round(source.height*.20);c.width=w;c.height=h;c.getContext('2d').drawImage(source,Math.round((source.width-w)/2),Math.round((source.height-h)/2),w,h,0,0,w,h);return c;}
  function ocrBand(source,from){var c=document.createElement('canvas'),w=Math.round(source.width*.82),h=Math.round(source.height*.25);c.width=w;c.height=h;c.getContext('2d').drawImage(source,Math.round((source.width-w)/2),Math.round(source.height*from),w,h,0,0,w,h);return c;}
+ function ocrWideBand(source,from){var c=document.createElement('canvas'),h=Math.round(source.height*.36);c.width=source.width;c.height=h;c.getContext('2d').drawImage(source,0,Math.round(source.height*from),c.width,h,0,0,c.width,h);return c;}
  function ocrEnhance(source){var c=document.createElement('canvas'),scale=Math.min(2,Math.max(1,2400/source.width));c.width=Math.round(source.width*scale);c.height=Math.round(source.height*scale);var x=c.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(source,0,0,c.width,c.height);var frame=x.getImageData(0,0,c.width,c.height),data=frame.data,hist=new Uint32Array(256),total=c.width*c.height;for(var i=0;i<data.length;i+=4){var gray=Math.round(data[i]*.299+data[i+1]*.587+data[i+2]*.114);hist[gray]++;data[i]=data[i+1]=data[i+2]=gray;}var low=0,high=255,count=0;for(var a=0;a<256;a++){count+=hist[a];if(count>=total*.08){low=a;break;}}count=0;for(var b=255;b>=0;b--){count+=hist[b];if(count>=total*.08){high=b;break;}}if(high-low>=25){var gain=255/(high-low);for(var j=0;j<data.length;j+=4){var v=Math.max(0,Math.min(255,Math.round((data[j]-low)*gain)));data[j]=data[j+1]=data[j+2]=v;}}x.putImageData(frame,0,0);return c;}
- function ocrRegion(source,region){if(region.kind==='center')return ocrRotate(ocrCenter(source),region.deg);if(region.kind==='enhanced-center')return ocrRotate(ocrEnhance(ocrCenter(source)),region.deg);if(region.kind==='band')return ocrRotate(ocrBand(region.deg?ocrRotate(source,region.deg):source,region.from),region.flip);return ocrRotate(source,region.deg);}
+ function ocrRegion(source,region){if(region.kind==='center')return ocrRotate(ocrCenter(source),region.deg);if(region.kind==='enhanced-center')return ocrRotate(ocrEnhance(ocrCenter(source)),region.deg);if(region.kind==='band'||region.kind==='wide-band'){var turned=region.deg?ocrRotate(source,region.deg):source;return ocrRotate(region.kind==='band'?ocrBand(turned,region.from):ocrWideBand(turned,region.from),region.flip);}return ocrRotate(source,region.deg);}
  function supplierOcrWorker(){if(!ocrWorkerPromise){ocrWorkerPromise=(async function(){if(!window.Tesseract)throw new Error('Leitor de números indisponível. Verifique a conexão.');var w=await Tesseract.createWorker('eng');await w.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:'11'});return w;})().catch(function(e){ocrWorkerPromise=null;throw e;});}return ocrWorkerPromise;}
  window.prepareBobbinNumberReader=function(){supplierOcrWorker().catch(function(){});};
- function stopSupplierOcr(){ocrSeq++;ocrPendingId='';ocrPendingAt=0;ocrPreferredRegion=null;if(ocrGuideObserver){ocrGuideObserver.disconnect();ocrGuideObserver=null;}if(ocrStream){ocrStream.getTracks().forEach(function(t){t.stop();});ocrStream=null;}document.getElementById('scanOcrCapture').disabled=false;}
+ function stopSupplierOcr(){ocrSeq++;ocrPendingId='';ocrPendingAt=0;ocrPreferredRegion=null;if(ocrStream){ocrStream.getTracks().forEach(function(t){t.stop();});ocrStream=null;}document.getElementById('scanOcrCapture').disabled=false;}
  async function startSupplierOcr(){
   stopSupplierOcr();ocrPaused=false;supplierOcrWorker().catch(function(){});
-  var reader=document.getElementById('scanReader'),video=document.createElement('video'),guide=document.createElement('div');
+  var reader=document.getElementById('scanReader'),video=document.createElement('video');
   video.autoplay=true;video.playsInline=true;video.muted=true;video.style.cssText='width:100%;height:100%;object-fit:contain;background:#000';
-  guide.className='scanNumberGuide';guide.innerHTML='<span>Enquadre o número aqui</span>';reader.style.position='relative';reader.replaceChildren(video,guide);
+  reader.replaceChildren(video);
   ocrStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
   if(!active||!modal.classList.contains('show')){stopSupplierOcr();return;}
   video.srcObject=ocrStream;await video.play();
   try{var track=ocrStream.getVideoTracks()[0],cap=track&&track.getCapabilities?track.getCapabilities():{},focus=[];if(cap.focusMode&&cap.focusMode.includes('continuous'))focus.push({focusMode:'continuous'});if(cap.exposureMode&&cap.exposureMode.includes('continuous'))focus.push({exposureMode:'continuous'});if(focus.length)track.applyConstraints({advanced:focus}).catch(function(){});}catch(e){}
-  function layoutGuide(){if(!video.videoWidth||!reader.clientWidth||!reader.clientHeight)return;var scale=Math.min(reader.clientWidth/video.videoWidth,reader.clientHeight/video.videoHeight),w=video.videoWidth*scale,h=video.videoHeight*scale;guide.style.left=((reader.clientWidth-w)/2+w*.09)+'px';guide.style.top=((reader.clientHeight-h)/2+h*.40)+'px';guide.style.width=(w*.82)+'px';guide.style.height=(h*.20)+'px';}
-  layoutGuide();if(window.ResizeObserver){ocrGuideObserver=new ResizeObserver(layoutGuide);ocrGuideObserver.observe(reader);}
-  setupScanTools();hint(O&&O.autoOcr?'Enquadre o número na área marcada. A leitura é automática.':'Enquadre o número na área marcada e toque em Capturar.');
+  setupScanTools();hint(O&&O.autoOcr?'Aponte a câmera para o número da bobina. A leitura é automática em toda a imagem.':'Aponte a câmera para o número da bobina e toque em Capturar.');
   if(O&&O.autoOcr){var seq=ocrSeq;setTimeout(function(){if(seq===ocrSeq&&active)captureSupplierOcr();},150);}
  }
  async function captureSupplierOcr(){
@@ -5585,10 +5583,10 @@ window.cleanScanCode=function(v,kind){
    }
    if(!found.some(supplierOcrKnown)){
     await worker.setParameters({tessedit_pageseg_mode:'11'});
-    for(var bandDeg of [0,180,90,270]){
+    for(var bandDeg of [0,90]){
      if(seq!==ocrSeq||!active)return;
      var turned=bandDeg?ocrRotate(source,bandDeg):source;
-     for(var from of [.62,.06]){
+     for(var from of [.62,.06,.36]){
       if(seq!==ocrSeq||!active)return;
       var band=ocrBand(turned,from),bandResult=await worker.recognize(band);
       collect(bandResult,{kind:'band',deg:bandDeg,from:from,flip:0});
@@ -5608,6 +5606,24 @@ window.cleanScanCode=function(v,kind){
      if(seq!==ocrSeq||!active)return;
      var enhancedResult=await worker.recognize(ocrRotate(enhancedCenter,enhancedDeg));
      collect(enhancedResult,{kind:'enhanced-center',deg:enhancedDeg});
+     if(found.some(supplierOcrKnown))break;
+    }
+   }
+   if(!found.some(supplierOcrKnown)){
+    await worker.setParameters({tessedit_pageseg_mode:'11'});
+    /* Três faixas sobrepostas cobrem a câmera inteira, inclusive bordas e cantos. */
+    for(var wideDeg of [0,90]){
+     if(seq!==ocrSeq||!active)return;
+     var wideTurned=wideDeg?ocrRotate(source,wideDeg):source;
+     for(var wideFrom of [0,.32,.64]){
+      if(seq!==ocrSeq||!active)return;
+      var wide=ocrWideBand(wideTurned,wideFrom);
+      collect(await worker.recognize(wide),{kind:'wide-band',deg:wideDeg,from:wideFrom,flip:0});
+      if(found.some(supplierOcrKnown))break;
+      if(seq!==ocrSeq||!active)return;
+      collect(await worker.recognize(ocrRotate(wide,180)),{kind:'wide-band',deg:wideDeg,from:wideFrom,flip:180});
+      if(found.some(supplierOcrKnown))break;
+     }
      if(found.some(supplierOcrKnown))break;
     }
    }

@@ -153,7 +153,7 @@ test('câmera lê número de bobina em qualquer tela e mantém endereço somente
 });
 
 test('OCR só aceita automaticamente número cadastrado e consulta bobina importada em outro aparelho',async()=>{
-  const ctx={O:{keepOpenOnOcr:false},BOB:{},ETQ:{},ROMS:{},ocrCloudMiss:new Set(),
+  const ctx={window:{},O:{keepOpenOnOcr:false},BOB:{},ETQ:{},ROMS:{},ocrCloudMiss:new Set(),
     bobFetch:async id=>{if(id==='2600255962'){ctx.BOB[id]={pr:'0303450156',pl:309.66};return ctx.BOB[id];}return null;}};
   vm.createContext(ctx);
   vm.runInContext(source(' function supplierOcrKnown(', ' function ocrRotate('),ctx);
@@ -167,6 +167,23 @@ test('OCR só aceita automaticamente número cadastrado e consulta bobina import
   assert.equal(ctx.supplierOcrKnown('2600262229'),false);
   ctx.O.allowedDocKey='ROM-OUTRO';
   assert.equal(ctx.supplierOcrKnown('2600262229'),true);
+});
+
+test('câmera antecipa as bobinas físicas da nuvem sem baixar o catálogo inteiro',async()=>{
+  let table='',pattern='';
+  const ctx={window:{},BOB:{},supa:{from:name=>{table=name;return {
+    select(){return this;},like(column,value){assert.equal(column,'etiqueta');pattern=value;return this;},
+    limit(){return Promise.resolve({data:[
+      {etiqueta:'2600267724',pr:'0303450156',descricao:'ART MAT PLAST',pl:360.72},
+      {etiqueta:'T20358969',pr:'0303010066',pl:371.5}
+    ]});}
+  };}}};
+  vm.createContext(ctx);
+  vm.runInContext(source(' var supplierCatalogAt=', ' async function supplierOcrCheckCatalog('),ctx);
+  await ctx.window.prepareSupplierCatalog();
+  assert.equal(table,'bobinas');assert.equal(pattern,'26________');
+  assert.equal(ctx.BOB['2600267724'].pr,'0303450156');
+  assert.equal(ctx.BOB['T20358969'],undefined);
 });
 
 test('número lido pela câmera entra no Chão 70 mesmo sem catálogo local',async()=>{

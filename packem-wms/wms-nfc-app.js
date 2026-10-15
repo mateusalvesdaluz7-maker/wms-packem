@@ -50,8 +50,8 @@
     if(counter.binding&&!counter.binding.context.isActive())stop('Leitura encerrada porque o usuário, a tela ou o modo de contagem mudou.');
     targets.forEach(function(view){
       var container=document.getElementById(view);if(!container||container.querySelector('[data-nfc-app-panel]'))return;
-      var panel=document.createElement('section');panel.className='panel';panel.dataset.nfcAppPanel='1';panel.style.cssText='padding:18px;margin:12px 0;border:2px solid #147657;border-radius:12px';
-      var title=document.createElement('strong');title.textContent='NFC · aplicativo Packem WMS';panel.appendChild(title);
+      var panel=document.createElement(handler()?'section':'details');panel.className='panel';panel.dataset.nfcAppPanel='1';panel.style.cssText='padding:18px;margin:12px 0;border:1px solid #b8d4c4;border-radius:12px';
+      var title=document.createElement(handler()?'strong':'summary');title.textContent=handler()?'NFC · aplicativo Packem WMS':'Outra opção: aplicativo próprio Packem WMS';panel.appendChild(title);
       var description=document.createElement('p');description.textContent='Toque em Ler NFC e aproxime as etiquetas já gravadas. Cada embalagem é conferida no cadastro e adicionada uma única vez a esta contagem.';panel.appendChild(description);
       var status=document.createElement('p');status.dataset.nfcAppStatus='1';status.setAttribute('role','status');status.textContent=lastStatus;panel.appendChild(status);
       var begin=document.createElement('button');begin.type='button';begin.className='gbtn';begin.textContent='Ler NFC';begin.disabled=!handler();begin.style.marginRight='12px';begin.onclick=function(){start(view);};panel.appendChild(begin);

@@ -56,6 +56,11 @@
       has:function(id){return root[target.has](id);},add:function(id){return root[target.add](id);}
     };
   }
+  function makeLabelContext(){
+    var user=typeof session!=='undefined'&&session?session.u:null;
+    return {isActive:function(){return !document.hidden&&!!user&&typeof session!=='undefined'&&!!session&&session.u===user&&activeView()==='v-labels';},
+      lookup:async function(id){var item=typeof root.bobFetch==='function'?await root.bobFetch(id):null;return item?{codigo:String(item.pr||''),quantidade:item.pl,unidade:typeof unitOf==='function'?unitOf(item.pr):''}:null;}};
+  }
   async function receive(data){
     if(!connected || busy || blocked)return;
     if(data.session?.id!==linkId || data.session?.label!==targets[destination]?.label || !Array.isArray(data.items) || data.items.length>1000){blocked=true;notice('A sessão recebida não corresponde a esta contagem. Reconecte o leitor.');return;}
@@ -112,5 +117,5 @@
   var mountPending=false;new MutationObserver(function(){if(mountPending)return;mountPending=true;setTimeout(function(){mountPending=false;mount();},120);}).observe(document.body,{childList:true,subtree:true});mount();
   setInterval(function(){if(connected && !document.hidden)send('packem-nfc-reader-poll');},2000);
   document.addEventListener('visibilitychange',function(){if(!document.hidden)send('packem-nfc-reader-poll');});
-  root.WmsNfcReader={connect:connect,makeContext:makeContext,applyItemReading:applyItemReading,bridgeActive:function(){return connected||opening||busy;}};
+  root.WmsNfcReader={connect:connect,makeContext:makeContext,makeLabelContext:makeLabelContext,applyItemReading:applyItemReading,bridgeActive:function(){return connected||opening||busy;}};
 })(typeof window!=='undefined'?window:globalThis);

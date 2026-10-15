@@ -80,8 +80,8 @@
   function mount(){
     destinations.forEach(function(view){
       var container=document.getElementById(view);if(!container||container.querySelector('[data-nfc-iphone-panel]'))return;
-      var panel=document.createElement('details');panel.className='panel';panel.dataset.nfcIphonePanel='1';panel.style.cssText='padding:16px;margin:12px 0;border:1px solid #b8d4c4';
-      var title=document.createElement('summary');title.textContent='Alternativa: recepção pelo iScanBrowser';panel.appendChild(title);
+      var panel=document.createElement('section');panel.className='panel';panel.dataset.nfcIphonePanel='1';panel.style.cssText='padding:18px;margin:12px 0;border:2px solid #147657;border-radius:12px';
+      var title=document.createElement('strong');title.textContent='Contar com NFC · iScanBrowser';panel.appendChild(title);
       var description=document.createElement('p');description.textContent='Use o iScanBrowser com o leitor NFC nativo habilitado. As etiquetas entram nesta contagem após a conferência no cadastro. O Safari não captura NFC.';panel.appendChild(description);
       var status=document.createElement('p');status.dataset.nfcIphoneStatus='1';status.textContent=lastStatus;panel.appendChild(status);
       for(var action of [['Ativar recepção do iPhone',function(){arm(view);}],['Pausar recepção',function(){counter.pause();}],['Retomar',function(){try{if(boundView!==view)throw new Error('Volte à contagem original para retomar.');counter.resume();}catch(error){showStatus(error.message);}}]]){
@@ -91,6 +91,7 @@
       var steps=document.createElement('p');steps.textContent='Na regra Active Page, selecione o campo packemNfcInput e a origem exata deste WMS. Fonte: Internal NFC NDEF Reader. Desative Only if empty, Append data e Call Form.Submit(). Em Execute JS, use o comando abaixo.';details.appendChild(steps);
       var code=document.createElement('code');code.textContent='window.PackemNfcIphone.capture();';details.appendChild(code);
       var note=document.createElement('p');note.textContent='O app tem licença própria. A leitura física, as condições comerciais e o modo contínuo precisam de validação no aparelho; não estão confirmados por esta integração.';details.appendChild(note);panel.appendChild(details);container.appendChild(panel);
+      var guide=document.createElement('a');guide.href='/nfc-iphone.html';guide.textContent='Abrir guia de configuração do iPhone';panel.appendChild(guide);
     });
     if(counter.active&&counter.context&&!counter.context.isActive())counter.pause('Recepção pausada porque a tela, o usuário ou o modo mudou. Volte ao destino original e retome.');
   }

@@ -2714,7 +2714,7 @@ updateStageBadge();
     const cb=$('#floorClear');if(cb)cb.onclick=floorClear;
     var feb=$('#floorExport');if(feb)feb.onclick=function(){if(typeof exportChao==='function')exportChao('f');};
     var fsb=$('#floorSaidaBtn');if(fsb)fsb.onclick=function(){if(typeof abrirSaidaChao==='function')abrirSaidaChao('f');};
-    renderFloorList();if(window.prepareBobbinNumberReader)window.prepareBobbinNumberReader();
+     renderFloorList();
   };
   function renderFloorList(){
     const el=$('#floorList');if(!el)return;
@@ -2995,7 +2995,7 @@ updateStageBadge();
     var eb0=$('#f70Export');if(eb0)eb0.onclick=function(){if(typeof exportChao==='function')exportChao('f70');};
     var fsb70i=$('#f70SaidaBtn');if(fsb70i)fsb70i.onclick=function(){if(typeof abrirSaidaChao==='function')abrirSaidaChao('f70');};
     var fnd=$('#f70Find');if(fnd){fnd.addEventListener('input',function(){renderF70List(fnd.value);});}
-    renderF70List();if(window.prepareBobbinNumberReader)window.prepareBobbinNumberReader();if(window.prepareSupplierCatalog)window.prepareSupplierCatalog();
+     renderF70List();
   };
   function renderF70List(q){
     const el=$('#f70List');if(!el)return;
@@ -3722,7 +3722,7 @@ updateStageBadge();
     var _cSem=_allNotas.concat(_allRoms).filter(function(n){var l=String(n.local||'').toUpperCase();return l!=='PRE'&&l!=='TEXTIL';}).length;
     var notas=_allNotas.filter(_nfMatchLocal);
     var romaneios=_allRoms.filter(_nfMatchLocal);
-    if(romaneios.some(function(r){return r.supplierLabels;})){if(window.prepareBobbinNumberReader)window.prepareBobbinNumberReader();if(window.prepareScanCamera)window.prepareScanCamera();}
+     if(romaneios.some(function(r){return r.supplierLabels;})){if(window.prepareScanCamera)window.prepareScanCamera();}
     /* resumo p/ faixa do topo: totais de docs, etiquetas, abertos/fechados */
     var _rz={docs:0,etq:0,abertos:0,kgFalta:0};
     try{notas.concat(romaneios).forEach(function(n){var ids=renderDocIds(n.key);if(!ids.length)return;_rz.docs++;_rz.etq+=ids.length;var ent=ids.filter(function(id){return ETQ[id].status==='entrada'||ETQ[id].status==='saida';}).length;var kgTot=ids.reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);var kgEnt=ids.filter(function(id){return ETQ[id].status==='entrada'||ETQ[id].status==='saida';}).reduce(function(s,id){return s+(Number(ETQ[id].kg)||0);},0);if(ent<ids.length){_rz.abertos++;_rz.kgFalta+=Math.max(0,kgTot-kgEnt);}});}catch(e){}
@@ -5632,9 +5632,9 @@ window.cleanScanCode=function(v,kind){
  ICONS.cam='<svg class="i" viewBox="0 0 24 24"><path d="M3 9a2 2 0 0 1 2-2h1.5L8 5h8l1.5 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.3"/></svg>';
  const css='.scan{position:fixed;inset:0;z-index:300;background:#000;display:none;flex-direction:column}.scan.show{display:flex}.scanhead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;color:#fff;font-family:var(--disp);font-weight:700;font-size:1.05rem}.scanhead button{background:rgba(255,255,255,.16);color:#fff;border:none;width:40px;height:40px;border-radius:11px;font-size:1.2rem}.scanModes{display:flex;gap:8px;padding:0 14px 10px;background:#000}.scanModes[hidden]{display:none}.scanModes button{flex:1;border:1px solid rgba(255,255,255,.35);border-radius:9px;background:#202020;color:#fff;padding:10px;font-weight:800}.scanModes button.on{background:var(--brand);border-color:var(--brand)}.scanTools{display:flex;align-items:center;justify-content:center;gap:12px;padding:8px 14px;background:#000;color:#fff}.scanTools[hidden],.scanTools [hidden]{display:none}.scanTools button{background:#252525;border:1px solid #777;border-radius:8px;color:#fff;padding:9px 12px;font-weight:700}.scanTools button.on{background:var(--brand);border-color:var(--brand)}.scanTools label{display:flex;align-items:center;gap:8px;font-size:.85rem}.scanTools input{width:115px;accent-color:var(--brand)}#scanReader{flex:1;width:100%;background:#000;overflow:hidden}#scanReader video{width:100%!important;height:100%!important;object-fit:cover}#scanReader img{display:none}.scanhint{color:#fff;text-align:center;padding:14px 16px;font-size:.92rem;opacity:.92;min-height:20px}.scanFb{position:absolute;left:12px;right:12px;top:70px;z-index:5;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;transform:translateY(-8px);transition:opacity .12s,transform .12s}.scanFb.show{opacity:1;transform:translateY(0)}.scanFb .fbcard{width:100%;max-width:520px;border-radius:16px;padding:16px 18px;text-align:center;font-family:var(--disp);font-weight:800;font-size:1.15rem;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;gap:10px}.scanFb.ok .fbcard{background:linear-gradient(135deg,#16a34a,#15803d)}.scanFb.err .fbcard{background:linear-gradient(135deg,#dc2626,#b91c1c);animation:fbshake .35s}.scanFb .fbico{font-size:1.5rem;line-height:1}@keyframes fbshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}.cambtn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:9px;background:var(--brand);color:#fff;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(234,90,12,.3);z-index:3}.cambtn .i{width:20px;height:20px}';
  const st=document.createElement('style');st.textContent=css+'#scanReader{position:relative}.scanTarget{display:none;position:absolute;z-index:8;border:3px solid #f59e0b;border-radius:9px;box-shadow:0 0 0 2px rgba(0,0,0,.7),0 0 18px rgba(245,158,11,.7);pointer-events:none;box-sizing:border-box}.scanTarget.show{display:block}.scanTarget.confirmed{border-color:#22c55e;box-shadow:0 0 0 2px rgba(0,0,0,.7),0 0 18px rgba(34,197,94,.8)}.scanTarget.outside{border-color:#ef4444;box-shadow:0 0 0 2px rgba(0,0,0,.7),0 0 18px rgba(239,68,68,.8)}.scanTarget span{position:absolute;left:-3px;bottom:calc(100% + 5px);padding:4px 8px;border-radius:6px;background:#111;color:#fff;font-weight:800;font-size:14px;white-space:nowrap}';document.head.appendChild(st);
- const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX" type="button" aria-label="Fechar câmera" title="Fechar câmera">✕</button></div><div class="scanModes" id="scanModes" hidden><button type="button" data-scanmode="auto" hidden>QR + número</button><button type="button" data-scanmode="ocr" hidden>Número impresso</button><button type="button" data-scanmode="qr">QR / barras</button></div><div class="scanTools" id="scanTools" hidden><button type="button" id="scanTorch" hidden>Luz</button><label id="scanZoomWrap" hidden>Zoom <input type="range" id="scanZoom" min="1" max="3" step="0.1" value="1"></label></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><button type="button" id="scanOcrCapture" hidden style="margin:8px 14px;background:var(--brand);color:#fff;border:0;border-radius:10px;padding:15px;font-weight:800;font-size:1rem">Capturar número da bobina</button><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
+  const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX" type="button" aria-label="Fechar câmera" title="Fechar câmera">✕</button></div><div class="scanModes" id="scanModes" hidden><button type="button" data-scanmode="qr">QR Code / barras</button><button type="button" data-scanmode="ocr">Número impresso</button></div><div class="scanTools" id="scanTools" hidden><button type="button" id="scanTorch" hidden>Luz</button><label id="scanZoomWrap" hidden>Zoom <input type="range" id="scanZoom" min="1" max="3" step="0.1" value="1"></label></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><button type="button" id="scanOcrCapture" hidden style="margin:8px 14px;background:var(--brand);color:#fff;border:0;border-radius:10px;padding:15px;font-weight:800;font-size:1rem">Capturar número da bobina</button><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
  let h5=null,h5StopPromise=Promise.resolve(),h5LoadPromise=null,O=null,lastV='',lastT=0,active=false,starting=false,torchOn=false,ocrStream=null,ocrSeq=0,ocrWorkerPromise=null,ocrPaused=false,ocrPendingId='',ocrPendingAt=0,ocrAmbiguousKey='',ocrAmbiguousAt=0,ocrPreferredRegion=null,ocrFastCursor=0,ocrFallbackCursor=0,ocrEmptyFrames=0,ocrMissStreak=0,ocrRejectedScene=null,ocrRejectedAt=0,ocrPhotoLastAt=0,ocrPhotoUnavailable=false,ocrCloudMiss=new Set(),scanSeen=new Set(),scanIgnored=new Set(),scanTargetTimer=null,scanTargetHoldUntil=0;
- let autoOcrTimer=null;
+  let pendingScanMode=null,ocrPageSegMode='11';
  st.textContent+='.scanFb.scanned{top:42%}.scanFb.scanned .fbcard{max-width:420px;min-height:88px;padding:22px;font-size:clamp(1.3rem,5vw,1.7rem)}';
  st.textContent+='.scanLastResult[hidden]{display:none!important}.scanLastResult{padding:12px 16px;color:#fff;text-align:center;font-weight:800;font-size:1rem;line-height:1.3}.scanLastResult.ok{background:#166534}.scanLastResult.err{background:#991b1b}';
  st.textContent+='@media(max-width:600px){.scan{box-sizing:border-box;height:100vh;height:100dvh;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}.scanhead,.scanModes,.scanTools,.scanhint,.scanLastResult{flex-shrink:0}.scanhead #scanTitle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.scanhead #scanX{flex:none}#scanReader{min-height:0}.scanFb.scanned{display:none}.scanLastResult{padding:10px 12px;font-size:.9rem;overflow-wrap:anywhere}}';
@@ -5803,17 +5803,19 @@ window.cleanScanCode=function(v,kind){
  }
  function ocrScene(source){var c=document.createElement('canvas');c.width=16;c.height=16;var x=c.getContext('2d',{willReadFrequently:true});x.drawImage(source,0,0,16,16);var d=x.getImageData(0,0,16,16).data,out=new Uint8Array(256);for(var i=0;i<256;i++)out[i]=Math.round(d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114);return out;}
  function ocrSceneChanged(a,b){if(!a||!b)return true;var all=0,right=0;for(var i=0;i<256;i++){var diff=Math.abs(a[i]-b[i]);all+=diff;if(i%16>=9)right+=diff;}return all/256>18||right/112>15;}
- function supplierOcrWorker(){if(!ocrWorkerPromise){ocrWorkerPromise=(async function(){if(!window.Tesseract)throw new Error('Leitor de números indisponível. Verifique a conexão.');var w=await Tesseract.createWorker('eng');await w.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:'11'});return w;})().catch(function(e){ocrWorkerPromise=null;throw e;});}return ocrWorkerPromise;}
+  function supplierOcrWorker(){if(!ocrWorkerPromise){ocrWorkerPromise=(async function(){if(!window.Tesseract)throw new Error('Leitor de números indisponível. Verifique a conexão.');var w=await Tesseract.createWorker('eng');await w.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:'11'});ocrPageSegMode='11';return w;})().catch(function(e){ocrWorkerPromise=null;throw e;});}return ocrWorkerPromise;}
  async function supplierOcrRecognize(worker,crop){
   var timeout,slow=new Promise(function(_,reject){timeout=setTimeout(function(){reject(new Error('OCR_TIMEOUT'));},6000);});
   try{return await Promise.race([worker.recognize(crop),slow]);}
   catch(e){if(e&&e.message==='OCR_TIMEOUT'){ocrWorkerPromise=null;try{Promise.resolve(worker.terminate()).catch(function(){});}catch(_){}}throw e;}
   finally{clearTimeout(timeout);}
  }
- window.prepareBobbinNumberReader=function(){return supplierOcrWorker().catch(function(){});};
+  window.prepareBobbinNumberReader=function(){return supplierOcrWorker();};
  function stopSupplierOcr(){ocrSeq++;ocrPendingId='';ocrPendingAt=0;ocrAmbiguousKey='';ocrAmbiguousAt=0;ocrPreferredRegion=null;ocrFastCursor=0;ocrFallbackCursor=0;ocrEmptyFrames=0;ocrMissStreak=0;ocrRejectedScene=null;ocrRejectedAt=0;ocrPhotoLastAt=0;ocrPhotoUnavailable=false;scanTargetHoldUntil=0;ocrCloudMiss.clear();ocrOtherDocCache.clear();clearScanTarget();if(ocrStream){ocrStream.getTracks().forEach(function(t){t.stop();});ocrStream=null;}document.getElementById('scanOcrCapture').disabled=false;}
  async function startSupplierOcr(){
-  stopSupplierOcr();ocrPaused=false;window.prepareBobbinNumberReader();
+   stopSupplierOcr();ocrPaused=false;
+   /* Prepara o OCR enquanto a câmera abre, somente após escolher Número impresso. */
+   var workerReady=O&&O.autoOcr?window.prepareBobbinNumberReader().then(function(){return null;},function(e){return e;}):Promise.resolve(null);
   var reader=document.getElementById('scanReader'),video=document.createElement('video');
   video.autoplay=true;video.playsInline=true;video.muted=true;video.style.cssText='width:100%;height:100%;object-fit:contain;background:#000';
   reader.replaceChildren(video);
@@ -5823,20 +5825,20 @@ window.cleanScanCode=function(v,kind){
   try{var track=ocrStream.getVideoTracks()[0],cap=track&&track.getCapabilities?track.getCapabilities():{},focus=[];if(cap.focusMode&&cap.focusMode.includes('continuous'))focus.push({focusMode:'continuous'});if(cap.exposureMode&&cap.exposureMode.includes('continuous'))focus.push({exposureMode:'continuous'});if(focus.length)track.applyConstraints({advanced:focus}).catch(function(){});}catch(e){}
   setupScanTools();hint(O&&O.autoOcr?'Aponte a câmera para o número da bobina. A leitura é automática em toda a imagem.':'Aponte a câmera para o número da bobina e toque em Capturar.');
   /* Captura um quadro atual depois que o OCR estiver pronto. */
-  if(O&&O.autoOcr){var seq=ocrSeq;window.prepareBobbinNumberReader().then(function(){if(seq===ocrSeq&&active)captureSupplierOcr();});}
+   if(O&&O.autoOcr){var seq=ocrSeq;workerReady.then(function(error){if(seq!==ocrSeq||!active)return;if(error)hint('Leitor de números indisponível: '+String((error&&error.message)||error));else captureSupplierOcr();});}
  }
  async function captureSupplierOcr(){
   var video=document.querySelector('#scanReader video'),button=document.getElementById('scanOcrCapture');
-  if(!active||!O||(O.scanMode!=='ocr'&&O.scanMode!=='auto')||!video||button.disabled)return;
+   if(!active||!O||O.scanMode!=='ocr'||!video||button.disabled)return;
   if(video.readyState<2||!video.videoWidth||!video.videoHeight){setTimeout(captureSupplierOcr,250);return;}
   button.disabled=true;var nextDelay=1500;
   var seq=ocrSeq,source=document.createElement('canvas');source.width=video.videoWidth;source.height=video.videoHeight;
   source.getContext('2d').drawImage(video,0,0,source.width,source.height);
   var photoCaptured=false;
-  if(O.autoOcr&&ocrMissStreak>=2&&!ocrPhotoUnavailable&&Date.now()-ocrPhotoLastAt>8000&&typeof ImageCapture==='function'&&typeof createImageBitmap==='function'){
+   if(O.autoOcr&&ocrMissStreak>=4&&!ocrPhotoUnavailable&&Date.now()-ocrPhotoLastAt>8000&&typeof ImageCapture==='function'&&typeof createImageBitmap==='function'){
    var track=scanTrack();if(track&&track.readyState==='live'){
     ocrPhotoLastAt=Date.now();
-    try{var photo=await Promise.race([new ImageCapture(track).takePhoto(),new Promise(function(_,reject){setTimeout(function(){reject(new Error('foto demorada'));},3000);})]);var bitmap=await createImageBitmap(photo);if(seq!==ocrSeq||!active){bitmap.close();button.disabled=false;return;}var ratio=Math.min(1,2880/Math.max(bitmap.width,bitmap.height));source.width=Math.round(bitmap.width*ratio);source.height=Math.round(bitmap.height*ratio);source.getContext('2d').drawImage(bitmap,0,0,source.width,source.height);bitmap.close();photoCaptured=true;ocrFastCursor=0;ocrFallbackCursor=0;}catch(e){ocrPhotoUnavailable=true;}
+    try{var photo=await Promise.race([new ImageCapture(track).takePhoto(),new Promise(function(_,reject){setTimeout(function(){reject(new Error('foto demorada'));},1500);})]);var bitmap=await createImageBitmap(photo);if(seq!==ocrSeq||!active){bitmap.close();button.disabled=false;return;}var ratio=Math.min(1,2880/Math.max(bitmap.width,bitmap.height));source.width=Math.round(bitmap.width*ratio);source.height=Math.round(bitmap.height*ratio);source.getContext('2d').drawImage(bitmap,0,0,source.width,source.height);bitmap.close();photoCaptured=true;ocrFastCursor=0;ocrFallbackCursor=0;}catch(e){ocrPhotoUnavailable=true;}
    }
   }
   var scene=ocrScene(source);
@@ -5872,12 +5874,13 @@ window.cleanScanCode=function(v,kind){
     regionsTried++;
     /* PSM 7 descartava o número inteiro quando o recorte trazia uma borda ou parte
        do código de barras. PSM 6 leu as duas fotos reais da NorteBag. */
-    await worker.setParameters({tessedit_pageseg_mode:region.kind==='full'?'11':'6'});
+     var pageSegMode=region.kind==='full'?'11':'6';
+     if(ocrPageSegMode!==pageSegMode){await worker.setParameters({tessedit_pageseg_mode:pageSegMode});ocrPageSegMode=pageSegMode;}
     var crop=ocrRegion(source,region);collect(await supplierOcrRecognize(worker,crop),region);
     if(region.kind==='focused-side'&&Object.keys(ocrVotes).some(function(id){return /^26\d{8}$/.test(id);})){var tightRegion={kind:'focused-tight',side:region.side,deg:region.deg};collect(await supplierOcrRecognize(worker,ocrRegion(source,tightRegion)),tightRegion);}
     if(!found.length&&(photoCaptured||ocrEmptyFrames>0)&&(region.kind==='narrow-side'||region.kind==='narrow-band'||region.kind==='middle-side'||region.kind==='middle-band'))collect(await supplierOcrRecognize(worker,ocrThreshold(crop,100)),region);
     var plausible=Object.keys(ocrVotes).filter(function(id){return /^26\d{8}$/.test(id);});
-    if(plausible.some(function(id){return ocrVotes[id].size>=2;})||(regionsTried>=2&&plausible.length===1&&strongIds.has(plausible[0])))break;
+     if(plausible.some(function(id){return strongIds.has(id)&&supplierOcrKnown(id)||ocrVotes[id].size>=2;})||(regionsTried>=2&&plausible.length===1&&strongIds.has(plausible[0])))break;
    }
    if(seq!==ocrSeq||!active)return;
    cloudCandidates.forEach(function(candidate){if(!found.includes(candidate.id))found.push(candidate.id);if(!idRegions[candidate.id])idRegions[candidate.id]=candidate.region;});
@@ -5905,16 +5908,17 @@ window.cleanScanCode=function(v,kind){
    choices.forEach(function(id){var b=document.createElement('button');b.type='button';b.textContent=id;b.style.cssText='display:inline-block;margin:8px 4px;padding:12px 18px;background:var(--brand);color:#fff;border:0;border-radius:9px;font-weight:800;font-size:1rem';b.onclick=function(){var received=hit(id);if(O.keepOpenOnOcr){if(!received&&!scanIgnored.has(id)){ocrPaused=true;showOcrRetry('Não foi possível receber '+id+'. Confira o romaneio e toque em Ler novamente.');}else{ocrPaused=false;if(O.autoOcr)setTimeout(captureSupplierOcr,500);}}else close();};box.appendChild(b);});
    if(O.autoOcr)showOcrRetry();
   }catch(e){if(seq===ocrSeq&&active)hint(e&&e.message==='OCR_TIMEOUT'?'A leitura demorou. Aproxime o número, mantenha firme e vou tentar novamente.':'Não consegui ler o número: '+String((e&&e.message)||e));}
-  finally{if(seq===ocrSeq){button.disabled=false;if(active&&O&&O.autoOcr&&!ocrPaused&&(O.scanMode==='ocr'||O.scanMode==='auto'))setTimeout(function(){if(seq===ocrSeq&&active)captureSupplierOcr();},nextDelay);}}
+   finally{if(seq===ocrSeq){button.disabled=false;if(active&&O&&O.autoOcr&&!ocrPaused&&O.scanMode==='ocr')setTimeout(function(){if(seq===ocrSeq&&active)captureSupplierOcr();},nextDelay);}}
  }
  function showOcrRetry(message){var box=document.getElementById('scanHint');if(message){box.replaceChildren();var p=document.createElement('div');p.textContent=message;box.appendChild(p);}var retry=document.createElement('button');retry.type='button';retry.textContent='Ler novamente';retry.style.cssText='display:block;margin:8px auto;padding:10px 16px;background:#333;color:#fff;border:1px solid #888;border-radius:9px';retry.onclick=function(){ocrPaused=false;captureSupplierOcr();};box.appendChild(retry);}
  document.getElementById('scanOcrCapture').onclick=captureSupplierOcr;
- function updateScanMode(){var box=document.getElementById('scanModes');if(!box)return;box.hidden=!(O&&O.scanModes);box.querySelectorAll('[data-scanmode]').forEach(function(b){if(b.getAttribute('data-scanmode')==='ocr'||b.getAttribute('data-scanmode')==='auto')b.hidden=!(O&&O.supplierOcr);b.classList.toggle('on',!!O&&O.scanMode===b.getAttribute('data-scanmode'));});document.getElementById('scanOcrCapture').hidden=!(O&&O.scanMode==='ocr'&&!O.autoOcr);}
+  function updateScanMode(){var box=document.getElementById('scanModes');if(!box)return;box.hidden=!(O&&O.scanModes&&O.supplierOcr);box.querySelectorAll('[data-scanmode]').forEach(function(b){var selected=!!O&&O.scanMode===b.getAttribute('data-scanmode');b.classList.toggle('on',selected);b.setAttribute('aria-pressed',String(selected));});document.getElementById('scanOcrCapture').hidden=!(O&&O.scanMode==='ocr'&&!O.autoOcr);}
  function newReader(){var opts={verbose:false},f=window.Html5QrcodeSupportedFormats;if(f)opts.formatsToSupport=[f.QR_CODE,f.CODE_128,f.CODE_39,f.EAN_13,f.EAN_8,f.ITF,f.CODABAR,f.DATA_MATRIX].filter(function(format){return format!==undefined;});return new Html5Qrcode('scanReader',opts);}
- function startAutoOcrLater(){if(autoOcrTimer)clearTimeout(autoOcrTimer);var seq=ocrSeq;autoOcrTimer=setTimeout(function(){autoOcrTimer=null;if(seq!==ocrSeq||!active||!O||O.scanMode!=='auto')return;window.prepareBobbinNumberReader().then(function(){if(seq!==ocrSeq||!active||!O||O.scanMode!=='auto')return;if(!O.keepOpenOnOcr)prefetchSupplierCatalog();captureSupplierOcr();});},1200);}
+  function finishScanOpening(){starting=false;if(pendingScanMode&&O&&O.scanMode!==pendingScanMode&&modal.classList.contains('show')){var mode=pendingScanMode;pendingScanMode=null;changeScanMode(mode);}else pendingScanMode=null;}
  async function open(){if(starting)return;starting=true;modal.classList.add('show');active=true;clearScanResultStatus();hint('Carregando câmera…');if(O&&O.scanMode==='ocr'&&O.supplierOcr&&!O.keepOpenOnOcr)prefetchSupplierCatalog();
-  try{if(O&&O.scanMode==='ocr'){await startSupplierOcr();starting=false;return;}await loadH5();await h5StopPromise;
+   try{if(O&&O.scanMode==='ocr'){await startSupplierOcr();finishScanOpening();return;}await loadH5();await h5StopPromise;
    if(!modal.classList.contains('show')){starting=false;return;}
+    if(pendingScanMode&&O&&O.scanMode!==pendingScanMode){finishScanOpening();return;}
    document.getElementById('scanReader').innerHTML='';
    const config={fps:15,rememberLastUsedCamera:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true}};
    if(O&&O.scanMode==='qr')config.aspectRatio=1.3333;
@@ -5943,13 +5947,9 @@ window.cleanScanCode=function(v,kind){
    }
    if(!_ok)throw (_err||new Error('não abriu'));
    if(!modal.classList.contains('show')){try{await h5.stop();await h5.clear();}catch(e){}h5=null;starting=false;return;}
-   try{_tuneCam(h5,O&&O.scanMode==='auto');}catch(e){}
+    try{_tuneCam(h5,true);}catch(e){}
    try{setupScanTools();}catch(e){}
-   if(O&&O.scanMode==='auto'){
-    var autoVideo=document.querySelector('#scanReader video');if(autoVideo)autoVideo.style.objectFit='contain';
-    hint('Aponte para o QR, código de barras ou para os 10 dígitos da bobina.');
-    if(O.autoOcr)startAutoOcrLater();
-   }else hint('Aponte para o QR Code');
+    hint('Aponte para o QR Code ou código de barras. Para ler os dígitos, toque em Número impresso.');
   }catch(e){
    var nm=(e&&e.name)||'';var msg=(e&&e.message)||String(e||'');
     var isSecure=(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1');
@@ -5964,7 +5964,7 @@ window.cleanScanCode=function(v,kind){
      if(showRetry){var b=document.createElement('button');b.textContent='Tentar de novo';b.style.cssText='background:var(--brand);color:#fff;border:none;padding:9px 18px;border-radius:9px;font-weight:700;font-size:.9rem';b.onclick=function(){active=false;starting=false;open();};h.appendChild(b);}
    }else hint(txt2);
   }
-  starting=false;}
+   finishScanOpening();}
  function fill(val){if(O.onResult){try{O.onResult(val);}catch(e){try{console.warn('scan onResult',e);}catch(_){}}return;}const el=document.getElementById(O.inputId);if(!el)return;el.value=val;el.dispatchEvent(new Event('input'));if(O.enter)el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));}
  function hit(val){
   val=(val||'').trim();if(!val||!active)return false;
@@ -5995,11 +5995,11 @@ window.cleanScanCode=function(v,kind){
   }
   beep();if(navigator.vibrate)navigator.vibrate(60);close();fill(clean);return true;
  }
- function close(){active=false;if(autoOcrTimer)clearTimeout(autoOcrTimer);autoOcrTimer=null;stopSupplierOcr();modal.classList.remove('show');document.getElementById('scanTools').hidden=true;lastV='';scanSeen.clear();scanIgnored.clear();if(h5){const x=h5;h5=null;h5StopPromise=Promise.resolve().then(function(){return x.stop();}).catch(function(){}).then(function(){return x.clear();}).catch(function(){});}if(typeof window.flushNFScanRefresh==='function')window.flushNFScanRefresh();}
- async function changeScanMode(mode){if(!O||!O.scanModes||starting||O.scanMode===mode)return;starting=true;active=false;if(autoOcrTimer)clearTimeout(autoOcrTimer);autoOcrTimer=null;stopSupplierOcr();O.scanMode=mode;updateScanMode();document.getElementById('scanTools').hidden=true;hint('Trocando modo da câmera…');var old=h5;h5=null;if(old){try{await old.stop();}catch(e){}try{await old.clear();}catch(e){}}if(!modal.classList.contains('show')){starting=false;return;}starting=false;open();}
+  function close(){active=false;pendingScanMode=null;stopSupplierOcr();modal.classList.remove('show');document.getElementById('scanTools').hidden=true;lastV='';scanSeen.clear();scanIgnored.clear();if(h5){const x=h5;h5=null;h5StopPromise=Promise.resolve().then(function(){return x.stop();}).catch(function(){}).then(function(){return x.clear();}).catch(function(){});}if(typeof window.flushNFScanRefresh==='function')window.flushNFScanRefresh();}
+  async function changeScanMode(mode){if(!O||!O.scanModes||!O.supplierOcr)return;if(starting){pendingScanMode=mode;hint('Trocando modo da câmera…');return;}if(O.scanMode===mode)return;starting=true;active=false;stopSupplierOcr();O.scanMode=mode;updateScanMode();document.getElementById('scanTools').hidden=true;hint('Trocando modo da câmera…');var old=h5;h5=null;if(old){try{await old.stop();}catch(e){}try{await old.clear();}catch(e){}}if(!modal.classList.contains('show')){starting=false;return;}starting=false;open();}
  document.querySelectorAll('#scanModes [data-scanmode]').forEach(function(b){b.onclick=function(){changeScanMode(b.getAttribute('data-scanmode'));};});
  document.getElementById('scanX').onclick=close;
- window.scanInto=function(inputId,opts){scanSeen.clear();scanIgnored.clear();O=Object.assign({inputId},opts||{});if(O.supplierOcr===undefined&&O.scanKind!=='addr'&&!/endereço/i.test(O.title||'')){O.supplierOcr=true;O.autoOcr=true;O.scanModes=true;O.defaultMode='auto';}O.scanMode=O.supplierOcr&&(O.defaultMode==='auto'||O.defaultMode==='ocr')?O.defaultMode:'qr';updateScanMode();document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};
+  window.scanInto=function(inputId,opts){scanSeen.clear();scanIgnored.clear();O=Object.assign({inputId},opts||{});if(O.supplierOcr===undefined&&O.scanKind!=='addr'&&!/endereço/i.test(O.title||'')){O.supplierOcr=true;O.autoOcr=true;O.scanModes=true;}if(O.supplierOcr&&O.scanModes===undefined)O.scanModes=true;O.scanMode=O.supplierOcr&&O.defaultMode==='ocr'?'ocr':'qr';updateScanMode();document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};
  window.addCam=function(inputId,opts){const el=document.getElementById(inputId);if(!el||el.type==='hidden'||el.dataset.cam)return;el.dataset.cam='1';const w=document.createElement('div');w.className='camfield';w.style.position='relative';w.style.width='100%';el.parentNode.insertBefore(w,el);w.appendChild(el);el.style.width='100%';el.style.boxSizing='border-box';el.style.paddingRight='54px';const b=document.createElement('button');b.type='button';b.className='cambtn';b.innerHTML=ICONS.cam;b.title='Escanear com câmera';b.onclick=()=>scanInto(inputId,opts||{});w.appendChild(b);try{scanLock(el);}catch(e){} };
  addCam('mBob',{enter:true,title:'Escanear bobina'});addCam('mLoc',{enter:true,title:'Escanear endereço',scanKind:'addr'});
  const _rrv=renderRecv;renderRecv=function(){_rrv();addCam('recvScan',{continuous:true,onResult:recvAdd,title:'Ler bobinas',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'auto'});};

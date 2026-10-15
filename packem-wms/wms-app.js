@@ -8591,10 +8591,22 @@ function printZebraEtq(arr,dim,kind){
  if(!arr||!arr.length){toast('Nada para imprimir',false);return;}
  dim=dim||(typeof ZSIZES!=='undefined'?ZSIZES.z100:{w:100,h:100,n:'100×100 mm'});
 
+ var sendAndPrint=function(rows,after){
+   var print=function(){return printDoc(rows.map(function(e){return zEtqCard(e,dim,dim.h,'mm',kind);}).join(''),zEtqCSS(dim),after);};
+   if(kind==='rast'){
+     if(window.WmsNfcBridge)return window.WmsNfcBridge.beforePrint(rows,print,function(e){
+       var desc=((typeof window.convDescByCod==='function')&&window.convDescByCod(e.cProd))||e.xProd||nfDescByCode(e.cProd)||'';
+       return rastUnit(e,desc);
+     });
+     if(sessionStorage.getItem('packem-nfc-enabled')==='1'){toast('Módulo NFC indisponível. Recarregue ou desative a integração antes de imprimir.',false);return;}
+   }
+   return print();
+ };
+
  var render=function(){
    /* lote pequeno: um job só, como antes */
    if(arr.length<=ZBLOCO){
-     printDoc(arr.map(function(e){return zEtqCard(e,dim,dim.h,'mm',kind);}).join(''),zEtqCSS(dim));
+     sendAndPrint(arr);
      return;
    }
    /* lote grande: fatia em blocos e imprime um de cada vez */
@@ -8614,7 +8626,7 @@ function printZebraEtq(arr,dim,kind){
      var b=blocos[n],de=n*ZBLOCO+1,ate=de+b.length-1;
      n++;
      toast('Bloco '+n+' de '+blocos.length+' · etiquetas '+de+' a '+ate);
-     printDoc(b.map(function(e){return zEtqCard(e,dim,dim.h,'mm',kind);}).join(''),zEtqCSS(dim),function(){
+     sendAndPrint(b,function(){
        /* só manda o próximo depois que a janela de impressão deste fechar */
        if(n<blocos.length){
          setTimeout(function(){

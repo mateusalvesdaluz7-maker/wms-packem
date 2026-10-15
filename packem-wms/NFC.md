@@ -17,6 +17,8 @@ Pausa, mudança de usuário/tela/modo, navegação e saída do aplicativo encerr
 
 A página isolada `/tests/ui/nfc-app.html` usa catálogo fictício e simula a entrega da ponte no navegador, sem APIs de estoque. Duas embalagens devem somar 550,5 kg, mantidos após repetir a primeira. Esse ensaio não aciona a antena. Os testes verificam contexto, UID, sequência, deduplicação, divergência e ausência de confirmação. A captura física e o fluxo autenticado em estoque real continuam pendentes.
 
+Em 15/10/2026, o código nativo do commit `a1746860e666179784ba2112e8e53575e18e053e` passou os seis testes Swift e compilou com Xcode para simulador e iPhone, ambos sem assinatura, no [workflow macOS](https://github.com/mateusalvesdaluz7-maker/wms-packem/actions/runs/38783708988). Nenhum certificado ou conta Apple foi usado. Na prévia HTTPS, o ensaio da ponte recebeu duas embalagens fictícias e mostrou **2 etiquetas / 550,5 kg**; repetir a primeira manteve o total, e parar recusou outra leitura. Isso valida o software e a compilação, sem comprovar instalação ou rádio NFC.
+
 ## Alternativa: iPhone 11 com o WMS aberto no iScanBrowser
 
 `wms-nfc-iphone.js` adiciona **Alternativa: recepção pelo iScanBrowser** às três telas de contagem existentes. Este caminho dispensa a estação no PC e a troca para NFC.cool: o WMS fica aberto dentro do iScanBrowser, um aplicativo nativo que documenta leitura CoreNFC e regras de preenchimento de páginas. Isso não acrescenta Web NFC ao Safari.

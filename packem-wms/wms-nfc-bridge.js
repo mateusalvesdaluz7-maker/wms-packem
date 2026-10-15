@@ -42,7 +42,7 @@
     stationFallback.className='gbtn';
     stationFallback.onclick=function(){
       connected=false;
-      var opened=root.open(stationFrame.src,'packem-nfc-station');
+      var opened=root.open(stationFrame.src,'packem-nfc-station-'+linkId);
       if(!opened){notice('Permita abrir a aba local da estação e tente novamente.');return;}
       station=opened;notice('Informe o código na aba da estação e mantenha a conexão aberta.');
     };

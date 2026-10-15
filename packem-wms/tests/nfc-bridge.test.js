@@ -20,7 +20,7 @@ test('mensagens precisam vir da janela local, origem exata e conexão atual',()=
 });
 function client(){
   let handler,printed=0,frame,fallback,opened=false;const messages=[],values=new Map(),station={closed:false,postMessage:message=>messages.push(message)},external={closed:false,postMessage:message=>messages.push(message)};
-  const root={addEventListener:(type,fn)=>handler=fn,toast:()=>{},open:()=>{opened=true;return external;}};
+  const root={addEventListener:(type,fn)=>handler=fn,toast:()=>{},open:(url,name)=>{assert.equal(name,'packem-nfc-station-'+new URL(url).searchParams.get('linkId'));opened=true;return external;}};
   const context={window:root,document:{getElementById:()=>null,body:{appendChild:element=>{if(element.contentWindow)frame=element;else fallback=element;}},
     createElement:type=>{assert.ok(['iframe','button'].includes(type));return {contentWindow:type==='iframe'?station:undefined,style:{},remove:()=>{}};}},crypto:require('node:crypto'),Set,Map,Promise,setTimeout,clearTimeout,
     sessionStorage:{getItem:key=>values.get(key),setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)}};

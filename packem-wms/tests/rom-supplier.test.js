@@ -139,17 +139,38 @@ test('OCR aceita número físico separado por espaços sem inventar ID em códig
   assert.deepEqual(Array.from(ctx.supplierOcrLongCandidates('41488526002622294119705361S333204')),[]);
 });
 
-test('câmera lê número de bobina em qualquer tela e mantém endereço somente no QR',()=>{
+test('câmera abre QR sem OCR paralelo e oferece número impresso para bobinas',()=>{
   const title={textContent:''},ctx={window:{},O:null,scanSeen:new Set(),scanIgnored:new Set(),document:{getElementById:()=>title},updateScanMode(){},open(){}};
   vm.createContext(ctx);
   vm.runInContext(source(' window.scanInto=function(', ' window.addCam=function('),ctx);
   ctx.window.scanInto('floorScan',{title:'Ler bobina no Chão'});
-  assert.equal(ctx.O.scanMode,'auto');
+  assert.equal(ctx.O.scanMode,'qr');
   assert.equal(ctx.O.supplierOcr,true);
+  assert.equal(ctx.O.scanModes,true);
+  ctx.window.scanInto('floorScan',{title:'Ler bobina no Chão',supplierOcr:true,autoOcr:true,defaultMode:'ocr'});
+  assert.equal(ctx.O.scanMode,'ocr');
   ctx.window.scanInto('mLoc',{title:'Escanear endereço',scanKind:'addr'});
   assert.equal(ctx.O.scanMode,'qr');
   ctx.window.scanInto('rbdScan',{title:'Romaneio',supplierOcr:false});
   assert.equal(ctx.O.scanMode,'qr');
+});
+
+test('abas da câmera mostram QR e número impresso com a seleção correta',()=>{
+  const buttons=['qr','ocr'].map(mode=>({mode,selected:false,pressed:'false',getAttribute(){return this.mode;},classList:{toggle(name,on){this.owner.selected=on;}},setAttribute(name,value){this.pressed=value;}}));
+  buttons.forEach(button=>{button.classList.owner=button;});
+  const modes={hidden:true,querySelectorAll(){return buttons;}};
+  const capture={hidden:false};
+  const ctx={O:{scanModes:true,supplierOcr:true,scanMode:'qr',autoOcr:true},document:{getElementById:id=>id==='scanModes'?modes:capture}};
+  vm.createContext(ctx);
+  vm.runInContext(source(' function updateScanMode(', ' function newReader('),ctx);
+  ctx.updateScanMode();
+  assert.equal(modes.hidden,false);
+  assert.deepEqual(buttons.map(button=>button.selected),[true,false]);
+  ctx.O.scanMode='ocr';ctx.updateScanMode();
+  assert.deepEqual(buttons.map(button=>button.selected),[false,true]);
+  assert.equal(capture.hidden,true);
+  ctx.O.supplierOcr=false;ctx.updateScanMode();
+  assert.equal(modes.hidden,true);
 });
 
 test('OCR só aceita automaticamente número cadastrado e consulta bobina importada em outro aparelho',async()=>{

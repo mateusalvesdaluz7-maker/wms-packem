@@ -34,7 +34,7 @@ Ao recarregar o WMS, reconecte a janela. Fechar a estação, pausar a fila ou fa
 
 ## Validação
 
-Passaram **189 testes do WMS**, incluindo os cinco testes da ponte, e **30 testes da estação**. Os testes cobrem KG/MT e zeros à esquerda, validação da origem e da janela, liberação somente após ACK, duplo clique, reenvio, persistência, disco sem espaço e cancelamento de blocos seguintes. A sintaxe dos scripts foi verificada.
+Passaram **190 testes do WMS**, incluindo os cinco testes da ponte, e **30 testes da estação**. Os testes cobrem KG/MT e zeros à esquerda, validação da origem e da janela, liberação somente após ACK, duplo clique, reenvio, persistência, disco sem espaço e cancelamento de blocos seguintes. A sintaxe dos scripts foi verificada.
 
 Um ensaio de interface no navegador interno abriu a janela de conexão, mas essa janela filha não ficou acessível à ferramenta de teste. O ciclo entre janelas ainda precisa ser validado em Chrome/Edge no Windows. Não houve teste com Zebra, NFC.cool no iPhone, chip real ou alteração de dados do WMS publicado.
 

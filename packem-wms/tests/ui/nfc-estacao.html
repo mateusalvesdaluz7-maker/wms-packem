@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Packem · Teste da fila NFC</title>
+<style>body{font:16px/1.6 system-ui;margin:0;background:#f4f6f1;color:#18332e}main{max-width:900px;margin:32px auto;padding:24px}h1{line-height:1.2}section{margin:24px 0;background:#fff;padding:20px;border-radius:12px}button{font:inherit;padding:10px 16px;margin:5px 0;border:1px solid #166250;border-radius:8px;background:#166250;color:#fff;cursor:pointer}table{width:100%;border-collapse:collapse}td,th{padding:12px;text-align:left;border-bottom:1px solid #ddd}#result{font-weight:700}</style></head>
+<body><main><p>PACKEM · VALIDAÇÃO DA CONEXÃO</p><h1>Enviar etiquetas ao celular.</h1><p>Dados fictícios para conferir a conexão. Esta página não altera o estoque e não aciona a impressora.</p>
+<section><table><thead><tr><th>Embalagem de teste</th><th>Produto</th><th>Quantidade</th></tr></thead><tbody><tr><td>TESTE-NFC-001</td><td>0303450047</td><td>300 KG</td></tr><tr><td>TESTE-NFC-002</td><td>0303410008</td><td>6.300 MT</td></tr></tbody></table></section>
+<section id="v-labels"><h2>Conectar à estação do computador</h2></section>
+<button id="send">Enviar as duas etiquetas de teste</button><p id="result" role="status">Conecte a estação acima para começar.</p><p>Depois do envio, abra a página do celular pelo QR Code do painel. A primeira embalagem deve aparecer sem digitar seus dados. A gravação e a conferência no NFC.cool continuam assistidas.</p>
+<script src="../../wms-nfc-bridge.js?v=20261015-nfc2"></script><script>
+document.getElementById('send').onclick=function(){
+  var result=document.getElementById('result');
+  if(!window.WmsNfcBridge.enabled()){result.textContent='Conecte a estação NFC antes de enviar o teste.';return;}
+  window.WmsNfcBridge.beforePrint([
+    {id:'TESTE-NFC-001',cProd:'0303450047',kg:300,uCom:'KG'},
+    {id:'TESTE-NFC-002',cProd:'0303410008',kg:6300,uCom:'MT'}
+  ],function(){result.textContent='As duas etiquetas foram recebidas pela estação. Confira a primeira na página do celular. Nenhuma impressão ou gravação foi simulada.';},function(row){return row.uCom;});
+};
+</script></main></body></html>

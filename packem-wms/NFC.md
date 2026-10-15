@@ -6,21 +6,21 @@ Esta alteração conecta o bloco de etiquetas rastreáveis preparado pelo WMS à
 
 ## Funcionamento
 
-`printZebraEtq`, quando imprime etiquetas rastreáveis, passa cada bloco efetivamente escolhido ao módulo `wms-nfc-bridge.js`. A comunicação usa uma janela local em `http://127.0.0.1:8788/wms-bridge`, aberta pelo operador. O módulo aguarda a confirmação de recepção antes de chamar a impressão existente. Blocos posteriores cancelados pelo operador não são encaminhados antecipadamente.
+`printZebraEtq`, quando imprime etiquetas rastreáveis, passa cada bloco efetivamente escolhido ao módulo `wms-nfc-bridge.js`. A comunicação usa um quadro local em `http://127.0.0.1:8788/wms-bridge`, aberto dentro do WMS pelo operador. O módulo aguarda a confirmação de recepção antes de chamar a impressão existente. Blocos posteriores cancelados pelo operador não são encaminhados antecipadamente.
 
-O código de acesso é informado somente na janela local. Ele não é enviado ao site Vercel. As mensagens verificam origem exata, referência da janela e identificador da conexão. A estação só aceita o remetente `https://wms-packem.vercel.app` nessa ponte; não foi aberto CORS para sites externos.
+O código de acesso é informado somente no quadro local, isolado do WMS pela política de origem do navegador. Ele não é enviado ao site Vercel. As mensagens verificam origem exata, referência do quadro e identificador da conexão. A estação só permite enquadrar a página de conexão na origem configurada; as demais páginas continuam com `frame-ancestors 'none'`. Não foi aberto CORS para sites externos.
 
 O receptor persiste os itens e o recibo do envio juntos. Um reenvio com o mesmo identificador recupera os mesmos IDs; dados diferentes com o mesmo identificador são recusados. IDs já usados em outro envio bloqueiam reimpressão pela integração até conferência. O código do produto continua sendo texto, e a unidade é obtida pela mesma função usada no rótulo impresso: KG, MT ou UN.
 
 ## Preparar o teste
 
 1. Atualize a estação PC com o pacote `nfc-piloto` desta entrega e abra **INICIAR-CELULAR.cmd**, porta 8788. Esse processo não imprime; a impressão permanece no WMS.
-2. Aplique esta alteração primeiro em um ambiente de homologação. A origem permitida no receptor deve corresponder exatamente à origem usada no teste; o padrão de produção é `https://wms-packem.vercel.app`.
-3. No navegador do PC que usa a Zebra, abra **Gestão de Etiquetas → Conectar estação NFC**. Permita a abertura da janela local e informe nela o código exibido no terminal.
-4. Mantenha as duas janelas abertas. Gere inicialmente uma única etiqueta rastreável de teste. Confira o ID, código, quantidade e unidade na estação antes de testar o chip.
+2. Aplique esta alteração primeiro em um ambiente de homologação. A origem permitida no receptor deve corresponder exatamente à origem usada no teste; o padrão de produção é `https://wms-packem.vercel.app`. Para uma prévia, defina `NFC_WMS_ORIGIN` como a origem HTTPS exata, sem barra final. Use a estação 0.5.1 ou posterior.
+3. No navegador do PC que usa a Zebra, abra **Gestão de Etiquetas → Conectar estação NFC**. Informe o código exibido no terminal dentro do quadro local que aparece no WMS.
+4. Mantenha a conexão aberta. Confira primeiro a página `/tests/ui/nfc-estacao.html`: ela envia duas etiquetas fictícias e não carrega as APIs de estoque nem imprime. Depois de conferir a transmissão, teste uma etiqueta real com seu ID, código, quantidade e unidade.
 5. Faça a gravação e a releitura assistidas. Só depois teste duas etiquetas diferentes e os controles de pausa e recuperação.
 
-Ao recarregar o WMS, reconecte a janela. Fechar a estação, pausar a fila ou falhar ao receber os dados interrompe a impressão enquanto a integração estiver habilitada. Após reiniciar o servidor, é necessária nova ativação; uma tarefa incerta exige conferência e retomada antes de habilitar o envio.
+Ao recarregar o WMS, reconecte o quadro. Fechar a estação, pausar a fila ou falhar ao receber os dados interrompe a impressão enquanto a integração estiver habilitada. Após reiniciar o servidor, é necessária nova ativação; uma tarefa incerta exige conferência e retomada antes de habilitar o envio.
 
 **Usar impressão sem NFC** desativa a ponte nessa aba e mantém o fluxo de impressão anterior. A função não apaga tarefas já recebidas pela estação. Não use isso como recuperação automática de um bloco cujo resultado de impressão seja incerto.
 
@@ -34,8 +34,8 @@ Ao recarregar o WMS, reconecte a janela. Fechar a estação, pausar a fila ou fa
 
 ## Validação
 
-Passaram **190 testes do WMS**, incluindo os cinco testes da ponte, e **30 testes da estação**. Os testes cobrem KG/MT e zeros à esquerda, validação da origem e da janela, liberação somente após ACK, duplo clique, reenvio, persistência, disco sem espaço e cancelamento de blocos seguintes. A sintaxe dos scripts foi verificada.
+Passaram **193 testes do WMS**, incluindo os cinco testes da ponte, e **31 testes da estação**. Os testes cobrem KG/MT e zeros à esquerda, validação da origem e da janela, liberação somente após ACK, duplo clique, reenvio, persistência, disco sem espaço, enquadramento restrito à origem configurada e cancelamento de blocos seguintes. A sintaxe dos scripts foi verificada.
 
-Um ensaio de interface no navegador interno abriu a janela de conexão, mas essa janela filha não ficou acessível à ferramenta de teste. O ciclo entre janelas ainda precisa ser validado em Chrome/Edge no Windows. Não houve teste com Zebra, NFC.cool no iPhone, chip real ou alteração de dados do WMS publicado.
+Um ensaio de interface no navegador interno confirmou a recepção de duas etiquetas fictícias por meio do quadro local e a exibição da primeira na página do celular. Nenhuma confirmação NFC foi simulada. A gravação no NFC.cool, a impressão na Zebra, o chip real e o primeiro teste por dentro da interface autenticada do WMS continuam pendentes.
 
 Referência da integração do gravador assistido: [NFC.cool — Write NFC abre o fluxo preenchido](https://nfc.cool/developers/).

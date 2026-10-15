@@ -19,12 +19,13 @@ test('mensagens precisam vir da janela local, origem exata e conexão atual',()=
   assert.equal(validReply(event,station,event.origin,'antigo'),false);
 });
 function client(){
-  let handler,printed=0,popupURL;const messages=[],values=new Map(),station={closed:false,postMessage:message=>messages.push(message)};
-  const root={addEventListener:(type,fn)=>handler=fn,open:url=>{popupURL=url;return station;},toast:()=>{}};
-  const context={window:root,document:{getElementById:()=>null},crypto:require('node:crypto'),Set,Map,Promise,setTimeout,clearTimeout,
+  let handler,printed=0,frame;const messages=[],values=new Map(),station={closed:false,postMessage:message=>messages.push(message)};
+  const root={addEventListener:(type,fn)=>handler=fn,toast:()=>{}};
+  const context={window:root,document:{getElementById:()=>null,body:{appendChild:element=>{frame=element;}},
+    createElement:type=>{assert.equal(type,'iframe');return {contentWindow:station,style:{},remove:()=>{}};}},crypto:require('node:crypto'),Set,Map,Promise,setTimeout,clearTimeout,
     sessionStorage:{getItem:key=>values.get(key),setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)}};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../wms-nfc-bridge.js'),'utf8'),context);
-  return {root,messages,station,print:()=>printed++,get printed(){return printed;},get linkId(){return new URL(popupURL).searchParams.get('linkId');},reply(data){handler({source:station,origin:'http://127.0.0.1:8788',data});}};
+  return {root,messages,station,print:()=>printed++,get printed(){return printed;},get linkId(){return new URL(frame.src).searchParams.get('linkId');},reply(data){handler({source:station,origin:'http://127.0.0.1:8788',data});}};
 }
 test('impressão só é liberada depois do ACK e um duplo clique não duplica o bloco',async()=>{
   const c=client();c.root.WmsNfcBridge.connect();

@@ -21,16 +21,22 @@
   if(typeof module==='object'&&module.exports){module.exports={mapLabels:mapLabels,validReply:validReply};return;}
 
   var stationOrigin='http://127.0.0.1:8788',station=null,linkId='',connected=false;
-  var pending=new Map(),batches=new Map(),statusNode;
+  var pending=new Map(),batches=new Map(),statusNode,stationFrame;
   function enabled(){return sessionStorage.getItem('packem-nfc-enabled')==='1';}
   function notice(text){if(statusNode)statusNode.textContent=text;if(typeof root.toast==='function')root.toast(text,false);}
   function disconnected(){connected=false;notice('NFC desconectado. Reconecte a estação antes de imprimir com NFC.');}
   function connect(){
     linkId=crypto.randomUUID();connected=false;
-    station=root.open(stationOrigin+'/wms-bridge?linkId='+encodeURIComponent(linkId),'packem-nfc-station','width=760,height=760');
-    if(!station){notice('Permita abrir a janela da estação NFC para conectar.');return;}
+    if(stationFrame)stationFrame.remove();
+    stationFrame=document.createElement('iframe');
+    stationFrame.title='Conectar estação NFC';
+    stationFrame.src=stationOrigin+'/wms-bridge?linkId='+encodeURIComponent(linkId);
+    stationFrame.style.cssText='display:block;width:100%;height:470px;border:1px solid #cbd5e1;border-radius:12px;margin:12px 0;background:#fff';
+    (document.getElementById('v-labels')||document.body).appendChild(stationFrame);
+    station=stationFrame.contentWindow;
+    if(!station){notice('Não foi possível abrir a conexão local da estação NFC.');return;}
     sessionStorage.setItem('packem-nfc-enabled','1');
-    notice('Informe o código na janela da estação. O envio NFC fica bloqueado até conectar.');
+    notice('Informe o código no quadro da estação abaixo. O envio NFC fica bloqueado até conectar.');
   }
   root.addEventListener('message',function(event){
     if(!validReply(event,station,stationOrigin,linkId))return;

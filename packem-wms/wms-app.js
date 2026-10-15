@@ -159,7 +159,7 @@ const ROLE_VIEWS={operador:['v-board','v-recv','v-floor','v-floor70','v-exped','
 function allowedViews(){const r=curRole();return (r&&ROLE_VIEWS[r])||null;}
 const code=sp=>sp.s+'-'+sp.p+'-'+sp.l;
 const whLabel=w=>w==='70'?'Dep 70':w==='novo'?'Novo':'Chão';
-function toast(m,ok=true){const t=$('#toast');$('#toastMsg').textContent=m;clearTimeout(t._t);const scan=document.getElementById('scan'),status=document.getElementById('scanLastResult');if(scan&&scan.classList.contains('show')&&status&&!status.hidden){t.className='';}else{t.className='show '+(ok?'ok':'err');t._t=setTimeout(()=>t.className='',2600);}try{if(typeof scanFeedback==='function')scanFeedback(m,ok);}catch(e){}}
+function toast(m,ok=true){const t=$('#toast');$('#toastMsg').textContent=m;clearTimeout(t._t);const scan=document.getElementById('scan'),status=document.getElementById('scanLastResult'),cameraOpen=scan&&scan.classList.contains('show');if(cameraOpen&&status){t.className='';scanResultStatus(m,ok);}else{t.className='show '+(ok?'ok':'err');t._t=setTimeout(()=>t.className='',2600);}try{if(typeof scanFeedback==='function')scanFeedback(m,ok);}catch(e){}}
 /* mostra o aviso GRANDE na tela da câmera quando ela está aberta (senão o toast fica atrás do vídeo e você não vê bipando) */
 function scanFeedback(m,ok,scanned){try{
   var modal=document.getElementById('scan');if(!modal||!modal.classList.contains('show'))return;
@@ -170,7 +170,7 @@ function scanFeedback(m,ok,scanned){try{
   fb.className='scanFb show '+(bloqueio?'err':'ok')+(scanned?' scanned':'');
   fb.innerHTML='<div class="fbcard"><span class="fbico">'+(bloqueio?'⛔':'✓')+'</span><span>'+String(m).replace(/</g,'&lt;')+'</span></div>';
   try{if(!scanned&&navigator.vibrate)navigator.vibrate(bloqueio?[90,60,90]:35);}catch(e){}
-  clearTimeout(fb._t);fb._t=setTimeout(function(){fb.className='scanFb';},scanned?2200:bloqueio?2600:1300);
+  clearTimeout(fb._t);fb._t=setTimeout(function(){fb.className='scanFb';},scanned?1400:bloqueio?2200:1300);
 }catch(e){}}
 function scanResultStatus(m,ok){try{
   var modal=document.getElementById('scan');if(!modal||!modal.classList.contains('show'))return;
@@ -1766,7 +1766,7 @@ var _bobIDB=(function(){
  };
 })();
 
-var _bobSaveT=null,_bobLSFull=false;
+var _bobSaveT=null;
 /* último retrato antes de cada operação destrutiva. Fica no IndexedDB e não
    participa da sincronização, evitando que uma falha remota apague a contingência. */
 function criticalBackup(tipo,dados){
@@ -1779,10 +1779,8 @@ function saveBOB(){
  _bobSaveT=setTimeout(function(){
   try{_bobIDB.set('bob',BOB).catch(function(e){console.warn('idb bob',e);});}catch(e){console.warn('idb bob',e);}
  },250);
- /* localStorage NÃO guarda mais o catálogo (é ele que enchia os 5 MB e derrubava o sync) */
- if(_bobLSFull)return;
- try{localStorage.setItem('wmsx_bob',JSON.stringify(BOB));}
-  catch(e){_bobLSFull=true;try{window._DIAG=window._DIAG||{};window._DIAG.bobSave='falha local: '+String(e&&e.message||e);}catch(_){}}
+ /* O catálogo completo fica no IndexedDB. Serializá-lo aqui bloqueava a câmera
+    por segundos após uma etiqueta nova, especialmente com dezenas de milhares de bobinas. */
 }
 /* Confirma a migração antes de liberar a cópia redundante que ocupa o localStorage. */
 (function(){
@@ -1794,7 +1792,6 @@ function saveBOB(){
    if(!confirmed||Object.keys(confirmed).length!==Object.keys(BOB).length)throw new Error('Catálogo de bobinas não confirmado no IndexedDB');
    BOB=confirmed;
    localStorage.removeItem('wmsx_bob');
-   _bobLSFull=true;
    window._bobReady=true;
    try{if(typeof renderBobCatalog==='function'&&document.getElementById('bobTable'))renderBobCatalog();}catch(e){}
   }).catch(function(e){window._bobReady=true;try{console.warn('A cópia local das bobinas foi preservada:',e);}catch(_e){}});
@@ -2200,7 +2197,16 @@ function placeBobina(et,pr,pl,c){pl=Number(pl);if(!Number.isFinite(pl)||pl<=0){t
     }catch(e){}
   }
  return true;}
-async function recvAdd(v){if(!isAdmin()){toast('Somente admin pode receber',false);return;}var fornecedor=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(v):null;if(fornecedor&&fornecedor.ambiguous){toast('Código corresponde a mais de uma bobina.',false);return;}if(fornecedor&&fornecedor.supplier){if(typeof window.nfRecvBip==='function')return window.nfRecvBip(v);toast('Conferência do romaneio indisponível. Tente novamente.',false);return;}if(fornecedor&&fornecedor.id)v=fornecedor.id;else if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);const et=norm(v);if(!et)return;var b=BOB[et];if(!b&&typeof window.etqLookup==='function'){b=window.etqLookup(et);}if(!b){try{b=await bobFetch(et);}catch(e){toast('Não foi possível consultar a etiqueta '+et+' na nuvem. Verifique a conexão e tente novamente.',false);return;}}if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return;}
+async function recvAdd(v){
+  if(!isAdmin()){toast('Somente admin pode receber',false);return false;}
+  var fornecedor=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(v):null;
+  if(fornecedor&&fornecedor.ambiguous){toast('Código corresponde a mais de uma bobina.',false);return false;}
+  if(fornecedor&&fornecedor.supplier){if(typeof window.nfRecvBip==='function')return window.nfRecvBip(v);toast('Conferência do romaneio indisponível. Tente novamente.',false);return false;}
+  if(fornecedor&&fornecedor.id)v=fornecedor.id;else if(typeof window.cleanScanCode==='function')v=window.cleanScanCode(v);
+  const et=norm(v);if(!et)return false;
+  var b=BOB[et];if(!b&&typeof window.etqLookup==='function')b=window.etqLookup(et);
+  if(!b){try{b=await bobFetch(et);}catch(e){toast('Não foi possível consultar a etiqueta '+et+' na nuvem. Verifique a conexão e tente novamente.',false);return false;}}
+  if(!b){toast('Etiqueta '+et+' não está no catálogo — importe o arquivo ou gere pela Nota Fiscal',false);return false;}
   var _it={et,pr:b.pr,desc:b.desc,pl:b.pl,at:nowISO(),by:session.u};
   var _ja=STAGE.find(function(s){return norm(s.et)===et;});
   if(_ja){toast('Etiqueta '+et+' já está no Recebimento',false);return true;}
@@ -2225,13 +2231,18 @@ function renderRecv(){const adm=isAdmin();
  var _pa=document.getElementById('recvPrintAll');if(_pa)_pa.onclick=function(){if(typeof printAllIntakeLabels==='function')printAllIntakeLabels();};
  var sf=document.getElementById('recvSetFmt');if(sf)sf.onclick=function(){if(typeof askLabelFormat==='function')askLabelFormat('Modelo da etiqueta de recebimento',function(opt){if(typeof setExpLabelFmt==='function')setExpLabelFmt(opt);_showFmt();toast('Modelo salvo · '+opt.dim.w+'×'+opt.dim.h+'mm');});};
  renderStageList();}
+var recvScanNeedsRender=false;
+function flushRecvScanRefresh(){if(!recvScanNeedsRender)return;recvScanNeedsRender=false;renderStageList();}
+window.flushRecvScanRefresh=flushRecvScanRefresh;
 function refreshRecvAfterScan(){
  var view=document.getElementById('v-recv'),count=document.getElementById('recvPendingCount');
  if(!view||!count){if(view&&view.classList.contains('active'))renderRecv();return;}
  count.textContent=STAGE.length;
  var weight=document.getElementById('recvPendingWeight');if(weight){weight.style.display=STAGE.length?'block':'none';weight.textContent=fmt(STAGE.reduce(function(total,item){return total+(Number(item.pl)||0);},0))+' kg pendentes';}
  var print=document.getElementById('recvPrintAll');if(print){print.style.display=STAGE.length?'inline-flex':'none';print.innerHTML=(ICONS.print||'')+' Imprimir todas ('+STAGE.length+')';}
- renderStageList();
+  var scan=document.getElementById('scan');
+  if(scan&&scan.classList.contains('show'))recvScanNeedsRender=true;
+  else{recvScanNeedsRender=false;renderStageList();}
 }
 function renderStageList(){const el=$('#stageList');if(!el)return;const adm=isAdmin(),strictAdm=(typeof isStrictAdmin==='function'&&isStrictAdmin());
  if(!STAGE.length){el.innerHTML='<div class="empty"><div class="ei">'+ICONS.inbox+'</div><b>Nenhum item aguardando</b><div class="es">Bipe uma etiqueta da NF para puxar código, descrição e quantidade.</div></div>';return;}
@@ -4056,13 +4067,13 @@ updateStageBadge();
     var rsc=document.getElementById('nfRecvScan');
     if(rsc){
       rsc.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=rsc.value;rsc.value='';nfRecvBip(v);}});
-      if(typeof addCam==='function')addCam('nfRecvScan',{continuous:true,title:'Bipar recebimento',onResult:function(v){nfRecvBip(v);}});
+      if(typeof addCam==='function')addCam('nfRecvScan',{continuous:true,title:'Bipar recebimento',onResult:function(v){return nfRecvBip(v);}});
       /* sem autofocus: a tela redesenha a cada sync e ficava pulando pro campo de bipe sozinho */
     }
     var romScan=document.getElementById('romRecvScan');
     if(romScan){
       romScan.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=romScan.value;romScan.value='';nfRecvBip(v);}});
-      if(typeof addCam==='function')addCam('romRecvScan',{continuous:true,keepOpenOnOcr:true,title:'Ler etiqueta do fornecedor',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'auto',onResult:function(v){nfRecvBip(v);}});
+      if(typeof addCam==='function')addCam('romRecvScan',{continuous:true,keepOpenOnOcr:true,title:'Ler etiqueta do fornecedor',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'auto',onResult:function(v){return nfRecvBip(v);}});
     }
     if(nfParsed){
       /* base de sugestões (código + descrição) a partir do cadastro de Produtos e bobinas */
@@ -4145,14 +4156,14 @@ updateStageBadge();
   function nfRecvBip(v){
     var raw=String(v==null?'':v), id='';
     var fornecedor=typeof resolveRomSupplierScan==='function'?resolveRomSupplierScan(raw):null;
-    if(fornecedor&&fornecedor.ambiguous){toast('Código de barras corresponde a mais de uma bobina. Confira o número físico.',false);return;}
+    if(fornecedor&&fornecedor.ambiguous){toast('Código de barras corresponde a mais de uma bobina. Confira o número físico.',false);return false;}
     if(fornecedor&&fornecedor.id)id=fornecedor.id;
     else if(ETQ[norm(raw)])id=norm(raw);
     else{var toks=raw.split(/[\r\n;|,\t]+/).map(function(s){return norm(s);}).filter(Boolean);for(var i=0;i<toks.length;i++){if(ETQ[toks[i]]){id=toks[i];break;}}if(!id){var m=raw.match(/\b([A-Z0-9]{2,}-\d{2,3})\b/i);if(m&&ETQ[norm(m[1])])id=norm(m[1]);}}
     if(!id)id=norm(raw);
     var e=ETQ[id];
-    if(!e){toast('Etiqueta '+id+' não encontrada',false);return;}
-    if(e.status==='entrada'||e.status==='saida'){toast('Etiqueta '+id+' já recebida — nenhuma nova entrada realizada');return;}
+    if(!e){toast('Etiqueta '+id+' não encontrada',false);return false;}
+    if(e.status==='entrada'||e.status==='saida'){toast('Etiqueta '+id+' já recebida — nenhuma nova entrada realizada');return true;}
     var desc=e.xProd||(typeof nfDescByCode==='function'?nfDescByCode(e.cProd):'')||'';
     var _docLocal=((NFS[e.nf]||ROMS[e.nf]||{}).local)||e.local||'';
     var _it={et:id,pr:e.cProd||id,desc:desc,pl:Number(e.kg)||0,local:_docLocal,at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')};
@@ -4161,8 +4172,8 @@ updateStageBadge();
     var _chao70=/^TEC\./i.test(String(desc).trim())||!!(ROMS[e.nf]&&ROMS[e.nf].supplierLabels);
     var _ja=STAGE.find(function(s){return norm(s.et)===id;});
     if(_chao70){
-      if(typeof window.f70Entrada!=='function'){toast('Chão de Fábrica indisponível. A etiqueta não foi confirmada; tente novamente.',false);return;}
-      if(window.f70Entrada(_it,true)!==true){toast('Não foi possível dar entrada no Chão de Fábrica. Confira o local da etiqueta antes de repetir.',false);return;}
+      if(typeof window.f70Entrada!=='function'){toast('Chão de Fábrica indisponível. A etiqueta não foi confirmada; tente novamente.',false);return false;}
+      if(window.f70Entrada(_it,true)!==true){toast('Não foi possível dar entrada no Chão de Fábrica. Confira o local da etiqueta antes de repetir.',false);return false;}
     }else if(!_ja){STAGE.unshift(_it);saveStage();try{if(typeof syncStage==='function')syncStage(_it);}catch(_e){}try{if(typeof updateStageBadge==='function')updateStageBadge();}catch(_e){}}
     e.status='entrada';if(!Array.isArray(e.hist))e.hist=[];e.hist.push({ev:_chao70?'entrada-chao70':'entrada-recebimento',at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')});
     saveNF();if(typeof logAct==='function')logAct('recebimento-nf',id+(_chao70?' · Chão de Fábrica - 70':' · aguardando destino'));if(typeof syncEtiqueta==='function')syncEtiqueta(e);
@@ -4175,6 +4186,7 @@ updateStageBadge();
     }
     var act=document.querySelector('.view.active');if(act&&act.id==='v-nf')queueNFScanRefresh();
     if(act&&act.id==='v-recv'&&typeof refreshRecvAfterScan==='function'){refreshRecvAfterScan();if(typeof updateStageBadge==='function')updateStageBadge();}
+    return true;
   }
   window.nfRecvBip=nfRecvBip;
 
@@ -4655,10 +4667,13 @@ updateStageBadge();
     }
     bindRows();
     var imprimir=document.getElementById('rbdPrint');if(imprimir)imprimir.onclick=function(){openRomLabelSheet(key);};
+    var rbdScanPending=false;
+    function refreshRbdAfterScan(){if(document.getElementById('scan')?.classList.contains('show'))rbdScanPending=true;else refresh();}
+    window.flushRbdScanRefresh=function(){if(rbdScanPending){rbdScanPending=false;refresh();}};
     var inp=document.getElementById('rbdScan');
     if(inp){
-      inp.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=inp.value;inp.value='';nfRecvBip(v);refresh();}});
-      if(typeof addCam==='function')addCam('rbdScan',{continuous:true,keepOpenOnOcr:!!(isRom&&doc.supplierLabels),allowedDocKey:doc.key,title:label,scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'auto',onResult:function(v){nfRecvBip(v);refresh();}});
+       inp.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();var v=inp.value;inp.value='';if(nfRecvBip(v)!==false)refreshRbdAfterScan();}});
+       if(typeof addCam==='function')addCam('rbdScan',{continuous:true,keepOpenOnOcr:!!(isRom&&doc.supplierLabels),allowedDocKey:doc.key,title:label,scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'auto',onResult:function(v){var received=nfRecvBip(v);if(received!==false)refreshRbdAfterScan();return received;}});
       setTimeout(function(){try{inp.focus({preventScroll:true});}catch(e){try{inp.focus();}catch(_){}}},30);
     }
   }
@@ -5635,13 +5650,19 @@ window.cleanScanCode=function(v,kind){
   const modal=document.createElement('div');modal.id='scan';modal.className='scan';modal.innerHTML='<div class="scanhead"><div id="scanTitle">Escanear</div><button id="scanX" type="button" aria-label="Fechar câmera" title="Fechar câmera">✕</button></div><div class="scanModes" id="scanModes" hidden><button type="button" data-scanmode="qr">QR Code / barras</button><button type="button" data-scanmode="ocr">Número impresso</button></div><div class="scanTools" id="scanTools" hidden><button type="button" id="scanTorch" hidden>Luz</button><label id="scanZoomWrap" hidden>Zoom <input type="range" id="scanZoom" min="1" max="3" step="0.1" value="1"></label></div><div id="scanReader"></div><div class="scanFb" id="scanFb"></div><button type="button" id="scanOcrCapture" hidden style="margin:8px 14px;background:var(--brand);color:#fff;border:0;border-radius:10px;padding:15px;font-weight:800;font-size:1rem">Capturar número da bobina</button><div class="scanhint" id="scanHint">Aponte para o QR</div>';document.body.appendChild(modal);
  let h5=null,h5StopPromise=Promise.resolve(),h5LoadPromise=null,O=null,lastV='',lastT=0,active=false,starting=false,torchOn=false,ocrStream=null,ocrSeq=0,ocrWorkerPromise=null,ocrPaused=false,ocrPendingId='',ocrPendingAt=0,ocrAmbiguousKey='',ocrAmbiguousAt=0,ocrPreferredRegion=null,ocrFastCursor=0,ocrFallbackCursor=0,ocrEmptyFrames=0,ocrMissStreak=0,ocrRejectedScene=null,ocrRejectedAt=0,ocrPhotoLastAt=0,ocrPhotoUnavailable=false,ocrCloudMiss=new Set(),scanSeen=new Set(),scanIgnored=new Set(),scanTargetTimer=null,scanTargetHoldUntil=0;
   let pendingScanMode=null,ocrPageSegMode='11';
+  let qrLastReadAt=0,qrLastHintAt=0,lastRejectedKey='',lastRejectedAt=0;
  st.textContent+='.scanFb.scanned{top:42%}.scanFb.scanned .fbcard{max-width:420px;min-height:88px;padding:22px;font-size:clamp(1.3rem,5vw,1.7rem)}';
  st.textContent+='.scanLastResult[hidden]{display:none!important}.scanLastResult{padding:12px 16px;color:#fff;text-align:center;font-weight:800;font-size:1rem;line-height:1.3}.scanLastResult.ok{background:#166534}.scanLastResult.err{background:#991b1b}';
  st.textContent+='@media(max-width:600px){.scan{box-sizing:border-box;height:100vh;height:100dvh;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}.scanhead,.scanModes,.scanTools,.scanhint,.scanLastResult{flex-shrink:0}.scanhead #scanTitle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.scanhead #scanX{flex:none}#scanReader{min-height:0}.scanFb.scanned{display:none}.scanLastResult{padding:10px 12px;font-size:.9rem;overflow-wrap:anywhere}}';
+ st.textContent+='.scanGuide{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);width:min(74vw,320px);max-width:80%;aspect-ratio:1;border:3px solid #fff;border-radius:18px;box-shadow:0 0 0 2px rgba(0,0,0,.45),0 0 22px rgba(255,255,255,.5);pointer-events:none;box-sizing:border-box;transition:border-color .15s,box-shadow .15s}.scanGuide.read{border-color:#22c55e;box-shadow:0 0 0 2px rgba(0,0,0,.45),0 0 28px rgba(34,197,94,.9)}.scanGuide span{position:absolute;left:50%;bottom:-32px;transform:translateX(-50%);background:rgba(0,0,0,.78);color:#fff;border-radius:7px;padding:4px 9px;font-size:.8rem;font-weight:800;white-space:nowrap}@media(max-width:600px){.scanFb.scanned{display:flex}}';
  var lastStatus=document.createElement('div');lastStatus.id='scanLastResult';lastStatus.className='scanLastResult';lastStatus.hidden=true;lastStatus.setAttribute('role','status');lastStatus.setAttribute('aria-live','polite');modal.insertBefore(lastStatus,document.getElementById('scanOcrCapture'));
  document.getElementById('scanFb').setAttribute('role','status');
  document.getElementById('scanFb').setAttribute('aria-live','polite');
  function hint(t){const h=document.getElementById('scanHint');if(h)h.textContent=t;}
+ function showScanGuide(){var reader=document.getElementById('scanReader');if(!reader)return;var guide=document.createElement('div');guide.id='scanGuide';guide.className='scanGuide';guide.innerHTML='<span>Enquadre o QR aqui</span>';reader.appendChild(guide);}
+ function markScanGuide(){var guide=document.getElementById('scanGuide');if(!guide)return;guide.classList.add('read');clearTimeout(guide._t);guide._t=setTimeout(function(){guide.classList.remove('read');},1000);}
+ function qrNoRead(){if(!active||!O||O.scanMode!=='qr')return;var now=Date.now();if(now-qrLastReadAt<4500||now-qrLastHintAt<6000)return;qrLastHintAt=now;if(scanSeen.size){hint('Aponte para a próxima etiqueta.');return;}hint('Ainda não li. Centralize o QR no quadrado, aproxime e aguarde o foco.');scanResultStatus('Ainda não li o código. Ajuste a distância e o foco.',false);}
+ function rejectScan(key,message){var now=Date.now();if(key===lastRejectedKey&&now-lastRejectedAt<3000)return false;lastRejectedKey=key;lastRejectedAt=now;hint(message);scanResultStatus(message,false);scanFeedback(message,false,true);return false;}
  function clearScanResultStatus(){var status=document.getElementById('scanLastResult');if(status){status.hidden=true;status.textContent='';}}
  function clearScanTarget(){if(scanTargetTimer)clearTimeout(scanTargetTimer);scanTargetTimer=null;var target=document.getElementById('scanTarget');if(target)target.remove();}
  function ocrNumberBox(result,region,id,source){
@@ -5915,7 +5936,7 @@ window.cleanScanCode=function(v,kind){
   function updateScanMode(){var box=document.getElementById('scanModes');if(!box)return;box.hidden=!(O&&O.scanModes&&O.supplierOcr);box.querySelectorAll('[data-scanmode]').forEach(function(b){var selected=!!O&&O.scanMode===b.getAttribute('data-scanmode');b.classList.toggle('on',selected);b.setAttribute('aria-pressed',String(selected));});document.getElementById('scanOcrCapture').hidden=!(O&&O.scanMode==='ocr'&&!O.autoOcr);}
  function newReader(){var opts={verbose:false},f=window.Html5QrcodeSupportedFormats;if(f)opts.formatsToSupport=[f.QR_CODE,f.CODE_128,f.CODE_39,f.EAN_13,f.EAN_8,f.ITF,f.CODABAR,f.DATA_MATRIX].filter(function(format){return format!==undefined;});return new Html5Qrcode('scanReader',opts);}
   function finishScanOpening(){starting=false;if(pendingScanMode&&O&&O.scanMode!==pendingScanMode&&modal.classList.contains('show')){var mode=pendingScanMode;pendingScanMode=null;changeScanMode(mode);}else pendingScanMode=null;}
- async function open(){if(starting)return;starting=true;modal.classList.add('show');active=true;clearScanResultStatus();hint('Carregando câmera…');if(O&&O.scanMode==='ocr'&&O.supplierOcr&&!O.keepOpenOnOcr)prefetchSupplierCatalog();
+  async function open(){if(starting)return;starting=true;modal.classList.add('show');active=true;qrLastReadAt=Date.now();qrLastHintAt=0;clearScanResultStatus();hint('Carregando câmera…');if(O&&O.scanMode==='ocr'&&O.supplierOcr&&!O.keepOpenOnOcr)prefetchSupplierCatalog();
    try{if(O&&O.scanMode==='ocr'){await startSupplierOcr();finishScanOpening();return;}await loadH5();await h5StopPromise;
    if(!modal.classList.contains('show')){starting=false;return;}
     if(pendingScanMode&&O&&O.scanMode!==pendingScanMode){finishScanOpening();return;}
@@ -5941,12 +5962,13 @@ window.cleanScanCode=function(v,kind){
        h5=newReader();
        var scanConfig=Object.assign({},config);
        if(_tries[_ti].videoConstraints)scanConfig.videoConstraints=_tries[_ti].videoConstraints;
-       await h5.start(_tries[_ti].camera,scanConfig,function(txt){hit(txt);},function(){});
+        await h5.start(_tries[_ti].camera,scanConfig,function(txt){hit(txt);},qrNoRead);
        _ok=true;
      }catch(_e){_err=_e;await new Promise(function(r){setTimeout(r,350);});}
    }
    if(!_ok)throw (_err||new Error('não abriu'));
    if(!modal.classList.contains('show')){try{await h5.stop();await h5.clear();}catch(e){}h5=null;starting=false;return;}
+    showScanGuide();
     try{_tuneCam(h5,true);}catch(e){}
    try{setupScanTools();}catch(e){}
     hint('Aponte para o QR Code ou código de barras. Para ler os dígitos, toque em Número impresso.');
@@ -5965,37 +5987,40 @@ window.cleanScanCode=function(v,kind){
    }else hint(txt2);
   }
    finishScanOpening();}
- function fill(val){if(O.onResult){try{O.onResult(val);}catch(e){try{console.warn('scan onResult',e);}catch(_){}}return;}const el=document.getElementById(O.inputId);if(!el)return;el.value=val;el.dispatchEvent(new Event('input'));if(O.enter)el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));}
+  function fill(val){if(O.onResult){try{return O.onResult(val);}catch(e){try{console.warn('scan onResult',e);}catch(_){}toast('Falha ao processar a leitura. Tente novamente.',false);return false;}}const el=document.getElementById(O.inputId);if(!el)return false;el.value=val;el.dispatchEvent(new Event('input'));if(O.enter)el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));return true;}
  function hit(val){
   val=(val||'').trim();if(!val||!active)return false;
   var clean=(typeof window.cleanScanCode==='function')?window.cleanScanCode(val,O&&O.scanKind):val;
   var resolved=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(clean):null;
   var key=resolved&&resolved.id||clean,now=Date.now();
-  if(O.allowedDocKey&&ETQ[key]&&ETQ[key].nf!==O.allowedDocKey){hint('Etiqueta de outro documento. Aponte para esta nota ou romaneio.');return false;}
+   if(O.allowedDocKey&&ETQ[key]&&ETQ[key].nf!==O.allowedDocKey)return rejectScan(key,'Etiqueta de outro documento. Aponte para esta nota ou romaneio.');
   if(O.continuous){
-   if(scanSeen.has(key)){hint('Já bipado: '+key+'. Aponte para outra bobina.');return false;}
+    if(scanSeen.has(key))return rejectScan(key,'Já bipado: '+key+'. Aponte para outra bobina.');
    if(O.keepOpenOnOcr){
-    if(!ETQ[key]){hint('Etiqueta '+key+' não está no romaneio. Aponte para outra.');return false;}
+     if(!ETQ[key])return rejectScan(key,'Etiqueta '+key+' não está no romaneio. Aponte para outra.');
     if(scanSeen.has(key)||scanIgnored.has(key))return false;
-    if(ETQ[key].status==='entrada'||ETQ[key].status==='saida'){scanIgnored.add(key);hint('Bobina '+key+' já recebida. Aponte para outra.');return false;}
+     if(ETQ[key].status==='entrada'||ETQ[key].status==='saida'){scanIgnored.add(key);return rejectScan(key,'Bobina '+key+' já recebida. Aponte para outra.');}
    }
    if(key===lastV&&now-lastT<4000)return false;
+    qrLastReadAt=now;lastRejectedKey='';markScanGuide();
    lastV=key;lastT=now;beep();if(navigator.vibrate)navigator.vibrate(60);
-   scanFeedback('BIPADO: '+key,true,true);
-   scanResultStatus('BIPADO: '+key,true);
-   fill(clean);
+    scanFeedback('LIDO: '+key,true,true);
+    scanResultStatus('LIDO: '+key+' · conferindo registro…',true);
+    scanSeen.add(key);
+    var outcome=fill(clean);
    if(O.keepOpenOnOcr){
     var received=!!(ETQ[key]&&ETQ[key].status==='entrada');
-    if(received){scanSeen.add(key);hint('Recebida '+key+' · '+scanSeen.size+' nesta sessão. Aponte para outra bobina.');}
-    else{lastV='';hint('Não foi possível receber '+key+'. Confira o romaneio.');scanFeedback('Não recebido: '+key,false,true);scanResultStatus('Não recebido: '+key,false);}
+     if(received){scanResultStatus('RECEBIDA: '+key,true);hint('Recebida '+key+' · '+scanSeen.size+' nesta sessão. Aponte para outra bobina.');}
+     else{scanSeen.delete(key);lastV='';hint('Não foi possível receber '+key+'. Confira o romaneio.');scanFeedback('Não recebido: '+key,false,true);scanResultStatus('Não recebido: '+key,false);}
     return received;
    }
-   scanSeen.add(key);
-   hint('Código capturado: '+key);return true;
+    if(outcome===false){scanSeen.delete(key);lastV='';return rejectScan(key,'Não foi possível registrar '+key+'. Tente novamente.');}
+    if(outcome&&typeof outcome.then==='function')outcome.then(function(saved){if(!active)return;if(saved===false){scanSeen.delete(key);if(lastV===key)lastV='';var status=document.getElementById('scanLastResult');if(!status||!status.classList.contains('err'))rejectScan(key,'Não foi possível registrar '+key+'. Tente novamente.');}else{var status=document.getElementById('scanLastResult');if(status&&status.textContent.indexOf('LIDO: '+key+' ·')===0)scanResultStatus('REGISTRADO: '+key,true);}}).catch(function(){if(!active)return;scanSeen.delete(key);if(lastV===key)lastV='';rejectScan(key,'Falha ao registrar '+key+'. Tente novamente.');});
+    hint('Código lido: '+key+'. Aponte para a próxima etiqueta.');return true;
   }
-  beep();if(navigator.vibrate)navigator.vibrate(60);close();fill(clean);return true;
+   beep();if(navigator.vibrate)navigator.vibrate(60);close();fill(clean);return true;
  }
-  function close(){active=false;pendingScanMode=null;stopSupplierOcr();modal.classList.remove('show');document.getElementById('scanTools').hidden=true;lastV='';scanSeen.clear();scanIgnored.clear();if(h5){const x=h5;h5=null;h5StopPromise=Promise.resolve().then(function(){return x.stop();}).catch(function(){}).then(function(){return x.clear();}).catch(function(){});}if(typeof window.flushNFScanRefresh==='function')window.flushNFScanRefresh();}
+  function close(){active=false;pendingScanMode=null;stopSupplierOcr();modal.classList.remove('show');document.getElementById('scanTools').hidden=true;lastV='';scanSeen.clear();scanIgnored.clear();if(h5){const x=h5;h5=null;h5StopPromise=Promise.resolve().then(function(){return x.stop();}).catch(function(){}).then(function(){return x.clear();}).catch(function(){});}if(typeof window.flushNFScanRefresh==='function')window.flushNFScanRefresh();if(typeof window.flushRecvScanRefresh==='function')window.flushRecvScanRefresh();if(typeof window.flushRbdScanRefresh==='function')window.flushRbdScanRefresh();}
   async function changeScanMode(mode){if(!O||!O.scanModes||!O.supplierOcr)return;if(starting){pendingScanMode=mode;hint('Trocando modo da câmera…');return;}if(O.scanMode===mode)return;starting=true;active=false;stopSupplierOcr();O.scanMode=mode;updateScanMode();document.getElementById('scanTools').hidden=true;hint('Trocando modo da câmera…');var old=h5;h5=null;if(old){try{await old.stop();}catch(e){}try{await old.clear();}catch(e){}}if(!modal.classList.contains('show')){starting=false;return;}starting=false;open();}
  document.querySelectorAll('#scanModes [data-scanmode]').forEach(function(b){b.onclick=function(){changeScanMode(b.getAttribute('data-scanmode'));};});
  document.getElementById('scanX').onclick=close;

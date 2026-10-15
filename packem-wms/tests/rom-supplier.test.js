@@ -173,6 +173,48 @@ test('abas da câmera mostram QR e número impresso com a seleção correta',()=
   assert.equal(modes.hidden,true);
 });
 
+test('falha depois de ler permite bipar novamente a mesma etiqueta',async()=>{
+  let finish,failed=0;
+  const result=new Promise(resolve=>{finish=resolve;});
+  const ctx={window:{cleanScanCode:v=>v,resolveRomSupplierScan:()=>null},O:{continuous:true},active:true,
+    ETQ:{},scanSeen:new Set(),scanIgnored:new Set(),lastV:'',lastT:0,qrLastReadAt:0,lastRejectedKey:'',lastRejectedAt:0,
+    navigator:{},beep(){},markScanGuide(){},scanFeedback(){},scanResultStatus(){},hint(){},
+    fill:()=>result,rejectScan:()=>{failed++;return false;},document:{getElementById:()=>({classList:{contains:()=>false}})}};
+  vm.createContext(ctx);
+  vm.runInContext(source(' function hit(val){',' function close(){'),ctx);
+  assert.equal(ctx.hit('2600255962'),true);
+  assert.equal(ctx.scanSeen.has('2600255962'),true);
+  finish(false);await result;await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(ctx.scanSeen.has('2600255962'),false);
+  assert.equal(failed,1);
+});
+
+test('salvar catálogo de bobinas não serializa toda a base no momento do bipe',()=>{
+  let scheduled=null;
+  const ctx={_bobVer:0,_bobSaveT:null,BOB:new Proxy({},{ownKeys(){throw new Error('catálogo inteiro percorrido');}}),
+    clearTimeout(){},setTimeout(fn){scheduled=fn;return 1;},_bobIDB:{set:()=>Promise.resolve()},
+    localStorage:{setItem(){throw new Error('localStorage bloqueou a câmera');}},console};
+  vm.createContext(ctx);
+  vm.runInContext(source('function saveBOB(){','/* Confirma a migração'),ctx);
+  ctx.saveBOB();
+  assert.equal(ctx._bobVer,1);
+  assert.equal(typeof scheduled,'function');
+});
+
+test('Recebimento adia a lista pesada até fechar a câmera',()=>{
+  let draws=0;
+  const scan={classList:{contains:()=>true}},count={textContent:''},weight={style:{},textContent:''};
+  const elements={'v-recv':{},recvPendingCount:count,recvPendingWeight:weight,recvPrintAll:null,scan};
+  const ctx={window:{},document:{getElementById:id=>elements[id]||null},STAGE:[{pl:10}],fmt:String,ICONS:{},renderStageList(){draws++;}};
+  vm.createContext(ctx);
+  vm.runInContext(source('var recvScanNeedsRender=false;','function renderStageList(){'),ctx);
+  ctx.refreshRecvAfterScan();
+  assert.equal(count.textContent,1);
+  assert.equal(draws,0);
+  ctx.window.flushRecvScanRefresh();
+  assert.equal(draws,1);
+});
+
 test('OCR só aceita automaticamente número cadastrado e consulta bobina importada em outro aparelho',async()=>{
   const ctx={window:{},O:{keepOpenOnOcr:false},BOB:{},ETQ:{},ROMS:{},ocrCloudMiss:new Set(),
     bobFetch:async id=>{if(id==='2600255962'){ctx.BOB[id]={pr:'0303450156',pl:309.66};return ctx.BOB[id];}return null;}};

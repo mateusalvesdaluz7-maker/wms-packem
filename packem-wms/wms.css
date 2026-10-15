@@ -875,6 +875,9 @@ body.admin #v-exped .lote-card .lc-x,body.exp-editor #v-exped .lote-card .lc-x{d
 #v-exped .item .qty-line b{font-family: "JetBrains Mono"; font-weight: 800; color: var(--ink); font-size: 15.5px; margin-left: 5px;}
 #v-exped .item .tag.dim{color: var(--ink3); font-weight: 600; font-size: 14px; font-family: Inter;}
 #v-exped .item .desc{font-size: 13px; color: var(--ink2); margin-top: 4px; line-height: 1.4; word-break: break-word; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;}
+#v-exped .item.cut-op-item .desc{display:block;-webkit-line-clamp:unset;overflow:visible;white-space:normal;}
+#v-exped .item .exp-cut-codes{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:7px;font-size:11.5px;color:var(--ink3);}
+#v-exped .item .exp-cut-codes b{font-family:'JetBrains Mono',monospace;color:var(--ink);font-weight:800;}
 #v-exped .item.aguardando .desc{display: block; -webkit-line-clamp: unset; color: var(--ink); font-size: 14px; font-weight: 600;}
 #v-exped .item .badge{font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 800; color: var(--ink3); flex: 0 0 auto;}
 #v-exped .item.separado .badge{color: var(--amber);}

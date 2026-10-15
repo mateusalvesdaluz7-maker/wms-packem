@@ -262,13 +262,14 @@ test('importação da planilha salva bobinas no catálogo e confirma na nuvem se
 test('bobinas do romaneio entram em sequência no Chão 70, sem duplicar',()=>{
   const ctx={window:{},ETQ:{},ROMS:{'ROM-1419':{supplierLabels:true,local:'TEXTIL',nRomaneio:'1419',supplierSource:{'2600000001':{code:'11894'},'2600000002':{code:'11894'}}}},NFS:{},
     STAGE:[],norm,fmt:q=>String(q).replace('.',','),nowISO:()=> '2026-10-01T12:00:00Z',session:{u:'admin'},
-    saveNF(){},logAct(){},syncEtiqueta(){},renderNF(){},toast(){},document:{querySelector:()=>null}};
+    saveNF(){},logAct(){},syncEtiqueta(){},renderNF(){},queueNFScanRefresh(){},toast(){},document:{querySelector:()=>null}};
   ctx.ETQ['2600000001']={id:'2600000001',nf:'ROM-1419',nRomaneio:'1419',bobina:'2600000001',cProd:'0303450156',xProd:'ART MAT PLAST 156G 360CM',kg:318.66,status:'gerada',hist:[]};
   ctx.ETQ['2600000002']={id:'2600000002',nf:'ROM-1419',nRomaneio:'1419',bobina:'2600000002',cProd:'0303450156',xProd:'ART MAT PLAST 156G 360CM',kg:304.16,status:'gerada',hist:[]};
   const received=[];ctx.window.f70Entrada=it=>{received.push(it.et);assert.equal(it.pr,'0303450156');return true;};
   vm.createContext(ctx);
   vm.runInContext(source('  function resolveRomSupplierScan(', '  window.resolveRomSupplierScan=resolveRomSupplierScan;'),ctx);
   vm.runInContext(source('  function nfRecvBip(v){','  /* Etiquetas pertencentes à geração atual'),ctx);
+  vm.runInContext(source('  function nfDocLabelIds(key){','  /* ---- excluir nota importada'),ctx);
   ctx.nfRecvBip('41488$2600000001$11970$379$2$204');
   ctx.nfRecvBip('2600000001');
   ctx.nfRecvBip('2600000002');
@@ -295,7 +296,7 @@ test('bobina física do catálogo entra no Recebimento normal sem imprimir etiqu
   const calls={nf:0,printed:0,saved:0},ctx={window:{resolveRomSupplierScan:()=>({id:'2600256492',supplier:false}),nfRecvBip:()=>{calls.nf++;}},
     BOB:{'2600256492':{pr:'0303450156',desc:'TEC.TUBULAR PP 156G 360CM',pl:318.66}},STAGE:[],norm,
     isAdmin:()=>true,nowISO:()=> '2026-10-01T12:00:00Z',session:{u:'admin'},saveStage:()=>{calls.saved++;},
-    syncStage(){},markLocalWrite(){},renderRecv(){},updateStageBadge(){},toast(){},fmt:x=>String(x),unitOf:()=> 'KG',stationPrint(){calls.printed++;}};
+    syncStage(){},markLocalWrite(){},refreshRecvAfterScan(){},updateStageBadge(){},toast(){},fmt:x=>String(x),unitOf:()=> 'KG',stationPrint(){calls.printed++;}};
   vm.createContext(ctx);
   vm.runInContext(source('async function recvAdd(v){','function renderRecv(){'),ctx);
   await ctx.recvAdd('41488$2600256492$11970');

@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
+const lotCore = require('../bob-lot-core.js');
 
 const app = fs.readFileSync(path.join(__dirname, '..', 'wms-app.js'), 'utf8');
 
@@ -20,18 +21,20 @@ function loadBetween(start, end, context) {
 function importContext(syncBobDelta) {
   const elements = {
     mapDo: { disabled: false },
-    impStatus: { textContent: '' },
+    impStatus: { textContent: '', appendChild() {} },
     impMap: { innerHTML: 'mapeamento aberto' },
     impHrow: { value: '1' },
     mapEt: { value: '0' },
     mapPr: { value: '1' },
     mapDe: { value: '2' },
     mapPl: { value: '3' },
+    mapLo: { value: '-1' },
   };
   const actions = [];
   const context = {
     $: (selector) => elements[selector.slice(1)],
-    window: { _bobReady: true },
+    window: { _bobReady: true, BobLotCore: lotCore },
+    document: { createElement: () => ({ style: {} }) },
     impRows: [['Etiqueta', 'Produto', 'Descrição', 'Quantidade Produzida'], ['T30383860', '0303490078', 'Tecido', '18,7']],
     BOB: { T30383860: { pr: '0303490078', desc: 'Tecido', pl: 18.7, rem: 5 } },
     _bobIDB: { set: async () => { actions.push('idb'); } },
@@ -78,6 +81,79 @@ test('falha no envio mantém a importação local identificada como incompleta e
   assert.equal(elements.impMap.innerHTML, 'mapeamento aberto');
   assert.equal(elements.mapDo.disabled, false);
   assert.equal(actions.includes('log'), false);
+});
+
+test('lote importado é salvo na bobina e encaminhado à Expedição após confirmar na nuvem', async () => {
+  const { context, elements, actions } = importContext(async () => { actions.push('cloud'); });
+  elements.mapLo.value = '4';
+  context.impRows = [
+    ['Etiqueta', 'Produto', 'Descrição', 'Quantidade Produzida', 'Lote'],
+    ['T30383860', '0303490078', 'Tecido', '18,7', 'LOTE 42'],
+  ];
+  let sent;
+  context.window.EXP = { importBobLotes: async (rows) => {
+    sent = rows;
+    actions.push('expedicao');
+    return { lots: 1, added: 1, skipped: 0, synced: true };
+  } };
+  await context.doImport();
+  assert.equal(context.BOB.T30383860.lote, 'LOTE 42');
+  assert.equal(sent[0].lote, 'LOTE 42');
+  assert.ok(actions.indexOf('cloud') < actions.indexOf('expedicao'));
+  assert.match(elements.impStatus.textContent, /1 lote\(s\) atualizado\(s\) na Expedição/);
+});
+
+test('relatório 5646 mantém a coluna OP junto da etiqueta e do lote', async () => {
+  const { context, elements } = importContext(async () => {});
+  Object.assign(elements, {mapOp:{value:'5'}});
+  elements.mapEt.value='1';elements.mapPr.value='6';elements.mapDe.value='7';elements.mapPl.value='9';elements.mapLo.value='15';
+  context.impRows=[
+    ['Status','Etiqueta','Status','Filial','Tipo','OP','Produto','Descricao','Armazem','Qtd. Prod.','Qtd. Prod. 2','Peso Liquido','Peso Bruto','Metros Lineares','Dt. Apont.','Lote'],
+    ['Finalizado','T30384872','Finalizado','010101','','04690601008','0404550219','LINER 198CM',71,1700,0,50,55,1700,'2026-10-02','117.10'],
+  ];
+  let sent;
+  context.window.EXP={importBobMatchingCutOps:async rows=>{sent=rows;return {lots:1,added:1,skipped:0,matched:1,unmatched:0,synced:true};}};
+  await context.doImport();
+  assert.equal(context.BOB.T30384872.op,'04690601008');
+  assert.equal(context.BOB.T30384872.lote,'117.10');
+  assert.equal(sent[0].op,'04690601008');
+});
+
+test('relatório histórico com muitos lotes pede escolha do lote sem disparar todos', async () => {
+  const { context, elements } = importContext(async () => {});
+  elements.mapLo.value = '4';
+  context.impRows = [['Etiqueta', 'Produto', 'Descrição', 'Quantidade Produzida', 'Lote']];
+  for (let i = 0; i < 101; i++) context.impRows.push(['T'+i, '0303490078', 'Tecido', '1', 'LOTE '+i]);
+  let dispatched = 0;
+  context.window.EXP = { importBobLotes: async () => { dispatched++; } };
+  await context.doImport();
+  assert.equal(dispatched, 0);
+  assert.match(elements.impStatus.textContent, /101 lotes/);
+  assert.match(elements.impStatus.textContent, /Informe o lote desejado/);
+});
+
+test('migração confirma bobinas no IndexedDB antes de liberar cópia antiga', async () => {
+  const start = app.indexOf('/* Confirma a migração antes de liberar a cópia redundante');
+  const end = app.indexOf('/* Busca sob demanda somente depois', start);
+  assert.ok(start >= 0 && end > start);
+  let stored = { T2: { pr: '0303490078', lote: '78.09/26' } };
+  const events = [];
+  const context = {
+    BOB: { T1: { pr: '0303490078', lote: '117.10/26' } },
+    _bobIDB: {
+      get: async () => stored,
+      set: async (_key, value) => { stored = JSON.parse(JSON.stringify(value)); events.push('idb'); },
+    },
+    localStorage: { removeItem: () => events.push('local-removido') },
+    window: { _bobReady: false },
+    document: { getElementById: () => null },
+    console,
+  };
+  vm.createContext(context); vm.runInContext(app.slice(start, end), context);
+  await new Promise(setImmediate);
+  assert.deepEqual(events, ['idb', 'local-removido']);
+  assert.equal(context.window._bobReady, true);
+  assert.deepEqual(Object.keys(stored).sort(), ['T1', 'T2']);
 });
 
 test('recuperação envia o catálogo local com inserção somente de ausentes', async () => {

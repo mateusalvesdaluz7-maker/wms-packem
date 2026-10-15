@@ -1,10 +1,29 @@
-# Envio automático de dados das etiquetas à estação NFC
+# Gravação de etiquetas e leitura NFC para contagem
 
 Esta alteração conecta o bloco de etiquetas rastreáveis preparado pelo WMS à fila NFC do computador. O operador conecta a estação uma vez; cada bloco seguinte transmite ID da embalagem, código, quantidade e unidade automaticamente, antes da abertura da impressão. Não há exportação de arquivo nem cópia de cada etiqueta.
 
 **O código está preparado para revisão. Não foi publicado no WMS de produção. Esta integração não implementa gravação contínua no iPhone nem sincroniza mecanicamente o rolo com o NFC.** O NFC.cool Platinum permanece como gravador assistido, com início da escrita e releitura no telefone. Aceitação dos dados pela estação não comprova impressão ou gravação física.
 
-## Funcionamento
+
+## Leitura para contagem
+
+A estação 0.6.0 também recebe leituras do NFC.cool por Webhook HTTPS. O aplicativo envia `identifier`, `date` e `content`; a estação exige Basic Auth exclusivo, interpreta o texto `JOB=...;ID=...;COD=...;QTD=...;UN=...` (ou o formato anterior `PLG`) e guarda a leitura antes de responder 204. Código permanece texto; quantidades são somadas com decimal exato, por unidade. UID e ID da embalagem impedem duplicação; dados conflitantes são recusados. Cada sessão recebe até 1000 etiquetas e fica pausada ao reiniciar o servidor. Sessões anteriores são arquivadas no computador.
+
+`wms-nfc-reader.js` acrescenta **Conectar leitor** aos modos **Chão expedição**, **Chão 70** e **Recicladora - 91**. Não reativa o Inventário removido do produto. O operador conecta a estação ao destino; os eventos só entram com usuário autenticado, tela correspondente ativa e modo Entrada. O WMS consulta o cadastro pelo ID e confere código, quantidade e unidade antes de chamar a função normal de entrada. Não cria catálogo confiando no chip, não altera peso e não chama saídas automaticamente. A entrada recusada pelo WMS permanece pendente.
+
+A conexão verifica origem, janela e identificador. O código principal da estação continua fora do WMS. No link HTTPS, o WMS recebe apenas uma credencial de leitor, que não acessa a fila de gravação nem cria leituras pelo endpoint interno. O NFC.cool usa usuário/senha diferentes, exclusivos do Webhook. O iframe de leitura admite somente a origem configurada do WMS, com alternativa em outra aba. Leituras pendentes têm sequência; confirmação perdida é repetida sem somar uma embalagem já contada.
+
+1. Inicie a estação 0.6.0 no modo celular. Para superar bloqueio de entrada na rede, execute os iniciadores HTTPS incluídos em `computador/LEIA-ME.md`.
+2. No iPhone, abra `/reader` pelo QR Code. Configure **Mais → Webhook** no NFC.cool com URL, usuário e senha mostrados; habilite somente leituras NFC.
+3. Use **Abrir WMS com o leitor conectado**, entre com seu usuário e abra o destino de contagem. Clique **Conectar leitor** uma vez. Esse passo abre a sessão de recepção correspondente.
+4. Abra o leitor do NFC.cool. Cada leitura enviada fica guardada; ao voltar ao WMS, as pendentes são aplicadas à contagem conectada. O Safari não acessa NFC. A continuidade de leitura e eventual necessidade de reiniciar a sessão NFC dependem do aplicativo e ainda precisam de teste físico.
+5. Use **Pausar leitor** para terminar. Não inicie recepção avulsa em `/reader` e outra sessão do WMS ao mesmo tempo: há um único destino ativo por estação.
+
+A página `/tests/ui/nfc-leitura.html` usa catálogo e contagem locais, sem carregar APIs do estoque: duas embalagens fictícias do código 0303450047 totalizam 550,5 kg. Eventos HTTP de teste validam o transporte; não comprovam captura física de NFC. A primeira leitura real depende da chegada das NTAG213.
+
+O Webhook do NFC.cool não possui fila de reenvio automático quando a rede falha. Confira o histórico do aplicativo e reenvie a leitura; a recepção reconhece a repetição. A estação e o túnel precisam permanecer ativos. O endereço temporário muda ao reiniciar e expira em duas horas; é um piloto, não um endpoint de produção estável.
+
+## Envio para gravação
 
 `printZebraEtq`, quando imprime etiquetas rastreáveis, passa cada bloco efetivamente escolhido ao módulo `wms-nfc-bridge.js`. A comunicação usa um quadro local em `http://127.0.0.1:8788/wms-bridge`, aberto dentro do WMS pelo operador. O módulo aguarda a confirmação de recepção antes de chamar a impressão existente. Blocos posteriores cancelados pelo operador não são encaminhados antecipadamente.
 
@@ -34,7 +53,7 @@ Ao recarregar o WMS, reconecte o quadro. Fechar a estação, pausar a fila ou fa
 
 ## Validação
 
-Passaram **194 testes do WMS**, incluindo os seis testes da ponte, e **31 testes da estação**. Os testes cobrem KG/MT e zeros à esquerda, validação da origem e da janela, liberação somente após ACK, duplo clique, reenvio, persistência, disco sem espaço, enquadramento restrito à origem configurada, aba alternativa e cancelamento de blocos seguintes. A sintaxe dos scripts foi verificada.
+Passaram **199 testes do WMS**, incluindo os seis testes da ponte, e **37 testes da estação**. Os testes cobrem KG/MT e zeros à esquerda, validação da origem e da janela, liberação somente após ACK, duplo clique, reenvio, persistência, disco sem espaço, enquadramento restrito à origem configurada, aba alternativa e cancelamento de blocos seguintes. A sintaxe dos scripts foi verificada.
 
 Um ensaio de interface no navegador interno confirmou a recepção de duas etiquetas fictícias por meio do quadro local. Na prévia HTTPS da Vercel, o quadro permaneceu em branco; a aba alternativa conectou e recebeu TESTE-NFC-001 (0303450047, 300 KG) e TESTE-NFC-002 (0303410008, 6300 MT), com recibo exibido na página de teste. O painel local mostrou a primeira ativa e a segunda na fila. Cada conexão usa um nome de janela próprio para não reutilizar o vínculo de outra página. Nenhuma confirmação NFC foi simulada. A gravação no NFC.cool, a impressão na Zebra, o chip real e o primeiro teste por dentro da interface autenticada do WMS continuam pendentes.
 

@@ -26,7 +26,7 @@ if(simulate){
     if(method==='nfc_available'){respond(method,body,{status:true});return;}
     if(method!=='nfc_read'&&method!=='nfc_write'){respond(method,body,{status:'FAILED',message:'Comando não simulado.'});return;}
     if(radioRequest){respond(method,body,{status:'FAILED',message:'Leitor virtual ocupado.'});return;}
-    radioRequest={method:method,body:body};document.getElementById('qa-radio-action').textContent=method==='nfc_write'?'Gravar a embalagem '+body.recordId+' na tag virtual escolhida.':'Ler o conteúdo da tag virtual escolhida.';radio.showModal();
+    radioRequest={method:method,body:body};document.getElementById('qa-radio-action').textContent=method==='nfc_write'?'Gravar os dados da embalagem selecionada na tag virtual escolhida.':'Ler o conteúdo da tag virtual escolhida.';radio.showModal();
   }};
   function present(key){var request=radioRequest;if(!request)return;radioRequest=null;radio.close();var data;
     if(!key)data={status:'FAILED',message:'Simulação cancelada.'};
@@ -36,4 +36,4 @@ if(simulate){
   }
   document.getElementById('qa-tag-a').onclick=function(){present('A');};document.getElementById('qa-tag-b').onclick=function(){present('B');};document.getElementById('qa-cancel').onclick=function(){present(null);};radio.addEventListener('cancel',function(event){event.preventDefault();present(null);});window.natively.notify(0,99);
 }
-</script><script src="../../wms-nfc-text.js?v=20261015-iphone1"></script><script src="../../wms-nfc-reader.js?v=20261015-direto1"></script><script src="../../wms-nfc-preparar.js?v=20261015-direto1"></script><script src="../../wms-nfc-direto.js?v=20261015-direto1"></script></body></html>
+</script><script src="../../wms-nfc-text.js?v=20261015-iphone1"></script><script src="../../wms-nfc-reader.js?v=20261015-direto1"></script><script src="../../wms-nfc-preparar.js?v=20261015-direto1"></script><script src="../../wms-nfc-direto.js?v=20261015-direto2"></script></body></html>

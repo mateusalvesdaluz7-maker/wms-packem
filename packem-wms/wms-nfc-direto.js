@@ -30,7 +30,7 @@
       var fresh=await this.prepare(value.tag.item,context);this.guard(context,epoch);
       if(!sameTag(fresh.tag,value.tag))throw new Error('O cadastro mudou. Consulte a embalagem novamente antes de gravar.');
       this.pending={value:fresh,context:context};this.status('Aproxime uma tag de teste vazia para gravar a embalagem '+fresh.tag.item+'.');
-      var reply=await this.invoke('write',[fresh.tag.item,fresh.content,'text']);this.guard(context,epoch);
+      var reply=await this.invoke('write',['wms',fresh.content,'text']);this.guard(context,epoch);
       if(!reply||reply.status!=='SUCCESS')throw new Error('A escrita não foi confirmada. Confira a tag antes de repetir. '+String(reply&&reply.message||'').slice(0,180));
       this.status('O app informou escrita concluída. Afaste a tag e toque em Conferir tag gravada; o vínculo ainda não foi conferido.');return {verified:false};
     });}

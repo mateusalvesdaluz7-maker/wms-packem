@@ -2885,7 +2885,7 @@ updateStageBadge();
       /* Remove apenas uma eventual pendência legada depois que a entrada física foi concluída. */
       try{if(typeof STAGE!=='undefined'&&STAGE.some(function(s){return norm(s.et)===et;})){STAGE=STAGE.filter(function(s){return norm(s.et)!==et;});if(typeof saveStage==='function')saveStage();if(typeof syncDelStage==='function')syncDelStage(et);if(typeof updateStageBadge==='function')updateStageBadge();}}catch(e){}
       try{if(typeof logAct==='function')logAct('chao70',et+' · '+pr+' (via recebimento)');}catch(e){}
-      try{updateF70();}catch(e){}
+      try{var vista=document.querySelector('.view.active');if(vista&&vista.id==='v-floor70')updateF70();}catch(e){}
       if(!silencioso)toast('+1 no Chão 70 · '+pr);
       return true;
     }catch(e){return false;}
@@ -3099,16 +3099,21 @@ updateStageBadge();
       if(quickHits.size>1)return {ambiguous:true};
     }
     if(quickHits.size)return quickHits.values().next().value;
-    var matches=Object.keys(ETQ).filter(function(id){
-      var e=ETQ[id],doc=e&&ROMS[e.nf];
-      return e.nRomaneio&&(!doc||doc.supplierLabels)&&/^\d{8,20}$/.test(id)&&e.bobina===id&&(marked.length?marked.indexOf(id)>=0:numeric.indexOf(id)>=0);
-    });
-    if(matches.length>1)return {ambiguous:true};
-    if(matches.length)return {id:matches[0],supplier:true};
+    /* Códigos físicos fora de 10 dígitos também podem estar embutidos no QR.
+       Consulta os trechos por chave, sem enumerar o catálogo inteiro no quadro da câmera. */
+    var supplierMatches=new Set(),catalogMatches=new Set();
+    for(var length=8;length<=20&&length<=numeric.length;length++){
+      for(var at=0;at<=numeric.length-length;at++){
+        var id=numeric.slice(at,at+length),e=ETQ[id],doc=e&&ROMS[e.nf];
+        if(e&&e.nRomaneio&&(!doc||doc.supplierLabels)&&e.bobina===id)supplierMatches.add(id);
+        if(catalog[id])catalogMatches.add(id);
+      }
+    }
+    if(supplierMatches.size>1)return {ambiguous:true};
+    if(supplierMatches.size)return {id:supplierMatches.values().next().value,supplier:true};
     if(marked.length)return {id:marked[0],supplier:false};
-    var catalogMatches=Object.keys(catalog).filter(function(id){return /^\d{8,20}$/.test(id)&&numeric.indexOf(id)>=0;});
-    if(catalogMatches.length>1)return {ambiguous:true};
-    return catalogMatches.length?{id:catalogMatches[0],supplier:false}:null;
+    if(catalogMatches.size>1)return {ambiguous:true};
+    return catalogMatches.size?{id:catalogMatches.values().next().value,supplier:false}:null;
   }
   window.resolveRomSupplierScan=resolveRomSupplierScan;
   /* O depósito precisa ser escolhido conscientemente ao entrar na aba.
@@ -5995,7 +6000,12 @@ window.cleanScanCode=function(v,kind){
   var key=resolved&&resolved.id||clean,now=Date.now();
    if(O.allowedDocKey&&ETQ[key]&&ETQ[key].nf!==O.allowedDocKey)return rejectScan(key,'Etiqueta de outro documento. Aponte para esta nota ou romaneio.');
   if(O.continuous){
-    if(scanSeen.has(key))return rejectScan(key,'Já bipado: '+key+'. Aponte para outra bobina.');
+    if(scanSeen.has(key)){
+      /* A câmera decodifica o mesmo QR em vários quadros: não apague o aviso verde
+         com um falso erro enquanto a pessoa ainda aponta para a mesma etiqueta. */
+      if(key===lastV&&now-lastT<3500)return false;
+      return rejectScan(key,'Já bipado: '+key+'. Aponte para outra bobina.');
+    }
    if(O.keepOpenOnOcr){
      if(!ETQ[key])return rejectScan(key,'Etiqueta '+key+' não está no romaneio. Aponte para outra.');
     if(scanSeen.has(key)||scanIgnored.has(key))return false;
@@ -6007,16 +6017,26 @@ window.cleanScanCode=function(v,kind){
     scanFeedback('LIDO: '+key,true,true);
     scanResultStatus('LIDO: '+key+' · conferindo registro…',true);
     scanSeen.add(key);
-    var outcome=fill(clean);
-   if(O.keepOpenOnOcr){
-    var received=!!(ETQ[key]&&ETQ[key].status==='entrada');
-     if(received){scanResultStatus('RECEBIDA: '+key,true);hint('Recebida '+key+' · '+scanSeen.size+' nesta sessão. Aponte para outra bobina.');}
-     else{scanSeen.delete(key);lastV='';hint('Não foi possível receber '+key+'. Confira o romaneio.');scanFeedback('Não recebido: '+key,false,true);scanResultStatus('Não recebido: '+key,false);}
-    return received;
-   }
-    if(outcome===false){scanSeen.delete(key);lastV='';return rejectScan(key,'Não foi possível registrar '+key+'. Tente novamente.');}
-    if(outcome&&typeof outcome.then==='function')outcome.then(function(saved){if(!active)return;if(saved===false){scanSeen.delete(key);if(lastV===key)lastV='';var status=document.getElementById('scanLastResult');if(!status||!status.classList.contains('err'))rejectScan(key,'Não foi possível registrar '+key+'. Tente novamente.');}else{var status=document.getElementById('scanLastResult');if(status&&status.textContent.indexOf('LIDO: '+key+' ·')===0)scanResultStatus('REGISTRADO: '+key,true);}}).catch(function(){if(!active)return;scanSeen.delete(key);if(lastV===key)lastV='';rejectScan(key,'Falha ao registrar '+key+'. Tente novamente.');});
-    hint('Código lido: '+key+'. Aponte para a próxima etiqueta.');return true;
+    var scanOptions=O,modeAtRead=O.scanMode;
+    function processResult(){
+      if(!active||O!==scanOptions||O.scanMode!==modeAtRead){scanSeen.delete(key);if(lastV===key)lastV='';return false;}
+      var outcome=fill(clean);
+      if(O.keepOpenOnOcr){
+        var received=!!(ETQ[key]&&ETQ[key].status==='entrada');
+        if(received){scanResultStatus('RECEBIDA: '+key,true);hint('Recebida '+key+' · '+scanSeen.size+' nesta sessão. Aponte para outra bobina.');}
+        else{scanSeen.delete(key);if(lastV===key)lastV='';hint('Não foi possível receber '+key+'. Confira o romaneio.');scanFeedback('Não recebido: '+key,false,true);scanResultStatus('Não recebido: '+key,false);}
+        return received;
+      }
+      if(outcome===false){scanSeen.delete(key);if(lastV===key)lastV='';return rejectScan(key,'Não foi possível registrar '+key+'. Tente novamente.');}
+      if(outcome&&typeof outcome.then==='function')outcome.then(function(saved){if(!active)return;if(saved===false){scanSeen.delete(key);if(lastV===key)lastV='';var status=document.getElementById('scanLastResult');if(!status||!status.classList.contains('err'))rejectScan(key,'Não foi possível registrar '+key+'. Tente novamente.');}else{var status=document.getElementById('scanLastResult');if(status&&status.textContent.indexOf('LIDO: '+key+' ·')===0)scanResultStatus('REGISTRADO: '+key,true);}}).catch(function(){if(!active)return;scanSeen.delete(key);if(lastV===key)lastV='';rejectScan(key,'Falha ao registrar '+key+'. Tente novamente.');});
+      else{var status=document.getElementById('scanLastResult');if(status&&status.textContent.indexOf('LIDO: '+key+' ·')===0)scanResultStatus('REGISTRADO: '+key,true);}
+      return true;
+    }
+    hint('Código lido: '+key+'. Conferindo registro…');
+    /* Libera um quadro para o aviso aparecer no celular antes do trabalho de estoque/NF.
+       O QR já fica reservado em scanSeen, impedindo uma segunda entrada nesse intervalo. */
+    if(O.scanMode==='qr'){setTimeout(processResult,80);return true;}
+    return processResult();
   }
    beep();if(navigator.vibrate)navigator.vibrate(60);close();fill(clean);return true;
  }

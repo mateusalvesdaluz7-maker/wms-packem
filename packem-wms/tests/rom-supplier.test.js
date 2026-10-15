@@ -116,6 +116,15 @@ test('scanner extrai a bobina entre cifrões e localiza o código Packem da plan
   assert.equal(ctx.resolveRomSupplierScan('2600999999'),null);
 });
 
+test('QR longo procura etiquetas por chave sem percorrer o catálogo inteiro',()=>{
+  const id='260025649211', catalog=new Proxy({[id]:{pr:'11894'}},{ownKeys(){throw new Error('varredura do catálogo');}});
+  const ctx={window:{},ETQ:new Proxy({},{ownKeys(){throw new Error('varredura das NFs');}}),ROMS:{},BOB:catalog,norm};
+  vm.createContext(ctx);
+  vm.runInContext(source('  function resolveRomSupplierScan(', '  window.resolveRomSupplierScan=resolveRomSupplierScan;'),ctx);
+  assert.equal(ctx.resolveRomSupplierScan('4148852600256492115119705379S2S204').id,id);
+  assert.equal(ctx.resolveRomSupplierScan('41488526009999995119705379S2S204'),null);
+});
+
 test('código de barras do fornecedor usa bobina importada no catálogo sem abrir NF',()=>{
   const ctx={window:{},ETQ:{},ROMS:{},BOB:{'2600256492':{pr:'0303450156',desc:'TEC.TUBULAR PP 156G 360CM',pl:318.66}},norm};
   vm.createContext(ctx);
@@ -187,6 +196,27 @@ test('falha depois de ler permite bipar novamente a mesma etiqueta',async()=>{
   finish(false);await result;await new Promise(resolve=>setImmediate(resolve));
   assert.equal(ctx.scanSeen.has('2600255962'),false);
   assert.equal(failed,1);
+});
+
+test('QR mostra leitura na câmera antes de processar o recebimento',()=>{
+  const events=[];let scheduled,wait;
+  const et='2600255962';
+  const ctx={window:{cleanScanCode:v=>v,resolveRomSupplierScan:()=>null},O:{continuous:true,scanMode:'qr',keepOpenOnOcr:true},active:true,
+    ETQ:{[et]:{status:'gerada'}},scanSeen:new Set(),scanIgnored:new Set(),lastV:'',lastT:0,qrLastReadAt:0,lastRejectedKey:'',lastRejectedAt:0,
+    navigator:{},beep(){},markScanGuide(){},scanFeedback:m=>events.push('aviso:'+m),scanResultStatus:m=>events.push('tela:'+m),hint(){},
+    fill:()=>{events.push('registro');ctx.ETQ[et].status='entrada';return true;},rejectScan:()=>{events.push('erro duplicado');return false;},
+    setTimeout:(fn,ms)=>{scheduled=fn;wait=ms;},document:{getElementById:()=>null}};
+  vm.createContext(ctx);
+  vm.runInContext(source(' function hit(val){',' function close(){'),ctx);
+  assert.equal(ctx.hit(et),true);
+  assert.ok(events.some(e=>e.startsWith('tela:LIDO: '+et)));
+  assert.ok(!events.includes('registro'));
+  assert.equal(ctx.hit(et),false);
+  assert.ok(!events.includes('erro duplicado'));
+  assert.equal(wait,80);
+  scheduled();
+  assert.ok(events.includes('registro'));
+  assert.ok(events.includes('tela:RECEBIDA: '+et));
 });
 
 test('salvar catálogo de bobinas não serializa toda a base no momento do bipe',()=>{

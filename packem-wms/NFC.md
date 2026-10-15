@@ -19,7 +19,7 @@ A conexão verifica origem, janela e identificador. O código principal da esta�
 4. Abra o leitor do NFC.cool. Cada leitura enviada fica guardada; ao voltar ao WMS, as pendentes são aplicadas à contagem conectada. O Safari não acessa NFC. A continuidade de leitura e eventual necessidade de reiniciar a sessão NFC dependem do aplicativo e ainda precisam de teste físico.
 5. Use **Pausar leitor** para terminar. Não inicie recepção avulsa em `/reader` e outra sessão do WMS ao mesmo tempo: há um único destino ativo por estação.
 
-A página `/tests/ui/nfc-leitura.html` usa catálogo e contagem locais, sem carregar APIs do estoque: duas embalagens fictícias do código 0303450047 totalizam 550,5 kg. Eventos HTTP de teste validam o transporte; não comprovam captura física de NFC. A primeira leitura real depende da chegada das NTAG213.
+A página `/tests/ui/nfc-leitura.html` usa catálogo e contagem locais, sem carregar APIs do estoque: duas embalagens fictícias do código 0303450047 totalizam 550,5 kg. Eventos HTTP de teste validam o transporte; não comprovam captura física de NFC. A primeira leitura real depende da chegada das NTAG213. Na prévia HTTPS, o quadro de leitura conectou e aplicou 300 kg + 250,5 kg à contagem isolada. Reenviar o primeiro evento retornou `duplicate` e manteve duas etiquetas / 550,5 kg. Pausar pelo WMS encerrou a recepção. Os eventos foram enviados por HTTP com dados fictícios, sem captura NFC física.
 
 O Webhook do NFC.cool não possui fila de reenvio automático quando a rede falha. Confira o histórico do aplicativo e reenvie a leitura; a recepção reconhece a repetição. A estação e o túnel precisam permanecer ativos. O endereço temporário muda ao reiniciar e expira em duas horas; é um piloto, não um endpoint de produção estável.
 
@@ -53,7 +53,7 @@ Ao recarregar o WMS, reconecte o quadro. Fechar a estação, pausar a fila ou fa
 
 ## Validação
 
-Passaram **199 testes do WMS**, incluindo os seis testes da ponte, e **37 testes da estação**. Os testes cobrem KG/MT e zeros à esquerda, validação da origem e da janela, liberação somente após ACK, duplo clique, reenvio, persistência, disco sem espaço, enquadramento restrito à origem configurada, aba alternativa e cancelamento de blocos seguintes. A sintaxe dos scripts foi verificada.
+Passaram **201 testes do WMS**, incluindo os seis testes da ponte, e **37 testes da estação**. Os testes cobrem KG/MT e zeros à esquerda, validação da origem e da janela, liberação somente após ACK, duplo clique, reenvio, persistência, disco sem espaço, enquadramento restrito à origem configurada, aba alternativa e cancelamento de blocos seguintes. A sintaxe dos scripts foi verificada.
 
 Um ensaio de interface no navegador interno confirmou a recepção de duas etiquetas fictícias por meio do quadro local. Na prévia HTTPS da Vercel, o quadro permaneceu em branco; a aba alternativa conectou e recebeu TESTE-NFC-001 (0303450047, 300 KG) e TESTE-NFC-002 (0303410008, 6300 MT), com recibo exibido na página de teste. O painel local mostrou a primeira ativa e a segunda na fila. Cada conexão usa um nome de janela próprio para não reutilizar o vínculo de outra página. Nenhuma confirmação NFC foi simulada. A gravação no NFC.cool, a impressão na Zebra, o chip real e o primeiro teste por dentro da interface autenticada do WMS continuam pendentes.
 

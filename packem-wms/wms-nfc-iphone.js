@@ -69,6 +69,7 @@
   }
   function arm(view){
     try{
+      if(root.PackemWmsApp&&root.PackemWmsApp.active())throw new Error('Pare a leitura do aplicativo Packem WMS antes de usar esta alternativa.');
       if(root.WmsNfcReader.bridgeActive())throw new Error('Pause o leitor da estação antes de usar a recepção no iPhone.');
       if(counter.active&&boundView!==view)throw new Error('Pause a recepção antes de trocar o destino.');
       ensureDock();dock.hidden=false;
@@ -79,8 +80,8 @@
   function mount(){
     destinations.forEach(function(view){
       var container=document.getElementById(view);if(!container||container.querySelector('[data-nfc-iphone-panel]'))return;
-      var panel=document.createElement('section');panel.className='panel';panel.dataset.nfcIphonePanel='1';panel.style.cssText='padding:16px;margin:12px 0;border:1px solid #b8d4c4';
-      var title=document.createElement('strong');title.textContent='Contar com o NFC do iPhone';panel.appendChild(title);
+      var panel=document.createElement('details');panel.className='panel';panel.dataset.nfcIphonePanel='1';panel.style.cssText='padding:16px;margin:12px 0;border:1px solid #b8d4c4';
+      var title=document.createElement('summary');title.textContent='Alternativa: recepção pelo iScanBrowser';panel.appendChild(title);
       var description=document.createElement('p');description.textContent='Use o iScanBrowser com o leitor NFC nativo habilitado. As etiquetas entram nesta contagem após a conferência no cadastro. O Safari não captura NFC.';panel.appendChild(description);
       var status=document.createElement('p');status.dataset.nfcIphoneStatus='1';status.textContent=lastStatus;panel.appendChild(status);
       for(var action of [['Ativar recepção do iPhone',function(){arm(view);}],['Pausar recepção',function(){counter.pause();}],['Retomar',function(){try{if(boundView!==view)throw new Error('Volte à contagem original para retomar.');counter.resume();}catch(error){showStatus(error.message);}}]]){

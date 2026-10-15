@@ -5,9 +5,21 @@ Esta alteração conecta o bloco de etiquetas rastreáveis preparado pelo WMS à
 **O código está preparado para revisão. Não foi publicado no WMS de produção. Esta integração não implementa gravação contínua no iPhone nem sincroniza mecanicamente o rolo com o NFC.** O NFC.cool Platinum permanece como gravador assistido, com início da escrita e releitura no telefone. Aceitação dos dados pela estação não comprova impressão ou gravação física.
 
 
-## iPhone 11 com o WMS aberto no iScanBrowser
+## Aplicativo próprio Packem WMS para iPhone 11
 
-`wms-nfc-iphone.js` adiciona **Contar com o NFC do iPhone** às três telas de contagem existentes. Este caminho dispensa a estação no PC e a troca para NFC.cool: o WMS fica aberto dentro do iScanBrowser, um aplicativo nativo que documenta leitura CoreNFC e regras de preenchimento de páginas. Isso não acrescenta Web NFC ao Safari.
+`ios/PackemWMS` contém o aplicativo nativo próprio: abre o WMS existente em `WKWebView` e usa Core NFC para entregar UID e texto de NTAG213 ao módulo `wms-nfc-app.js`. Nas três telas existentes aparece **Ler NFC**. O botão fica desabilitado no Safari; funciona somente com a ponte do aplicativo nativo. NFC.cool e iScanBrowser não são necessários nesse caminho.
+
+O operador inicia a leitura e aproxima uma etiqueta já gravada por vez. Cada entrada aguarda conferência de ID, código, quantidade e unidade no cadastro, e confirmação pela função normal da tela. Releituras não duplicam a embalagem. Tags vazias precisam ser gravadas antes. As entradas seguem o comportamento existente do WMS, inclusive a mudança de local e o histórico quando a função normal da tela os registra; não são uma contagem independente do estoque.
+
+Pausa, mudança de usuário/tela/modo, navegação e saída do aplicativo encerram a sessão. Uma divergência exige conferência e reapresentação da etiqueta. O iOS encerra cada sessão em até cerca de 60 segundos; o usuário toca novamente em **Ler NFC** para continuar. A ponte aceita somente a origem HTTPS exata de produção/prévia e o quadro principal. O conteúdo da tag é passado como argumento estruturado, nunca executado como código.
+
+**Estado: fonte do app e integração web preparados; instalação, assinatura iOS e leitura física não concluídas.** Nenhum IPA assinado foi gerado. A conta gratuita Personal Team não inclui a capacidade NFC; o projeto não contorna essa restrição nem contrata assinatura. A compilação sem assinatura no workflow macOS não torna o aplicativo instalável no telefone. Configuração e ensaio estão em [`ios/PackemWMS/LEIA-ME.md`](../ios/PackemWMS/LEIA-ME.md).
+
+A página isolada `/tests/ui/nfc-app.html` usa catálogo fictício e simula a entrega da ponte no navegador, sem APIs de estoque. Duas embalagens devem somar 550,5 kg, mantidos após repetir a primeira. Esse ensaio não aciona a antena. Os testes verificam contexto, UID, sequência, deduplicação, divergência e ausência de confirmação. A captura física e o fluxo autenticado em estoque real continuam pendentes.
+
+## Alternativa: iPhone 11 com o WMS aberto no iScanBrowser
+
+`wms-nfc-iphone.js` adiciona **Alternativa: recepção pelo iScanBrowser** às três telas de contagem existentes. Este caminho dispensa a estação no PC e a troca para NFC.cool: o WMS fica aberto dentro do iScanBrowser, um aplicativo nativo que documenta leitura CoreNFC e regras de preenchimento de páginas. Isso não acrescenta Web NFC ao Safari.
 
 **Estado: adaptador de software preparado; iScanBrowser não foi instalado, licenciado nem testado no aparelho. Nenhuma captura NFC física foi feita.** Em 15/10/2026, a App Store brasileira lista R$ 129,90 para “Built-in NFC reading”. Outras condições/licenças do aplicativo ainda não foram confirmadas; não foi realizada compra. O usuário não precisa se inscrever no Apple Developer para usar um aplicativo já publicado. A leitura contínua e a eventual retomada da sessão CoreNFC precisam ser conferidas com duas NTAG213.
 
@@ -74,7 +86,7 @@ Ao recarregar o WMS, reconecte o quadro. Fechar a estação, pausar a fila ou fa
 
 ## Validação
 
-Passaram **209 testes do WMS**, incluindo oito testes do adaptador de texto nativo para iPhone, e **37 testes da estação**. Os testes cobrem KG/MT e zeros à esquerda, validação da origem e da janela, liberação somente após ACK, duplo clique, reenvio, persistência, disco sem espaço, enquadramento restrito à origem configurada, aba alternativa e cancelamento de blocos seguintes. O adaptador do iPhone foi testado com fila sequencial, repetição, divergência, pausa durante consulta, troca de contexto e retomada. A sintaxe dos scripts foi verificada. O ensaio de tela isolado recebeu duas embalagens fictícias e manteve 550,5 kg após repetir a primeira; não houve captura física de NFC.
+Passaram **218 testes do WMS**, incluindo nove testes da ponte do aplicativo próprio e oito do adaptador de texto nativo para iPhone, e **37 testes da estação**. Os testes cobrem KG/MT e zeros à esquerda, validação da origem e da janela, liberação somente após ACK, duplo clique, reenvio, persistência, disco sem espaço, enquadramento restrito à origem configurada, aba alternativa e cancelamento de blocos seguintes. O adaptador do iPhone foi testado com fila sequencial, repetição, divergência, pausa durante consulta, troca de contexto e retomada. A sintaxe dos scripts foi verificada. O ensaio de tela isolado recebeu duas embalagens fictícias e manteve 550,5 kg após repetir a primeira; não houve captura física de NFC.
 
 Um ensaio de interface no navegador interno confirmou a recepção de duas etiquetas fictícias por meio do quadro local. Na prévia HTTPS da Vercel, o quadro permaneceu em branco; a aba alternativa conectou e recebeu TESTE-NFC-001 (0303450047, 300 KG) e TESTE-NFC-002 (0303410008, 6300 MT), com recibo exibido na página de teste. O painel local mostrou a primeira ativa e a segunda na fila. Cada conexão usa um nome de janela próprio para não reutilizar o vínculo de outra página. Nenhuma confirmação NFC foi simulada. A gravação no NFC.cool, a impressão na Zebra, o chip real e o primeiro teste por dentro da interface autenticada do WMS continuam pendentes.
 

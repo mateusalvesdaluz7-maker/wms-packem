@@ -82,6 +82,7 @@
     if(data.type==='packem-nfc-reads')receive(data);
   });
   function connect(view){
+    if(root.PackemWmsApp&&root.PackemWmsApp.active()){notice('Pare a leitura do aplicativo Packem WMS antes de conectar a estação.');return;}
     if(root.PackemNfcIphone&&root.PackemNfcIphone.active()){notice('Pause a recepção do iPhone antes de conectar a estação.');return;}
     if(connected && destination!==view){notice('Pause o leitor antes de mudar o destino de contagem.');return;}
     if(!targets[view] || !activeView() || typeof session==='undefined' || !session){notice('Entre no WMS e abra o destino da contagem.');return;}

@@ -1,0 +1,24 @@
+name: Validar aplicativo Packem WMS iOS
+on:
+  push:
+    paths: ['ios/**', '.github/workflows/ios-wms.yml']
+  pull_request:
+    paths: ['ios/**', '.github/workflows/ios-wms.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ios/PackemWMS
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testar política de origem, NDEF e confirmação
+        run: swift test
+      - name: Compilar aplicativo sem assinatura para simulador
+        run: xcodebuild -project PackemWMS.xcodeproj -scheme PackemWMS -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Compilar para iPhone sem assinatura (não instalável)
+        run: xcodebuild -project PackemWMS.xcodeproj -scheme PackemWMS -configuration Debug -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-device CODE_SIGNING_ALLOWED=NO build

@@ -1,0 +1,54 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+		C6BD3A8D46F0C956671C4BA3 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WMSWebView.swift"; sourceTree = "<group>"; };
+		35557C28798ABC197EBAAC8D = { isa = PBXBuildFile; fileRef = C6BD3A8D46F0C956671C4BA3; };
+		29D9FC89B9BCAA2D5AD3516A = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WMSPolicy.swift"; sourceTree = "<group>"; };
+		DF3F4C9553B2149277A15C22 = { isa = PBXBuildFile; fileRef = 29D9FC89B9BCAA2D5AD3516A; };
+		3F614F945011853342B51B94 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TagCodec.swift"; sourceTree = "<group>"; };
+		D82B6F9CC4A34F8083CB212B = { isa = PBXBuildFile; fileRef = 3F614F945011853342B51B94; };
+		F736C1ADD3572B6C7E5DC1B6 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PackemWMSApp.swift"; sourceTree = "<group>"; };
+		1E65CB91BAF3E22A4D29F1B5 = { isa = PBXBuildFile; fileRef = F736C1ADD3572B6C7E5DC1B6; };
+		A0B45AF1E066A7A034D53BE0 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NFCReader.swift"; sourceTree = "<group>"; };
+		7AC2CBE41A53FF3A86ABAB42 = { isa = PBXBuildFile; fileRef = A0B45AF1E066A7A034D53BE0; };
+		68E77A9D7BC78A97D4F4E27B = { isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info.plist"; sourceTree = "<group>"; };
+		31818C3959C2F96D37740967 = { isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "PackemWMS.entitlements"; sourceTree = "<group>"; };
+		38A007151ABE87CC01A5B6E9 = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PackemWMS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BCE16DD0260827ECF338C787 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (7AC2CBE41A53FF3A86ABAB42, 1E65CB91BAF3E22A4D29F1B5, D82B6F9CC4A34F8083CB212B, DF3F4C9553B2149277A15C22, 35557C28798ABC197EBAAC8D,); runOnlyForDeploymentPostprocessing = 0; };
+		7561BFB015D8F536760CB671 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		0189424A5A60FED329FA868E = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		3C3B0F03DC089F93B8457928 = { isa = PBXGroup; children = (A0B45AF1E066A7A034D53BE0, F736C1ADD3572B6C7E5DC1B6, 3F614F945011853342B51B94, 29D9FC89B9BCAA2D5AD3516A, C6BD3A8D46F0C956671C4BA3, 68E77A9D7BC78A97D4F4E27B, 31818C3959C2F96D37740967,); path = PackemWMS; sourceTree = "<group>"; };
+		615B463D1028E4E24B674CF7 = { isa = PBXGroup; children = (38A007151ABE87CC01A5B6E9,); name = Products; sourceTree = "<group>"; };
+		870B3294C0CBD48AF6BBCC1B = { isa = PBXGroup; children = (3C3B0F03DC089F93B8457928, 615B463D1028E4E24B674CF7,); sourceTree = "<group>"; };
+		ED8772ADEC3A6C25161BC957 = { isa = XCBuildConfiguration; buildSettings = { CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 16.0; DEBUG_INFORMATION_FORMAT = dwarf; ENABLE_TESTABILITY = YES; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; }; name = Debug; };
+		4D8F54E7CBAF670D9F6C230D = { isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_ENTITLEMENTS = PackemWMS/PackemWMS.entitlements; CODE_SIGN_STYLE = Automatic;
+        CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = PackemWMS/Info.plist;
+        IPHONEOS_DEPLOYMENT_TARGET = 16.0; MARKETING_VERSION = 0.1.0;
+        PRODUCT_BUNDLE_IDENTIFIER = br.com.packem.wms; PRODUCT_NAME = "$(TARGET_NAME)";
+        SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_VERSION = 5.0;
+        SWIFT_STRICT_CONCURRENCY = minimal; TARGETED_DEVICE_FAMILY = 1; }; name = Debug; };
+		00F209874A1F7309F6DCEAA7 = { isa = XCBuildConfiguration; buildSettings = { CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 16.0; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; SWIFT_COMPILATION_MODE = wholemodule; }; name = Release; };
+		1A6EFC2CD0AF63DD14BE0438 = { isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_ENTITLEMENTS = PackemWMS/PackemWMS.entitlements; CODE_SIGN_STYLE = Automatic;
+        CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = PackemWMS/Info.plist;
+        IPHONEOS_DEPLOYMENT_TARGET = 16.0; MARKETING_VERSION = 0.1.0;
+        PRODUCT_BUNDLE_IDENTIFIER = br.com.packem.wms; PRODUCT_NAME = "$(TARGET_NAME)";
+        SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_VERSION = 5.0;
+        SWIFT_STRICT_CONCURRENCY = minimal; TARGETED_DEVICE_FAMILY = 1; }; name = Release; };
+		96316AF13F45443E4E9C4BA0 = { isa = XCConfigurationList; buildConfigurations = (ED8772ADEC3A6C25161BC957, 00F209874A1F7309F6DCEAA7,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		EAD1C478648BB5F4F725A516 = { isa = XCConfigurationList; buildConfigurations = (4D8F54E7CBAF670D9F6C230D, 1A6EFC2CD0AF63DD14BE0438,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		0E8A3AD980EC179856012B7E = { isa = PBXNativeTarget; buildConfigurationList = EAD1C478648BB5F4F725A516;
+    buildPhases = (BCE16DD0260827ECF338C787, 7561BFB015D8F536760CB671, 0189424A5A60FED329FA868E,); buildRules = (); dependencies = ();
+    name = PackemWMS; productName = PackemWMS; productReference = 38A007151ABE87CC01A5B6E9; productType = "com.apple.product-type.application"; };
+		98F54143AB4E86B28C3AFEE0 = { isa = PBXProject;
+    attributes = { LastUpgradeCheck = 1600; TargetAttributes = { 0E8A3AD980EC179856012B7E = { CreatedOnToolsVersion = 16.0;
+    SystemCapabilities = { com.apple.NearFieldCommunicationTagReading = { enabled = 1; }; }; }; }; };
+    buildConfigurationList = 96316AF13F45443E4E9C4BA0; compatibilityVersion = "Xcode 14.0";
+    developmentRegion = pt-BR; hasScannedForEncodings = 0; knownRegions = (en, "pt-BR", Base,);
+    mainGroup = 870B3294C0CBD48AF6BBCC1B; productRefGroup = 615B463D1028E4E24B674CF7; projectDirPath = "";
+    projectRoot = ""; targets = (0E8A3AD980EC179856012B7E,); };
+	};
+	rootObject = 98F54143AB4E86B28C3AFEE0;
+}

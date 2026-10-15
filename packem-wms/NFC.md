@@ -16,7 +16,7 @@ O receptor persiste os itens e o recibo do envio juntos. Um reenvio com o mesmo 
 
 1. Atualize a estação PC com o pacote `nfc-piloto` desta entrega e abra **INICIAR-CELULAR.cmd**, porta 8788. Esse processo não imprime; a impressão permanece no WMS.
 2. Aplique esta alteração primeiro em um ambiente de homologação. A origem permitida no receptor deve corresponder exatamente à origem usada no teste; o padrão de produção é `https://wms-packem.vercel.app`. Para uma prévia, defina `NFC_WMS_ORIGIN` como a origem HTTPS exata, sem barra final. Use a estação 0.5.1 ou posterior.
-3. No navegador do PC que usa a Zebra, abra **Gestão de Etiquetas → Conectar estação NFC**. Informe o código exibido no terminal dentro do quadro local que aparece no WMS.
+3. No navegador do PC que usa a Zebra, abra **Gestão de Etiquetas → Conectar estação NFC**. Informe o código exibido no terminal dentro do quadro local que aparece no WMS. Se o navegador não carregar o quadro, use **Conectar em outra aba** e mantenha essa aba aberta. Somente a janela escolhida pode confirmar a conexão.
 4. Mantenha a conexão aberta. Confira primeiro a página `/tests/ui/nfc-estacao.html`: ela envia duas etiquetas fictícias e não carrega as APIs de estoque nem imprime. Depois de conferir a transmissão, teste uma etiqueta real com seu ID, código, quantidade e unidade.
 5. Faça a gravação e a releitura assistidas. Só depois teste duas etiquetas diferentes e os controles de pausa e recuperação.
 
@@ -34,7 +34,7 @@ Ao recarregar o WMS, reconecte o quadro. Fechar a estação, pausar a fila ou fa
 
 ## Validação
 
-Passaram **193 testes do WMS**, incluindo os cinco testes da ponte, e **31 testes da estação**. Os testes cobrem KG/MT e zeros à esquerda, validação da origem e da janela, liberação somente após ACK, duplo clique, reenvio, persistência, disco sem espaço, enquadramento restrito à origem configurada e cancelamento de blocos seguintes. A sintaxe dos scripts foi verificada.
+Passaram **194 testes do WMS**, incluindo os seis testes da ponte, e **31 testes da estação**. Os testes cobrem KG/MT e zeros à esquerda, validação da origem e da janela, liberação somente após ACK, duplo clique, reenvio, persistência, disco sem espaço, enquadramento restrito à origem configurada, aba alternativa e cancelamento de blocos seguintes. A sintaxe dos scripts foi verificada.
 
 Um ensaio de interface no navegador interno confirmou a recepção de duas etiquetas fictícias por meio do quadro local e a exibição da primeira na página do celular. Nenhuma confirmação NFC foi simulada. A gravação no NFC.cool, a impressão na Zebra, o chip real e o primeiro teste por dentro da interface autenticada do WMS continuam pendentes.
 

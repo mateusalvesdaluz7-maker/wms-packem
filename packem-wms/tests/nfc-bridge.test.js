@@ -19,13 +19,13 @@ test('mensagens precisam vir da janela local, origem exata e conexão atual',()=
   assert.equal(validReply(event,station,event.origin,'antigo'),false);
 });
 function client(){
-  let handler,printed=0,frame;const messages=[],values=new Map(),station={closed:false,postMessage:message=>messages.push(message)};
-  const root={addEventListener:(type,fn)=>handler=fn,toast:()=>{}};
-  const context={window:root,document:{getElementById:()=>null,body:{appendChild:element=>{frame=element;}},
-    createElement:type=>{assert.equal(type,'iframe');return {contentWindow:station,style:{},remove:()=>{}};}},crypto:require('node:crypto'),Set,Map,Promise,setTimeout,clearTimeout,
+  let handler,printed=0,frame,fallback,opened=false;const messages=[],values=new Map(),station={closed:false,postMessage:message=>messages.push(message)},external={closed:false,postMessage:message=>messages.push(message)};
+  const root={addEventListener:(type,fn)=>handler=fn,toast:()=>{},open:()=>{opened=true;return external;}};
+  const context={window:root,document:{getElementById:()=>null,body:{appendChild:element=>{if(element.contentWindow)frame=element;else fallback=element;}},
+    createElement:type=>{assert.ok(['iframe','button'].includes(type));return {contentWindow:type==='iframe'?station:undefined,style:{},remove:()=>{}};}},crypto:require('node:crypto'),Set,Map,Promise,setTimeout,clearTimeout,
     sessionStorage:{getItem:key=>values.get(key),setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)}};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../wms-nfc-bridge.js'),'utf8'),context);
-  return {root,messages,station,print:()=>printed++,get printed(){return printed;},get linkId(){return new URL(frame.src).searchParams.get('linkId');},reply(data){handler({source:station,origin:'http://127.0.0.1:8788',data});}};
+  return {root,messages,station,openExternal:()=>fallback.onclick(),print:()=>printed++,get printed(){return printed;},get linkId(){return new URL(frame.src).searchParams.get('linkId');},reply(data,source){handler({source:source||(opened?external:station),origin:'http://127.0.0.1:8788',data});}};
 }
 test('impressão só é liberada depois do ACK e um duplo clique não duplica o bloco',async()=>{
   const c=client();c.root.WmsNfcBridge.connect();
@@ -47,6 +47,18 @@ test('sem conexão ou com erro de recepção não imprime; tentativa seguinte co
   const retry=c.root.WmsNfcBridge.beforePrint(rows,c.print,row=>row.uCom);
   assert.equal(c.messages[1].requestId,id);
   c.reply({type:'packem-nfc-accepted',linkId:c.linkId,requestId:id,count:2});await retry;assert.equal(c.printed,1);
+});
+
+test('aba alternativa só aceita a janela escolhida e continua exigindo recibo antes da impressão',async()=>{
+  const c=client();c.root.WmsNfcBridge.connect();c.openExternal();
+  c.reply({type:'packem-nfc-ready',linkId:c.linkId},c.station);
+  await c.root.WmsNfcBridge.beforePrint(rows,c.print,row=>row.uCom);
+  assert.equal(c.messages.length,0);assert.equal(c.printed,0);
+  c.reply({type:'packem-nfc-ready',linkId:c.linkId});
+  const operation=c.root.WmsNfcBridge.beforePrint(rows,c.print,row=>row.uCom);
+  assert.equal(c.messages.length,1);assert.equal(c.printed,0);
+  c.reply({type:'packem-nfc-accepted',linkId:c.linkId,requestId:c.messages[0].requestId,count:2});
+  await operation;assert.equal(c.printed,1);
 });
 test('hook real envia apenas o primeiro bloco quando o operador cancela os seguintes',()=>{
   const source=fs.readFileSync(path.join(__dirname,'../wms-app.js'),'utf8');

@@ -41,7 +41,7 @@
   function start(view){
     try{
       if(!handler())throw new Error('Abra este WMS no aplicativo Packem WMS com NFC nativo.');
-      if(root.WmsNfcReader.bridgeActive()||(root.PackemNfcIphone&&root.PackemNfcIphone.active()))throw new Error('Pause a outra recepção NFC antes de usar o app Packem WMS.');
+      if(root.WmsNfcReader.bridgeActive()||(root.PackemNfcIphone&&root.PackemNfcIphone.active())||(root.WmsNfcDireto&&root.WmsNfcDireto.active()))throw new Error('Conclua ou pause a outra operação NFC antes de usar o app Packem WMS.');
       var command=counter.start(view,root.WmsNfcReader.makeContext(view));
       try{handler().postMessage(command);}catch(error){stop('Não foi possível iniciar a antena do aplicativo.');throw error;}
     }catch(error){counter.status(error.message);}

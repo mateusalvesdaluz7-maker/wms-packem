@@ -17,7 +17,7 @@ A conexão verifica origem, janela e identificador. O código principal da esta�
 2. No iPhone, abra `/reader` pelo QR Code. Configure **Mais → Webhook** no NFC.cool com URL, usuário e senha mostrados; habilite somente leituras NFC.
 3. Use **Abrir WMS com o leitor conectado**, entre com seu usuário e abra o destino de contagem. Clique **Conectar leitor** uma vez. Esse passo abre a sessão de recepção correspondente.
 4. Abra o leitor do NFC.cool. Cada leitura enviada fica guardada; ao voltar ao WMS, as pendentes são aplicadas à contagem conectada. O Safari não acessa NFC. A continuidade de leitura e eventual necessidade de reiniciar a sessão NFC dependem do aplicativo e ainda precisam de teste físico.
-5. Use **Pausar leitor** para terminar. Não inicie recepção avulsa em `/reader` e outra sessão do WMS ao mesmo tempo: há um único destino ativo por estação.
+5. Use **Pausar leitor** para terminar. Para recontar as mesmas etiquetas em uma sessão nova, escolha **Nova contagem NFC** depois de pausar; **Conectar leitor** retoma a sessão existente. Não inicie recepção avulsa em `/reader` e outra sessão do WMS ao mesmo tempo: há um único destino ativo por estação.
 
 A página `/tests/ui/nfc-leitura.html` usa catálogo e contagem locais, sem carregar APIs do estoque: duas embalagens fictícias do código 0303450047 totalizam 550,5 kg. Eventos HTTP de teste validam o transporte; não comprovam captura física de NFC. A primeira leitura real depende da chegada das NTAG213. Na prévia HTTPS, o quadro de leitura conectou e aplicou 300 kg + 250,5 kg à contagem isolada. Reenviar o primeiro evento retornou `duplicate` e manteve duas etiquetas / 550,5 kg. Pausar pelo WMS encerrou a recepção. Os eventos foram enviados por HTTP com dados fictícios, sem captura NFC física.
 

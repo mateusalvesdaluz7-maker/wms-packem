@@ -5,7 +5,28 @@ Esta alteração conecta o bloco de etiquetas rastreáveis preparado pelo WMS à
 **O código está preparado para revisão. Não foi publicado no WMS de produção. Esta integração não implementa gravação contínua no iPhone nem sincroniza mecanicamente o rolo com o NFC.** O NFC.cool Platinum permanece como gravador assistido, com início da escrita e releitura no telefone. Aceitação dos dados pela estação não comprova impressão ou gravação física.
 
 
-## Leitura para contagem
+## iPhone 11 com o WMS aberto no iScanBrowser
+
+`wms-nfc-iphone.js` adiciona **Contar com o NFC do iPhone** às três telas de contagem existentes. Este caminho dispensa a estação no PC e a troca para NFC.cool: o WMS fica aberto dentro do iScanBrowser, um aplicativo nativo que documenta leitura CoreNFC e regras de preenchimento de páginas. Isso não acrescenta Web NFC ao Safari.
+
+**Estado: adaptador de software preparado; iScanBrowser não foi instalado, licenciado nem testado no aparelho. Nenhuma captura NFC física foi feita.** Em 15/10/2026, a App Store brasileira lista R$ 129,90 para “Built-in NFC reading”. Outras condições/licenças do aplicativo ainda não foram confirmadas; não foi realizada compra. O usuário não precisa se inscrever no Apple Developer para usar um aplicativo já publicado. A leitura contínua e a eventual retomada da sessão CoreNFC precisam ser conferidas com duas NTAG213.
+
+Configuração proposta:
+
+1. Abra a prévia do WMS dentro do iScanBrowser e entre normalmente com seu usuário. Comece pela página isolada `/tests/ui/nfc-iphone.html`, sem acessar o estoque.
+2. Na contagem em modo Entrada, use **Ativar recepção do iPhone**. O campo estável `packemNfcInput` aparece fora da área que o WMS redesenha a cada entrada.
+3. No iScanBrowser, crie uma regra **Active Page** para a origem exata da prévia, com fonte **Internal NFC NDEF Reader**. Use o assistente para selecionar o campo `packemNfcInput`.
+4. Desative **Only if empty**, **Append data** e **Call Form.Submit()**. Em **Execute JS**, configure `window.PackemNfcIphone.capture();`. Cada chamada recolhe o texto antes de processar a fila; não é necessário tocar em Enter a cada leitura. Não marque **Scanned value is URL**.
+5. Associe o gatilho nativo ao leitor CoreNFC. O fabricante documenta **Constant Read Mode** ao manter o gatilho pressionado; sua operação efetiva com o leitor interno e os limites de sessão ainda precisam de validação no iPhone 11.
+6. Aproxime uma etiqueta por vez. O WMS confere ID, código, quantidade e unidade com o cadastro antes de usar a entrada normal. Para encerrar, pause a recepção no WMS e pare o gatilho no aplicativo.
+
+Este adaptador recebe o texto NDEF, sem pressupor que o app forneça o UID. A deduplicação usa o ID único da embalagem; nenhum UID fictício é criado. O Webhook anterior continua exigindo o UID real. Links, campos desconhecidos/repetidos, texto acima de 120 bytes e medições inválidas são recusados. A fila é sequencial, limitada a dez pendências e 1000 embalagens por sessão. Erro, troca de usuário/tela/modo e saída do aplicativo pausam o processamento. Pendências ficam apenas na memória da aba: não recarregue nem feche a página antes de conferir e terminar a fila. Entradas já aplicadas seguem a persistência normal do WMS.
+
+A página `/tests/ui/nfc-iphone.html` tem botões que entregam texto fictício ao mesmo adaptador. Duas embalagens somam 550,5 kg e repetir uma não duplica. Esse teste não aciona a antena, não comprova compatibilidade comercial do aplicativo e não usa APIs de estoque.
+
+Referências primárias: [Serialio — Web Form Rules no iOS](https://serialio.com/faq/iscanbrowser/iscanbrowser-web-form-rules-ios/), [gatilhos e leitor CoreNFC](https://serialio.com/support/iscanbrowser-triggers-ios/), [listagem e compras do iScanBrowser](https://apps.apple.com/br/app/iscanbrowser/id427430406). Também foram pesquisados os projetos [Web NFC do W3C](https://github.com/w3c-cg/web-nfc) e [bilafish/nfc-reader](https://github.com/bilafish/nfc-reader); a API de navegador usada por eles não resolve a leitura no Safari do iPhone.
+
+## Leitura via NFC.cool e estação no PC
 
 A estação 0.6.0 também recebe leituras do NFC.cool por Webhook HTTPS. O aplicativo envia `identifier`, `date` e `content`; a estação exige Basic Auth exclusivo, interpreta o texto `JOB=...;ID=...;COD=...;QTD=...;UN=...` (ou o formato anterior `PLG`) e guarda a leitura antes de responder 204. Código permanece texto; quantidades são somadas com decimal exato, por unidade. UID e ID da embalagem impedem duplicação; dados conflitantes são recusados. Cada sessão recebe até 1000 etiquetas e fica pausada ao reiniciar o servidor. Sessões anteriores são arquivadas no computador.
 
@@ -53,7 +74,7 @@ Ao recarregar o WMS, reconecte o quadro. Fechar a estação, pausar a fila ou fa
 
 ## Validação
 
-Passaram **201 testes do WMS**, incluindo os seis testes da ponte, e **37 testes da estação**. Os testes cobrem KG/MT e zeros à esquerda, validação da origem e da janela, liberação somente após ACK, duplo clique, reenvio, persistência, disco sem espaço, enquadramento restrito à origem configurada, aba alternativa e cancelamento de blocos seguintes. A sintaxe dos scripts foi verificada.
+Passaram **209 testes do WMS**, incluindo oito testes do adaptador de texto nativo para iPhone, e **37 testes da estação**. Os testes cobrem KG/MT e zeros à esquerda, validação da origem e da janela, liberação somente após ACK, duplo clique, reenvio, persistência, disco sem espaço, enquadramento restrito à origem configurada, aba alternativa e cancelamento de blocos seguintes. O adaptador do iPhone foi testado com fila sequencial, repetição, divergência, pausa durante consulta, troca de contexto e retomada. A sintaxe dos scripts foi verificada. O ensaio de tela isolado recebeu duas embalagens fictícias e manteve 550,5 kg após repetir a primeira; não houve captura física de NFC.
 
 Um ensaio de interface no navegador interno confirmou a recepção de duas etiquetas fictícias por meio do quadro local. Na prévia HTTPS da Vercel, o quadro permaneceu em branco; a aba alternativa conectou e recebeu TESTE-NFC-001 (0303450047, 300 KG) e TESTE-NFC-002 (0303410008, 6300 MT), com recibo exibido na página de teste. O painel local mostrou a primeira ativa e a segunda na fila. Cada conexão usa um nome de janela próprio para não reutilizar o vínculo de outra página. Nenhuma confirmação NFC foi simulada. A gravação no NFC.cool, a impressão na Zebra, o chip real e o primeiro teste por dentro da interface autenticada do WMS continuam pendentes.
 

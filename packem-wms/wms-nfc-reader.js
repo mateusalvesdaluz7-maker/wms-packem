@@ -3,13 +3,21 @@
   'use strict';
   function validateReading(event){
     if(!event || !Number.isSafeInteger(event.seq) || event.seq<1 || !/^[A-F0-9]{14}$/.test(event.uid||''))throw new Error('Leitura NFC sem sequência ou UID válido.');
-    for(var name of ['item','codigo'])if(!/^[A-Za-z0-9._/-]{1,32}$/.test(event[name]||''))throw new Error('Leitura NFC sem identificação válida.');
+    return validateItemReading(event);
+  }
+  function validateItemReading(event){
+    if(!event)throw new Error('Leitura NFC vazia.');
+    for(var name of ['item','codigo'])if(typeof event[name]!=='string'||!/^[A-Za-z0-9._/-]{1,32}$/.test(event[name]))throw new Error('Leitura NFC sem identificação válida.');
     if(typeof event.quantidade!=='string' || !/^\d{1,9}(?:\.\d{1,6})?$/.test(event.quantidade) || Number(event.quantidade)<=0 || !['KG','G','MT','UN','L','ML','M2','M3'].includes(event.unidade))throw new Error('Quantidade ou unidade NFC inválida.');
     return event;
   }
   function scaled(value){var parts=String(value).split('.');return BigInt(parts[0])*1000000n+BigInt((parts[1]||'').padEnd(6,'0'));}
   async function applyReading(event,context){
     validateReading(event);
+    return applyItemReading(event,context);
+  }
+  async function applyItemReading(event,context){
+    validateItemReading(event);
     if(!context.isActive())throw new Error('Abra a contagem de destino em modo Entrada com seu usuário autenticado.');
     var item=await context.lookup(event.item);
     if(!item || !item.codigo)throw new Error('Etiqueta '+event.item+' não encontrada no cadastro do WMS.');
@@ -22,10 +30,10 @@
     return {duplicate:false};
   }
   function validReply(event,station,origin,linkId){return event.source===station && event.origin===origin && event.data && event.data.linkId===linkId;}
-  if(typeof module==='object' && module.exports){module.exports={validateReading:validateReading,applyReading:applyReading,validReply:validReply};return;}
+  if(typeof module==='object' && module.exports){module.exports={validateReading:validateReading,validateItemReading:validateItemReading,applyReading:applyReading,applyItemReading:applyItemReading,validReply:validReply};return;}
 
   var targets={ 'v-floor':{label:'Chão expedição',mode:'_floorScanMode',has:'floorHasEt',add:'floorAdd'},'v-floor70':{label:'Chão 70',mode:'_f70ScanMode',has:'f70HasEt',add:'floor70Add'},'v-recic':{label:'Recicladora - 91',mode:'_recScanMode',has:'recicHasEt',add:'recicAdd'}};
-  var station=null,frame=null,host=null,connected=false,busy=false,blocked=false,linkId='',destination='',stationOrigin='',cursor=0;
+  var station=null,frame=null,host=null,connected=false,opening=false,busy=false,blocked=false,linkId='',destination='',stationOrigin='',cursor=0;
   var lastNotice='Conecte o NFC.cool para receber ID, código e peso sem copiar.';
   var config={origin:'http://127.0.0.1:8788',token:''};
   function validConfig(value){var url=new URL(value.origin);if(url.origin!==value.origin || !(url.protocol==='https:' || (url.protocol==='http:' && url.hostname==='127.0.0.1')))throw new Error('Use o endereço HTTPS da estação ou 127.0.0.1 neste PC.');if(value.token && !/^[A-Za-z0-9_-]{20,80}$/.test(value.token))throw new Error('Código de leitor inválido.');return {origin:url.origin,token:value.token||''};}
@@ -38,9 +46,12 @@
   function send(type,extra){if(station && !station.closed)station.postMessage(Object.assign({type:type,linkId:linkId},extra||{}),stationOrigin);}
   function activeView(){return (document.querySelector('.view.active')||{}).id;}
   function context(){
-    var target=targets[destination],user=(typeof session!=='undefined' && session)?session.u:null;
+    return makeContext(destination,function(){return connected && !blocked;});
+  }
+  function makeContext(view,enabled){
+    var target=targets[view],user=(typeof session!=='undefined' && session)?session.u:null;
     return {
-      isActive:function(){return connected && !blocked && !!target && !!user && typeof session!=='undefined' && !!session && session.u===user && activeView()===destination && root[target.mode]!=='out' && typeof root[target.has]==='function' && typeof root[target.add]==='function';},
+      isActive:function(){return (!enabled||enabled()) && !document.hidden && !!target && !!user && typeof session!=='undefined' && !!session && session.u===user && activeView()===view && root[target.mode]!=='out' && typeof root[target.has]==='function' && typeof root[target.add]==='function';},
       lookup:async function(id){var item=typeof root.bobFetch==='function'?await root.bobFetch(id):null;return item?{codigo:String(item.pr||''),quantidade:item.pl,unidade:typeof unitOf==='function'?unitOf(item.pr):''}:null;},
       has:function(id){return root[target.has](id);},add:function(id){return root[target.add](id);}
     };
@@ -65,15 +76,16 @@
   root.addEventListener('message',function(event){
     if(!validReply(event,station,stationOrigin,linkId))return;
     var data=event.data;
-    if(data.type==='packem-nfc-reader-ready'){connected=true;notice('Leitor conectado a '+targets[destination].label+'. Abra o NFC.cool para ler as tags.');if(host)host.hidden=true;return;}
-    if(data.type==='packem-nfc-reader-paused'){connected=false;notice('Recepção do leitor pausada; dados guardados.');return;}
-    if(data.type==='packem-nfc-reader-error'){notice(data.error||'Falha na estação de leitura.');return;}
+    if(data.type==='packem-nfc-reader-ready'){opening=false;connected=true;notice('Leitor conectado a '+targets[destination].label+'. Abra o NFC.cool para ler as tags.');if(host)host.hidden=true;return;}
+    if(data.type==='packem-nfc-reader-paused'){opening=false;connected=false;notice('Recepção do leitor pausada; dados guardados.');return;}
+    if(data.type==='packem-nfc-reader-error'){opening=false;notice(data.error||'Falha na estação de leitura.');return;}
     if(data.type==='packem-nfc-reads')receive(data);
   });
   function connect(view){
+    if(root.PackemNfcIphone&&root.PackemNfcIphone.active()){notice('Pause a recepção do iPhone antes de conectar a estação.');return;}
     if(connected && destination!==view){notice('Pause o leitor antes de mudar o destino de contagem.');return;}
     if(!targets[view] || !activeView() || typeof session==='undefined' || !session){notice('Entre no WMS e abra o destino da contagem.');return;}
-    destination=view;stationOrigin=config.origin;blocked=false;connected=false;
+    destination=view;stationOrigin=config.origin;blocked=false;connected=false;opening=true;
     var binding;try{binding=JSON.parse(sessionStorage.getItem('packem-nfc-reader-binding')||'null');}catch(e){}
     linkId=binding && binding.view===view && binding.origin===stationOrigin?binding.id:crypto.randomUUID();
     sessionStorage.setItem('packem-nfc-reader-binding',JSON.stringify({view:view,origin:stationOrigin,id:linkId}));
@@ -87,8 +99,8 @@
   }
   function mount(){Object.keys(targets).forEach(function(view){
     var container=document.getElementById(view);if(!container || container.querySelector('[data-nfc-reader-panel]'))return;
-    var panel=document.createElement('section');panel.className='panel';panel.dataset.nfcReaderPanel='1';panel.style.cssText='padding:14px;margin:12px 0;border:1px solid #b8d4c4';
-    var title=document.createElement('strong');title.textContent='Leitura NFC · contagem';panel.appendChild(title);
+    var panel=document.createElement('details');panel.className='panel';panel.dataset.nfcReaderPanel='1';panel.style.cssText='padding:14px;margin:12px 0;border:1px solid #b8d4c4';
+    var title=document.createElement('summary');title.textContent='Alternativa: NFC.cool com estação no PC';title.style.cursor='pointer';panel.appendChild(title);
     var status=document.createElement('p');status.dataset.nfcReaderStatus='1';status.textContent=lastNotice;panel.appendChild(status);
     var address=document.createElement('input');address.className='input';address.type='url';address.value=config.origin;address.setAttribute('aria-label','Endereço da estação de leitura NFC');panel.appendChild(address);
     for(var action of [['Conectar leitor',function(){try{config=validConfig({origin:address.value.trim(),token:address.value.trim()===config.origin?config.token:''});sessionStorage.setItem('packem-nfc-reader',JSON.stringify(config));connect(view);}catch(error){notice(error.message);}}],['Pausar leitor',function(){connected=false;send('packem-nfc-reader-stop');notice('Pausando a recepção do leitor…');}],['Nova contagem NFC',function(){if(connected){notice('Pause o leitor antes de iniciar outra sessão de contagem.');return;}sessionStorage.removeItem('packem-nfc-reader-binding');connect(view);}],['Tentar novamente',function(){blocked=false;send('packem-nfc-reader-poll');}]]){
@@ -99,5 +111,5 @@
   var mountPending=false;new MutationObserver(function(){if(mountPending)return;mountPending=true;setTimeout(function(){mountPending=false;mount();},120);}).observe(document.body,{childList:true,subtree:true});mount();
   setInterval(function(){if(connected && !document.hidden)send('packem-nfc-reader-poll');},2000);
   document.addEventListener('visibilitychange',function(){if(!document.hidden)send('packem-nfc-reader-poll');});
-  root.WmsNfcReader={connect:connect};
+  root.WmsNfcReader={connect:connect,makeContext:makeContext,applyItemReading:applyItemReading,bridgeActive:function(){return connected||opening||busy;}};
 })(typeof window!=='undefined'?window:globalThis);

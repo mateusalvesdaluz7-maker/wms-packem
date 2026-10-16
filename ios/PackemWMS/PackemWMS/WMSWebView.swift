@@ -49,7 +49,7 @@ import WebKit
             model.reader.onReading = { [weak self] binding, uid, text in
                 guard let self = self, WMSPolicy.allows(self.model.webView.url) else { throw StationError("A página do WMS mudou.") }
                 let payload: [String: Any] = ["sessionId": binding.sessionID, "target": binding.target, "uid": uid, "content": text]
-                let response = try await self.call("if (!window.PackemWmsApp) throw new Error('Integração NFC não publicada nesta página.'); return await window.PackemWmsApp.receive(reading);", arguments: ["reading": payload])
+                let response = try await self.call("if (!window.PackemWmsApp) throw new Error('Integração NFC não publicada nesta página.'); return await window.PackemWmsApp[enroll ? 'receiveEnrollment' : 'receive'](reading);", arguments: ["reading": payload, "enroll": binding.mode == .enroll])
                 return try CountReceipt(response: response)
             }
         }

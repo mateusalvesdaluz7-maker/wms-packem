@@ -20,6 +20,10 @@ final class WMSPolicyTests: XCTestCase {
         XCTAssertNotNil(WMSBinding(body: ["sessionId": id, "target": "v-floor"]))
         XCTAssertNil(WMSBinding(body: ["sessionId": "fake", "target": "v-floor"]))
         XCTAssertNil(WMSBinding(body: ["sessionId": id, "target": "stock-operation"]))
+        XCTAssertNotNil(WMSBinding(body: ["sessionId": id, "target": "v-labels", "mode": "enroll"]))
+        XCTAssertNil(WMSBinding(body: ["sessionId": id, "target": "v-labels", "mode": "count"]))
+        XCTAssertNil(WMSBinding(body: ["sessionId": id, "target": "v-floor", "mode": "enroll"]))
+        XCTAssertNil(WMSBinding(body: ["sessionId": id, "target": "v-floor", "mode": "write"]))
     }
     func testReceiptRequiresExplicitAcceptanceAndLabel() throws {
         XCTAssertTrue(try CountReceipt(response: ["accepted": true, "duplicate": true, "label": "Já contada"]).duplicate)

@@ -1,7 +1,7 @@
 import Foundation
 import CoreNFC
 
-/// Leitura somente: cada etiqueta espera a confirmação do WMS antes da próxima.
+/// UID de fábrica, sem escrita no chip: cada leitura aguarda o WMS.
 @MainActor final class NFCReader: NSObject, NFCTagReaderSessionDelegate {
     var onReading: ((WMSBinding, String, String) async throws -> CountReceipt)?
     var onStop: ((WMSBinding, String) -> Void)?
@@ -20,8 +20,8 @@ import CoreNFC
             onStop?(binding, "NFC indisponível. É necessário um iPhone físico e um app assinado com a capacidade NFC."); return
         }
         self.binding = binding; reader = session; lastUID = nil
-        session.alertMessage = "Aproxime uma etiqueta NTAG213 já gravada. Uma por vez."
-        onStatus?("Leitura NFC ativa. Aguarde a confirmação de cada embalagem.")
+        session.alertMessage = binding.mode == .enroll ? "Aproxime uma NTAG213 para cadastrar seu UID. A memória não será alterada." : "Aproxime uma NTAG213 cadastrada no WMS. Uma por vez."
+        onStatus?(binding.mode == .enroll ? "Cadastro NFC ativo. Aguarde a confirmação do WMS." : "Leitura NFC ativa. Aguarde a confirmação de cada embalagem.")
         session.begin()
     }
 
@@ -88,20 +88,14 @@ import CoreNFC
                 guard try await tag.packemCommand([0x60]) == TagCodec.ntag213Version else {
                     throw StationError("A versão da tag não corresponde à NTAG213 suportada.")
                 }
-                let message = try await tag.packemRead()
-                guard message.records.count == 1, let record = message.records.first,
-                      record.typeNameFormat == .nfcWellKnown, record.type == Data([0x54]) else {
-                    throw StationError("A tag precisa conter um único registro NDEF de texto do WMS. Tags vazias devem ser gravadas primeiro.")
-                }
-                let text = try TagCodec.decodeText(record.payload)
-                guard !text.isEmpty, text.utf8.count <= 120 else { throw StationError("O texto da etiqueta está vazio ou excede 120 bytes.") }
                 let memory = try await tag.packemCommand([0x30, 0x00])
                 guard try TagCodec.uidFromPageZero(memory) == tag.identifier else { throw StationError("A identidade da etiqueta mudou durante a leitura.") }
                 try ensureActive(session, binding)
                 guard let deliver = onReading else { throw StationError("O WMS não está conectado ao leitor.") }
                 onStatus?("Conferindo a embalagem no WMS…")
-                let receipt = try await deliver(binding, uid, text)
+                let receipt = try await deliver(binding, uid, "")
                 try ensureActive(session, binding)
+                if binding.mode == .enroll { stop(receipt.label); return }
                 lastUID = uid
                 onStatus?(receipt.label)
                 session.alertMessage = String((receipt.label + "\nAfaste esta etiqueta e aproxime a próxima.").prefix(240))
@@ -124,15 +118,6 @@ private extension NFCMiFareTag {
             sendMiFareCommand(commandPacket: Data(bytes)) { data, error in
                 if let error = error { continuation.resume(throwing: error) }
                 else { continuation.resume(returning: data) }
-            }
-        }
-    }
-    func packemRead() async throws -> NFCNDEFMessage {
-        try await withCheckedThrowingContinuation { continuation in
-            readNDEF { message, error in
-                if let error = error { continuation.resume(throwing: error) }
-                else if let message = message { continuation.resume(returning: message) }
-                else { continuation.resume(throwing: StationError("A etiqueta não devolveu conteúdo NDEF.")) }
             }
         }
     }

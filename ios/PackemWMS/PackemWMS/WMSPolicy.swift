@@ -16,14 +16,19 @@ enum WMSPolicy {
     }
 }
 
+enum NFCMode: String { case count, enroll }
+
 struct WMSBinding: Equatable {
     let sessionID: String
     let target: String
+    let mode: NFCMode
 
     init?(body: [String: Any]) {
         guard let id = body["sessionId"] as? String, UUID(uuidString: id) != nil,
-              let target = body["target"] as? String, WMSPolicy.targets.contains(target) else { return nil }
-        self.sessionID = id; self.target = target
+              let target = body["target"] as? String,
+              let mode = NFCMode(rawValue: body["mode"] as? String ?? "count"),
+              (mode == .count && WMSPolicy.targets.contains(target)) || (mode == .enroll && target == "v-labels") else { return nil }
+        self.sessionID = id; self.target = target; self.mode = mode
     }
 }
 

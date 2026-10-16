@@ -2,8 +2,8 @@ import Foundation
 
 enum WMSPolicy {
     static let production = URL(string: "https://wms-packem.vercel.app/")!
-    static let preview = URL(string: "https://wms-packem-git-fork-testemateus458-alt-cod-e27b10-vercelcomdrop.vercel.app/")!
-    static let targets = ["v-floor", "v-floor70", "v-recic"]
+    static let preview = URL(string: "https://wms-packem-git-codex-wms-nfc-envio-automatico-vercelcomdrop.vercel.app/")!
+    static let targets = ["v-floor", "v-floor70", "v-recic", "v-inv"]
 
     static func allows(_ url: URL?) -> Bool {
         guard let url = url, url.scheme == "https", url.user == nil, url.password == nil,

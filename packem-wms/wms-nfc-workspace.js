@@ -11,8 +11,10 @@
   function selected(){return mode==='register'?'v-labels':destination;}
   function isActive(target){return permitted(target,allowed())&&(active()===target||active()==='v-nfc'&&selected()===target);}
   function busy(){return [root.WmsNfcMobile,root.PackemWmsApp,root.WmsNfcDireto,root.PackemNfcIphone].some(function(reader){return reader&&reader.active();})||(root.WmsNfcReader&&root.WmsNfcReader.bridgeActive());}
-  function host(target,alternative){
+  function host(target,provider){
     var node=page.querySelector('[data-nfc-host="'+target+'"]');
+    var nativeApp=!!(root.webkit&&root.webkit.messageHandlers&&root.webkit.messageHandlers.packemNfc);
+    var alternative=provider==='app'?!nativeApp:provider==='platinum'?nativeApp:!!provider;
     return alternative?node?.querySelector('[data-nfc-other-host]'):node?.querySelector('[data-nfc-main-host]');
   }
   function notice(text){page.querySelector('[data-nfc-workspace-status]').textContent=text;}

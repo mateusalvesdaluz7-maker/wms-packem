@@ -4,7 +4,9 @@ import XCTest
 final class WMSPolicyTests: XCTestCase {
     func testOnlyExactHTTPSOrigins() {
         XCTAssertTrue(WMSPolicy.allows(WMSPolicy.production))
+        XCTAssertEqual(WMSPolicy.preview.host, "wms-packem-git-codex-wms-nfc-envio-automatico-vercelcomdrop.vercel.app")
         XCTAssertTrue(WMSPolicy.allows(WMSPolicy.preview.appendingPathComponent("tests/ui/nfc-app.html")))
+        XCTAssertFalse(WMSPolicy.allows(URL(string: "https://wms-packem-git-fork-testemateus458-alt-cod-e27b10-vercelcomdrop.vercel.app/")))
         for url in ["http://wms-packem.vercel.app/", "https://wms-packem.vercel.app.evil.test/", "https://other.vercel.app/", "https://wms-packem.vercel.app:444/", "https://user:pass@wms-packem.vercel.app/", "file:///tmp/wms.html", "javascript:alert(1)"] {
             XCTAssertFalse(WMSPolicy.allows(URL(string: url)), url)
         }
@@ -12,12 +14,15 @@ final class WMSPolicyTests: XCTestCase {
     func testFrameOriginRequiresTLSAndStandardPort() {
         XCTAssertTrue(WMSPolicy.allowsOrigin(scheme: "https", host: "wms-packem.vercel.app", port: 0))
         XCTAssertTrue(WMSPolicy.allowsOrigin(scheme: "https", host: "wms-packem.vercel.app", port: 443))
+        XCTAssertTrue(WMSPolicy.allowsOrigin(scheme: "https", host: WMSPolicy.preview.host!, port: 443))
         XCTAssertFalse(WMSPolicy.allowsOrigin(scheme: "http", host: "wms-packem.vercel.app", port: 80))
         XCTAssertFalse(WMSPolicy.allowsOrigin(scheme: "https", host: "evil.test", port: 443))
     }
     func testBindingRequiresUUIDAndKnownCountingScreen() {
         let id = UUID().uuidString
         XCTAssertNotNil(WMSBinding(body: ["sessionId": id, "target": "v-floor"]))
+        XCTAssertNotNil(WMSBinding(body: ["sessionId": id, "target": "v-inv", "mode": "count"]))
+        XCTAssertNil(WMSBinding(body: ["sessionId": id, "target": "v-inv", "mode": "enroll"]))
         XCTAssertNotNil(WMSBinding(body: ["sessionId": id, "target": "v-labels", "mode": "program"]))
         XCTAssertNil(WMSBinding(body: ["sessionId": id, "target": "v-labels"]))
         XCTAssertNil(WMSBinding(body: ["sessionId": id, "target": "v-floor", "mode": "program"]))

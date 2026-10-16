@@ -2,7 +2,7 @@ import SwiftUI
 import WebKit
 
 @MainActor final class WMSModel: ObservableObject {
-    @Published var status = "Entre com seu usuário do WMS e abra a contagem."
+    @Published var status = "Entre no WMS e abra NFC para cadastrar ou contar por aproximação."
     @Published var loading = true
     let webView: WKWebView
     let reader = NFCReader()
@@ -113,7 +113,7 @@ import WebKit
         }
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) { model.loading = true }
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            model.loading = false; model.status = "Em Gestão de Etiquetas, consulte a embalagem e cadastre o chip por aproximação. Na contagem, toque em Ler NFC."
+            model.loading = false; model.status = "Abra NFC → Cadastrar tags para vincular o chip. Em Contar tags, escolha o destino e toque em Ler NFC."
         }
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             model.loading = false; model.status = "Não foi possível abrir o WMS: \(error.localizedDescription)"

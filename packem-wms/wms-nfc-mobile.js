@@ -178,7 +178,7 @@
   function button(parent,text,callback){var b=document.createElement('button');b.type='button';b.className='gbtn';b.textContent=text;b.style.margin='4px';b.onclick=action(callback);b.dataset.nfcMobileAction='1';parent.appendChild(b);return b;}
   function mount(){
     ['v-labels',...Object.keys(labels)].forEach(function(target){
-      var page=root.WmsNfcWorkspace?root.WmsNfcWorkspace.host(target):document.getElementById(target);if(!page||page.querySelector('[data-nfc-mobile]'))return;
+      var page=root.WmsNfcWorkspace?root.WmsNfcWorkspace.host(target,'platinum'):document.getElementById(target);if(!page||page.querySelector('[data-nfc-mobile]'))return;
       var panel=document.createElement('section');panel.className='panel';panel.dataset.nfcMobile='1';panel.style.cssText='padding:18px;margin:12px 0;border:2px solid #0d8571;border-radius:12px;overflow-wrap:anywhere';
       var h=document.createElement('h3');h.textContent=target==='v-labels'?'Cadastrar chip com NFC.cool Platinum':'Contar com NFC.cool Platinum';panel.appendChild(h);
       var p=document.createElement('p');p.textContent=target==='v-labels'?'1. Escolha a embalagem na lista acima. 2. Toque em Cadastrar próxima tag. 3. Aproxime a tag do iPhone no NFC.cool. O UID ficará vinculado ao código e à quantidade existentes no WMS.':'As tags cadastradas entram nesta contagem por aproximação. No iPhone, leia no NFC.cool e volte ao WMS para processar a fila. Com o WMS aberto no PC, a fila pode ser processada durante as leituras.';panel.appendChild(p);

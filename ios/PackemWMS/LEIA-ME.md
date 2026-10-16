@@ -6,16 +6,16 @@ O projeto Swift abre o WMS existente em uma `WKWebView` e integra Core NFC. O fl
 
 ## Cadastro e contagem
 
-1. Entre no WMS pelo app. Abra **Gestão de Etiquetas** e leia o QR Code da embalagem já existente ou informe seu ID em **Preparar tag NFC da embalagem**.
+1. Entre no WMS pelo app. Abra **NFC → Cadastrar tags** e escolha a embalagem na lista, podendo buscar por ID, código ou descrição. Não abre câmera nem usa QR Code.
 2. Consulte e confira os dados. Toque em **Cadastrar chip por aproximação** e apresente uma NTAG213. O leitor confere GET_VERSION, UID de 7 bytes e os bytes de verificação da página 0; aguarda o servidor confirmar o vínculo.
-3. Abra **Chão expedição**, **Chão 70** ou **Recicladora - 91** em modo Entrada. Toque em **Ler NFC** e apresente as tags cadastradas uma por vez, aguardando cada confirmação. Não há toque por etiqueta dentro da sessão.
+3. Em **NFC → Contar tags**, escolha **Expedição - 71**, **Chão de Fábrica - 70**, **Recicladora - 91** ou **Inventário**. Para inventário, selecione antes a tarefa e a vaga/passada na aba normal. Toque em **Ler NFC** e apresente as tags cadastradas uma por vez, aguardando cada confirmação. Não há toque por etiqueta dentro da sessão nem troca para o NFC.cool. No app instalado, esses controles ficam no painel principal; a alternativa Platinum fica recolhida.
 4. O UID é resolvido no servidor; código, quantidade e unidade são consultados no cadastro atual. A entrada usa a função normal da tela, inclusive regras de estoque, local e histórico. Embalagens já contadas não entram novamente.
 
 Pausar, mudar usuário/tela/modo, navegar ou sair do app encerra a operação. Erros e divergências pedem conferência antes de repetir. O iOS exibe sua interface de NFC e limita cada sessão a cerca de 60 segundos; é necessário tocar em Ler NFC novamente para continuar. O UID não é autenticação criptográfica.
 
 ## Configuração do servidor
 
-O novo cadastro requer `packem-wms/supabase/migrations/202610160001_nfc_tags.sql`, aplicado pelo responsável no Supabase de homologação, e `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` configuradas **somente no servidor Vercel**. Não coloque service_role no HTML ou no app. **A migração não foi aplicada no banco real por esta entrega.**
+O cadastro requer `packem-wms/supabase/migrations/202610160001_nfc_tags.sql` e `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` configuradas **somente no servidor Vercel**. Não coloque service_role no HTML ou no app. As migrações NFC foram aplicadas no banco do WMS em 16/10/2026; as variáveis de serviço ficaram restritas à prévia da branch `codex/wms-nfc-envio-automatico`. Isso não substitui a assinatura do aplicativo nem a validação da antena.
 
 `/api/nfc-tags` autentica o usuário ativo com a credencial normal do WMS, mantida em memória pela página e enviada por HTTPS. Verifica a senha existente (PBKDF2 ou formato legado), exige permissão de etiquetas para cadastrar e não retorna senhas/chaves. O banco aceita somente uma tag por embalagem e uma embalagem por tag. Repetir o mesmo vínculo é idempotente; conflitos não reatribuem chips. A embalagem precisa existir no servidor em `etiquetas` ou `bobinas`.
 
@@ -34,7 +34,7 @@ Essa função é independente: para contar no fluxo principal, cadastre também 
 3. Compile, assine e instale pelo fluxo da equipe. Remover o entitlement não libera NFC.
 4. O app abre a prévia do PR #48. **Opções → Ensaio sem estoque real** usa somente dados fictícios. Produção depende da publicação revisada das alterações web e da configuração do banco.
 
-O workflow macOS do GitHub executa testes Swift e compila para simulador e iPhone com `CODE_SIGNING_ALLOWED=NO`. Isso verifica o código; não testa a antena nem produz um instalador. A assinatura com NFC continua sendo um pré-requisito externo. A [tabela Apple](https://developer.apple.com/help/account/reference/supported-capabilities-ios/) não disponibiliza NFC Tag Reading ao Personal Team gratuito. Reassinar com um certificado pessoal não foi validado como solução para esse requisito.
+O workflow macOS do GitHub executa testes Swift e compila para simulador e iPhone com `CODE_SIGNING_ALLOWED=NO`. O artefato `PackemWMS-iphone-sem-assinatura` guarda o aplicativo compilado para assinatura posterior; **não é um instalador nem um IPA pronto**. A compilação não testa a antena. A assinatura com NFC continua sendo um pré-requisito externo. A [tabela Apple](https://developer.apple.com/help/account/reference/supported-capabilities-ios/) não disponibiliza NFC Tag Reading ao Personal Team gratuito. Reassinar com um certificado pessoal não foi validado como solução para esse requisito.
 
 ## Ensaio sem estoque real
 

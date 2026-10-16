@@ -22,3 +22,10 @@ jobs:
         run: xcodebuild -project PackemWMS.xcodeproj -scheme PackemWMS -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
       - name: Compilar para iPhone sem assinatura (não instalável)
         run: xcodebuild -project PackemWMS.xcodeproj -scheme PackemWMS -configuration Debug -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-device CODE_SIGNING_ALLOWED=NO build
+      - name: Guardar aplicativo para assinatura posterior (não é instalador)
+        uses: actions/upload-artifact@v4
+        with:
+          name: PackemWMS-iphone-sem-assinatura
+          path: ios/PackemWMS/build-device/Build/Products/Debug-iphoneos/PackemWMS.app
+          if-no-files-found: error
+          retention-days: 7

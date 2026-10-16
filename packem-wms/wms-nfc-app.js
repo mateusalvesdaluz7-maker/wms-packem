@@ -1,7 +1,7 @@
 /* Ponte do aplicativo Packem WMS: Core NFC -> contagem autenticada existente. */
 (function(root){
   'use strict';
-  var targets=['v-floor','v-floor70','v-recic'];
+  var targets=['v-floor','v-floor70','v-recic','v-inv'];
   class AppCounter{
     constructor(options){this.parse=options.parse;this.resolve=options.resolve;this.apply=options.apply;this.notify=options.notify||function(){};this.uuid=options.uuid;this.binding=null;this.busy=false;this.seen=new Map();this.count=0;}
     status(message){this.notify({message:message,active:!!this.binding,busy:this.busy,count:this.count});}
@@ -30,7 +30,7 @@
         var result=await this.apply(tag,guard);
         if(!guard.isActive())throw new Error('A sessão mudou antes da confirmação. Confira os itens já contados.');
         this.seen.set(reading.uid,fingerprint);if(!result.duplicate)this.count++;
-        var label=tag.item+' · '+tag.quantidade.replace('.',',')+' '+tag.unidade+(result.duplicate?' · já estava contada':' · adicionada à contagem');
+        var label=this.count+' nova(s) nesta sessão · '+tag.item+' · '+tag.quantidade.replace('.',',')+' '+tag.unidade+(result.duplicate?' · já estava contada':' · adicionada à contagem');
         this.status(label);return {accepted:true,duplicate:result.duplicate,label:label};
       }catch(error){this.stop(error.message+' Reapresente esta etiqueta depois de conferir e iniciar a leitura novamente.');throw error;}
       finally{this.busy=false;}
@@ -42,7 +42,7 @@
     guard(binding){if(this.binding!==binding||!binding.context.isActive())throw new Error('A tela ou o usuário mudou. Consulte a embalagem novamente.');}
     async start(value,context){
       if(this.binding||this.busy)throw new Error('Encerre o cadastro NFC atual antes de iniciar outro.');
-      if(!value||!value.tag||!context.isActive())throw new Error('Consulte a embalagem em Gestão de Etiquetas primeiro.');
+      if(!value||!value.tag||!context.isActive())throw new Error('Escolha a embalagem em NFC → Cadastrar tags primeiro.');
       var binding={sessionId:this.uuid(),target:'v-labels',context:context,tag:Object.assign({},value.tag)};this.binding=binding;this.busy=true;
       try{
         var fresh=await this.prepare(value.tag.item,context);this.guard(binding);
@@ -102,7 +102,8 @@
   if(!root.WmsNfcText||!root.WmsNfcReader)return;
   function handler(){return root.webkit&&root.webkit.messageHandlers&&root.webkit.messageHandlers.packemNfc;}
   var lastStatus=handler()?'Entre na contagem e toque em Ler NFC.':'A leitura NFC funciona no aplicativo Packem WMS para iPhone. O Safari não acessa esta antena.';
-  function notice(state){lastStatus=state.message;document.querySelectorAll('[data-nfc-app-status]').forEach(function(node){node.textContent=lastStatus;});}
+  var lastCount=0;
+  function notice(state){lastStatus=state.message;if(Number.isSafeInteger(state.count))lastCount=state.count;document.querySelectorAll('[data-nfc-app-status]').forEach(function(node){node.textContent=lastStatus;});document.querySelectorAll('[data-nfc-app-count]').forEach(function(node){node.textContent=lastCount+' nova(s) embalagem(ns) adicionada(s) nesta sessão.';});}
   var counter=new AppCounter({parse:root.WmsNfcText.parseText,resolve:function(uid,context){if(!root.PackemNfcRegistry)throw new Error('Cadastro NFC não publicado nesta página.');return root.PackemNfcRegistry.resolve(uid,context);},apply:root.WmsNfcReader.applyItemReading,uuid:()=>crypto.randomUUID(),notify:notice});
   var enrollment=new AppEnrollment({prepare:function(id,context){return root.WmsNfcPrepare.prepare(id,context);},bind:function(uid,item){if(!root.PackemNfcRegistry)throw new Error('Cadastro NFC indisponível.');return root.PackemNfcRegistry.bind(uid,item);},uuid:()=>crypto.randomUUID(),notify:notice});
   var programStatus='Selecione uma embalagem no painel Preparar tag NFC. Use uma NTAG213 vazia.';
@@ -123,7 +124,8 @@
     try{
       if(!handler())throw new Error('Abra este WMS no aplicativo Packem WMS com NFC nativo.');
       if(othersActive()||enrollment.binding||enrollment.busy||programmer.binding||programmer.busy)throw new Error('Conclua ou pause a outra operação NFC antes de usar o app Packem WMS.');
-      var command=counter.start(view,root.WmsNfcReader.makeContext(view));
+      var context=view==='v-inv'&&root.WmsNfcInventory?root.WmsNfcInventory.context():root.WmsNfcReader.makeContext(view);
+      var command=counter.start(view,context);
       try{handler().postMessage(command);}catch(error){stop('Não foi possível iniciar a antena do aplicativo.');throw error;}
     }catch(error){counter.status(error.message);}
   }
@@ -141,11 +143,11 @@
     if(counter.binding&&!counter.binding.context.isActive())stop('Leitura encerrada porque o usuário, a tela ou o modo de contagem mudou.');
     if(enrollment.binding&&!enrollment.binding.context.isActive())stop('Cadastro encerrado porque a tela ou o usuário mudou. Confira o vínculo se o envio já começou.');
     if(programmer.binding&&!programmer.binding.context.isActive())stop('Gravação interrompida pela mudança de usuário, tela ou embalagem. Confira o conteúdo da tag antes de reutilizá-la.');
-    var labels=root.WmsNfcWorkspace?root.WmsNfcWorkspace.host('v-labels',true):document.getElementById('v-labels');
+    var labels=root.WmsNfcWorkspace?root.WmsNfcWorkspace.host('v-labels','app'):document.getElementById('v-labels');
     if(labels&&!labels.querySelector('[data-nfc-app-enroll]')){
       var registration=document.createElement(handler()?'section':'details');registration.className='panel';registration.dataset.nfcAppEnroll='1';registration.style.cssText='padding:18px;margin:12px 0;border:2px solid #147657;border-radius:12px';
       var heading=document.createElement(handler()?'h3':'summary');heading.textContent='Cadastrar chip pelo UID · aplicativo Packem WMS';registration.appendChild(heading);
-      var explanation=document.createElement('p');explanation.textContent='Consulte a embalagem no painel Preparar tag NFC e aproxime uma NTAG213. O UID de fábrica fica vinculado no WMS; tags vazias também servem. Código e peso são consultados no cadastro da embalagem.';registration.appendChild(explanation);
+      var explanation=document.createElement('p');explanation.textContent='Escolha a embalagem na lista acima, toque em Cadastrar chip por aproximação e apresente uma NTAG213 ao iPhone. O UID fica vinculado no WMS; código e peso vêm do cadastro da embalagem.';registration.appendChild(explanation);
       var status=document.createElement('p');status.dataset.nfcAppStatus='1';status.setAttribute('role','status');status.textContent=lastStatus;registration.appendChild(status);
       var bindButton=document.createElement('button');bindButton.type='button';bindButton.className='btn brand';bindButton.textContent='Cadastrar chip por aproximação';bindButton.disabled=!handler();bindButton.onclick=enroll;registration.appendChild(bindButton);
       var cancel=document.createElement('button');cancel.type='button';cancel.className='gbtn';cancel.textContent='Cancelar cadastro';cancel.style.marginLeft='12px';cancel.onclick=function(){stop();};registration.appendChild(cancel);
@@ -161,11 +163,12 @@
       labels.appendChild(section);
     }
     targets.forEach(function(view){
-      var container=root.WmsNfcWorkspace?root.WmsNfcWorkspace.host(view,true):document.getElementById(view);if(!container||container.querySelector('[data-nfc-app-panel]'))return;
+      var container=root.WmsNfcWorkspace?root.WmsNfcWorkspace.host(view,'app'):document.getElementById(view);if(!container||container.querySelector('[data-nfc-app-panel]'))return;
       var panel=document.createElement(handler()?'section':'details');panel.className='panel';panel.dataset.nfcAppPanel='1';panel.style.cssText='padding:18px;margin:12px 0;border:1px solid #b8d4c4;border-radius:12px';
       var title=document.createElement(handler()?'strong':'summary');title.textContent=handler()?'NFC · aplicativo Packem WMS':'Outra opção: aplicativo próprio Packem WMS';panel.appendChild(title);
       var description=document.createElement('p');description.textContent='Toque em Ler NFC e aproxime as tags cadastradas pelo UID. O WMS busca código e peso da embalagem e evita duplicar itens nesta contagem. Não é necessário tocar a cada etiqueta.';panel.appendChild(description);
       var status=document.createElement('p');status.dataset.nfcAppStatus='1';status.setAttribute('role','status');status.textContent=lastStatus;panel.appendChild(status);
+      var count=document.createElement('p');count.dataset.nfcAppCount='1';count.textContent=lastCount+' nova(s) embalagem(ns) adicionada(s) nesta sessão.';panel.appendChild(count);
       var begin=document.createElement('button');begin.type='button';begin.className='gbtn';begin.textContent='Ler NFC';begin.disabled=!handler();begin.style.marginRight='12px';begin.onclick=function(){start(view);};panel.appendChild(begin);
       var end=document.createElement('button');end.type='button';end.className='gbtn';end.textContent='Parar leitura';end.onclick=function(){stop();};panel.appendChild(end);
       var note=document.createElement('small');note.style.display='block';note.textContent='O iOS limita cada sessão a cerca de 60 segundos. Toque em Ler NFC para continuar; os itens já contados permanecem. Cadastre as tags em NFC → Cadastrar tags antes de contar.';panel.appendChild(note);container.prepend(panel);

@@ -79,7 +79,7 @@
       var script=document.createElement('script');script.src='/vendor/natively-2.28.14.min.js';script.onload=ready;script.onerror=function(){clearTimeout(timer);reject(new Error('Não foi possível carregar o SDK NFC local.'));};document.head.appendChild(script);
     }).catch(function(error){loading=null;throw error;});return loading;
   }
-  function othersActive(){return (root.PackemNfcIphone&&root.PackemNfcIphone.active())||(root.PackemWmsApp&&root.PackemWmsApp.active())||root.WmsNfcReader.bridgeActive();}
+  function othersActive(){return (root.WmsNfcMobile&&root.WmsNfcMobile.active())||(root.PackemNfcIphone&&root.PackemNfcIphone.active())||(root.PackemWmsApp&&root.PackemWmsApp.active())||root.WmsNfcReader.bridgeActive();}
   async function getPilot(){if(pilot)return pilot;var serviceFactory=await loadService();pilot=new DirectTagPilot({serviceFactory:serviceFactory,prepare:root.WmsNfcPrepare.prepare,apply:root.WmsNfcReader.applyItemReading,notify:notice});return pilot;}
   async function action(type,view){
     if(sequence){notice({message:'Encerre a leitura em sequência antes de iniciar outra operação.'});return;}

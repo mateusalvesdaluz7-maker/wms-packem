@@ -11705,6 +11705,31 @@ window.EXP.ensureCutOpRomaneio=async function(draft){
       trocou:trocou?sp.pr:'',vgAnt:vgAnt,misto:(prs.length>1),msg:'Bipada'};
     saveInv(inv);window.renderInv();
   }
+  /* NFC usa o mesmo bip do inventário; tarefa/vaga/passada ficam presas ao contexto. */
+  window.WmsNfcInventory={context:function(){
+    function snapshot(){
+      var inv=loadInv(),who=_me();
+      if(!inv||!inv.tid||inv.status!=='andamento'||(!(_adm())&&inv.atribuido!==who))return null;
+      if(!inv.sel.chao&&!inv.cur)return null;
+      var pass=inv.sel.chao?_chaoSt(inv).pass:_recGet(inv,inv.cur).length+1;
+      return {inv:inv,key:JSON.stringify([who,inv.tid,inv.sel.chao?'chao:'+inv.sel.chao:inv.cur,pass])};
+    }
+    var first=snapshot(),scope=first&&first.key;
+    function active(){var next=snapshot();return !!scope&&!document.hidden&&next&&next.key===scope&&!!document.querySelector('#v-inv.view.active');}
+    function has(et){
+      if(!active())return false;var inv=loadInv();et=typeof norm==='function'?norm(et):et;
+      if(inv.sel.chao){var alvo=_chaoAlvos(inv).find(function(x){return x._code&&(typeof norm==='function'?norm(x._code):x._code)===et;});return !!alvo&&_chaoSeen(inv,_chaoSt(inv).pass)[alvo.id]===1;}
+      return !!(inv.bip&&inv.bip[inv.cur]&&inv.bip[inv.cur].items.some(function(x){return x.et===et;}));
+    }
+    return {scope:scope,isActive:active,has:has,
+      lookup:async function(et){var b=typeof window.bobFetch==='function'?await window.bobFetch(et):null;return b?{codigo:String(b.pr||''),quantidade:b.pl,unidade:typeof unitOf==='function'?unitOf(b.pr):''}:null;},
+      add:async function(et){
+        if(!active())throw new Error('A tarefa, a vaga ou a passada de inventário mudou.');
+        var b=await window.bobFetch(et);
+        if(!active()||!b)throw new Error('Embalagem indisponível nesta contagem.');
+        _bipAplica(typeof norm==='function'?norm(et):et,{pr:b.pr,pl:b.pl});
+      }};
+  }};
   /* CONFIRMA a vaga: o que foi bipado vira a verdade — corrige produto, peso, LOC e o MAPA */
   window.invConfirmVaga=function(spId){
     var inv=loadInv();if(!inv||!inv.bip||!inv.bip[spId])return;

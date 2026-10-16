@@ -30,6 +30,10 @@
   ],
   "rewrites": [
     {
+      "source": "/nfc-receber/:key",
+      "destination": "/api/nfc-webhook?key=:key"
+    },
+    {
       "source": "/wms-data/requests",
       "destination": "/api/requisicoes"
     },

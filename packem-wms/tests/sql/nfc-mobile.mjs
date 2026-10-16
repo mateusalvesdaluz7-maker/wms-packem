@@ -1,0 +1,63 @@
+// Isolated PostgreSQL; never uses credentials or the production database.
+import {readFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const {PGlite}=await import(process.env.NFC_PGLITE_MODULE||'@electric-sql/pglite');
+const db=new PGlite();
+await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;
+CREATE TABLE usuarios(u text primary key,role text,active boolean);
+INSERT INTO usuarios VALUES ('qa','admin',true),('other','admin',true),('viewer','consulta',true);
+CREATE TABLE etiquetas(id text primary key); CREATE TABLE bobinas(etiqueta text primary key);
+INSERT INTO etiquetas VALUES ('T001'),('T002'),('T003');`);
+for(let twice=0;twice<2;twice++)for(const file of ['202610160001_nfc_tags.sql','202610160002_nfc_mobile.sql'])await db.exec(await readFile(new URL('../../supabase/migrations/'+file,import.meta.url),'utf8'));
+const rid='11111111-1111-4111-8111-111111111111',sid='22222222-2222-4222-8222-222222222222',op='33333333-3333-4333-8333-333333333333',secret='a'.repeat(64);
+const rpc=async(action,data={},actor='qa')=>(await db.query('select public.wms_nfc_mobile($1,$2,$3) value',[action,actor,{readerId:rid,...data}])).rows[0].value;
+await db.exec('SET ROLE service_role');
+assert.equal((await rpc('reader_create',{label:'iPhone QA',secretHash:secret})).mode,'idle');
+await assert.rejects(rpc('reader_get',{},'other'),/não pertence/);
+await assert.rejects(rpc('enroll_arm',{operationId:op,item:'UNKNOWN'}),/não sincronizada/);
+await rpc('enroll_arm',{operationId:op,item:'T001'});
+await assert.rejects(rpc('enroll_arm',{operationId:op,item:'T002'}),/outra embalagem/);
+await assert.rejects(rpc('count_start',{sessionId:sid,target:'v-inv',contextKey:'task1/pass1'}),/Cadastro/);
+assert.equal((await rpc('ingest',{secretHash:secret,probe:true})).probe,true);
+assert.equal((await rpc('reader_get')).mode,'enroll');
+await assert.rejects(rpc('ingest',{secretHash:secret,uid:'QR-UUID',scannedAt:new Date().toISOString()}),/UID/);
+assert.equal((await rpc('ingest',{secretHash:secret,uid:'04112233445566',scannedAt:new Date().toISOString()})).enrollment.status,'bound');
+assert.equal((await rpc('reader_get')).enrollment.item,'T001');
+assert.equal((await rpc('enroll_arm',{operationId:op,item:'T001'})).mode,'idle'); // retry never rearms
+await assert.rejects(rpc('ingest',{secretHash:secret,uid:'04000000000001',scannedAt:new Date().toISOString()}),/Abra cadastro/);
+const conflictOp='44444444-4444-4444-8444-444444444444';
+await rpc('enroll_arm',{operationId:conflictOp,item:'T002'});
+assert.equal((await rpc('ingest',{secretHash:secret,uid:'04112233445566',scannedAt:new Date().toISOString()})).enrollment.status,'conflict');
+await rpc('count_start',{sessionId:sid,target:'v-inv',contextKey:'task1/pass1'});
+const ingest=(uid)=>rpc('ingest',{secretHash:secret,uid,scannedAt:new Date().toISOString()});
+assert.equal((await ingest('04112233445566')).duplicate,false);
+assert.equal((await ingest('04112233445566')).duplicate,true);
+await ingest('04000000000002'); // unknown UID remains queued for explicit resolution
+let state=await rpc('count_status',{sessionId:sid,cursor:0});
+assert.deepEqual(state.items.map(x=>x.seq),[1,2]);assert.equal(state.session.received,2);
+await assert.rejects(rpc('count_ack',{sessionId:sid,cursor:3}),/fora da sequência/);
+await rpc('count_ack',{sessionId:sid,cursor:1});
+assert.equal((await rpc('count_status',{sessionId:sid,cursor:1})).items[0].uid,'04000000000002');
+await assert.rejects(rpc('count_ack',{sessionId:sid,cursor:0}),/fora da sequência/);
+await rpc('count_stop',{sessionId:sid});
+await assert.rejects(ingest('04000000000003'),/Abra cadastro/);
+await assert.rejects(rpc('count_start',{sessionId:sid,target:'v-inv',contextKey:'task1/pass2'}),/outro contexto/);
+await rpc('count_start',{sessionId:sid,target:'v-inv',contextKey:'task1/pass1'});
+await rpc('reader_rotate',{secretHash:'b'.repeat(64)});
+await assert.rejects(ingest('04000000000003'),/Link revogado/);
+await db.exec('RESET ROLE');
+assert.equal((await db.query("select item from wms_nfc_tags where uid='04112233445566'")).rows[0].item,'T001');
+await db.exec("update usuarios set active=false where u='qa'");
+await assert.rejects(rpc('reader_get'),/inativo/);
+await db.exec("update usuarios set active=true,role='consulta' where u='qa'");
+await assert.rejects(rpc('enroll_arm',{operationId:'55555555-5555-4555-8555-555555555555',item:'T003'}),/permissão/);
+await assert.rejects(rpc('count_start',{sessionId:sid,target:'v-floor',contextKey:'floor'}),/autorizado/);
+for(const role of ['anon','authenticated']){
+  await db.exec('SET ROLE '+role);
+  await assert.rejects(rpc('reader_list'),/permission denied/);
+  await assert.rejects(db.query('select * from wms_nfc_readers'),/permission denied/);
+  await assert.rejects(db.query('select * from wms_nfc_scans'),/permission denied/);
+  await db.exec('RESET ROLE');
+}
+await db.close();
+console.log('SQL NFC: migrations repeatable; ownership, atomic enrollment, conflicts, permissions, queue, duplicates, cursor, rotation and context isolation verified. Production database untouched.');

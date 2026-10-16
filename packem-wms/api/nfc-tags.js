@@ -99,4 +99,5 @@ function makeHandler(options = {}) {
 }
 
 module.exports = makeHandler();
+module.exports.security = { passwordMatches, mayBind };
 module.exports._test = { parse, passwordMatches, mayBind, makeHandler };

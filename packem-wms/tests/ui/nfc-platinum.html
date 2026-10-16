@@ -1,0 +1,46 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Packem · Ensaio NFC.cool Platinum</title>
+<style>body{font:16px/1.5 system-ui;color:#163f35;background:#edf4f1;margin:0}main{max-width:850px;margin:auto;padding:24px}h1{font-size:32px;line-height:1.2}button{font:inherit;padding:10px;border:1px solid #8fb8a6;border-radius:8px;background:#e5f5ec;cursor:pointer;margin:4px}input,textarea{font:inherit;padding:10px;border:1px solid #aecabd;border-radius:8px}.panel,.card{background:white;padding:20px;border-radius:14px;margin:16px 0}.note{background:#fff1cf;padding:16px;border-radius:12px}a{color:#006b52}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:8px;border-bottom:1px solid #dae9e0}.metric{font-size:32px;font-weight:750}.view:not(.active){display:none}[data-nfc-reader],#v-labels [data-nfc-preparar] a{display:none}@media(max-width:480px){main{padding:14px}h1{font-size:27px}button{width:100%;margin:5px 0}}</style>
+<main><a href="/nfc-platinum.html">Como usar no iPhone</a><h1>Cadastro de chip e contagem pelo WMS</h1>
+<p>Selecione a embalagem, vincule o UID e confira a fila entrando na contagem.</p>
+<p class="note"><b>Ensaio com dados fictícios.</b> A API e as aproximações desta página são simuladas na memória. Não usa antena, não envia Webhooks e não altera estoque real. O teste físico depende das NTAG213.</p>
+<nav><button id="show-labels">1. Cadastrar tags</button><button id="show-count">2. Abrir contagem</button></nav>
+<section class="card"><b>Embalagens do ensaio</b><p>Produto 0303450047 · pesos 300 kg e 250,5 kg</p><button id="select-one">Selecionar QR fictício · embalagem 1</button><button id="select-two">Selecionar QR fictício · embalagem 2</button><p id="bindings">0 chips cadastrados</p></section>
+<div id="v-labels" class="view active"><h2>Gestão de Etiquetas</h2></div>
+<div id="v-floor" class="view"><h2>Contagem · chão expedição</h2></div>
+<section class="card"><b>Simular a entrega do NFC.cool</b><p>Prepare o cadastro ou inicie a contagem antes de enviar o UID.</p><button id="scan-one">Aproximar tag 1 (simulação)</button><button id="scan-two">Aproximar tag 2 (simulação)</button><button id="repeat">Repetir tag 1</button><p id="scan-result" role="status">Aguardando operação do WMS.</p></section>
+<section class="card"><p class="metric" id="total">0 embalagens · 0 kg</p><table><thead><tr><th>Embalagem</th><th>Código</th><th>Peso</th></tr></thead><tbody id="items"></tbody></table></section></main>
+<script>
+var session={u:'qa-platinum',role:'admin'},_floorScanMode='add';window._fiscalAuth={u:session.u,p:'simulation-only'};
+var reader=null,count=null,registry=new Map(),counted=new Set(),catalog={T001:{pr:'0303450047',pl:300},T002:{pr:'0303450047',pl:250.5}};
+function unitOf(){return 'KG';}window.bobFetch=async id=>catalog[id]||null;window.floorHasEt=id=>counted.has(id);
+window.floorAdd=async function(id){counted.add(id);var sum=0,rows=document.getElementById('items');rows.replaceChildren();counted.forEach(function(key){var b=catalog[key],row=document.createElement('tr');sum+=b.pl;[key,b.pr,String(b.pl).replace('.',',')+' kg'].forEach(function(text){var td=document.createElement('td');td.textContent=text;row.appendChild(td);});rows.appendChild(row);});document.getElementById('total').textContent=counted.size+' embalagens · '+String(sum).replace('.',',')+' kg';};
+window.PackemNfcRegistry={resolve:async function(uid,context){var id=registry.get(uid);if(!id)throw Error('Tag não cadastrada');return (await WmsNfcPrepare.prepare(id,context)).tag;}};
+function state(cursor){return {...reader,session:count?{id:count.sessionId,target:count.target,contextKey:count.contextKey,cursor:count.cursor,received:count.items.length,active:count.active,expiresAt:new Date(Date.now()+3600000).toISOString()}:null,items:count?count.items.filter(x=>x.seq>(cursor||0)):[]};}
+window.fetch=async function(url,options){var b=JSON.parse(options.body),a=b.action,d=b.data||{},data;try{
+ if(a==='login')return {ok:true,status:200,json:async()=>({ok:true,token:'simulation'})};
+ if(a==='reader_list')data=reader?[reader]:[];
+ else if(a==='reader_create'||a==='reader_rotate'){reader={id:reader?.id||crypto.randomUUID(),mode:'idle',active:true,expiresAt:'2030-01-01T00:00:00Z'};data={...reader,webhookUrl:location.origin+'/nfc-receber/EXEMPLO-FICTICIO-NAO-USAR-NO-CELULAR'};}
+ else if(a==='reader_get')data={...reader};
+ else if(a==='enroll_arm'){if(reader.operationId!==d.operationId){reader={...reader,mode:'enroll',operationId:d.operationId,enrollmentItem:d.item,enrollment:null,armUntil:new Date(Date.now()+120000).toISOString()};}data={...reader};}
+ else if(a==='enroll_cancel'){reader.mode='idle';reader.enrollment={status:'cancelled',operationId:d.operationId};data={...reader};}
+ else if(a==='count_start'){if(!count||count.sessionId!==d.sessionId)count={...d,cursor:0,items:[],active:true};count.active=true;reader.mode='count';reader.countSessionId=d.sessionId;data=state(count.cursor);}
+ else if(a==='count_status')data=state(d.cursor);
+ else if(a==='count_ack'){count.cursor=d.cursor;data=state(d.cursor);}
+ else if(a==='count_stop'){count.active=false;reader.mode='idle';data=state(count.cursor);}
+ else throw Error('Ação simulada desconhecida');
+ return {ok:true,status:200,json:async()=>({ok:true,data})};
+ }catch(error){return {ok:false,status:409,json:async()=>({ok:false,error:error.message})};}};
+function scan(second){var uid=second?'04778899001122':'04112233445566',result=document.getElementById('scan-result');
+ if(reader?.mode==='enroll'){
+  var item=reader.enrollmentItem,conflict=registry.has(uid)&&registry.get(uid)!==item||[...registry].some(([u,id])=>id===item&&u!==uid);
+  if(!conflict)registry.set(uid,item);reader.enrollment={status:conflict?'conflict':'bound',uid,item,operationId:reader.operationId};reader.mode='idle';
+  document.getElementById('bindings').textContent=registry.size+' chips cadastrados: '+[...registry.values()].join(', ');result.textContent='UID entregue ao cadastro simulado. Confira o resultado no painel.';
+ }else if(reader?.mode==='count'&&count.active){var duplicate=count.items.some(x=>x.uid===uid);if(!duplicate)count.items.push({seq:count.items.length+1,uid});result.textContent=duplicate?'UID repetido: a fila não criou outra entrada.':'UID guardado na fila simulada.';WmsNfcMobile.queue.poll();}
+ else result.textContent='Prepare o cadastro ou inicie a contagem primeiro.';
+}
+function show(id){document.querySelectorAll('.view').forEach(n=>n.classList.toggle('active',n.id===id));}
+function select(id){show('v-labels');var n=document.getElementById('packemNfcLabelId');n.value=id;n.dispatchEvent(new Event('input'));document.querySelector('[data-nfc-preparar] .btn').click();}
+document.getElementById('show-labels').onclick=()=>show('v-labels');document.getElementById('show-count').onclick=()=>show('v-floor');
+document.getElementById('select-one').onclick=()=>select('T001');document.getElementById('select-two').onclick=()=>select('T002');
+document.getElementById('scan-one').onclick=()=>scan(false);document.getElementById('scan-two').onclick=()=>scan(true);document.getElementById('repeat').onclick=()=>scan(false);
+</script><script src="../../wms-nfc-text.js"></script><script src="../../wms-nfc-reader.js"></script><script src="../../wms-nfc-preparar.js"></script><script src="../../wms-nfc-mobile.js"></script></html>

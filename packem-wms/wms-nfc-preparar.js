@@ -36,9 +36,10 @@
     var text=document.createElement('textarea');text.id='packemNfcPayload';text.readOnly=true;text.rows=3;text.className='input code';text.style.cssText='display:block;width:100%;box-sizing:border-box;margin:6px 0 12px';panel.appendChild(text);
     var copy=document.createElement('button');copy.type='button';copy.className='gbtn';copy.disabled=true;copy.textContent='Copiar conteúdo NFC';panel.appendChild(copy);
     var guide=document.createElement('a');guide.href='/nfc-iphone.html';guide.textContent='Configurar leitura no iPhone';guide.style.marginLeft='12px';panel.appendChild(guide);
+    var optional=document.createElement('details'),optionalTitle=document.createElement('summary');optionalTitle.textContent='Gravação opcional de texto na tag';optional.appendChild(optionalTitle);[textLabel,text,copy,guide].forEach(function(node){optional.appendChild(node);});panel.appendChild(optional);
     var nativeApp=!!(root.webkit&&root.webkit.messageHandlers&&root.webkit.messageHandlers.packemNfc);
     if(nativeApp){text.hidden=true;text.style.display='none';textLabel.hidden=true;copy.hidden=true;guide.href='/nfc-app.html';guide.textContent='Como usar o aplicativo Packem WMS';}
-    var note=document.createElement('p');note.style.cssText='font-size:.82rem;color:var(--muted)';note.textContent=nativeApp?'Use Cadastrar chip por aproximação abaixo. O aplicativo lê o UID de fábrica e o WMS salva o vínculo. Não é necessário gravar este texto na tag.':'No aplicativo próprio Packem WMS, cadastre o chip pelo UID no painel abaixo, sem gravar dados na tag. Os pilotos de escrita por outros aplicativos continuam como alternativas. Preparar o conteúdo não confirma leitura física.';panel.appendChild(note);
+    var note=document.createElement('p');note.style.cssText='font-size:.82rem;color:var(--muted)';note.textContent='Use o painel de cadastro por UID abaixo para vincular o chip à embalagem. Não é necessário gravar texto na tag para esse cadastro. A consulta da embalagem ainda não confirma leitura física NFC.';panel.appendChild(note);
     function clear(){epoch++;result=null;text.value='';detail.textContent='';copy.disabled=true;}
     input.addEventListener('input',clear);
     async function lookup(scanContext){
@@ -47,7 +48,7 @@
         var value=await prepare(id,context);
         if(request!==epoch||!context.isActive())return;
         result=value;text.value=value.content;detail.textContent='Embalagem '+value.tag.item+' · código '+value.tag.codigo+' · '+value.tag.quantidade.replace('.',',')+' '+value.tag.unidade;
-        copy.disabled=false;status.textContent=nativeApp?'Embalagem consultada. Use Cadastrar chip por aproximação abaixo para salvar o vínculo pelo UID.':'Conteúdo preparado a partir do cadastro. A gravação na tag ainda precisa ser feita e conferida.';
+        copy.disabled=false;status.textContent='Embalagem consultada. Use o painel de cadastro por UID abaixo para salvar o vínculo com a tag.';
       }catch(error){if(request===epoch)status.textContent=error.message;}
       finally{button.disabled=false;scan.disabled=false;}
     }

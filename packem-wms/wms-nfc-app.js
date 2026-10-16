@@ -108,7 +108,7 @@
   var programStatus='Selecione uma embalagem no painel Preparar tag NFC. Use uma NTAG213 vazia.';
   var programmer=new AppProgrammer({prepare:function(id,context){return root.WmsNfcPrepare.prepare(id,context);},uuid:()=>crypto.randomUUID(),notify:function(state){programStatus=state.message;document.querySelectorAll('[data-nfc-app-program-status]').forEach(function(node){node.textContent=programStatus;});}});
   function stop(message){var commands=[];if(counter.binding||counter.busy)commands.push(counter.stop(message));if(enrollment.binding||enrollment.busy)commands.push(enrollment.stop(message));if(programmer.binding||programmer.busy)commands.push(programmer.stop(message));commands.forEach(function(command){if(command&&handler())handler().postMessage(command);});if(!commands.length)notice({message:message||'Nenhuma operação NFC ativa.'});}
-  function othersActive(){return root.WmsNfcReader.bridgeActive()||(root.PackemNfcIphone&&root.PackemNfcIphone.active())||(root.WmsNfcDireto&&root.WmsNfcDireto.active());}
+  function othersActive(){return (root.WmsNfcMobile&&root.WmsNfcMobile.active())||root.WmsNfcReader.bridgeActive()||(root.PackemNfcIphone&&root.PackemNfcIphone.active())||(root.WmsNfcDireto&&root.WmsNfcDireto.active());}
   async function program(){
     try{
       if(!handler())throw new Error('Abra o WMS no aplicativo Packem WMS com a permissão NFC.');

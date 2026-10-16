@@ -69,6 +69,7 @@
   }
   function arm(view){
     try{
+      if(root.WmsNfcMobile&&root.WmsNfcMobile.active())throw new Error('Pause a captura Platinum antes de usar o iScanBrowser.');
       if(root.WmsNfcDireto&&root.WmsNfcDireto.active())throw new Error('Conclua ou encerre a tentativa de NFC direto antes de usar o iScanBrowser.');
       if(root.PackemWmsApp&&root.PackemWmsApp.active())throw new Error('Pare a leitura do aplicativo Packem WMS antes de usar esta alternativa.');
       if(root.WmsNfcReader.bridgeActive())throw new Error('Pause o leitor da estação antes de usar a recepção no iPhone.');

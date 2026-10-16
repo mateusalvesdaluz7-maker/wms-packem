@@ -1,7 +1,7 @@
 'use strict';
 const crypto = require('node:crypto');
 const {passwordMatches, mayBind} = require('../api/nfc-tags.js').security;
-const UID = /^04[A-F0-9]{12}$/, UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+const UID = /^(04|53)[A-F0-9]{12}$/, UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const targets = ['v-floor','v-floor70','v-recic','v-inv'];
 const fail = (status, message) => Object.assign(new Error(message), {status});
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -20,7 +20,7 @@ function bodyOf(req) {
   return body;
 }
 function normalizeUid(value) {
-  if (typeof value !== 'string' || value.length > 64 || !/^[a-f0-9:\s-]+$/i.test(value)) throw fail(422,'A leitura não informou o UID de uma NTAG213. QR Code não cadastra chip NFC.');
+  if (typeof value !== 'string' || value.length > 64 || !/^[a-f0-9:\s-]+$/i.test(value)) throw fail(422,'A leitura não informou um UID NFC de sete bytes. QR Code não cadastra chip NFC.');
   const uid = value.replace(/[:\s-]/g,'').toUpperCase();
   if (!UID.test(uid)) throw fail(422,'UID incompatível com a tag cadastrada. Desative o modo sem identificador do leitor.');
   return uid;

@@ -22,7 +22,8 @@ async function run(handler,body,headers={},query={}){
 }
 test('UID do chip aceita separadores; UUID de QR e texto NDEF não são UID',()=>{
   assert.equal(normalizeUid('04:11:22:33:44:55:66'),uid);
-  for(const value of ['A420F544-CDA6-442F-803F-56C47784150F','JOB=wms;ID=T001','1234',null])assert.throws(()=>normalizeUid(value));
+  assert.equal(normalizeUid('53 0a c2 ba 33 00 01'),'530AC2BA330001');
+  for(const value of ['A420F544-CDA6-442F-803F-56C47784150F','JOB=wms;ID=T001','1234',null,'00000000000000','FFFFFFFFFFFFFF','540AC2BA330001','530AC2BA3300','530AC2BA33000100'])assert.throws(()=>normalizeUid(value));
 });
 test('login troca senha por token curto e a API não expõe a chave do serviço',async()=>{
   const f=apiFixture(),res=await run(mobile(f.options),{action:'login',auth:{u:'qa',p:'test-password-only'}});
@@ -46,6 +47,11 @@ test('Webhook usa chave privada, ignora produto/peso do corpo e entrega só UID 
   assert.equal(res.code,204);const rpc=f.calls.find(c=>c.url.includes('/rpc/')).body;
   assert.equal(rpc.p_payload.uid,uid);assert.equal(rpc.p_payload.content,undefined);assert.equal(rpc.p_payload.item,undefined);
   assert.ok(!JSON.stringify(rpc).includes(key));
+});
+test('Webhook recebe UID Feiju de uma tag vazia, sem exigir conteúdo NDEF',async()=>{
+  const f=apiFixture(),res=await run(webhook(f.options),{identifier:'53 0A C2 BA 33 00 01',date:new Date().toISOString(),content:''},{},{key});
+  assert.equal(res.code,204);const rpc=f.calls.find(c=>c.url.includes('/rpc/')).body;
+  assert.equal(rpc.p_payload.uid,'530AC2BA330001');assert.equal(rpc.p_payload.content,undefined);assert.equal(rpc.p_payload.item,undefined);
 });
 test('probe oficial não vira tag; QR é recusado antes de entrar na fila',async()=>{
   const f=apiFixture(),handler=webhook(f.options);
@@ -83,6 +89,14 @@ test('fila conta duas embalagens com peso correto usando o fluxo do WMS',async()
   const f=queueFixture();await f.queue.start(config,f.context);await f.queue.poll();
   assert.equal(f.counted.size,2);assert.equal([...f.counted].reduce((sum,id)=>sum+f.catalog[id].quantidade,0),550.5);
   await f.queue.poll();assert.equal(f.counted.size,2);assert.equal(f.state().session.cursor,2);
+});
+test('fila aceita UID Feiju, mantém metros do WMS e não duplica a mesma embalagem',async()=>{
+  const f=queueFixture(),feiju='530AC2BA330001';
+  f.registry.set(feiju,'T001');f.catalog.T001={codigo:'0303410008',quantidade:5000,unidade:'MT'};
+  f.setReads([{seq:1,uid:feiju}]);await f.queue.start(config,f.context);await f.queue.poll();
+  assert.deepEqual([...f.counted],['T001']);assert.equal(f.catalog.T001.unidade,'MT');assert.equal(f.state().session.cursor,1);
+  f.setReads([{seq:1,uid:feiju},{seq:2,uid:feiju}]);await f.queue.poll();
+  assert.equal(f.counted.size,1);assert.equal(f.state().session.cursor,2);
 });
 test('tag desconhecida bloqueia a sequência e fica pendente para correção',async()=>{
   const f=queueFixture();f.registry.delete(uid);await f.queue.start(config,f.context);await f.queue.poll();

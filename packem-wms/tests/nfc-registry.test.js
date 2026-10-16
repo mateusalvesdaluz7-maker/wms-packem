@@ -109,7 +109,7 @@ function apiFixture(options = {}) {
     queries.push({ url, init }); assert.equal(init.headers.authorization, 'Bearer server-test-key');
     if (url.includes('/usuarios?')) return { ok: true, json: async () => options.users || [{ ...auth, role: options.role || 'admin', active: true }] };
     if (options.dbError) return { ok: false, json: async () => ({ code: options.dbError }) };
-    const data = { uid, item, duplicate: false, by_user: auth.u };
+    const data = { uid: options.uid || uid, item, duplicate: false, by_user: auth.u };
     return { ok: true, json: async () => url.includes('/rpc/') ? data : options.unknown ? [] : [data] };
   } });
   return { queries, async run(body, extra = {}) {
@@ -143,6 +143,17 @@ test('API salva com ator do banco, retorna UID e não vaza senha nem chave', asy
   assert.deepEqual(JSON.parse(rpc.init.body), { p_uid: uid, p_item: item, p_actor: auth.u });
   assert.equal(JSON.stringify(response).includes(auth.p), false);
   assert.equal(JSON.stringify(response).includes('server-test-key'), false);
+});
+test('cadastro e consulta aceitam UID Feiju de sete bytes e recusam identificadores inválidos', async () => {
+  const feiju='530AC2BA330001',f=apiFixture({uid:feiju}),response=await f.run({action:'bind',uid:feiju,item,auth});
+  assert.equal(response.status,200);assert.equal(response.data.data.uid,feiju);
+  assert.equal(JSON.parse(f.queries.find(q=>q.url.includes('/rpc/')).init.body).p_uid,feiju);
+  const client=createClient({auth:()=>auth,fetch:async()=>({ok:true,json:async()=>response.data})});
+  assert.equal((await client.bind(feiju,item)).uid,feiju);
+  for(const invalid of ['00000000000000','FFFFFFFFFFFFFF','540AC2BA330001']){
+    await assert.rejects(client.bind(invalid,item),/UID/);
+    assert.equal((await f.run({action:'bind',uid:invalid,item,auth})).status,400);
+  }
 });
 
 test('API aplica permissão do cadastro, conflito de vínculo e estado de implantação', async () => {

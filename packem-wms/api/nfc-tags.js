@@ -4,7 +4,8 @@ const crypto = require('node:crypto');
 const { promisify } = require('node:util');
 const derive = promisify(crypto.pbkdf2);
 const fail = (status, message) => Object.assign(new Error(message), { status });
-const UID = /^04[A-F0-9]{12}$/;
+// Seven-byte tags observed in the iPhone pilot: NXP (04) and Feiju (53).
+const UID = /^(04|53)[A-F0-9]{12}$/;
 const ITEM = /^[A-Za-z0-9._/-]{1,32}$/;
 const buckets = new Map();
 
@@ -16,7 +17,7 @@ function parse(req) {
     try { body = JSON.parse(body); } catch (_) { throw fail(400, 'JSON inválido.'); }
   }
   if (!body || typeof body !== 'object' || Array.isArray(body) || Buffer.byteLength(JSON.stringify(body)) > 4096) throw fail(400, 'Dados inválidos.');
-  if (!['lookup', 'bind'].includes(body.action) || typeof body.uid !== 'string' || !UID.test(body.uid)) throw fail(400, 'Ação ou UID da NTAG213 inválido.');
+  if (!['lookup', 'bind'].includes(body.action) || typeof body.uid !== 'string' || !UID.test(body.uid)) throw fail(400, 'Ação ou UID NFC de sete bytes inválido.');
   if (body.action === 'bind' && (typeof body.item !== 'string' || !ITEM.test(body.item))) throw fail(400, 'Embalagem inválida.');
   const auth = body.auth;
   if (!auth || typeof auth.u !== 'string' || !auth.u.trim() || auth.u.length > 120 || typeof auth.p !== 'string' || !auth.p || auth.p.length > 1000) throw fail(401, 'Entre novamente no WMS para usar o leitor NFC.');

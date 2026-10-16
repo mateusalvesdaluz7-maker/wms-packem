@@ -1,10 +1,10 @@
 /* UID real -> embalagem. As credenciais do WMS ficam somente em memória. */
 (function(root){
   'use strict';
-  function validUid(uid){return typeof uid==='string'&&/^04[A-F0-9]{12}$/.test(uid);}
+  function validUid(uid){return typeof uid==='string'&&/^(04|53)[A-F0-9]{12}$/.test(uid);}
   function createClient(options){
     async function request(action,uid,item,signal){
-      if(!validUid(uid))throw new Error('UID da NTAG213 inválido.');
+      if(!validUid(uid))throw new Error('UID NFC de sete bytes inválido.');
       if(action==='bind'&&(typeof item!=='string'||!/^[A-Za-z0-9._/-]{1,32}$/.test(item)))throw new Error('Embalagem inválida.');
       var auth=options.auth();
       if(!auth||typeof auth.u!=='string'||typeof auth.p!=='string'||!auth.u||!auth.p)throw new Error('Entre novamente no WMS para usar o cadastro NFC.');

@@ -61,7 +61,7 @@
       this.options.notify(state.session.received+' tag(s) recebida(s) · '+b.cursor+' processada(s).',state);
       for(var event of state.items){
         if(!b.guard.isActive())return;
-        if(event.seq!==b.cursor+1||!/^04[A-F0-9]{12}$/.test(event.uid||''))throw new Error('Há uma leitura fora de sequência. A fila foi preservada.');
+        if(event.seq!==b.cursor+1||!/^(04|53)[A-F0-9]{12}$/.test(event.uid||''))throw new Error('Há uma leitura fora de sequência. A fila foi preservada.');
         var tag=await this.options.resolve(event.uid,b.guard);
         if(!b.guard.isActive())return;
         var applied=await this.options.apply(tag,b.guard);

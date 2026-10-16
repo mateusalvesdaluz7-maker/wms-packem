@@ -115,7 +115,7 @@
   }
   async function arm(){
     ensureAlone();if(queue.binding&&queue.binding.running)throw new Error('Pause a contagem antes de cadastrar uma tag.');
-    var selected=root.WmsNfcPrepare.current();if(!selected)throw new Error('Primeiro escaneie o QR da embalagem e consulte a etiqueta no painel acima.');
+    var selected=root.WmsNfcPrepare.current();if(!selected)throw new Error('Primeiro selecione a embalagem cadastrada na lista acima.');
     if(enrollment){
       if(enrollment.item!==selected.tag.item)throw new Error('Conclua ou cancele o cadastro atual antes de escolher outra embalagem.');
       reader=await client.request('enroll_arm',{readerId:enrollment.readerId,operationId:enrollment.operationId,item:enrollment.item});
@@ -181,7 +181,7 @@
       var page=root.WmsNfcWorkspace?root.WmsNfcWorkspace.host(target):document.getElementById(target);if(!page||page.querySelector('[data-nfc-mobile]'))return;
       var panel=document.createElement('section');panel.className='panel';panel.dataset.nfcMobile='1';panel.style.cssText='padding:18px;margin:12px 0;border:2px solid #0d8571;border-radius:12px;overflow-wrap:anywhere';
       var h=document.createElement('h3');h.textContent=target==='v-labels'?'Cadastrar chip com NFC.cool Platinum':'Contar com NFC.cool Platinum';panel.appendChild(h);
-      var p=document.createElement('p');p.textContent=target==='v-labels'?'1. Leia o QR da embalagem no painel acima. 2. Prepare o cadastro aqui. 3. Aproxime a tag no NFC.cool. O UID ficará vinculado ao código e à quantidade existentes no WMS.':'As tags cadastradas entram nesta contagem sem copiar códigos. No iPhone, leia no NFC.cool e volte ao WMS para processar a fila. Com o WMS aberto no PC, a fila pode ser processada durante as leituras.';panel.appendChild(p);
+      var p=document.createElement('p');p.textContent=target==='v-labels'?'1. Escolha a embalagem na lista acima. 2. Toque em Cadastrar próxima tag. 3. Aproxime a tag do iPhone no NFC.cool. O UID ficará vinculado ao código e à quantidade existentes no WMS.':'As tags cadastradas entram nesta contagem por aproximação. No iPhone, leia no NFC.cool e volte ao WMS para processar a fila. Com o WMS aberto no PC, a fila pode ser processada durante as leituras.';panel.appendChild(p);
       var state=document.createElement('p');state.dataset.nfcMobileStatus='1';state.setAttribute('role','status');state.textContent=message;panel.appendChild(state);
       var total=document.createElement('strong');total.dataset.nfcMobileTotal='1';total.textContent=summary;panel.appendChild(total);
       var controls=document.createElement('div');panel.appendChild(controls);

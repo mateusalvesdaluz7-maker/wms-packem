@@ -1,6 +1,6 @@
 # NFC.cool Platinum no WMS
 
-O cadastro é feito em NFC → Cadastrar tags: o QR seleciona uma embalagem existente, o usuário arma uma operação de dois minutos e a próxima leitura física vincula o UID NTAG213 a essa embalagem. A contagem recebe apenas UIDs pela fila; produto, quantidade e unidade são consultados no WMS. Não é necessário escrever NDEF neste fluxo.
+O cadastro é feito em NFC → Cadastrar tags: a lista do WMS seleciona uma embalagem existente, o usuário arma uma operação de dois minutos e a próxima leitura física vincula o UID NTAG213 a essa embalagem. A contagem recebe apenas UIDs pela fila; produto, quantidade e unidade são consultados no WMS. Não é necessário escrever NDEF neste fluxo.
 
 ## Ativação no ambiente de prévia
 

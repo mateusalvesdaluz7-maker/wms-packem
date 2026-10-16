@@ -18,19 +18,34 @@
     if(!item)throw new Error('Embalagem não encontrada. Gere ou cadastre a etiqueta no fluxo normal do WMS primeiro.');
     return buildPayload(id,item);
   }
-  if(typeof module==='object'&&module.exports){module.exports={buildPayload:buildPayload,prepare:prepare};return;}
+  function choices(catalog,query){
+    var found=[],q=String(query||'').trim().toUpperCase();
+    for(var id of Object.keys(catalog||{})){
+      var item=catalog[id];if(!/^[A-Za-z0-9._/-]{1,32}$/.test(id)||!item||!item.pr)continue;
+      if(q&&![id,item.pr,item.desc].some(function(value){return String(value||'').toUpperCase().includes(q);}))continue;
+      found.push({id:id,codigo:String(item.pr),descricao:String(item.desc||''),quantidade:item.pl});if(found.length===25)break;
+    }
+    return found;
+  }
+  if(typeof module==='object'&&module.exports){module.exports={buildPayload:buildPayload,prepare:prepare,choices:choices};return;}
   if(!parse||!root.WmsNfcReader)return;
   var lastUser=null,epoch=0,result=null;
   function mount(){
     var view=root.WmsNfcWorkspace?root.WmsNfcWorkspace.host('v-labels'):document.getElementById('v-labels');if(!view||view.querySelector('[data-nfc-preparar]'))return;
     var panel=document.createElement('section');panel.className='panel';panel.dataset.nfcPreparar='1';panel.style.cssText='padding:18px;margin:12px 0;border:2px solid #147657;border-radius:12px';
-    var title=document.createElement('h3');title.textContent='Preparar tag NFC da embalagem';panel.appendChild(title);
-    var intro=document.createElement('p');intro.textContent='Escolha a embalagem lendo seu QR Code ou informando o ID existente. O WMS consulta código, quantidade e unidade no cadastro antes de preparar o vínculo com o chip.';panel.appendChild(intro);
-    var scan=document.createElement('button');scan.type='button';scan.className='gbtn';scan.textContent='Escanear QR da embalagem';scan.style.marginBottom='12px';panel.appendChild(scan);
-    var label=document.createElement('label');label.htmlFor='packemNfcLabelId';label.textContent='ID da embalagem';panel.appendChild(label);
-    var input=document.createElement('input');input.id='packemNfcLabelId';input.className='input';input.autocomplete='off';input.maxLength=32;input.style.cssText='display:block;width:100%;max-width:360px;margin:6px 0 12px';panel.appendChild(input);
-    var button=document.createElement('button');button.type='button';button.className='btn brand';button.textContent='Consultar e preparar NFC';panel.appendChild(button);
-    var status=document.createElement('p');status.setAttribute('role','status');status.id='packemNfcPrepareStatus';status.textContent='Consulte uma etiqueta existente para preparar seu conteúdo NFC.';panel.appendChild(status);
+    var title=document.createElement('h3');title.textContent='Escolher embalagem para a tag';panel.appendChild(title);
+    var intro=document.createElement('p');intro.textContent='Escolha a embalagem já cadastrada no WMS. Depois prepare o cadastro abaixo e aproxime a tag do iPhone no NFC.cool. O UID ficará ligado a essa embalagem.';panel.appendChild(intro);
+    var searchLabel=document.createElement('label');searchLabel.htmlFor='packemNfcSearch';searchLabel.textContent='Buscar por código, descrição ou ID';panel.appendChild(searchLabel);
+    var search=document.createElement('input');search.id='packemNfcSearch';search.type='search';search.className='input';search.autocomplete='off';search.placeholder='Escolha na lista ou filtre as embalagens';search.style.cssText='display:block;width:100%;box-sizing:border-box;margin:6px 0 12px';panel.appendChild(search);
+    var refresh=document.createElement('button');refresh.type='button';refresh.className='gbtn';refresh.textContent='Atualizar embalagens';panel.appendChild(refresh);
+    var results=document.createElement('div');results.setAttribute('aria-label','Embalagens cadastradas');results.style.cssText='display:grid;gap:8px;margin:12px 0;max-height:300px;overflow:auto';panel.appendChild(results);
+    var searchNote=document.createElement('small');panel.appendChild(searchNote);
+    var manual=document.createElement('details'),manualTitle=document.createElement('summary');manualTitle.textContent='Localizar diretamente pelo ID';manual.style.marginTop='14px';manual.appendChild(manualTitle);panel.appendChild(manual);
+    var label=document.createElement('label');label.htmlFor='packemNfcLabelId';label.textContent='ID da embalagem';
+    manual.appendChild(label);
+    var input=document.createElement('input');input.id='packemNfcLabelId';input.className='input';input.autocomplete='off';input.maxLength=32;input.style.cssText='display:block;width:100%;max-width:360px;margin:6px 0 12px';manual.appendChild(input);
+    var button=document.createElement('button');button.type='button';button.className='btn brand';button.textContent='Consultar embalagem';manual.appendChild(button);
+    var status=document.createElement('p');status.setAttribute('role','status');status.id='packemNfcPrepareStatus';status.textContent='Selecione uma embalagem da lista para cadastrar sua tag por aproximação.';panel.appendChild(status);
     var detail=document.createElement('p');detail.id='packemNfcPrepareDetail';panel.appendChild(detail);
     var textLabel=document.createElement('label');textLabel.htmlFor='packemNfcPayload';textLabel.textContent='Texto para gravar na NTAG213';panel.appendChild(textLabel);
     var text=document.createElement('textarea');text.id='packemNfcPayload';text.readOnly=true;text.rows=3;text.className='input code';text.style.cssText='display:block;width:100%;box-sizing:border-box;margin:6px 0 12px';panel.appendChild(text);
@@ -42,27 +57,33 @@
     var note=document.createElement('p');note.style.cssText='font-size:.82rem;color:var(--muted)';note.textContent='Use o painel de cadastro por UID abaixo para vincular o chip à embalagem. Não é necessário gravar texto na tag para esse cadastro. A consulta da embalagem ainda não confirma leitura física NFC.';panel.appendChild(note);
     function clear(){epoch++;result=null;text.value='';detail.textContent='';copy.disabled=true;}
     input.addEventListener('input',clear);
-    async function lookup(scanContext){
-      clear();var request=epoch,id=input.value.trim().toUpperCase(),context=scanContext||root.WmsNfcReader.makeLabelContext();button.disabled=true;scan.disabled=true;status.textContent='Consultando o cadastro do WMS…';
+    var lastCatalog=null;
+    function catalog(){return typeof BOB!=='undefined'?BOB:null;}
+    function showChoices(){
+      lastCatalog=catalog();results.replaceChildren();var list=choices(lastCatalog,search.value);
+      list.forEach(function(item){
+        var option=document.createElement('button');option.type='button';option.className='gbtn';option.style.cssText='display:block;width:100%;min-width:0;box-sizing:border-box;margin:0;text-align:left;white-space:normal;overflow-wrap:anywhere;padding:12px';
+        var unit=typeof unitOf==='function'?unitOf(item.codigo):'',amount=item.quantidade==null?'':String(item.quantidade).replace('.',',');
+        option.textContent=item.id+' · '+item.codigo+(amount?' · '+amount+' '+unit:'')+(item.descricao?' · '+item.descricao:'');
+        option.onclick=function(){
+          if([root.WmsNfcMobile,root.PackemWmsApp,root.WmsNfcDireto].some(function(reader){return reader&&reader.active();})){status.textContent='Conclua ou cancele a operação NFC atual antes de escolher outra embalagem.';return;}
+          input.value=item.id;lookup();
+        };results.appendChild(option);
+      });
+      searchNote.textContent=list.length===25?'Mostrando até 25 embalagens. Use a busca para filtrar.':list.length?list.length+' embalagem(ns) encontrada(s).':'Nenhuma embalagem encontrada nesta lista. Atualize após carregar o catálogo ou consulte pelo ID.';
+    }
+    search.oninput=showChoices;refresh.onclick=showChoices;
+    async function lookup(){
+      clear();var request=epoch,id=input.value.trim().toUpperCase(),context=root.WmsNfcReader.makeLabelContext();button.disabled=true;status.textContent='Consultando o cadastro do WMS…';
       try{
         var value=await prepare(id,context);
         if(request!==epoch||!context.isActive())return;
         result=value;text.value=value.content;detail.textContent='Embalagem '+value.tag.item+' · código '+value.tag.codigo+' · '+value.tag.quantidade.replace('.',',')+' '+value.tag.unidade;
         copy.disabled=false;status.textContent='Embalagem consultada. Use o painel de cadastro por UID abaixo para salvar o vínculo com a tag.';
       }catch(error){if(request===epoch)status.textContent=error.message;}
-      finally{button.disabled=false;scan.disabled=false;}
+      finally{button.disabled=false;}
     }
     button.onclick=function(){lookup();};input.addEventListener('keydown',function(event){if(event.key==='Enter'){event.preventDefault();if(!button.disabled)lookup();}});
-    scan.onclick=function(){
-      clear();var cameraRequest=epoch,cameraContext=root.WmsNfcReader.makeLabelContext();
-      if(!cameraContext.isActive()){status.textContent='Entre no WMS e abra NFC → Cadastrar tags antes de ler a embalagem.';return;}
-      if(typeof root.scanInto!=='function'){status.textContent='Câmera indisponível nesta página de ensaio. Escolha uma embalagem de teste ou informe o ID.';return;}
-      status.textContent='Leia o QR Code da embalagem; o WMS buscará os dados automaticamente.';
-      root.scanInto(input.id,{title:'Ler embalagem para vincular NFC',scanKind:'label',supplierOcr:false,scanModes:false,continuous:false,onResult:function(raw){
-        if(cameraRequest!==epoch||!cameraContext.isActive())return false;
-        input.value=String(typeof root.cleanScanCode==='function'?root.cleanScanCode(raw):raw).trim().toUpperCase();return lookup(cameraContext);
-      }});
-    };
     copy.onclick=async function(){
       if(!result||!root.WmsNfcReader.makeLabelContext().isActive()){clear();return;}
       var request=epoch;
@@ -70,9 +91,11 @@
       catch(error){if(request===epoch){text.focus();text.select();status.textContent='Selecione e copie o texto acima para gravar no NFC.cool.';}}
     };
     view.insertBefore(panel,view.children[1]||null);
+    showChoices();panel.refreshNfcChoices=function(){if(lastCatalog!==catalog())showChoices();};
     panel.resetNfcPreparation=function(){clear();status.textContent='Consulte a etiqueta novamente para preparar o conteúdo NFC.';};
   }
   function check(){mount();var user=typeof session!=='undefined'&&session?session.u:null;
+    var choicesPanel=document.querySelector('[data-nfc-preparar]');if(choicesPanel&&choicesPanel.refreshNfcChoices)choicesPanel.refreshNfcChoices();
     if(user!==lastUser||!root.WmsNfcReader.makeLabelContext().isActive()){
       if(result){var panel=document.querySelector('[data-nfc-preparar]');if(panel&&panel.resetNfcPreparation)panel.resetNfcPreparation();}
       lastUser=user;

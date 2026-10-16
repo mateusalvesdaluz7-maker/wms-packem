@@ -36,7 +36,7 @@
     var text=document.createElement('textarea');text.id='packemNfcPayload';text.readOnly=true;text.rows=3;text.className='input code';text.style.cssText='display:block;width:100%;box-sizing:border-box;margin:6px 0 12px';panel.appendChild(text);
     var copy=document.createElement('button');copy.type='button';copy.className='gbtn';copy.disabled=true;copy.textContent='Copiar conteúdo NFC';panel.appendChild(copy);
     var guide=document.createElement('a');guide.href='/nfc-iphone.html';guide.textContent='Configurar leitura no iPhone';guide.style.marginLeft='12px';panel.appendChild(guide);
-    var note=document.createElement('p');note.style.cssText='font-size:.82rem;color:var(--muted)';note.textContent='Para gravar nesta tela, use o piloto NFC direto abaixo no Natively Preview. A alternativa NFC.cool usa um único registro de Texto e leitura pelo iScanBrowser. Preparar o conteúdo não confirma gravação física. Cada embalagem usa um ID individual.';panel.appendChild(note);
+    var note=document.createElement('p');note.style.cssText='font-size:.82rem;color:var(--muted)';note.textContent='No aplicativo Packem WMS, use Gravar tag vazia abaixo. O piloto Natively Preview e a cópia do texto são alternativas. Preparar o conteúdo não confirma gravação física. Cada embalagem usa um ID individual.';panel.appendChild(note);
     function clear(){epoch++;result=null;text.value='';detail.textContent='';copy.disabled=true;}
     input.addEventListener('input',clear);
     async function lookup(scanContext){

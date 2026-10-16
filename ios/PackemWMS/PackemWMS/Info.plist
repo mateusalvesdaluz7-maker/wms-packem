@@ -21,7 +21,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NFCReaderUsageDescription</key>
-	<string>Ler suas etiquetas NTAG213 para conferir e contar embalagens no WMS Packem.</string>
+	<string>Gravar e reler etiquetas NTAG213 vazias e contar embalagens no WMS Packem.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

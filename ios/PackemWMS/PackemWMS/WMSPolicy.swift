@@ -22,8 +22,19 @@ struct WMSBinding: Equatable {
 
     init?(body: [String: Any]) {
         guard let id = body["sessionId"] as? String, UUID(uuidString: id) != nil,
-              let target = body["target"] as? String, WMSPolicy.targets.contains(target) else { return nil }
+              let target = body["target"] as? String, WMSPolicy.targets.contains(target) || target == "v-labels" else { return nil }
         self.sessionID = id; self.target = target
+    }
+}
+
+struct ProgramReceipt {
+    let label: String
+    init(response: Any) throws {
+        guard let value = response as? [String: Any], value["accepted"] as? Bool == true,
+              let label = value["label"] as? String, !label.isEmpty, label.utf8.count <= 300 else {
+            throw StationError("A gravação física pode ter ocorrido, mas o WMS não a confirmou. Releia a tag antes de reutilizá-la.")
+        }
+        self.label = label
     }
 }
 

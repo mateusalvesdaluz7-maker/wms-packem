@@ -1,45 +1,49 @@
 # Aplicativo Packem WMS para iPhone
 
-Este projeto abre o WMS existente em uma `WKWebView` e liga o botão **Ler NFC** ao Core NFC do iPhone. O usuário entra com a própria conta do WMS, abre **Chão expedição**, **Chão 70** ou **Recicladora - 91** em modo Entrada e aproxima as NTAG213, uma por vez. Não exige NFC.cool ou iScanBrowser.
+O projeto Swift abre o WMS existente em uma `WKWebView` e integra Core NFC. O fluxo principal cadastra uma NTAG213 pelo UID e depois conta pela identificação do chip, inclusive quando sua memória está vazia. Não usa biblioteca comercial nem NFC.cool.
 
-É código de um aplicativo nativo, não um aplicativo instalável pelo Safari. A distribuição e o teste físico ainda dependem de assinatura/provisionamento iOS com a capacidade NFC. Uma conta gratuita Personal Team não disponibiliza essa capacidade; nenhuma assinatura foi contratada por este projeto. Nenhum IPA assinado foi gerado.
+**Entrega: código-fonte, projeto Xcode e testes. Não há IPA assinado, instalação no aparelho ou captura física validada.** A assinatura deve incluir NFC Tag Reading. A conta gratuita Personal Team não oferece essa capacidade; nenhuma assinatura ou certificado foi contratado. Compilar sem assinatura no GitHub não instala o app no iPhone.
 
-## O que está integrado
+## Cadastro e contagem
 
-- A interface é o sistema existente; o leitor não cria outra base de estoque.
-- A tag deve estar previamente gravada com um registro NDEF Text UTF-8, no formato `JOB=lote;ID=embalagem;COD=codigo;QTD=300;UN=KG`, até 120 bytes de texto. O ID é da embalagem individual e mantém o código com zeros à esquerda.
-- O leitor verifica versão compatível com NTAG213, UID de sete bytes e conteúdo NDEF. O UID não é prova criptográfica de autenticidade.
-- O WMS consulta o cadastro, confere código, quantidade e unidade, chama a função normal de entrada da tela e confirma somente quando a embalagem aparece contada.
-- O app aguarda a confirmação antes da próxima tag. Reaproximar uma embalagem já contada não a adiciona novamente. Tags permanecendo no campo são ignoradas até a próxima etiqueta.
-- Uma divergência encerra a leitura e pede conferência. Depois de corrigir, inicie novamente e reapresente a etiqueta. As entradas já confirmadas permanecem no WMS.
-- Mudança de usuário, tela, modo, navegação ou saída do app encerra a sessão. O Core NFC limita cada sessão a cerca de 60 segundos; é preciso tocar em **Ler NFC** novamente para continuar.
-- Este aplicativo é de leitura/contagem. Não grava automaticamente tags vazias, não codifica um rolo na Zebra ZT230 e não promete acompanhar uma impressora em movimento.
+1. Entre no WMS pelo app. Abra **Gestão de Etiquetas** e leia o QR Code da embalagem já existente ou informe seu ID em **Preparar tag NFC da embalagem**.
+2. Consulte e confira os dados. Toque em **Cadastrar chip por aproximação** e apresente uma NTAG213. O leitor confere GET_VERSION, UID de 7 bytes e os bytes de verificação da página 0; aguarda o servidor confirmar o vínculo.
+3. Abra **Chão expedição**, **Chão 70** ou **Recicladora - 91** em modo Entrada. Toque em **Ler NFC** e apresente as tags cadastradas uma por vez, aguardando cada confirmação. Não há toque por etiqueta dentro da sessão.
+4. O UID é resolvido no servidor; código, quantidade e unidade são consultados no cadastro atual. A entrada usa a função normal da tela, inclusive regras de estoque, local e histórico. Embalagens já contadas não entram novamente.
+
+Pausar, mudar usuário/tela/modo, navegar ou sair do app encerra a operação. Erros e divergências pedem conferência antes de repetir. O iOS exibe sua interface de NFC e limita cada sessão a cerca de 60 segundos; é necessário tocar em Ler NFC novamente para continuar. O UID não é autenticação criptográfica.
+
+## Configuração do servidor
+
+O novo cadastro requer `packem-wms/supabase/migrations/202610160001_nfc_tags.sql`, aplicado pelo responsável no Supabase de homologação, e `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` configuradas **somente no servidor Vercel**. Não coloque service_role no HTML ou no app. **A migração não foi aplicada no banco real por esta entrega.**
+
+`/api/nfc-tags` autentica o usuário ativo com a credencial normal do WMS, mantida em memória pela página e enviada por HTTPS. Verifica a senha existente (PBKDF2 ou formato legado), exige permissão de etiquetas para cadastrar e não retorna senhas/chaves. O banco aceita somente uma tag por embalagem e uma embalagem por tag. Repetir o mesmo vínculo é idempotente; conflitos não reatribuem chips. A embalagem precisa existir no servidor em `etiquetas` ou `bobinas`.
+
+A tabela tem RLS e não permite acesso direto por anon/authenticated. O endpoint executa a função restrita ao serviço. Sem configuração/migração, retorna indisponibilidade em vez de simular sucesso. Para recuperação de uma tentativa incerta, selecionar a mesma embalagem e reapresentar a mesma tag confirma o vínculo já existente; não troque a embalagem sem conferir. O app não oferece exclusão/reassociação de chips.
+
+## Gravação opcional no chip
+
+**Gravar tag vazia** exige NTAG213 NDEF formatada, gravável e sem mensagem anterior. Não apaga, formata, bloqueia nem modifica senhas. Escreve um registro Text UTF-8 de até 120 bytes: `JOB=wms;ID=embalagem;COD=codigo;QTD=300;UN=KG`. Confere cadastro antes e depois da escrita, texto relido e UID. Uma tentativa grava apenas uma tag.
+
+Essa função é independente: para contar no fluxo principal, cadastre também o UID. Cancelamento ou perda de contato não provam que a tag permaneceu vazia; releia antes de reutilizar. O app não sincroniza a Zebra ZT230 nem grava um rolo automaticamente.
 
 ## Compilar e instalar
 
-1. No macOS, abra `PackemWMS.xcodeproj` com Xcode, selecione o esquema **PackemWMS** e um iPhone com iOS 16 ou posterior.
-2. Defina um Bundle ID disponível e uma equipe de desenvolvimento habilitada para **Near Field Communication Tag Reading**. O projeto não inclui equipe, certificados, perfil, senha ou conta Apple.
-3. Compile/assine e instale no aparelho pelo fluxo normal da equipe. Não remova a capacidade NFC para tentar contornar o provisionamento: a antena não funcionaria.
-4. O app abre inicialmente a prévia do PR #48. Em **Opções → Ensaio sem estoque real**, o catálogo é fictício. No menu Produção, a leitura só estará disponível após publicar a integração web na produção por revisão normal.
-5. Entre com sua conta. Nenhuma senha administrativa está embutida no app.
+1. Abra `PackemWMS.xcodeproj` no Xcode/macOS. Use o esquema PackemWMS, iOS 16 ou posterior e um Bundle ID disponível.
+2. Configure uma equipe habilitada para **Near Field Communication Tag Reading**. Não há equipe, certificado, perfil ou senha no projeto.
+3. Compile, assine e instale pelo fluxo da equipe. Remover o entitlement não libera NFC.
+4. O app abre a prévia do PR #48. **Opções → Ensaio sem estoque real** usa somente dados fictícios. Produção depende da publicação revisada das alterações web e da configuração do banco.
 
-No Windows, o repositório inclui um workflow macOS do GitHub para `swift test` e compilação sem assinatura tanto de simulador quanto de iPhone. Compilação sem assinatura verifica o código; não instala o app no iPhone nem testa a antena.
+O workflow macOS do GitHub executa testes Swift e compila para simulador e iPhone com `CODE_SIGNING_ALLOWED=NO`. Isso verifica o código; não testa a antena nem produz um instalador. A assinatura com NFC continua sendo um pré-requisito externo. A [tabela Apple](https://developer.apple.com/help/account/reference/supported-capabilities-ios/) não disponibiliza NFC Tag Reading ao Personal Team gratuito. Reassinar com um certificado pessoal não foi validado como solução para esse requisito.
 
-## Conferência com etiquetas de teste
+## Ensaio sem estoque real
 
-Na tela **Ensaio sem estoque real**, grave previamente duas etiquetas de laboratório, sem misturá-las com etiquetas reais:
+`/tests/ui/nfc-app.html` usa um catálogo e vínculos somente em memória. No navegador, os botões simulam a antena; no app nativo esses botões ficam desabilitados e é possível usar chips de laboratório. Nenhuma chamada ao estoque real é feita. Recarregar a página apaga os vínculos fictícios.
 
-```text
-JOB=qa-app;ID=NFC-LEITURA-001;COD=0303450047;QTD=300;UN=KG
-JOB=qa-app;ID=NFC-LEITURA-002;COD=0303450047;QTD=250.5;UN=KG
-```
+Selecione a embalagem 1 (300 kg), consulte e inicie o cadastro, depois simule a aproximação. Repita para a embalagem 2 (250,5 kg). Abra a etapa Contar embalagens e toque em Ler NFC. As duas devem somar **2 etiquetas / 550,5 kg**; repetir a primeira mantém o total. Enviar tag sem cadastro deve recusar. A simulação não comprova NFC físico, instalação, login real nem persistência no Supabase de homologação.
 
-Aproxime a primeira, espere a confirmação, afaste-a e aproxime a segunda. O esperado é **2 etiquetas / 550,5 kg**. Repetir a primeira mantém o total. Parar e tentar outra leitura deve exigir uma nova sessão. No navegador de computador, os botões da página simulam a ponte com dados fictícios: isso não comprova NFC físico. No app nativo esses botões de simulação ficam desabilitados.
+## Proteção da ponte
 
-## Limites da ponte
+Somente os hosts HTTPS exatos de produção/prévia em `WMSPolicy.swift` e o quadro principal podem acessar a ponte. Iframes, outras origens e portas diferentes são recusados. Sessão UUID e modo de operação isolam cadastro, contagem e gravação. Dados chegam ao JavaScript como argumentos estruturados. O app não ignora certificados.
 
-Somente os hosts HTTPS exatos de produção e prévia definidos em `WMSPolicy.swift` podem usar a ponte. Mensagens de iframe, portas diferentes e páginas de outros sites são recusadas. O conteúdo da tag é argumento estruturado de `callAsyncJavaScript`, nunca código JavaScript concatenado. Não há certificado ignorado nem acesso LAN especial. A autorização de acesso aos dados continua sendo a sessão e as APIs existentes do WMS.
-
-O texto fica na tag e qualquer leitor NFC compatível pode lê-lo; não inclua senhas ou tokens. As entradas seguem o fluxo normal da tela, inclusive mudança de local e histórico quando previstos no WMS. Não é uma contagem independente do estoque.
-
-Referências: [Core NFC](https://developer.apple.com/documentation/corenfc/building-an-nfc-tag-reader-app), [capacidades iOS e tipos de conta](https://developer.apple.com/help/account/reference/supported-capabilities-ios), [callAsyncJavaScript](https://developer.apple.com/documentation/webkit/wkwebview/callasyncjavascript(_:arguments:in:in:completionhandler:)), [sessões NFC](https://developer.apple.com/videos/play/wwdc2020/10209/).
+Referências: [Core NFC](https://developer.apple.com/documentation/corenfc/building-an-nfc-tag-reader-app), [capacidades iOS](https://developer.apple.com/help/account/reference/supported-capabilities-ios/), [sessões NFC](https://developer.apple.com/videos/play/wwdc2020/10209/).

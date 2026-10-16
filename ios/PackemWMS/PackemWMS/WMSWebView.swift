@@ -52,6 +52,20 @@ import WebKit
                 let response = try await self.call("if (!window.PackemWmsApp) throw new Error('Integração NFC não publicada nesta página.'); return await window.PackemWmsApp[enroll ? 'receiveEnrollment' : 'receive'](reading);", arguments: ["reading": payload, "enroll": binding.mode == .enroll])
                 return try CountReceipt(response: response)
             }
+            model.reader.onAuthorizeWriting = { [weak self] binding, uid, text in
+                guard let self = self, WMSPolicy.allows(self.model.webView.url) else { throw StationError("A página do WMS mudou.") }
+                let payload: [String: Any] = ["sessionId": binding.sessionID, "target": binding.target, "uid": uid, "content": text]
+                let response = try await self.call("if (!window.PackemWmsApp) throw new Error('Integração NFC não publicada.'); return await window.PackemWmsApp.authorizeWriting(reading);", arguments: ["reading": payload])
+                guard let value = response as? [String: Any], value["accepted"] as? Bool == true else {
+                    throw StationError("O WMS não autorizou a gravação desta tag.")
+                }
+            }
+            model.reader.onProgrammed = { [weak self] binding, uid, text in
+                guard let self = self, WMSPolicy.allows(self.model.webView.url) else { throw StationError("A página do WMS mudou.") }
+                let payload: [String: Any] = ["sessionId": binding.sessionID, "target": binding.target, "uid": uid, "content": text]
+                let response = try await self.call("if (!window.PackemWmsApp) throw new Error('Integração NFC não publicada.'); return await window.PackemWmsApp.programmed(reading);", arguments: ["reading": payload])
+                return try ProgramReceipt(response: response)
+            }
         }
 
         func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -63,6 +77,7 @@ import WebKit
                   let body = message.body as? [String: Any], let type = body["type"] as? String,
                   let binding = WMSBinding(body: body) else { return }
             if type == "start" { model.reader.start(binding) }
+            else if type == "program", let content = body["content"] as? String { model.reader.program(binding, content: content) }
             else if type == "stop" { model.reader.stop(matching: binding) }
         }
 
@@ -74,7 +89,7 @@ import WebKit
                     try? await Task.sleep(nanoseconds: 12_000_000_000)
                     guard !completed else { return }
                     completed = true
-                    continuation.resume(throwing: StationError("O WMS não confirmou em 12 segundos. Confira os itens contados e reapresente a etiqueta."))
+                    continuation.resume(throwing: StationError("O WMS não confirmou em 12 segundos. Confira a contagem ou o conteúdo físico da tag antes de repetir a operação."))
                 }
                 model.webView.callAsyncJavaScript(body, arguments: arguments, in: nil, in: .page) { result in
                     guard !completed else { return }
@@ -98,7 +113,7 @@ import WebKit
         }
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) { model.loading = true }
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            model.loading = false; model.status = "Abra a contagem em modo Entrada e toque em Ler NFC."
+            model.loading = false; model.status = "Em Gestão de Etiquetas, consulte a embalagem e cadastre o chip por aproximação. Na contagem, toque em Ler NFC."
         }
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             model.loading = false; model.status = "Não foi possível abrir o WMS: \(error.localizedDescription)"

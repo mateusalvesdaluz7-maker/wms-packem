@@ -16,7 +16,7 @@ enum WMSPolicy {
     }
 }
 
-enum NFCMode: String { case count, enroll }
+enum NFCMode: String { case count, enroll, program }
 
 struct WMSBinding: Equatable {
     let sessionID: String
@@ -27,8 +27,19 @@ struct WMSBinding: Equatable {
         guard let id = body["sessionId"] as? String, UUID(uuidString: id) != nil,
               let target = body["target"] as? String,
               let mode = NFCMode(rawValue: body["mode"] as? String ?? "count"),
-              (mode == .count && WMSPolicy.targets.contains(target)) || (mode == .enroll && target == "v-labels") else { return nil }
+              (mode == .count && WMSPolicy.targets.contains(target)) || ((mode == .enroll || mode == .program) && target == "v-labels") else { return nil }
         self.sessionID = id; self.target = target; self.mode = mode
+    }
+}
+
+struct ProgramReceipt {
+    let label: String
+    init(response: Any) throws {
+        guard let value = response as? [String: Any], value["accepted"] as? Bool == true,
+              let label = value["label"] as? String, !label.isEmpty, label.utf8.count <= 300 else {
+            throw StationError("A gravação física pode ter ocorrido, mas o WMS não a confirmou. Releia a tag antes de reutilizá-la.")
+        }
+        self.label = label
     }
 }
 

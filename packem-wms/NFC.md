@@ -5,7 +5,19 @@ Esta alteração conecta o bloco de etiquetas rastreáveis preparado pelo WMS à
 **O código está preparado para revisão. Não foi publicado no WMS de produção. Esta integração não implementa gravação contínua no iPhone nem sincroniza mecanicamente o rolo com o NFC.** O NFC.cool Platinum permanece como gravador assistido, com início da escrita e releitura no telefone. Aceitação dos dados pela estação não comprova impressão ou gravação física.
 
 
-## Novo piloto: gravar, conferir e ler dentro do WMS com Natively Preview
+## Aplicativo próprio Packem WMS para iPhone 11 — fluxo principal
+
+O aplicativo em `ios/PackemWMS` abre o WMS existente e usa Core NFC para **cadastrar o UID por aproximação**. Em Gestão de Etiquetas, consulte uma embalagem existente por QR/ID e toque em Cadastrar chip por aproximação. O UID é persistido no servidor por `/api/nfc-tags`. A memória da tag pode permanecer vazia. Na contagem, Ler NFC lê os UIDs em sequência dentro da sessão; o WMS resolve a embalagem, consulta código/peso atuais e chama a entrada normal, com deduplicação. Isso segue as regras de estoque/local do sistema.
+
+Há uma migração nova em `supabase/migrations/202610160001_nfc_tags.sql`, com vínculo único, cadastro idempotente, RLS e função de serviço. O endpoint autentica o usuário ativo do WMS, verifica permissão de etiquetas para cadastro e precisa de `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` somente no servidor. **A migração/configuração e a persistência em homologação continuam pendentes; não foram aplicadas no banco real.** Nenhum vínculo local é apresentado como cadastro durável em produção.
+
+A gravação opcional de ID, código, peso e unidade em NDEF permanece disponível, com escrita/releitura conferidas. Ela exige tag vazia e formatada, e não substitui o cadastro pelo UID. Nenhum destes fluxos sincroniza um rolo com a Zebra ZT230.
+
+O app é código-fonte, sem IPA assinado ou instalação física concluída. NFC Tag Reading depende de assinatura/provisionamento compatível; a conta gratuita Personal Team não inclui essa capacidade. Nenhuma assinatura foi contratada. O iOS exibe sua interface NFC e limita cada sessão a cerca de 60 segundos: é preciso iniciar outra sessão para continuar. Não há toque por tag durante uma sessão válida.
+
+O guia `/nfc-app.html` e o ensaio `/tests/ui/nfc-app.html` apresentam esse fluxo. O ensaio usa dados/vínculos fictícios em memória, sem estoque real. Duas embalagens somam 550,5 kg e a repetida não duplica. Botões no navegador simulam a antena e não comprovam leitura física. Veja [o projeto e os limites](../ios/PackemWMS/LEIA-ME.md).
+
+## Piloto anterior: Natively Preview (alternativa experimental)
 
 O caminho experimental `/nfc-direto.html` integra o SDK oficial Natively 2.28.14, commit `ba20c57a0e20e5a6d9bbc0ec5d7ec1b09abbf644`, copiado localmente com atribuição ISC. A página não busca código de SDK em um CDN durante o uso. A ponte só é chamada quando o aplicativo fornece `$agent`; no navegador comum a antena fica indisponível.
 
@@ -21,23 +33,9 @@ O ensaio `/tests/ui/nfc-direto.html?simulate=1` usa o **SDK oficial** com uma po
 
 Também foram conferidos os caminhos [Median NFC](https://docs.median.co/docs/nfc-tag-scanner), que documenta conteúdo NDEF, e [BDK NFC](https://docs.thebdk.com/reference/objects), que documenta `id: null` no iOS. Eles não demonstraram o cadastro gratuito por UID de tag vazia. O app próprio abaixo fornece controle nativo, mas continua dependente de assinatura iOS; o piloto Natively é uma alternativa de teste para a associação gravada no chip.
 
-## Aplicativo próprio Packem WMS para iPhone 11
-
-`ios/PackemWMS` contém o aplicativo nativo próprio: abre o WMS existente em `WKWebView` e usa Core NFC para entregar UID e texto de NTAG213 ao módulo `wms-nfc-app.js`. Nas três telas existentes aparece **Ler NFC**. O botão fica desabilitado no Safari; funciona somente com a ponte do aplicativo nativo. NFC.cool e iScanBrowser não são necessários nesse caminho.
-
-O operador inicia a leitura e aproxima uma etiqueta já gravada por vez. Cada entrada aguarda conferência de ID, código, quantidade e unidade no cadastro, e confirmação pela função normal da tela. Releituras não duplicam a embalagem. Tags vazias precisam ser gravadas antes. As entradas seguem o comportamento existente do WMS, inclusive a mudança de local e o histórico quando a função normal da tela os registra; não são uma contagem independente do estoque.
-
-Pausa, mudança de usuário/tela/modo, navegação e saída do aplicativo encerram a sessão. Uma divergência exige conferência e reapresentação da etiqueta. O iOS encerra cada sessão em até cerca de 60 segundos; o usuário toca novamente em **Ler NFC** para continuar. A ponte aceita somente a origem HTTPS exata de produção/prévia e o quadro principal. O conteúdo da tag é passado como argumento estruturado, nunca executado como código.
-
-**Estado: fonte do app e integração web preparados; instalação, assinatura iOS e leitura física não concluídas.** Nenhum IPA assinado foi gerado. A conta gratuita Personal Team não inclui a capacidade NFC; o projeto não contorna essa restrição nem contrata assinatura. A compilação sem assinatura no workflow macOS não torna o aplicativo instalável no telefone. Configuração e ensaio estão em [`ios/PackemWMS/LEIA-ME.md`](../ios/PackemWMS/LEIA-ME.md).
-
-A página isolada `/tests/ui/nfc-app.html` usa catálogo fictício e simula a entrega da ponte no navegador, sem APIs de estoque. Duas embalagens devem somar 550,5 kg, mantidos após repetir a primeira. Esse ensaio não aciona a antena. Os testes verificam contexto, UID, sequência, deduplicação, divergência e ausência de confirmação. A captura física e o fluxo autenticado em estoque real continuam pendentes.
-
-Em 15/10/2026, o código nativo do commit `a1746860e666179784ba2112e8e53575e18e053e` passou os seis testes Swift e compilou com Xcode para simulador e iPhone, ambos sem assinatura, no [workflow macOS](https://github.com/mateusalvesdaluz7-maker/wms-packem/actions/runs/38783708988). Nenhum certificado ou conta Apple foi usado. Na prévia HTTPS, o ensaio da ponte recebeu duas embalagens fictícias e mostrou **2 etiquetas / 550,5 kg**; repetir a primeira manteve o total, e parar recusou outra leitura. Isso valida o software e a compilação, sem comprovar instalação ou rádio NFC.
-
 ## iPhone 11 com o WMS aberto no iScanBrowser
 
-`wms-nfc-iphone.js` adiciona **Contar com NFC · iScanBrowser** às três telas de contagem existentes. Este é o caminho escolhido para usar o WMS no iPhone sem uma assinatura Apple Developer própria. Durante a contagem, dispensa a estação no PC e a troca para NFC.cool: o WMS fica aberto dentro do iScanBrowser, um aplicativo nativo que documenta leitura CoreNFC e regras de preenchimento de páginas. Isso não acrescenta Web NFC ao Safari.
+`wms-nfc-iphone.js` adiciona **Contar com NFC · iScanBrowser** às três telas de contagem existentes. Este adaptador anterior é uma alternativa comercial, não atende ao requisito de uso gratuito confirmado. Durante a contagem, dispensa a estação no PC e a troca para NFC.cool: o WMS fica aberto dentro do iScanBrowser, um aplicativo nativo que documenta leitura CoreNFC e regras de preenchimento de páginas. Isso não acrescenta Web NFC ao Safari.
 
 Em **Gestão de Etiquetas → Preparar tag NFC da embalagem**, `wms-nfc-preparar.js` consulta o ID já cadastrado pelo fluxo normal do WMS e monta o texto com código, quantidade e unidade reais do cadastro. Preserva zeros à esquerda, normaliza a quantidade e aplica o mesmo parser usado na leitura. Conteúdo inválido é recusado sem truncar. A consulta só termina com o mesmo usuário e a tela ativa. Esse painel não cria estoque paralelo, não fabrica UID e não afirma que o chip foi gravado. A primeira gravação é feita como um único registro de Texto no NFC.cool. Cada embalagem usa um ID individual.
 

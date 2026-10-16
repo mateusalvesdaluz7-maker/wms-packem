@@ -43,7 +43,7 @@
     async start(value,context){
       if(this.binding||this.busy)throw new Error('Encerre o cadastro NFC atual antes de iniciar outro.');
       if(!value||!value.tag||!context.isActive())throw new Error('Consulte a embalagem em Gestão de Etiquetas primeiro.');
-      var binding={sessionId:this.uuid(),target:'v-labels',context:context,tag:value.tag};this.binding=binding;this.busy=true;
+      var binding={sessionId:this.uuid(),target:'v-labels',context:context,tag:Object.assign({},value.tag)};this.binding=binding;this.busy=true;
       try{
         var fresh=await this.prepare(value.tag.item,context);this.guard(binding);
         if(!sameTag(fresh.tag,binding.tag))throw new Error('O cadastro mudou. Consulte a embalagem novamente.');
@@ -73,19 +73,56 @@
     }
   }
   function sameTag(a,b){return ['item','codigo','quantidade','unidade'].every(function(key){return a[key]===b[key];});}
-  if(typeof module==='object'&&module.exports){module.exports={AppCounter:AppCounter,AppEnrollment:AppEnrollment};return;}
+  class AppProgrammer{
+    constructor(options){this.prepare=options.prepare;this.uuid=options.uuid;this.notify=options.notify||function(){};this.binding=null;this.busy=false;}
+    status(message){this.notify({message:message,active:!!this.binding,busy:this.busy});}
+    stop(message){var old=this.binding;this.binding=null;this.status(message||'Gravação encerrada. Se houve contato com a tag, confira seu conteúdo antes de reutilizá-la.');return old?{type:'stop',sessionId:old.sessionId,target:'v-labels',mode:'program'}:null;}
+    guard(binding){if(this.binding!==binding||!binding.context.isActive())throw new Error('O usuário, a tela ou a embalagem selecionada mudou. Confira a tag antes de reutilizá-la.');}
+    async fresh(binding){this.guard(binding);var value=await this.prepare(binding.value.tag.item,binding.context);this.guard(binding);if(value.content!==binding.value.content)throw new Error('O cadastro mudou. Consulte a embalagem novamente; a gravação não foi confirmada.');}
+    async start(value,context){
+      if(this.binding||this.busy)throw new Error('Encerre a operação NFC atual antes de gravar outra tag.');
+      if(!value||!value.tag||typeof value.content!=='string')throw new Error('Selecione e consulte a embalagem primeiro.');
+      var binding={sessionId:this.uuid(),value:{content:value.content,tag:{item:value.tag.item}},context:context,uid:null};this.binding=binding;this.busy=true;
+      try{await this.fresh(binding);this.status('Aproxime uma NTAG213 vazia para gravar a embalagem '+value.tag.item+'. Mantenha-a parada até a conferência.');return {type:'program',mode:'program',sessionId:binding.sessionId,target:'v-labels',content:binding.value.content};}
+      catch(error){this.stop(error.message);throw error;}finally{this.busy=false;}
+    }
+    match(reading){var binding=this.binding;if(!binding||!reading||reading.sessionId!==binding.sessionId||reading.target!=='v-labels')throw new Error('Esta gravação pertence a outra sessão.');if(typeof reading.uid!=='string'||!/^04[A-F0-9]{12}$/.test(reading.uid)||reading.content!==binding.value.content)throw new Error('A tag ou o conteúdo não corresponde à gravação solicitada.');return binding;}
+    async authorize(reading){
+      var binding=this.match(reading);if(this.busy)throw new Error('Aguarde a conferência atual.');this.busy=true;
+      try{if(binding.uid)throw new Error('Esta tentativa já autorizou uma tag. Inicie outra tentativa para repetir.');await this.fresh(binding);binding.uid=reading.uid;return {accepted:true};}
+      catch(error){this.stop(error.message);throw error;}finally{this.busy=false;}
+    }
+    async complete(reading){
+      var binding=this.match(reading);if(this.busy)throw new Error('Aguarde a conferência atual.');this.busy=true;
+      try{if(binding.uid!==reading.uid)throw new Error('O UID relido não corresponde à tag autorizada.');await this.fresh(binding);var label='Tag gravada e relida: '+binding.value.tag.item+' · UID '+reading.uid;this.binding=null;this.status(label);return {accepted:true,label:label};}
+      catch(error){this.stop(error.message);throw error;}finally{this.busy=false;}
+    }
+  }
+  if(typeof module==='object'&&module.exports){module.exports={AppCounter:AppCounter,AppEnrollment:AppEnrollment,AppProgrammer:AppProgrammer};return;}
   if(!root.WmsNfcText||!root.WmsNfcReader)return;
   function handler(){return root.webkit&&root.webkit.messageHandlers&&root.webkit.messageHandlers.packemNfc;}
   var lastStatus=handler()?'Entre na contagem e toque em Ler NFC.':'A leitura NFC funciona no aplicativo Packem WMS para iPhone. O Safari não acessa esta antena.';
   function notice(state){lastStatus=state.message;document.querySelectorAll('[data-nfc-app-status]').forEach(function(node){node.textContent=lastStatus;});}
   var counter=new AppCounter({parse:root.WmsNfcText.parseText,resolve:function(uid,context){if(!root.PackemNfcRegistry)throw new Error('Cadastro NFC não publicado nesta página.');return root.PackemNfcRegistry.resolve(uid,context);},apply:root.WmsNfcReader.applyItemReading,uuid:()=>crypto.randomUUID(),notify:notice});
   var enrollment=new AppEnrollment({prepare:function(id,context){return root.WmsNfcPrepare.prepare(id,context);},bind:function(uid,item){if(!root.PackemNfcRegistry)throw new Error('Cadastro NFC indisponível.');return root.PackemNfcRegistry.bind(uid,item);},uuid:()=>crypto.randomUUID(),notify:notice});
-  function stop(message){var commands=[];if(counter.binding||counter.busy)commands.push(counter.stop(message));if(enrollment.binding||enrollment.busy)commands.push(enrollment.stop(message));commands.forEach(function(command){if(command&&handler())handler().postMessage(command);});if(!commands.length)notice({message:message||'Nenhuma operação NFC ativa.'});}
+  var programStatus='Selecione uma embalagem no painel Preparar tag NFC. Use uma NTAG213 vazia.';
+  var programmer=new AppProgrammer({prepare:function(id,context){return root.WmsNfcPrepare.prepare(id,context);},uuid:()=>crypto.randomUUID(),notify:function(state){programStatus=state.message;document.querySelectorAll('[data-nfc-app-program-status]').forEach(function(node){node.textContent=programStatus;});}});
+  function stop(message){var commands=[];if(counter.binding||counter.busy)commands.push(counter.stop(message));if(enrollment.binding||enrollment.busy)commands.push(enrollment.stop(message));if(programmer.binding||programmer.busy)commands.push(programmer.stop(message));commands.forEach(function(command){if(command&&handler())handler().postMessage(command);});if(!commands.length)notice({message:message||'Nenhuma operação NFC ativa.'});}
   function othersActive(){return root.WmsNfcReader.bridgeActive()||(root.PackemNfcIphone&&root.PackemNfcIphone.active())||(root.WmsNfcDireto&&root.WmsNfcDireto.active());}
+  async function program(){
+    try{
+      if(!handler())throw new Error('Abra o WMS no aplicativo Packem WMS com a permissão NFC.');
+      if(othersActive()||counter.binding||counter.busy||enrollment.binding||enrollment.busy)throw new Error('Conclua ou pause a outra operação NFC antes de gravar.');
+      var value=root.WmsNfcPrepare&&root.WmsNfcPrepare.current();if(!value)throw new Error('Selecione e consulte a embalagem no painel Preparar tag NFC primeiro.');
+      var original=root.WmsNfcReader.makeLabelContext(),context={lookup:original.lookup,isActive:function(){var current=root.WmsNfcPrepare.current();return original.isActive()&&!!current&&current.content===value.content;}};
+      var command=await programmer.start(value,context);
+      try{handler().postMessage(command);}catch(error){stop('A antena não iniciou. Nenhuma gravação foi confirmada.');throw error;}
+    }catch(error){programmer.status(error.message);}
+  }
   function start(view){
     try{
       if(!handler())throw new Error('Abra este WMS no aplicativo Packem WMS com NFC nativo.');
-      if(othersActive()||enrollment.binding||enrollment.busy)throw new Error('Conclua ou pause a outra operação NFC antes de usar o app Packem WMS.');
+      if(othersActive()||enrollment.binding||enrollment.busy||programmer.binding||programmer.busy)throw new Error('Conclua ou pause a outra operação NFC antes de usar o app Packem WMS.');
       var command=counter.start(view,root.WmsNfcReader.makeContext(view));
       try{handler().postMessage(command);}catch(error){stop('Não foi possível iniciar a antena do aplicativo.');throw error;}
     }catch(error){counter.status(error.message);}
@@ -93,8 +130,9 @@
   async function enroll(){
     try{
       if(!handler())throw new Error('Abra este WMS no aplicativo Packem WMS com NFC nativo.');
-      if(othersActive()||counter.binding||counter.busy)throw new Error('Pare a contagem ou outra operação NFC antes de cadastrar o chip.');
-      var value=root.WmsNfcPrepare&&root.WmsNfcPrepare.current(),context=root.WmsNfcReader.makeLabelContext();
+      if(othersActive()||counter.binding||counter.busy||programmer.binding||programmer.busy)throw new Error('Pare a contagem ou outra operação NFC antes de cadastrar o chip.');
+      var value=root.WmsNfcPrepare&&root.WmsNfcPrepare.current(),original=root.WmsNfcReader.makeLabelContext();
+      var context={lookup:original.lookup,isActive:function(){var current=root.WmsNfcPrepare.current();return original.isActive()&&!!current&&!!value&&current.content===value.content;}};
       var command=await enrollment.start(value,context);
       try{handler().postMessage(command);}catch(error){stop('A antena não iniciou o cadastro.');throw error;}
     }catch(error){enrollment.status(error.message);}
@@ -102,6 +140,7 @@
   function mount(){
     if(counter.binding&&!counter.binding.context.isActive())stop('Leitura encerrada porque o usuário, a tela ou o modo de contagem mudou.');
     if(enrollment.binding&&!enrollment.binding.context.isActive())stop('Cadastro encerrado porque a tela ou o usuário mudou. Confira o vínculo se o envio já começou.');
+    if(programmer.binding&&!programmer.binding.context.isActive())stop('Gravação interrompida pela mudança de usuário, tela ou embalagem. Confira o conteúdo da tag antes de reutilizá-la.');
     var labels=document.getElementById('v-labels');
     if(labels&&!labels.querySelector('[data-nfc-app-enroll]')){
       var registration=document.createElement(handler()?'section':'details');registration.className='panel';registration.dataset.nfcAppEnroll='1';registration.style.cssText='padding:18px;margin:12px 0;border:2px solid #147657;border-radius:12px';
@@ -112,6 +151,14 @@
       var cancel=document.createElement('button');cancel.type='button';cancel.className='gbtn';cancel.textContent='Cancelar cadastro';cancel.style.marginLeft='12px';cancel.onclick=function(){stop();};registration.appendChild(cancel);
       var guide=document.createElement('a');guide.href='/nfc-app.html';guide.textContent='Sobre o aplicativo Packem WMS';guide.style.cssText='display:block;margin-top:12px';registration.appendChild(guide);
       var prepared=labels.querySelector('[data-nfc-preparar]');if(prepared)prepared.after(registration);else labels.prepend(registration);
+    }
+    if(labels&&!labels.querySelector('[data-nfc-app-program]')){
+      var section=document.createElement('details');section.className='panel';section.dataset.nfcAppProgram='1';section.style.cssText='padding:18px;margin:12px 0;border:1px solid #b8d4c4;border-radius:12px';
+      var title=document.createElement('summary');title.textContent='Opcional: gravar dados na memória do chip';section.appendChild(title);
+      var intro=document.createElement('p');intro.textContent='Consulte a embalagem acima e aproxime uma NTAG213 vazia. O app grava os dados e os relê antes de confirmar. Esta opção é independente: cadastre também o UID no painel acima para contar no WMS. Tags com conteúdo anterior são recusadas.';section.appendChild(intro);
+      var status=document.createElement('p');status.dataset.nfcAppProgramStatus='1';status.setAttribute('role','status');status.textContent=programStatus;section.appendChild(status);
+      [['Gravar tag vazia',program],['Parar gravação',()=>stop()]].forEach(function(action){var button=document.createElement('button');button.type='button';button.className='gbtn';button.textContent=action[0];button.disabled=!handler();button.style.margin='6px 10px 6px 0';button.onclick=action[1];section.appendChild(button);});
+      labels.appendChild(section);
     }
     targets.forEach(function(view){
       var container=document.getElementById(view);if(!container||container.querySelector('[data-nfc-app-panel]'))return;
@@ -124,11 +171,12 @@
       var note=document.createElement('small');note.style.display='block';note.textContent='O iOS limita cada sessão a cerca de 60 segundos. Toque em Ler NFC para continuar; os itens já contados permanecem. Cadastre as tags em Gestão de Etiquetas antes de contar.';panel.appendChild(note);container.prepend(panel);
     });
   }
-  root.PackemWmsApp={start:start,enroll:enroll,stop:stop,active:()=>!!counter.binding||counter.busy||!!enrollment.binding||enrollment.busy,
+  root.PackemWmsApp={start:start,enroll:enroll,program:program,stop:stop,active:()=>!!counter.binding||counter.busy||!!enrollment.binding||enrollment.busy||!!programmer.binding||programmer.busy,
     receive:reading=>counter.receive(reading),
     receiveEnrollment:reading=>enrollment.receive(reading),
-    stopped:function(sessionId,message){if(counter.binding&&counter.binding.sessionId===sessionId)counter.stop(message);if(enrollment.binding&&enrollment.binding.sessionId===sessionId)enrollment.stop(message);}
+    authorizeWriting:reading=>programmer.authorize(reading),programmed:reading=>programmer.complete(reading),
+    stopped:function(sessionId,message){if(counter.binding&&counter.binding.sessionId===sessionId)counter.stop(message);if(enrollment.binding&&enrollment.binding.sessionId===sessionId)enrollment.stop(message);if(programmer.binding&&programmer.binding.sessionId===sessionId)programmer.stop(message);}
   };
-  var scheduled=false;new MutationObserver(function(){if(scheduled)return;scheduled=true;setTimeout(function(){scheduled=false;mount();},80);}).observe(document.body,{childList:true,subtree:true});mount();
-  document.addEventListener('visibilitychange',function(){if(document.hidden&&(counter.binding||enrollment.binding))stop('NFC encerrado ao sair do WMS. Confira os itens e vínculos já enviados antes de continuar.');});
+  var scheduled=false;new MutationObserver(function(){if(scheduled)return;scheduled=true;setTimeout(function(){scheduled=false;mount();},80);}).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});mount();
+  document.addEventListener('visibilitychange',function(){if(document.hidden&&(counter.binding||enrollment.binding||programmer.binding))stop('NFC encerrado ao sair do WMS. Confira os itens e vínculos já enviados antes de continuar.');});
 })(typeof window!=='undefined'?window:globalThis);

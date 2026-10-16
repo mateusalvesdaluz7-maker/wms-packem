@@ -18,12 +18,22 @@ final class WMSPolicyTests: XCTestCase {
     func testBindingRequiresUUIDAndKnownCountingScreen() {
         let id = UUID().uuidString
         XCTAssertNotNil(WMSBinding(body: ["sessionId": id, "target": "v-floor"]))
+        XCTAssertNotNil(WMSBinding(body: ["sessionId": id, "target": "v-labels", "mode": "program"]))
+        XCTAssertNil(WMSBinding(body: ["sessionId": id, "target": "v-labels"]))
+        XCTAssertNil(WMSBinding(body: ["sessionId": id, "target": "v-floor", "mode": "program"]))
         XCTAssertNil(WMSBinding(body: ["sessionId": "fake", "target": "v-floor"]))
         XCTAssertNil(WMSBinding(body: ["sessionId": id, "target": "stock-operation"]))
         XCTAssertNotNil(WMSBinding(body: ["sessionId": id, "target": "v-labels", "mode": "enroll"]))
         XCTAssertNil(WMSBinding(body: ["sessionId": id, "target": "v-labels", "mode": "count"]))
         XCTAssertNil(WMSBinding(body: ["sessionId": id, "target": "v-floor", "mode": "enroll"]))
         XCTAssertNil(WMSBinding(body: ["sessionId": id, "target": "v-floor", "mode": "write"]))
+    }
+    func testProgramReceiptRequiresExplicitAcceptance() throws {
+        XCTAssertEqual(try ProgramReceipt(response: ["accepted": true, "label": "Tag relida"]).label, "Tag relida")
+        let invalid: [[String: Any]] = [["accepted": false, "label": "Tag"], ["accepted": true], ["accepted": true, "label": ""]]
+        for value in invalid {
+            XCTAssertThrowsError(try ProgramReceipt(response: value))
+        }
     }
     func testReceiptRequiresExplicitAcceptanceAndLabel() throws {
         XCTAssertTrue(try CountReceipt(response: ["accepted": true, "duplicate": true, "label": "Já contada"]).duplicate)

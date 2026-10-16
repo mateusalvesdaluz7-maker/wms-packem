@@ -80,6 +80,7 @@
         if(request!==epoch||!context.isActive())return;
         result=value;text.value=value.content;detail.textContent='Embalagem '+value.tag.item+' · código '+value.tag.codigo+' · '+value.tag.quantidade.replace('.',',')+' '+value.tag.unidade;
         copy.disabled=false;status.textContent='Embalagem consultada. Use o painel de cadastro por UID abaixo para salvar o vínculo com a tag.';
+        return value;
       }catch(error){if(request===epoch)status.textContent=error.message;}
       finally{button.disabled=false;}
     }
@@ -91,6 +92,11 @@
       catch(error){if(request===epoch){text.focus();text.select();status.textContent='Selecione e copie o texto acima para gravar no NFC.cool.';}}
     };
     view.insertBefore(panel,view.children[1]||null);
+    panel.selectNfcItem=async function(id){
+      if([root.WmsNfcMobile,root.PackemWmsApp,root.WmsNfcDireto,root.PackemNfcIphone].some(function(reader){return reader&&reader.active();})||root.WmsNfcReader.bridgeActive())throw new Error('Conclua ou cancele a operação NFC atual antes de escolher outra embalagem.');
+      if(!root.WmsNfcReader.makeLabelContext().isActive())throw new Error('Abra NFC → Cadastrar tags com seu usuário.');
+      input.value=id;return lookup();
+    };
     showChoices();panel.refreshNfcChoices=function(){if(lastCatalog!==catalog())showChoices();};
     panel.resetNfcPreparation=function(){clear();status.textContent='Consulte a etiqueta novamente para preparar o conteúdo NFC.';};
   }
@@ -103,5 +109,5 @@
   }
   var scheduled=false;new MutationObserver(function(){if(scheduled)return;scheduled=true;setTimeout(function(){scheduled=false;check();},100);}).observe(document.body,{childList:true,subtree:true});check();
   document.addEventListener('visibilitychange',check);
-  root.WmsNfcPrepare={prepare:prepare,current:function(){return result&&root.WmsNfcReader.makeLabelContext().isActive()?buildPayload(result.tag.item,{codigo:result.tag.codigo,quantidade:result.tag.quantidade,unidade:result.tag.unidade}):null;}};
+  root.WmsNfcPrepare={prepare:prepare,clear:function(){var panel=document.querySelector('[data-nfc-preparar]');if(panel&&panel.resetNfcPreparation)panel.resetNfcPreparation();},select:async function(id){mount();var panel=document.querySelector('[data-nfc-preparar]');if(!panel||!panel.selectNfcItem)throw new Error('Cadastro NFC indisponível.');return panel.selectNfcItem(id);},current:function(){return result&&root.WmsNfcReader.makeLabelContext().isActive()?buildPayload(result.tag.item,{codigo:result.tag.codigo,quantidade:result.tag.quantidade,unidade:result.tag.unidade}):null;}};
 })(typeof window!=='undefined'?window:globalThis);

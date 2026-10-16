@@ -5559,10 +5559,12 @@ updateStageBadge();
     ETQ[id]={id:id,nf:'__vaga__',nNF:'',cProd:data.cProd||'',xProd:data.xProd||'',lote:data.lote||'',uCom:(data.un||'KG'),kg:Number(data.kg)||0,addr:data.addr||'',vol:1,volTot:1,status:'gerada',hist:[{ev:'gerada',at:nowISO(),by:(typeof session!=='undefined'&&session?session.u:'')}]};
     try{if(typeof regBobFromEtq==='function')regBobFromEtq(id,ETQ[id]);}catch(e){}
     saveNF();
-    if(typeof syncEtiqueta==='function')syncEtiqueta(ETQ[id]);
+    if(!data._deferSync&&typeof syncEtiqueta==='function')syncEtiqueta(ETQ[id]);
     if(typeof logAct==='function')logAct('rastreio-vaga',id+(data.addr?(' · '+data.addr):''));
-    if(typeof printZebraRast==='function')printZebraRast([ETQ[id]],(data._dim||(typeof ZSIZES!=='undefined'?ZSIZES.z100:null)),data._orient||'retrato');
-    else toast('Recarregue a página (Ctrl+Shift+R)',false);
+    if(data._print!==false){
+      if(typeof printZebraRast==='function')printZebraRast([ETQ[id]],(data._dim||(typeof ZSIZES!=='undefined'?ZSIZES.z100:null)),data._orient||'retrato');
+      else toast('Recarregue a página (Ctrl+Shift+R)',false);
+    }
     if(typeof toast==='function')toast('Etiqueta '+id+' criada');
     return id;
   };

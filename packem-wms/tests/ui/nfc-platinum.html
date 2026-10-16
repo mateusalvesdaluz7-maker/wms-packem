@@ -13,7 +13,11 @@
 <script>
 var session={u:'qa-platinum',role:'admin'},_floorScanMode='add';window._fiscalAuth={u:session.u,p:'simulation-only'};
 window.allowedViews=()=>['v-labels','v-floor','v-nfc'];
-var reader=null,count=null,registry=new Map(),counted=new Set(),catalog={T001:{pr:'0303450047',pl:300},T002:{pr:'0303450047',pl:250.5}},BOB=catalog;
+var reader=null,count=null,registry=new Map(),counted=new Set(),catalog={T001:{pr:'0303450047',pl:300},T002:{pr:'0303450047',pl:250.5}},BOB=catalog,ETQ={},manualSeq=0;
+window.nfMakeLabel=function(data){var id='R-MANUAL-'+String(++manualSeq).padStart(3,'0');ETQ[id]={id:id,cProd:data.cProd,xProd:data.xProd,kg:data.kg,lote:data.lote,uCom:data.un};catalog[id]={pr:data.cProd,pl:data.kg,desc:data.xProd};return id;};
+async function syncEtiqueta(){return true;}
+window.askLabelFormat=function(title,callback){callback({dim:{w:100,h:100},orient:'retrato'});};
+window.printZebraRast=function(records){document.getElementById('scan-result').textContent='Impressão simulada do ID '+records[0].id+'; nenhuma impressora foi acionada.';};
 function unitOf(){return 'KG';}window.bobFetch=async id=>catalog[id]||null;window.floorHasEt=id=>counted.has(id);
 window.floorAdd=async function(id){counted.add(id);var sum=0,rows=document.getElementById('items');rows.replaceChildren();counted.forEach(function(key){var b=catalog[key],row=document.createElement('tr');sum+=b.pl;[key,b.pr,String(b.pl).replace('.',',')+' kg'].forEach(function(text){var td=document.createElement('td');td.textContent=text;row.appendChild(td);});rows.appendChild(row);});document.getElementById('total').textContent=counted.size+' embalagens · '+String(sum).replace('.',',')+' kg';};
 window.PackemNfcRegistry={resolve:async function(uid,context){var id=registry.get(uid);if(!id)throw Error('Tag não cadastrada');return (await WmsNfcPrepare.prepare(id,context)).tag;}};
@@ -46,4 +50,4 @@ function select(id){operation('register');var n=document.getElementById('packemN
 document.getElementById('show-labels').onclick=()=>operation('register');document.getElementById('show-count').onclick=()=>operation('count');
 document.getElementById('select-one').onclick=()=>select('T001');document.getElementById('select-two').onclick=()=>select('T002');
 document.getElementById('scan-one').onclick=()=>scan(false);document.getElementById('scan-two').onclick=()=>scan(true);document.getElementById('repeat').onclick=()=>scan(false);
-</script><script src="../../wms-nfc-workspace.js"></script><script src="../../wms-nfc-text.js"></script><script src="../../wms-nfc-reader.js"></script><script src="../../wms-nfc-preparar.js"></script><script src="../../wms-nfc-mobile.js"></script></html>
+</script><script src="../../wms-nfc-workspace.js"></script><script src="../../wms-nfc-text.js"></script><script src="../../wms-nfc-reader.js"></script><script src="../../wms-nfc-preparar.js"></script><script src="../../wms-nfc-mobile.js"></script><script src="../../wms-nfc-manual.js"></script></html>

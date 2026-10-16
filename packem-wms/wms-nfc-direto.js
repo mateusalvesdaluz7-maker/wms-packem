@@ -112,7 +112,7 @@
   function end(){sequence=null;if(pilot)pilot.end();else notice({message:'Nenhuma operação NFC iniciada.'});}
   function mount(){
     ['v-labels','v-floor','v-floor70','v-recic'].forEach(function(view){
-      var container=document.getElementById(view);if(!container||container.querySelector('[data-nfc-direto-panel]'))return;
+      var container=root.WmsNfcWorkspace?root.WmsNfcWorkspace.host(view,true):document.getElementById(view);if(!container||container.querySelector('[data-nfc-direto-panel]'))return;
       var panel=document.createElement('details');panel.open=!!nativePresent();panel.dataset.nfcDiretoPanel='1';panel.className='panel';panel.style.cssText='padding:18px;margin:12px 0;border:2px solid #297a64;border-radius:12px';panel.dataset.nfcDiretoView=view;
       var title=document.createElement('summary');title.textContent='Novo piloto · NFC direto na tela do WMS';panel.appendChild(title);
       var intro=document.createElement('p');intro.textContent=view==='v-labels'?'No Natively Preview, o WMS pode iniciar a gravação e a releitura. Selecione uma embalagem acima e use uma NTAG213 de teste vazia. Gravar substitui o conteúdo anterior.':'Inicie a sequência e aproxime uma tag por vez. O WMS solicita a próxima leitura após conferir a anterior. O comportamento dos avisos e a continuidade precisam de teste físico no iPhone.';panel.appendChild(intro);

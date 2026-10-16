@@ -11,7 +11,7 @@
     parse(content);return {content:content,tag:tag};
   }
   async function prepare(id,context){
-    if(!context.isActive())throw new Error('Entre no WMS e abra Gestão de Etiquetas para preparar a tag.');
+    if(!context.isActive())throw new Error('Entre no WMS e abra NFC → Cadastrar tags para preparar a tag.');
     if(typeof id!=='string'||!/^[A-Za-z0-9._/-]{1,32}$/.test(id))throw new Error('Informe o ID de uma embalagem cadastrada no WMS.');
     var item=await context.lookup(id);
     if(!context.isActive())throw new Error('O usuário ou a tela mudou durante a consulta. Consulte novamente.');
@@ -22,7 +22,7 @@
   if(!parse||!root.WmsNfcReader)return;
   var lastUser=null,epoch=0,result=null;
   function mount(){
-    var view=document.getElementById('v-labels');if(!view||view.querySelector('[data-nfc-preparar]'))return;
+    var view=root.WmsNfcWorkspace?root.WmsNfcWorkspace.host('v-labels'):document.getElementById('v-labels');if(!view||view.querySelector('[data-nfc-preparar]'))return;
     var panel=document.createElement('section');panel.className='panel';panel.dataset.nfcPreparar='1';panel.style.cssText='padding:18px;margin:12px 0;border:2px solid #147657;border-radius:12px';
     var title=document.createElement('h3');title.textContent='Preparar tag NFC da embalagem';panel.appendChild(title);
     var intro=document.createElement('p');intro.textContent='Escolha a embalagem lendo seu QR Code ou informando o ID existente. O WMS consulta código, quantidade e unidade no cadastro antes de preparar o vínculo com o chip.';panel.appendChild(intro);
@@ -55,7 +55,7 @@
     button.onclick=function(){lookup();};input.addEventListener('keydown',function(event){if(event.key==='Enter'){event.preventDefault();if(!button.disabled)lookup();}});
     scan.onclick=function(){
       clear();var cameraRequest=epoch,cameraContext=root.WmsNfcReader.makeLabelContext();
-      if(!cameraContext.isActive()){status.textContent='Entre no WMS e abra Gestão de Etiquetas antes de ler a embalagem.';return;}
+      if(!cameraContext.isActive()){status.textContent='Entre no WMS e abra NFC → Cadastrar tags antes de ler a embalagem.';return;}
       if(typeof root.scanInto!=='function'){status.textContent='Câmera indisponível nesta página de ensaio. Escolha uma embalagem de teste ou informe o ID.';return;}
       status.textContent='Leia o QR Code da embalagem; o WMS buscará os dados automaticamente.';
       root.scanInto(input.id,{title:'Ler embalagem para vincular NFC',scanKind:'label',supplierOcr:false,scanModes:false,continuous:false,onResult:function(raw){

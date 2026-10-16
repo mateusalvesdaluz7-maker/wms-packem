@@ -7,10 +7,12 @@
 <section class="card"><b>Embalagens do ensaio</b><p>Produto 0303450047 · pesos 300 kg e 250,5 kg</p><button id="select-one">Selecionar QR fictício · embalagem 1</button><button id="select-two">Selecionar QR fictício · embalagem 2</button><p id="bindings">0 chips cadastrados</p></section>
 <div id="v-labels" class="view active"><h2>Gestão de Etiquetas</h2></div>
 <div id="v-floor" class="view"><h2>Contagem · chão expedição</h2></div>
+<section id="v-nfc" class="view"><h2>NFC</h2><div role="tablist" aria-label="Operação NFC"><button role="tab" data-nfc-mode="register" aria-selected="true">Cadastrar tags</button><button role="tab" data-nfc-mode="count" aria-selected="false">Contar tags</button></div><div data-nfc-destination-field hidden><label>Destino da contagem NFC<select data-nfc-destination aria-label="Destino da contagem NFC"></select></label><button data-nfc-open-destination>Abrir contagem na aba normal</button></div><p data-nfc-workspace-status role="status"></p><p data-nfc-workspace-empty hidden>Operação indisponível.</p></section>
 <section class="card"><b>Simular a entrega do NFC.cool</b><p>Prepare o cadastro ou inicie a contagem antes de enviar o UID.</p><button id="scan-one">Aproximar tag 1 (simulação)</button><button id="scan-two">Aproximar tag 2 (simulação)</button><button id="repeat">Repetir tag 1</button><p id="scan-result" role="status">Aguardando operação do WMS.</p></section>
 <section class="card"><p class="metric" id="total">0 embalagens · 0 kg</p><table><thead><tr><th>Embalagem</th><th>Código</th><th>Peso</th></tr></thead><tbody id="items"></tbody></table></section></main>
 <script>
 var session={u:'qa-platinum',role:'admin'},_floorScanMode='add';window._fiscalAuth={u:session.u,p:'simulation-only'};
+window.allowedViews=()=>['v-labels','v-floor','v-nfc'];
 var reader=null,count=null,registry=new Map(),counted=new Set(),catalog={T001:{pr:'0303450047',pl:300},T002:{pr:'0303450047',pl:250.5}};
 function unitOf(){return 'KG';}window.bobFetch=async id=>catalog[id]||null;window.floorHasEt=id=>counted.has(id);
 window.floorAdd=async function(id){counted.add(id);var sum=0,rows=document.getElementById('items');rows.replaceChildren();counted.forEach(function(key){var b=catalog[key],row=document.createElement('tr');sum+=b.pl;[key,b.pr,String(b.pl).replace('.',',')+' kg'].forEach(function(text){var td=document.createElement('td');td.textContent=text;row.appendChild(td);});rows.appendChild(row);});document.getElementById('total').textContent=counted.size+' embalagens · '+String(sum).replace('.',',')+' kg';};
@@ -39,8 +41,9 @@ function scan(second){var uid=second?'04778899001122':'04112233445566',result=do
  else result.textContent='Prepare o cadastro ou inicie a contagem primeiro.';
 }
 function show(id){document.querySelectorAll('.view').forEach(n=>n.classList.toggle('active',n.id===id));}
-function select(id){show('v-labels');var n=document.getElementById('packemNfcLabelId');n.value=id;n.dispatchEvent(new Event('input'));document.querySelector('[data-nfc-preparar] .btn').click();}
-document.getElementById('show-labels').onclick=()=>show('v-labels');document.getElementById('show-count').onclick=()=>show('v-floor');
+function operation(mode){show('v-nfc');document.querySelector('[data-nfc-mode="'+mode+'"]').click();}
+function select(id){operation('register');var n=document.getElementById('packemNfcLabelId');n.value=id;n.dispatchEvent(new Event('input'));document.querySelector('[data-nfc-preparar] .btn').click();}
+document.getElementById('show-labels').onclick=()=>operation('register');document.getElementById('show-count').onclick=()=>operation('count');
 document.getElementById('select-one').onclick=()=>select('T001');document.getElementById('select-two').onclick=()=>select('T002');
 document.getElementById('scan-one').onclick=()=>scan(false);document.getElementById('scan-two').onclick=()=>scan(true);document.getElementById('repeat').onclick=()=>scan(false);
-</script><script src="../../wms-nfc-text.js"></script><script src="../../wms-nfc-reader.js"></script><script src="../../wms-nfc-preparar.js"></script><script src="../../wms-nfc-mobile.js"></script></html>
+</script><script src="../../wms-nfc-workspace.js"></script><script src="../../wms-nfc-text.js"></script><script src="../../wms-nfc-reader.js"></script><script src="../../wms-nfc-preparar.js"></script><script src="../../wms-nfc-mobile.js"></script></html>

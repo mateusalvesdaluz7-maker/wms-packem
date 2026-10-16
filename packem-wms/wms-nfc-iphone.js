@@ -81,7 +81,7 @@
   }
   function mount(){
     destinations.forEach(function(view){
-      var container=document.getElementById(view);if(!container||container.querySelector('[data-nfc-iphone-panel]'))return;
+      var container=root.WmsNfcWorkspace?root.WmsNfcWorkspace.host(view,true):document.getElementById(view);if(!container||container.querySelector('[data-nfc-iphone-panel]'))return;
       var panel=document.createElement('section');panel.className='panel';panel.dataset.nfcIphonePanel='1';panel.style.cssText='padding:18px;margin:12px 0;border:2px solid #147657;border-radius:12px';
       var title=document.createElement('strong');title.textContent='Contar com NFC · iScanBrowser';panel.appendChild(title);
       var description=document.createElement('p');description.textContent='Use o iScanBrowser com o leitor NFC nativo habilitado. As etiquetas entram nesta contagem após a conferência no cadastro. O Safari não captura NFC.';panel.appendChild(description);

@@ -51,14 +51,14 @@
   function makeContext(view,enabled){
     var target=targets[view],user=(typeof session!=='undefined' && session)?session.u:null;
     return {
-      isActive:function(){return (!enabled||enabled()) && !document.hidden && !!target && !!user && typeof session!=='undefined' && !!session && session.u===user && activeView()===view && root[target.mode]!=='out' && typeof root[target.has]==='function' && typeof root[target.add]==='function';},
+      isActive:function(){return (!enabled||enabled()) && !document.hidden && !!target && !!user && typeof session!=='undefined' && !!session && session.u===user && (root.WmsNfcWorkspace?root.WmsNfcWorkspace.isActive(view):activeView()===view) && root[target.mode]!=='out' && typeof root[target.has]==='function' && typeof root[target.add]==='function';},
       lookup:async function(id){var item=typeof root.bobFetch==='function'?await root.bobFetch(id):null;return item?{codigo:String(item.pr||''),quantidade:item.pl,unidade:typeof unitOf==='function'?unitOf(item.pr):''}:null;},
       has:function(id){return root[target.has](id);},add:function(id){return root[target.add](id);}
     };
   }
   function makeLabelContext(){
     var user=typeof session!=='undefined'&&session?session.u:null;
-    return {isActive:function(){return !document.hidden&&!!user&&typeof session!=='undefined'&&!!session&&session.u===user&&activeView()==='v-labels';},
+    return {isActive:function(){return !document.hidden&&!!user&&typeof session!=='undefined'&&!!session&&session.u===user&&(root.WmsNfcWorkspace?root.WmsNfcWorkspace.isActive('v-labels'):activeView()==='v-labels');},
       lookup:async function(id){var item=typeof root.bobFetch==='function'?await root.bobFetch(id):null;return item?{codigo:String(item.pr||''),quantidade:item.pl,unidade:typeof unitOf==='function'?unitOf(item.pr):''}:null;}};
   }
   async function receive(data){
@@ -106,7 +106,7 @@
     notice('Conecte o leitor na janela aberta. A contagem será aplicada somente neste destino.');
   }
   function mount(){Object.keys(targets).forEach(function(view){
-    var container=document.getElementById(view);if(!container || container.querySelector('[data-nfc-reader-panel]'))return;
+    var container=root.WmsNfcWorkspace?root.WmsNfcWorkspace.host(view,true):document.getElementById(view);if(!container || container.querySelector('[data-nfc-reader-panel]'))return;
     var panel=document.createElement('details');panel.className='panel';panel.dataset.nfcReaderPanel='1';panel.style.cssText='padding:14px;margin:12px 0;border:1px solid #b8d4c4';
     var title=document.createElement('summary');title.textContent='Alternativa: NFC.cool com estação no PC';title.style.cursor='pointer';panel.appendChild(title);
     var status=document.createElement('p');status.dataset.nfcReaderStatus='1';status.textContent=lastNotice;panel.appendChild(status);

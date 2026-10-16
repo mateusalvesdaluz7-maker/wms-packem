@@ -11715,7 +11715,7 @@ window.EXP.ensureCutOpRomaneio=async function(draft){
       return {inv:inv,key:JSON.stringify([who,inv.tid,inv.sel.chao?'chao:'+inv.sel.chao:inv.cur,pass])};
     }
     var first=snapshot(),scope=first&&first.key;
-    function active(){var next=snapshot();return !!scope&&!document.hidden&&next&&next.key===scope&&!!document.querySelector('#v-inv.view.active');}
+    function active(){var next=snapshot();return !!scope&&!document.hidden&&next&&next.key===scope&&(window.WmsNfcWorkspace?window.WmsNfcWorkspace.isActive('v-inv'):!!document.querySelector('#v-inv.view.active'));}
     function has(et){
       if(!active())return false;var inv=loadInv();et=typeof norm==='function'?norm(et):et;
       if(inv.sel.chao){var alvo=_chaoAlvos(inv).find(function(x){return x._code&&(typeof norm==='function'?norm(x._code):x._code)===et;});return !!alvo&&_chaoSeen(inv,_chaoSt(inv).pass)[alvo.id]===1;}
@@ -14324,6 +14324,7 @@ window.EXP.ensureCutOpRomaneio=async function(draft){
       ['v-users','Gestão de Usuário'],
       ['v-act','Log de Atividades'],
       ['v-labels','Gestão de Etiquetas'],
+      ['v-nfc','NFC'],
       ['v-etqconsulta','Consulta de Etiqueta']
     ]}
   ];
@@ -14483,14 +14484,14 @@ window.EXP.ensureCutOpRomaneio=async function(draft){
   ['Operação',[['v-exped','Expedição de Romaneios'],['v-corte','OPs de corte'],['v-requisicao','Requisição'],['v-requisicao-textil','Requisição Têxtil'],['v-tear','Tear'],['v-flow','VSM ao vivo'],['v-logalert','Alertas da Logística'],['v-track','Movimentação']]],
   ['Gestão e Documentação',[['v-recv','Recebimento'],['v-nf','Nota Fiscal']]],
   ['Análise',[['v-abc','Análise ABC']]],
-  ['Cadastro',[['v-values','Cadastro de Materiais'],['v-users','Gestão de Usuário'],['v-act','Log de Atividades'],['v-labels','Gestão de Etiquetas'],['v-etqconsulta','Consulta de Etiqueta']]]
+  ['Cadastro',[['v-values','Cadastro de Materiais'],['v-users','Gestão de Usuário'],['v-act','Log de Atividades'],['v-labels','Gestão de Etiquetas'],['v-nfc','NFC'],['v-etqconsulta','Consulta de Etiqueta']]]
  ];
  function mapa(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){return {};}}
  function grava(m){try{localStorage.setItem(KEY,JSON.stringify(m));}catch(e){}}
  function padrao(role){if(role==='operador')return ['v-home','v-stock','v-extrusora-pet','v-extrusora-pp','v-board','v-recic','v-floor70','v-floor','v-logalert','v-track','v-recv','v-labels','v-etqconsulta','v-requisicao-textil'];if(role==='recepcao')return ['v-home','v-recv','v-nf','v-labels','v-etqconsulta'];if(role==='viewer')return ['v-home','v-stock','v-extrusora-pet','v-extrusora-pp','v-board','v-abc','v-etqconsulta'];if(role==='requisitante')return ['v-requisicao'];return null;}
  allowedViews=function(){var r=curRole();if(r==='admin')return null;var nome=session&&session.u||'',chave=String(nome).toLowerCase(),m=mapa(),cad=(US||[]).find(function(x){return String(x.u||'').toLowerCase()===chave;}),custom=cad&&Array.isArray(cad.views)?cad.views:(Array.isArray(m[chave])?m[chave]:null),acessos=custom||padrao(r);if(Array.isArray(acessos)){acessos=acessos.map(function(v){return v==='v-extrusora'?'v-extrusora-pp':v;}).filter(function(v){return v!=='v-3d'&&REMOVED_VIEWS.indexOf(v)<0;});if(!custom&&r==='requisitante'&&chave==='extrusora')acessos=acessos.concat('v-extrusora-pet','v-extrusora-pp');if(!custom&&r==='requisitante'&&chave==='tecelagem')acessos=acessos.concat('v-tear');if(acessos.some(function(v){return ['v-corte','v-requisicao','v-exped','v-logalert'].indexOf(v)>=0;})&&acessos.indexOf('v-flow')<0)acessos=acessos.concat('v-flow');}return acessos;};
  var baseAllowedViews=allowedViews;
- allowedViews=function(){var views=baseAllowedViews();var nome=String(session&&session.u||'').toLowerCase();if(Array.isArray(views)&&curRole()==='requisitante'&&(nome==='extrusora'||nome==='tecelagem')&&views.indexOf('v-requisicao-textil')<0)return views.concat('v-requisicao-textil');return views;};
+ allowedViews=function(){var views=baseAllowedViews();var nome=String(session&&session.u||'').toLowerCase();if(Array.isArray(views)&&views.indexOf('v-nfc')<0&&views.some(function(view){return ['v-labels','v-floor','v-floor70','v-recic','v-inv'].indexOf(view)>=0;}))views=views.concat('v-nfc');if(Array.isArray(views)&&curRole()==='requisitante'&&(nome==='extrusora'||nome==='tecelagem')&&views.indexOf('v-requisicao-textil')<0)return views.concat('v-requisicao-textil');return views;};
  window.allowedViews=allowedViews;
  var css=document.createElement('style');css.textContent='.uv-head{display:flex;align-items:center;justify-content:space-between;margin:18px 0 10px}.uv-head b{font-size:.72rem;text-transform:uppercase;letter-spacing:.7px}.uv-all{border:0;background:none;color:var(--brand);font-weight:700;font-size:.72rem;cursor:pointer}.uv-group{border:1px solid var(--line);border-radius:11px;margin-bottom:9px;overflow:hidden}.uv-group-title{background:var(--card-2);padding:8px 11px;font-size:.62rem;text-transform:uppercase;letter-spacing:.8px;font-weight:800;color:var(--muted)}.uv-list{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:5px 9px}.uv-item{display:flex;align-items:center;gap:8px;padding:8px 5px;font-size:.76rem;cursor:pointer}.uv-item input{width:16px;height:16px;accent-color:var(--brand)}@media(max-width:520px){.uv-list{grid-template-columns:1fr}}';document.head.appendChild(css);
  renderUsers=function(){var m=mapa();document.getElementById('userTable').innerHTML='<thead><tr><th>Usuário</th><th>Perfil</th><th>Acesso</th><th>Status</th><th></th></tr></thead><tbody>'+US.map(function(u,i){var acessos=Array.isArray(u.views)?u.views:(m[String(u.u||'').toLowerCase()]||padrao(u.role)||[]),total=u.role==='admin'?'Todas':(acessos.length+' abas');return '<tr class="click" data-eu="'+i+'"><td style="font-weight:600">'+u.u+'</td><td><span class="pill '+(u.role==='admin'?'a':'c')+'">'+u.role+'</span></td><td>'+total+'</td><td>'+(u.active===false?'<span class="pill out">inativo</span>':'<span class="pill in">ativo</span>')+'</td><td style="color:var(--faint)">editar ›</td></tr>';}).join('')+'</tbody>';document.querySelectorAll('#userTable tbody tr[data-eu]').forEach(function(t){t.onclick=function(){editUser(Number(t.dataset.eu));};});};

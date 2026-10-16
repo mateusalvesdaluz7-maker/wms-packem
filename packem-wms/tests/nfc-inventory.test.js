@@ -24,3 +24,12 @@ test('nova passada de chão ganha contexto próprio e não herda confirmação a
   const f=fixture();f.inv.sel.chao='exp';f.inv.seen={CHAO1:1};const ctx=f.context();assert.ok(ctx.has('T001'));
   f.pass();f.inv.seen={};assert.equal(!!ctx.isActive(),false);assert.notEqual(ctx.scope,f.context().scope);assert.equal(f.context().has('T001'),false);
 });
+
+test('aba NFC usa a tarefa selecionada e interrompe a aplicação ao trocar de destino',async()=>{
+  const f=fixture();let selected=true;
+  f.sandbox.document.querySelector=()=>false;
+  f.sandbox.window.WmsNfcWorkspace={isActive:target=>selected&&target==='v-inv'};
+  const ctx=f.context();assert.ok(ctx.isActive());await ctx.add('T001');assert.ok(ctx.has('T001'));
+  selected=false;assert.equal(!!ctx.isActive(),false);await assert.rejects(ctx.add('T002'));
+  selected=true;f.pass();assert.equal(!!ctx.isActive(),false);
+});

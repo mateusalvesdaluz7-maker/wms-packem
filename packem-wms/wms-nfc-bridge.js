@@ -34,7 +34,7 @@
     stationFrame.src=stationOrigin+'/wms-bridge?linkId='+encodeURIComponent(linkId);
     stationFrame.allow='loopback-network '+stationOrigin+'; local-network-access '+stationOrigin;
     stationFrame.style.cssText='display:block;width:100%;height:470px;border:1px solid #cbd5e1;border-radius:12px;margin:12px 0;background:#fff';
-    (document.getElementById('v-labels')||document.body).appendChild(stationFrame);
+    ((root.WmsNfcWorkspace&&root.WmsNfcWorkspace.host('v-labels',true))||document.getElementById('v-labels')||document.body).appendChild(stationFrame);
     station=stationFrame.contentWindow;
     if(!station){notice('Não foi possível abrir a conexão local da estação NFC.');return;}
     stationFallback=document.createElement('button');stationFallback.type='button';
@@ -46,7 +46,7 @@
       if(!opened){notice('Permita abrir a aba local da estação e tente novamente.');return;}
       station=opened;notice('Informe o código na aba da estação e mantenha a conexão aberta.');
     };
-    (document.getElementById('v-labels')||document.body).appendChild(stationFallback);
+    ((root.WmsNfcWorkspace&&root.WmsNfcWorkspace.host('v-labels',true))||document.getElementById('v-labels')||document.body).appendChild(stationFallback);
     sessionStorage.setItem('packem-nfc-enabled','1');
     notice('Informe o código no quadro da estação abaixo. O envio NFC fica bloqueado até conectar.');
   }
@@ -85,7 +85,7 @@
     }catch(error){notice(error.message+' Impressão interrompida antes de enviar dados incorretos.');}
   }
   root.WmsNfcBridge={beforePrint:beforePrint,enabled:enabled,connect:connect};
-  var view=document.getElementById('v-labels');
+  var view=root.WmsNfcWorkspace?root.WmsNfcWorkspace.host('v-labels',true):document.getElementById('v-labels');
   if(view){
     var panel=document.createElement('div');panel.className='panel';panel.style.cssText='padding:16px;margin-bottom:18px;border:1px solid #cbd5e1';
     var title=document.createElement('strong');title.textContent='Estação NFC · envio automático junto da impressão';panel.appendChild(title);

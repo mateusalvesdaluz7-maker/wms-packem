@@ -37,7 +37,7 @@
     var copy=document.createElement('button');copy.type='button';copy.className='gbtn';copy.disabled=true;copy.textContent='Copiar conteúdo NFC';panel.appendChild(copy);
     var guide=document.createElement('a');guide.href='/nfc-iphone.html';guide.textContent='Configurar leitura no iPhone';guide.style.marginLeft='12px';panel.appendChild(guide);
     var nativeApp=!!(root.webkit&&root.webkit.messageHandlers&&root.webkit.messageHandlers.packemNfc);
-    if(nativeApp){text.hidden=true;textLabel.hidden=true;copy.hidden=true;guide.href='/nfc-app.html';guide.textContent='Como usar o aplicativo Packem WMS';}
+    if(nativeApp){text.hidden=true;text.style.display='none';textLabel.hidden=true;copy.hidden=true;guide.href='/nfc-app.html';guide.textContent='Como usar o aplicativo Packem WMS';}
     var note=document.createElement('p');note.style.cssText='font-size:.82rem;color:var(--muted)';note.textContent=nativeApp?'Use Cadastrar chip por aproximação abaixo. O aplicativo lê o UID de fábrica e o WMS salva o vínculo. Não é necessário gravar este texto na tag.':'No aplicativo próprio Packem WMS, cadastre o chip pelo UID no painel abaixo, sem gravar dados na tag. Os pilotos de escrita por outros aplicativos continuam como alternativas. Preparar o conteúdo não confirma leitura física.';panel.appendChild(note);
     function clear(){epoch++;result=null;text.value='';detail.textContent='';copy.disabled=true;}
     input.addEventListener('input',clear);

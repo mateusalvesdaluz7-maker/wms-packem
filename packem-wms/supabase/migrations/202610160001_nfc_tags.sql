@@ -7,7 +7,7 @@ create table if not exists public.wms_nfc_tags (
   by_user text not null
 );
 alter table public.wms_nfc_tags enable row level security;
-revoke all on public.wms_nfc_tags from public, anon, authenticated;
+revoke all on public.wms_nfc_tags from public, anon, authenticated, service_role;
 grant select, insert on public.wms_nfc_tags to service_role;
 
 create or replace function public.wms_bind_nfc_tag(p_uid text, p_item text, p_actor text)

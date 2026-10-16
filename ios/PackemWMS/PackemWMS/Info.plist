@@ -21,7 +21,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NFCReaderUsageDescription</key>
-	<string>Gravar e reler etiquetas NTAG213 vazias e contar embalagens no WMS Packem.</string>
+	<string>Cadastrar chips NTAG213 pelo UID, gravar etiquetas e contar embalagens no WMS Packem.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Ler o QR Code da etiqueta para selecionar a embalagem antes de vincular o chip NFC.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

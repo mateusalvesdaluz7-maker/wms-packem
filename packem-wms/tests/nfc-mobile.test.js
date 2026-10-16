@@ -4,7 +4,7 @@ const {applyItemReading}=require('../wms-nfc-reader.js');
 const {service,normalizeUid}=require('../server/nfc-mobile-core.js');
 const mobile=require('../api/nfc-mobile.js')._test.makeHandler,webhook=require('../api/nfc-webhook.js')._test.makeHandler;
 const rid='11111111-1111-4111-8111-111111111111',sid='22222222-2222-4222-8222-222222222222';
-const config={readerId:rid,sessionId:sid,target:'v-inv',contextKey:'qa/task1/pass1'};
+const config={readerId:rid,sessionId:sid,consumerId:'33333333-3333-4333-8333-333333333333',target:'v-inv',contextKey:'qa/task1/pass1'};
 const uid='04112233445566',second='04778899001122',key='a'.repeat(43);
 function apiFixture(){
   const calls=[];let role='admin',active=true,readerActive=true,mode='count';
@@ -72,7 +72,7 @@ test('falhas do banco são redigidas e migração ausente vira orientação de a
 function queueFixture(){
   let active=true,cursor=0,reads=[{seq:1,uid},{seq:2,uid:second}],failAck=false;
   const counted=new Set(),catalog={T001:{codigo:'0303450047',quantidade:300,unidade:'KG'},T002:{codigo:'0303450047',quantidade:250.5,unidade:'KG'}},registry=new Map([[uid,'T001'],[second,'T002']]),calls=[],notices=[];
-  const state=()=>({session:{id:sid,target:config.target,contextKey:config.contextKey,active:true,cursor,received:reads.length,expiresAt:new Date(Date.now()+3600000).toISOString()},items:reads.filter(x=>x.seq>cursor)});
+  const state=()=>({session:{id:sid,consumerId:config.consumerId,target:config.target,contextKey:config.contextKey,active:true,cursor,received:reads.length,expiresAt:new Date(Date.now()+3600000).toISOString()},items:reads.filter(x=>x.seq>cursor)});
   const context={isActive:()=>active,lookup:async id=>catalog[id],has:id=>counted.has(id),add:async id=>counted.add(id)};
   const options={api:async(action,data)=>{calls.push({action,data});if(action==='count_ack'){if(failAck){failAck=false;throw Error('offline');}cursor=data.cursor;}return state();},
     resolve:async key=>{const id=registry.get(key);if(!id)throw Error('Tag não cadastrada');const p=catalog[id];return {item:id,codigo:p.codigo,quantidade:String(p.quantidade),unidade:p.unidade};},apply:applyItemReading,notify:text=>notices.push(text)};

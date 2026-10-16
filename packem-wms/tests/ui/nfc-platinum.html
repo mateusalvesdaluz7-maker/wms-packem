@@ -15,7 +15,7 @@ var reader=null,count=null,registry=new Map(),counted=new Set(),catalog={T001:{p
 function unitOf(){return 'KG';}window.bobFetch=async id=>catalog[id]||null;window.floorHasEt=id=>counted.has(id);
 window.floorAdd=async function(id){counted.add(id);var sum=0,rows=document.getElementById('items');rows.replaceChildren();counted.forEach(function(key){var b=catalog[key],row=document.createElement('tr');sum+=b.pl;[key,b.pr,String(b.pl).replace('.',',')+' kg'].forEach(function(text){var td=document.createElement('td');td.textContent=text;row.appendChild(td);});rows.appendChild(row);});document.getElementById('total').textContent=counted.size+' embalagens · '+String(sum).replace('.',',')+' kg';};
 window.PackemNfcRegistry={resolve:async function(uid,context){var id=registry.get(uid);if(!id)throw Error('Tag não cadastrada');return (await WmsNfcPrepare.prepare(id,context)).tag;}};
-function state(cursor){return {...reader,session:count?{id:count.sessionId,target:count.target,contextKey:count.contextKey,cursor:count.cursor,received:count.items.length,active:count.active,expiresAt:new Date(Date.now()+3600000).toISOString()}:null,items:count?count.items.filter(x=>x.seq>(cursor||0)):[]};}
+function state(cursor){return {...reader,session:count?{id:count.sessionId,consumerId:count.consumerId,target:count.target,contextKey:count.contextKey,cursor:count.cursor,received:count.items.length,active:count.active,expiresAt:new Date(Date.now()+3600000).toISOString()}:null,items:count?count.items.filter(x=>x.seq>(cursor||0)):[]};}
 window.fetch=async function(url,options){var b=JSON.parse(options.body),a=b.action,d=b.data||{},data;try{
  if(a==='login')return {ok:true,status:200,json:async()=>({ok:true,token:'simulation'})};
  if(a==='reader_list')data=reader?[reader]:[];

@@ -22,6 +22,8 @@ O cliente troca as credenciais existentes em memória por um token HMAC de quinz
 
 O WMS resolve UID → embalagem → dados atuais e aplica o fluxo normal de entrada/contagem. A confirmação da fila ocorre somente após a presença ser confirmada pelo WMS. Uma resposta de confirmação perdida pode ser repetida sem somar novamente. Tag desconhecida ou erro bloqueia a sequência, preservando a fila para correção. Nenhum peso do Webhook é confiado.
 
+Cada sessão fica ligada a uma tela consumidora. Outra tela só pode assumir depois de uma pausa explícita; o servidor recusa processamento com o identificador de uma tela anterior. Evite manter consumidores diferentes da mesma contagem abertos durante a transferência; um bip já em aplicação segue as regras normais de sincronização do WMS.
+
 No inventário, o contexto inclui usuário, tarefa, vaga/chão e passada. Alterá-lo impede aplicação de leituras antigas no contexto novo. A confirmação de vaga e as passadas de reconferência continuam manuais pelo fluxo existente. Em uma captura pausada, a fila pode ser retomada na mesma sessão/contexto; uma passada nova recebe outra sessão.
 
 No mesmo iPhone, o WMS fica suspenso enquanto o NFC.cool está em primeiro plano: a fila fica no servidor e é processada ao voltar ao WMS. Com WMS aberto no PC, o processamento pode acompanhar o celular. Esta implementação não fornece NFC ao Safari, não controla a Zebra e não garante sessões NFC indefinidas; o usuário reinicia a sessão no NFC.cool quando solicitado pelo iOS/app.

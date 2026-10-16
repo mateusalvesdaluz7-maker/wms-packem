@@ -10,7 +10,7 @@ create table if not exists public.wms_nfc_readers (
 );
 create table if not exists public.wms_nfc_counts (
   id uuid primary key, reader_id uuid not null references public.wms_nfc_readers(id),
-  owner text not null, target text not null check (target in ('v-floor','v-floor70','v-recic','v-inv')),
+  owner text not null, consumer_id uuid not null, target text not null check (target in ('v-floor','v-floor70','v-recic','v-inv')),
   context_key text not null check (length(context_key) between 1 and 200), active boolean not null default true,
   next_seq integer not null default 0, ack_cursor integer not null default 0,
   expires_at timestamptz not null default now()+interval '2 hours', created_at timestamptz not null default now()
@@ -90,16 +90,18 @@ begin
     if not public.wms_nfc_can_use(role_now,p_payload->>'target') then raise exception 'Destino não autorizado'; end if;
     if r.mode='enroll' and r.arm_until>now() then raise exception 'Cadastro de chip em andamento'; end if;
     if r.mode='count' and r.count_session_id<>sid then raise exception 'Pause a outra sessão de contagem'; end if;
-    insert into public.wms_nfc_counts(id,reader_id,owner,target,context_key)
-      values(sid,rid,p_actor,p_payload->>'target',p_payload->>'contextKey') on conflict(id) do nothing;
+    insert into public.wms_nfc_counts(id,reader_id,owner,consumer_id,target,context_key)
+      values(sid,rid,p_actor,(p_payload->>'consumerId')::uuid,p_payload->>'target',p_payload->>'contextKey') on conflict(id) do nothing;
     select * into c from public.wms_nfc_counts where id=sid for update;
     if c.owner<>p_actor or c.reader_id<>rid or c.target<>p_payload->>'target' or c.context_key<>p_payload->>'contextKey' then raise exception 'Sessão pertence a outro contexto'; end if;
-    update public.wms_nfc_counts set active=true,expires_at=now()+interval '2 hours' where id=sid;
+    if c.active and c.expires_at>now() and c.consumer_id<>(p_payload->>'consumerId')::uuid then raise exception 'Pause a captura na outra tela antes de transferir'; end if;
+    update public.wms_nfc_counts set active=true,consumer_id=(p_payload->>'consumerId')::uuid,expires_at=now()+interval '2 hours' where id=sid;
     update public.wms_nfc_readers set mode='count',count_session_id=sid,target=c.target,arm_until=null where id=rid;
   elsif p_action in ('count_status','count_stop','count_ack') then
     sid:=(p_payload->>'sessionId')::uuid;
     select * into c from public.wms_nfc_counts where id=sid and reader_id=rid and owner=p_actor for update;
     if not found or not public.wms_nfc_can_use(role_now,c.target) then raise exception 'Contagem não autorizada'; end if;
+    if p_action<>'count_stop' and c.consumer_id<>(p_payload->>'consumerId')::uuid then raise exception 'Contagem conectada em outra tela'; end if;
     if p_action='count_stop' then
       update public.wms_nfc_counts set active=false where id=sid;
       if r.count_session_id=sid then update public.wms_nfc_readers set mode='idle' where id=rid; end if;
@@ -138,13 +140,14 @@ begin
   select * into r from public.wms_nfc_readers where id=rid;
   result:=jsonb_build_object('id',r.id,'label',r.label,'mode',r.mode,'active',r.active,'expiresAt',r.expires_at,
     'operationId',r.operation_id,'enrollmentItem',r.enrollment_item,'armUntil',r.arm_until,'enrollment',r.enrollment_result,'lastSeenAt',r.last_seen_at,
-    'countSessionId',r.count_session_id,'target',r.target);
+    'countSessionId',r.count_session_id,'target',r.target,
+    'count', (select jsonb_build_object('id',id,'target',target,'contextKey',context_key,'active',active,'cursor',ack_cursor,'received',next_seq) from public.wms_nfc_counts where id=r.count_session_id and reader_id=rid and owner=p_actor));
   if p_action like 'count_%' then
     sid:=(p_payload->>'sessionId')::uuid;
     select * into c from public.wms_nfc_counts where id=sid;
     select coalesce(jsonb_agg(to_jsonb(s) order by s.seq),'[]') into rows_json from
       (select seq,uid,scanned_at,received_at from public.wms_nfc_scans where session_id=sid and seq>coalesce((p_payload->>'cursor')::integer,c.ack_cursor) order by seq limit 100) s;
-    result:=result||jsonb_build_object('session',jsonb_build_object('id',c.id,'target',c.target,'contextKey',c.context_key,'active',c.active,'cursor',c.ack_cursor,'received',c.next_seq,'expiresAt',c.expires_at),'items',rows_json);
+    result:=result||jsonb_build_object('session',jsonb_build_object('id',c.id,'consumerId',c.consumer_id,'target',c.target,'contextKey',c.context_key,'active',c.active,'cursor',c.ack_cursor,'received',c.next_seq,'expiresAt',c.expires_at),'items',rows_json);
   end if;
   return result;
 end; $$;

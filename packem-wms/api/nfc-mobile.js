@@ -25,6 +25,7 @@ function makeHandler(options={}){return async(req,res)=>{
     if(action==='enroll_cancel'&&!UUID.test(data.operationId||''))throw fail(400,'Operação de cadastro inválida.');
     if(action.startsWith('count_')){
       if(!UUID.test(data.sessionId||''))throw fail(400,'Sessão de contagem inválida.');
+      if(action!=='count_stop'&&!UUID.test(data.consumerId||''))throw fail(400,'Identificação da tela de contagem inválida.');
       if(action==='count_start'&&(!mayCount(actor.role,data.target)||typeof data.contextKey!=='string'||!data.contextKey||data.contextKey.length>200))throw fail(403,'Abra uma contagem autorizada antes de conectar o leitor.');
       if(['count_status','count_ack'].includes(action)&&(!Number.isSafeInteger(data.cursor)||data.cursor<0||data.cursor>1000))throw fail(400,'Posição de leitura inválida.');
     }

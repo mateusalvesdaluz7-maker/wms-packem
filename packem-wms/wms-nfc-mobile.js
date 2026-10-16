@@ -34,7 +34,7 @@
     if(this.busy)throw new Error('Aguarde a leitura atual terminar.');
     if(!context.isActive())throw new Error('Abra a tarefa e a vaga/passada da contagem antes de iniciar.');
     var generation=++this.epoch, self=this;
-    if(!uuid.test(config.sessionId)||!uuid.test(config.readerId)||!config.contextKey)throw new Error('Sessão NFC inválida.');
+    if(!uuid.test(config.sessionId)||!uuid.test(config.readerId)||!uuid.test(config.consumerId)||!config.contextKey)throw new Error('Sessão NFC inválida.');
     this.busy=true;
     try{
       var state=await this.options.api('count_start',config);
@@ -48,13 +48,13 @@
   };
   CountQueue.prototype.check=function(state,b){
     var s=state&&state.session;
-    if(!s||s.id!==b.sessionId||s.target!==b.target||s.contextKey!==b.contextKey||!Number.isSafeInteger(s.cursor)||s.cursor<0||!Number.isSafeInteger(s.received)||s.received<s.cursor||s.received>1000||!Array.isArray(state.items)||state.items.length>100)throw new Error('A fila recebida pertence a outra contagem ou está inválida.');
+    if(!s||s.id!==b.sessionId||s.consumerId!==b.consumerId||s.target!==b.target||s.contextKey!==b.contextKey||!Number.isSafeInteger(s.cursor)||s.cursor<0||!Number.isSafeInteger(s.received)||s.received<s.cursor||s.received>1000||!Array.isArray(state.items)||state.items.length>100)throw new Error('A fila recebida pertence a outra contagem/tela ou está inválida.');
   };
   CountQueue.prototype.poll=async function(){
     var b=this.binding;if(!b||!b.running||this.busy||this.blocked||!b.guard.isActive())return;
     this.busy=true;
     try{
-      var state=await this.options.api('count_status',{readerId:b.readerId,sessionId:b.sessionId,cursor:b.cursor});
+      var state=await this.options.api('count_status',{readerId:b.readerId,sessionId:b.sessionId,consumerId:b.consumerId,cursor:b.cursor});
       if(this.binding!==b||!b.running)return;this.check(state,b);
       if(state.session.cursor!==b.cursor)throw new Error('A fila foi processada em outra sessão. Pause e reconecte para conferir.');
       if(!state.session.active||Date.parse(state.session.expiresAt)<=Date.now())throw new Error('A captura está pausada ou expirou. Retome a contagem para continuar.');
@@ -66,7 +66,7 @@
         if(!b.guard.isActive())return;
         var applied=await this.options.apply(tag,b.guard);
         if(!b.guard.isActive())return;
-        var ack=await this.options.api('count_ack',{readerId:b.readerId,sessionId:b.sessionId,cursor:event.seq});
+        var ack=await this.options.api('count_ack',{readerId:b.readerId,sessionId:b.sessionId,consumerId:b.consumerId,cursor:event.seq});
         this.check(ack,b);
         if(ack.session.cursor!==event.seq)throw new Error('A confirmação da leitura não foi recebida. Confira antes de continuar.');
         b.cursor=event.seq;
@@ -153,16 +153,16 @@
     reader=await client.request('reader_get',{readerId:reader.id});
     var state=saved(),counts=state.counts||{},previous=counts[context.scope]||state.count;
     if(previous&&(previous.contextKey!==context.scope||previous.readerId!==reader.id||previous.target!==target))previous=null;
-    // Recover an active capture even if this browser lost its local session metadata.
-    if(!previous&&reader.mode==='count'&&reader.countSessionId){
-      var recovered=await client.request('count_status',{readerId:reader.id,sessionId:reader.countSessionId,cursor:0});
-      if(recovered.session.target===target&&recovered.session.contextKey===context.scope)previous={readerId:reader.id,sessionId:reader.countSessionId,target:target,contextKey:context.scope};
+    // Transfer only after an explicit pause; two screens must not consume the same queue.
+    if(!previous&&reader.count&&reader.count.target===target&&reader.count.contextKey===context.scope){
+      if(reader.count.active)throw new Error('Este leitor está conectado a outra tela. Use Pausar captura antes de transferir a contagem.');
+      previous={readerId:reader.id,sessionId:reader.count.id,target:target,contextKey:context.scope,consumerId:crypto.randomUUID()};
     }
     if(fresh&&previous){
-      var pending=await client.request('count_status',{readerId:reader.id,sessionId:previous.sessionId,cursor:0});
-      if(pending.session.received!==pending.session.cursor)throw new Error('Retome e processe a fila pendente antes de abrir uma nova captura neste contexto.');
+      var pending=reader.count&&reader.count.id===previous.sessionId?reader.count:(await client.request('count_status',{readerId:reader.id,sessionId:previous.sessionId,consumerId:previous.consumerId,cursor:0})).session;
+      if(pending.received!==pending.cursor)throw new Error('Retome e processe a fila pendente antes de abrir uma nova captura neste contexto.');
     }
-    var config=previous&&!fresh?previous:{readerId:reader.id,sessionId:crypto.randomUUID(),contextKey:context.scope,target:target};
+    var config=previous&&!fresh?previous:{readerId:reader.id,sessionId:crypto.randomUUID(),consumerId:crypto.randomUUID(),contextKey:context.scope,target:target};
     if(reader.mode==='count'&&reader.countSessionId!==config.sessionId)throw new Error('Existe outra captura ativa neste leitor. Use Pausar captura antes de iniciar esta contagem.');
     // Persist before the request, including an uncertain response after a network failure.
     save({...state,counts:{...counts,[context.scope]:config}});await queue.start(config,context);await queue.poll();paint();

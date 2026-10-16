@@ -10,7 +10,8 @@ CREATE TABLE etiquetas(id text primary key); CREATE TABLE bobinas(etiqueta text 
 INSERT INTO etiquetas VALUES ('T001'),('T002'),('T003');`);
 for(let twice=0;twice<2;twice++)for(const file of ['202610160001_nfc_tags.sql','202610160002_nfc_mobile.sql'])await db.exec(await readFile(new URL('../../supabase/migrations/'+file,import.meta.url),'utf8'));
 const rid='11111111-1111-4111-8111-111111111111',sid='22222222-2222-4222-8222-222222222222',op='33333333-3333-4333-8333-333333333333',secret='a'.repeat(64);
-const rpc=async(action,data={},actor='qa')=>(await db.query('select public.wms_nfc_mobile($1,$2,$3) value',[action,actor,{readerId:rid,...data}])).rows[0].value;
+const consumer='66666666-6666-4666-8666-666666666666';
+const rpc=async(action,data={},actor='qa')=>(await db.query('select public.wms_nfc_mobile($1,$2,$3) value',[action,actor,{readerId:rid,consumerId:consumer,...data}])).rows[0].value;
 await db.exec('SET ROLE service_role');
 assert.equal((await rpc('reader_create',{label:'iPhone QA',secretHash:secret})).mode,'idle');
 await assert.rejects(rpc('reader_get',{},'other'),/não pertence/);
@@ -29,6 +30,8 @@ const conflictOp='44444444-4444-4444-8444-444444444444';
 await rpc('enroll_arm',{operationId:conflictOp,item:'T002'});
 assert.equal((await rpc('ingest',{secretHash:secret,uid:'04112233445566',scannedAt:new Date().toISOString()})).enrollment.status,'conflict');
 await rpc('count_start',{sessionId:sid,target:'v-inv',contextKey:'task1/pass1'});
+await assert.rejects(rpc('count_start',{sessionId:sid,target:'v-inv',contextKey:'task1/pass1',consumerId:'77777777-7777-4777-8777-777777777777'}),/outra tela/);
+await assert.rejects(rpc('count_status',{sessionId:sid,cursor:0,consumerId:'77777777-7777-4777-8777-777777777777'}),/outra tela/);
 const ingest=(uid)=>rpc('ingest',{secretHash:secret,uid,scannedAt:new Date().toISOString()});
 assert.equal((await ingest('04112233445566')).duplicate,false);
 assert.equal((await ingest('04112233445566')).duplicate,true);

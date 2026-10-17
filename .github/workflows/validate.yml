@@ -22,4 +22,8 @@ jobs:
           node-version: 20
       - name: Validar sintaxe e APIs
         run: npm test
+      - name: Preparar PostgreSQL isolado para testes NFC
+        run: npm install --no-save --package-lock=false @electric-sql/pglite@0.5.10
+      - name: Validar migrações e fila NFC sem banco de produção
+        run: node tests/sql/nfc-mobile.mjs
 

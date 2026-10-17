@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
 <script src="wms-security.js"></script>
+<script src="vendor/natively-2.28.14.min.js"></script>
   <link rel="stylesheet" href="wms.css?v=20261007-local58">
 <link rel="stylesheet" href="wms-requisicao-fix.css?v=20261007-local58">
 <link rel="stylesheet" href="wms-corte.css?v=20261008-local78">
@@ -44,6 +45,7 @@
       <div class="nav adminOnly" data-view="v-protheus" data-ic="transfer"><span class="ni"></span>Baixa Protheus</div>
       <div class="nav" data-view="v-transf" data-ic="transfer"><span class="ni"></span>Transferências</div>
       <div class="nav" data-view="v-labels" data-ic="tag"><span class="ni"></span>Gestão de Etiquetas</div>
+      <div class="nav" data-view="v-nfc" data-ic="scan"><span class="ni"></span>NFC</div>
       <div class="sb-grp">Análise</div>
       <div class="nav" data-view="v-abc" data-ic="chart"><span class="ni"></span>Análise ABC</div>
       <div class="sb-grp">Cadastros</div>
@@ -325,6 +327,20 @@
         <div class="tbl-wrap"><table class="tbl" id="trTable"></table></div>
       </section>
 
+      <section class="view" id="v-nfc">
+        <div class="ph-head"><div><p class="eb">Operação</p><h1>NFC</h1><p>Cadastre os chips e receba as leituras do celular nesta área.</p></div></div>
+        <div class="tabs" role="tablist" aria-label="Operação NFC">
+          <button type="button" role="tab" data-nfc-mode="register" aria-selected="true" class="on">Cadastrar tags</button>
+          <button type="button" role="tab" data-nfc-mode="count" aria-selected="false">Contar tags</button>
+        </div>
+        <div class="panel" data-nfc-destination-field hidden style="padding:16px;margin-bottom:16px">
+          <label class="fld"><span class="lab">Destino da contagem NFC</span><select class="input" data-nfc-destination aria-label="Destino da contagem NFC"></select></label>
+          <button type="button" class="gbtn" data-nfc-open-destination>Abrir contagem na aba normal</button>
+        </div>
+        <p role="status" data-nfc-workspace-status></p>
+        <p data-nfc-workspace-empty hidden>Seu usuário não tem acesso a esta operação. Selecione uma das operações disponíveis.</p>
+      </section>
+
       <section class="view" id="v-labels">
         <div class="ph-head"><div><p class="eb">Gestão</p><h1>Etiquetas</h1></div>
           <div class="actions"><button class="gbtn" id="printLabels" style="display:none" data-ic="print"><span></span>Imprimir</button></div></div>
@@ -435,7 +451,18 @@
 <!-- OCR executado no próprio aparelho. Não usa nem consome a API da OpenAI. -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="bob-lot-core.js?v=20261007-local58"></script>
-<script src="wms-app.js?v=20261015-camera-feedback3"></script>
+<script src="wms-app.js?v=20261016-manual1"></script>
+<script src="wms-nfc-workspace.js?v=20261016-trial2"></script>
+<script src="wms-nfc-bridge.js?v=20261016-workspace1"></script>
+<script src="wms-nfc-text.js?v=20261015-iphone1"></script>
+<script src="wms-nfc-reader.js?v=20261016-workspace1"></script>
+<script src="wms-nfc-preparar.js?v=20261016-manual1"></script>
+<script src="wms-nfc-direto.js?v=20261016-workspace1"></script>
+<script src="wms-nfc-iphone.js?v=20261016-workspace1"></script>
+<script src="wms-nfc-registry.js?v=20261016-feiju1"></script>
+<script src="wms-nfc-app.js?v=20261016-native1"></script>
+<script src="wms-nfc-mobile.js?v=20261016-batch1"></script>
+<script src="wms-nfc-manual.js?v=20261016-manual1"></script>
 <script src="wms-abc-consumo.js?v=20260831-autotec15"></script>
 <script src="wms-requisicao.js?v=20261014-local118"></script>
 <script src="cut-sheet-core.js?v=20261007-local58"></script>

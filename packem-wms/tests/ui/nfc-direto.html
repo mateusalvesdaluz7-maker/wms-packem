@@ -1,0 +1,39 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Packem · Ensaio de NFC direto</title><script src="../../vendor/natively-2.28.14.min.js"></script><style>body{font:16px/1.6 system-ui;margin:0;background:#edf4ef;color:#163f2e}main{max-width:940px;margin:auto;padding:22px 24px 70px}section{background:white;padding:20px;margin:18px 0;border-radius:14px}button,input,textarea{font:inherit;padding:10px;border:1px solid #a8c9b6;border-radius:8px}button{background:#eef8f0;cursor:pointer;margin:4px}input,textarea{width:100%;box-sizing:border-box}.metric{font-size:32px;font-weight:800;margin:0}summary{cursor:pointer;font-weight:750}dialog{max-width:540px;border:2px solid #147657;border-radius:14px}dialog::backdrop{background:#102f2366}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:8px;border-bottom:1px solid #dae7de}code{overflow-wrap:anywhere}a{color:#166548}</style></head><body><main>
+<p>PACKEM · CATÁLOGO FICTÍCIO · SEM APIs DE ESTOQUE</p><h1>Cadastro e leitura NFC na tela do WMS</h1><p id="qa-mode">Aguardando identificação do modo de teste.</p><p>Este ensaio não cria estoque real. No Natively Preview, os botões acionam a antena e devem ser usados apenas com tags de laboratório. No modo simulado, nenhuma antena é acionada.</p>
+<section><p class="metric" id="qa-total">0 etiquetas · 0 kg</p><table><thead><tr><th>Embalagem</th><th>Código</th><th>Quantidade</th></tr></thead><tbody id="qa-items"></tbody></table></section>
+<nav><button id="qa-prepare">Cadastro da tag</button><button id="qa-count">Contagem</button></nav>
+<section id="v-labels" class="view active"><h2>Gestão de Etiquetas · teste</h2><p>Selecione uma embalagem fictícia já cadastrada. Isso prepara os dados usados pelo botão Gravar e vincular.</p><button id="qa-label1">Selecionar embalagem 1 · 300 kg</button><button id="qa-label2">Selecionar embalagem 2 · 250,5 kg</button></section>
+<section id="v-floor" class="view" hidden><h2>Chão expedição · teste</h2><p>Cada embalagem deve aparecer uma vez; as duas juntas somam 550,5 kg.</p></section>
+<p><a href="/nfc-direto.html">Guia da alternativa e limites de validação</a></p>
+<dialog id="qa-radio"><p><strong>SIMULAÇÃO DA ANTENA · NÃO É NFC REAL</strong></p><p id="qa-radio-action"></p><button id="qa-tag-a">Aproximar tag virtual A</button><button id="qa-tag-b">Aproximar tag virtual B</button><button id="qa-cancel">Cancelar simulação</button></dialog>
+</main><script>
+var session={u:'laboratorio-sem-estoque',role:'admin'},_floorScanMode='add';
+var catalog={'NFC-DIRETO-001':{pr:'0303450047',pl:300},'NFC-DIRETO-002':{pr:'0303450047',pl:250.5}},counted=new Map();
+function unitOf(){return 'KG';}
+window.bobFetch=async function(id){return catalog[id]||null;};window.floorHasEt=function(id){return counted.has(id);};
+window.floorAdd=async function(id){if(!catalog[id]||counted.has(id))return;counted.set(id,catalog[id]);var sum=0,body=document.getElementById('qa-items');body.replaceChildren();counted.forEach(function(item,key){sum+=item.pl;var row=document.createElement('tr');[key,item.pr,String(item.pl).replace('.',',')+' kg'].forEach(function(value){var cell=document.createElement('td');cell.textContent=value;row.appendChild(cell);});body.appendChild(row);});document.getElementById('qa-total').textContent=counted.size+' etiquetas · '+String(sum).replace('.',',')+' kg';};
+function showView(id){document.querySelectorAll('.view').forEach(function(view){view.hidden=view.id!==id;view.classList.toggle('active',view.id===id);});}
+document.getElementById('qa-prepare').onclick=function(){showView('v-labels');};document.getElementById('qa-count').onclick=function(){showView('v-floor');};
+function chooseLabel(id){var input=document.getElementById('packemNfcLabelId');input.value=id;input.dispatchEvent(new Event('input'));document.querySelectorAll('[data-nfc-preparar] button')[1].click();}
+document.getElementById('qa-label1').onclick=function(){chooseLabel('NFC-DIRETO-001');};document.getElementById('qa-label2').onclick=function(){chooseLabel('NFC-DIRETO-002');};
+var simulate=new URLSearchParams(location.search).get('simulate')==='1'&&!/Natively\//.test(navigator.userAgent)&&!window.$agent;
+document.getElementById('qa-mode').textContent=simulate?'MODO SIMULADO: SDK oficial conectado a duas tags virtuais, sem captura NFC.':'MODO LEITOR REAL: requer Natively Preview. No navegador comum a antena fica indisponível.';
+if(simulate){
+  var tags=new Map(),radioRequest=null,radio=document.getElementById('qa-radio');
+  function respond(method,body,data){var name=method+'_response'+(body.response_id?'_'+body.response_id:'');if(typeof window[name]==='function')window[name](data);}
+  window.$agent={response:function(){},trigger:function(method,body){
+    body=body||{};if(method==='app_info'){respond(method,body,{minSDKVersion:0,sdkVersion:99});return;}
+    if(method==='nfc_available'){respond(method,body,{status:true});return;}
+    if(method!=='nfc_read'&&method!=='nfc_write'){respond(method,body,{status:'FAILED',message:'Comando não simulado.'});return;}
+    if(radioRequest){respond(method,body,{status:'FAILED',message:'Leitor virtual ocupado.'});return;}
+    radioRequest={method:method,body:body};document.getElementById('qa-radio-action').textContent=method==='nfc_write'?'Gravar os dados da embalagem selecionada na tag virtual escolhida.':'Ler o conteúdo da tag virtual escolhida.';radio.showModal();
+  }};
+  function present(key){var request=radioRequest;if(!request)return;radioRequest=null;radio.close();var data;
+    if(!key)data={status:'FAILED',message:'Simulação cancelada.'};
+    else if(request.method==='nfc_write'){tags.set(key,{id:request.body.recordId,payload_content:request.body.recordData});data={status:'SUCCESS'};}
+    else{var stored=tags.get(key);data=stored?{status:'SUCCESS',id:stored.id,payload_content:stored.payload_content}:{status:'FAILED',message:'Tag virtual sem texto gravado.'};}
+    respond(request.method,request.body,data);
+  }
+  document.getElementById('qa-tag-a').onclick=function(){present('A');};document.getElementById('qa-tag-b').onclick=function(){present('B');};document.getElementById('qa-cancel').onclick=function(){present(null);};radio.addEventListener('cancel',function(event){event.preventDefault();present(null);});window.natively.notify(0,99);
+}
+</script><script src="../../wms-nfc-text.js?v=20261015-iphone1"></script><script src="../../wms-nfc-reader.js?v=20261015-direto1"></script><script src="../../wms-nfc-preparar.js?v=20261015-direto1"></script><script src="../../wms-nfc-direto.js?v=20261015-direto2"></script></body></html>

@@ -25,6 +25,7 @@
     page.querySelector('[data-nfc-workspace-empty]').hidden=permitted(selected(),allowed());
     var link=page.querySelector('[data-nfc-open-destination]');link.hidden=mode!=='count'||!permitted(destination,allowed());
     if(destination==='v-nfc-test')link.hidden=true;
+    link.style.display=link.hidden?'none':'';
     link.textContent='Abrir '+(destinations[destination]||'contagem')+' na aba normal';
   }
   function change(nextMode,nextDestination){

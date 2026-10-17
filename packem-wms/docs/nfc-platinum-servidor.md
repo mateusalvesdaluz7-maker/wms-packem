@@ -28,7 +28,17 @@ O vínculo só é aceito para embalagem existente e usuário ativo com Gestão d
 
 O cliente troca as credenciais existentes em memória por um token HMAC de quinze minutos. Senha e token NFC não são gravados em armazenamento do navegador. A cada chamada o servidor verifica usuário e permissões atuais; o Webhook só permite capturar no destino previamente armado pelo usuário. O endereço do Webhook não permite consultar registros nem alterar estoque diretamente.
 
-O WMS resolve UID → embalagem → dados atuais e aplica o fluxo normal de entrada/contagem. A confirmação da fila ocorre somente após a presença ser confirmada pelo WMS. Uma resposta de confirmação perdida pode ser repetida sem somar novamente. Tag desconhecida ou erro bloqueia a sequência, preservando a fila para correção. Nenhum peso do Webhook é confiado.
+O WMS resolve UID → embalagem → dados atuais e aplica o fluxo normal de entrada/contagem. A confirmação da fila ocorre somente após a presença ser confirmada pelo WMS. Uma resposta de confirmação perdida pode ser repetida sem somar novamente. Tag desconhecida ou erro de aplicação bloqueia a sequência, preservando a fila para correção. Nenhum peso do Webhook é confiado.
+
+### Recepção de leituras em sequência
+
+A tela consulta a fila a cada 750 ms enquanto está ativa, sem sobrepor consultas. O servidor resolve até cem vínculos por consulta usando o token curto existente; apenas UIDs presentes na fila autorizada são consultados. Código, quantidade e unidade continuam sendo conferidos no cadastro atual, individualmente, antes da aplicação.
+
+As confirmações agrupam até dez leituras já aplicadas, ou o prefixo aplicado antes de um erro. Uma rajada pode drenar até três páginas de cem eventos por ciclo, sem esperar o próximo intervalo entre páginas. Uma resposta perdida mantém o cursor de confirmação pendente; repetir essa confirmação não reaplica embalagens. Falhas temporárias de consulta/confirmação são retomadas automaticamente com espera crescente (até cinco tentativas); erro de cadastro, permissão ou resultado incerto de entrada exige conferência manual. O navegador não repete automaticamente uma operação de estoque incerta.
+
+Um ensaio automatizado enfileirou 250 UIDs fictícios: três consultas de fila, 25 confirmações, 250 embalagens e 312,5 MT, sem estoque real. A resolução em lote elimina as consultas HTTP de cadastro por chip no fluxo atualizado. Isso mede o processamento da fila, não a velocidade da antena, do NFC.cool ou da Internet. `/tests/ui/nfc-platinum.html` também oferece uma rajada de trinta chips simulados e repetição sem duplicar.
+
+Passe uma tag por vez e confirme que o NFC.cool a reconheceu. Leituras não detectadas ou Webhooks não entregues não aparecem na fila do WMS; o NFC.cool documenta que não possui fila automática de reenvio. A detecção contínua entre tags, o reinício da sessão NFC e a cadência física ainda precisam de teste com vários chips reais. Antes de encerrar, confira recebidas = processadas e compare o número de embalagens com a quantidade esperada. Fontes: [Webhooks](https://nfc.cool/features/webhooks/) e [referência técnica](https://nfc.cool/developers/).
 
 Cada sessão fica ligada a uma tela consumidora. Outra tela só pode assumir depois de uma pausa explícita; o servidor recusa processamento com o identificador de uma tela anterior. Evite manter consumidores diferentes da mesma contagem abertos durante a transferência; um bip já em aplicação segue as regras normais de sincronização do WMS.
 

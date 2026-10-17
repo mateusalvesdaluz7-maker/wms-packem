@@ -1,6 +1,6 @@
 'use strict';
 const crypto=require('node:crypto');
-const {service,bodyOf,mayBind,mayCount,fail,hash,UUID,targets,respondError}=require('../server/nfc-mobile-core.js');
+const {service,bodyOf,mayBind,mayCount,fail,hash,UUID,UID,targets,respondError}=require('../server/nfc-mobile-core.js');
 function makeHandler(options={}){return async(req,res)=>{
   res.setHeader('Cache-Control','no-store');
   if(req.method!=='POST')return res.status(405).json({ok:false,error:'Método não permitido.'});
@@ -37,6 +37,14 @@ function makeHandler(options={}){return async(req,res)=>{
     }
     const result=await app.rpc(action,actor.u,payload);
     if(result?.session&&!mayCount(actor.role,result.session.target))throw fail(403,'Usuário sem acesso a este destino.');
+    // Resolve only events returned by the authorized queue, never arbitrary
+    // client-supplied UIDs. Product and quantity are still checked in the WMS.
+    if(action==='count_status'&&result?.session){
+      const events=result.items;
+      if(!Array.isArray(events)||events.length>100||events.some(event=>!UID.test(event.uid||'')))throw fail(502,'A fila NFC respondeu com leituras inválidas.');
+      const uids=[...new Set(events.map(event=>event.uid))];
+      result.bindings=uids.length?await app.db('wms_nfc_tags?'+new URLSearchParams({select:'uid,item',uid:'in.('+uids.join(',')+')'})):[];
+    }
     if(secret){
       const origin=req.headers.origin||'https://wms-packem.vercel.app';
       result.webhookUrl=origin+'/nfc-receber/'+secret;

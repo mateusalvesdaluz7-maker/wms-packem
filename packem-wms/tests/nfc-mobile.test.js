@@ -78,7 +78,7 @@ test('falhas do banco são redigidas e migração ausente vira orientação de a
 function queueFixture(){
   let active=true,cursor=0,reads=[{seq:1,uid},{seq:2,uid:second}],failAck=false;
   const counted=new Set(),catalog={T001:{codigo:'0303450047',quantidade:300,unidade:'KG'},T002:{codigo:'0303450047',quantidade:250.5,unidade:'KG'}},registry=new Map([[uid,'T001'],[second,'T002']]),calls=[],notices=[];
-  const state=()=>({session:{id:sid,consumerId:config.consumerId,target:config.target,contextKey:config.contextKey,active:true,cursor,received:reads.length,expiresAt:new Date(Date.now()+3600000).toISOString()},items:reads.filter(x=>x.seq>cursor)});
+  const state=()=>({session:{id:sid,consumerId:config.consumerId,target:config.target,contextKey:config.contextKey,active:true,cursor,received:reads.length,expiresAt:new Date(Date.now()+3600000).toISOString()},items:reads.filter(x=>x.seq>cursor).slice(0,100)});
   const context={isActive:()=>active,lookup:async id=>catalog[id],has:id=>counted.has(id),add:async id=>counted.add(id)};
   const options={api:async(action,data)=>{calls.push({action,data});if(action==='count_ack'){if(failAck){failAck=false;throw Error('offline');}cursor=data.cursor;}return state();},
     resolve:async key=>{const id=registry.get(key);if(!id)throw Error('Tag não cadastrada');const p=catalog[id];return {item:id,codigo:p.codigo,quantidade:String(p.quantidade),unidade:p.unidade};},apply:applyItemReading,notify:text=>notices.push(text)};
@@ -103,7 +103,7 @@ test('teste físico usa a fila real sem aplicar entradas; releitura e confirmaç
   const trial=createTestCount({scope:config.contextKey,isActive:()=>true,lookup:f.context.lookup});
   f.context.add=async()=>{throw Error('Não pode chamar entrada no teste');};
   f.failAck();await f.queue.start(config,trial.context);await f.queue.poll();
-  assert.equal(trial.entries().length,1);assert.equal(f.state().session.cursor,0);
+  assert.equal(trial.entries().length,2);assert.equal(f.state().session.cursor,0);
   f.queue.blocked=false;await f.queue.poll();
   assert.equal(f.state().session.cursor,2);assert.equal(trial.entries().length,2);assert.equal(f.counted.size,0);
   assert.deepEqual(trial.totals(),{MT:5000,KG:250.5});
@@ -131,7 +131,7 @@ test('tag desconhecida bloqueia a sequência e fica pendente para correção',as
 });
 test('resposta de confirmação perdida não soma embalagem novamente',async()=>{
   const f=queueFixture();f.failAck();await f.queue.start(config,f.context);await f.queue.poll();
-  assert.equal(f.counted.size,1);assert.equal(f.state().session.cursor,0);
+  assert.equal(f.counted.size,2);assert.equal(f.state().session.cursor,0);
   f.queue.blocked=false;await f.queue.poll();assert.equal(f.counted.size,2);assert.equal(f.state().session.cursor,2);
 });
 test('tela oculta/tarefa trocada não aplica; voltar ao contexto processa a fila',async()=>{
@@ -161,4 +161,76 @@ test('cliente não persiste senha, usa Bearer e limpa sessão quando usuário mu
   await client.request('reader_list');await client.request('reader_list');
   assert.equal(calls.length,3);assert.equal(calls[1].headers.authorization,'Bearer test-token');assert.ok(!calls[1].body.includes('test-password'));
   auth=null;await assert.rejects(client.request('reader_list'),/Entre novamente/);
+});
+test('API resolve em lote somente UIDs da fila autorizada, sem revalidar senha por chip',async()=>{
+  const f=apiFixture(),state={session:{target:'v-floor70'},items:[{seq:1,uid},{seq:2,uid:second}]};
+  const fetcher=async(url,opts)=>{
+    if(url.includes('/rpc/')){f.calls.push({url});return {ok:true,json:async()=>structuredClone(state)};}
+    if(url.includes('/wms_nfc_tags?')){f.calls.push({url});return {ok:true,json:async()=>[{uid,item:'T001'},{uid:second,item:'T002'}]};}
+    return f.options.fetcher(url,opts);
+  };
+  const result=await run(mobile({...f.options,fetcher}),{action:'count_status',data:{...config,cursor:0,uids:['53000000000000']}},{authorization:'Bearer '+f.token()});
+  assert.equal(result.code,200);assert.equal(result.body.data.bindings.length,2);
+  const query=new URL(f.calls.find(c=>c.url.includes('/wms_nfc_tags?')).url).searchParams;
+  assert.equal(query.get('uid'),'in.('+uid+','+second+')');assert.equal(query.get('select'),'uid,item');
+  assert.equal(f.calls.length,3);assert.ok(!f.calls.some(c=>new URL(c.url).searchParams.get('select')?.includes('p,')));
+  f.setRole('consulta');const before=f.calls.length;
+  assert.equal((await run(mobile({...f.options,fetcher}),{action:'count_status',data:{...config,cursor:0}},{authorization:'Bearer '+f.token()})).code,403);
+  assert.equal(f.calls.length-before,2); // active user + scoped RPC, no bindings disclosure
+});
+test('rajada de 250 chips drena três páginas, confirma por lote e mantém os totais',async()=>{
+  const f=queueFixture(),reads=Array.from({length:250},(_,i)=>({seq:i+1,uid:'53'+(i+1).toString(16).padStart(12,'0').toUpperCase()}));
+  for(const event of reads){const id='B'+event.seq;f.registry.set(event.uid,id);f.catalog[id]={codigo:'0303410008',quantidade:1.25,unidade:'MT'};}
+  f.setReads(reads);
+  const base=f.options.api;
+  f.options.api=async(a,d)=>{const s=await base(a,d);if(a==='count_status')s.bindings=s.items.map(e=>({uid:e.uid,item:f.registry.get(e.uid)}));return s;};
+  let resolved=0;
+  f.options.resolve=async(key,context,record)=>{assert.equal(record.uid,key);resolved++;return {item:record.item,codigo:'0303410008',quantidade:'1.25',unidade:'MT'};};
+  const trial=createTestCount({scope:config.contextKey,isActive:()=>true,lookup:f.context.lookup});
+  await f.queue.start(config,trial.context);await f.queue.poll();
+  assert.equal(f.state().session.cursor,250);assert.equal(trial.entries().length,250);assert.deepEqual(trial.totals(),{MT:312.5});assert.equal(f.counted.size,0);
+  assert.equal(resolved,250);assert.equal(f.calls.filter(c=>c.action==='count_status').length,3);assert.equal(f.calls.filter(c=>c.action==='count_ack').length,25);
+  await f.queue.poll();assert.equal(resolved,250);assert.equal(trial.entries().length,250);
+});
+test('tag desconhecida no meio do lote confirma só o prefixo válido e preserva o restante',async()=>{
+  const f=queueFixture();f.registry.delete(second);await f.queue.start(config,f.context);await f.queue.poll();
+  assert.deepEqual([...f.counted],['T001']);assert.equal(f.state().session.cursor,1);assert.equal(f.queue.blocked,true);
+  f.registry.set(second,'T002');f.queue.blocked=false;await f.queue.poll();assert.equal(f.counted.size,2);assert.equal(f.state().session.cursor,2);
+});
+test('ACK gravado com resposta perdida é repetido sem reaplicar qualquer embalagem',async()=>{
+  const f=queueFixture(),base=f.options.api;let lose=true,applied=0,now=0;
+  f.options.now=()=>now;f.options.apply=async(...args)=>{applied++;return applyItemReading(...args);};
+  f.options.api=async(a,d)=>{const result=await base(a,d);if(a==='count_ack'&&lose){lose=false;throw Object.assign(Error('timeout'),{retryable:true});}return result;};
+  await f.queue.start(config,f.context);await f.queue.poll();
+  assert.equal(f.state().session.cursor,2);assert.equal(f.queue.binding.cursor,0);assert.equal(f.queue.blocked,false);assert.equal(applied,2);
+  await f.queue.poll();assert.equal(f.queue.binding.cursor,0);now=1000;await f.queue.poll();
+  assert.equal(f.queue.binding.cursor,2);assert.equal(applied,2);assert.equal(f.counted.size,2);
+});
+test('falha temporária de consulta se recupera com espera; falha de aplicação exige conferência',async()=>{
+  const f=queueFixture(),base=f.options.api;let fail=true,now=0;
+  f.options.now=()=>now;f.options.api=async(a,d)=>{if(a==='count_status'&&fail){fail=false;throw Object.assign(Error('offline'),{retryable:true});}return base(a,d);};
+  await f.queue.start(config,f.context);await f.queue.poll();assert.equal(f.queue.blocked,false);assert.equal(f.counted.size,0);
+  now=999;await f.queue.poll();assert.equal(f.counted.size,0);now=1000;await f.queue.poll();assert.equal(f.counted.size,2);
+  const g=queueFixture();g.context.add=async()=>{throw Object.assign(Error('resultado de entrada incerto'),{retryable:true});};
+  await g.queue.start(config,g.context);await g.queue.poll();assert.equal(g.queue.blocked,true);assert.equal(g.state().session.cursor,0);
+});
+test('vínculo fora da fila e alteração de quantidade não são confirmados',async()=>{
+  for(const bad of ['uid','quantity']){
+    const f=queueFixture(),base=f.options.api;
+    if(bad==='uid')f.options.api=async(a,d)=>{const s=await base(a,d);if(a==='count_status')s.bindings=[{uid:'53000000000000',item:'T001'}];return s;};
+    else f.options.resolve=async()=>({item:'T001',codigo:'0303450047',quantidade:'999',unidade:'KG'});
+    await f.queue.start(config,f.context);await f.queue.poll();assert.equal(f.counted.size,0);assert.equal(f.queue.blocked,true);assert.equal(f.state().session.cursor,0);
+  }
+});
+test('cliente diferencia falhas de transporte e renova token expirado uma vez',async()=>{
+  let calls=0;
+  const client=createClient({auth:()=>({u:'qa',p:'test'}),fetch:async(url,opts)=>{
+    const body=JSON.parse(opts.body);calls++;
+    if(body.action==='login')return {ok:true,status:200,json:async()=>({token:'test-token'})};
+    if(calls===2)return {ok:false,status:401,json:async()=>({error:'expired'})};
+    if(calls===4)throw Error('network detail');
+    return {ok:true,status:200,json:async()=>({ok:true,data:[]})};
+  }});
+  await assert.rejects(client.request('count_status'),e=>e.retryable===true&&!e.message.includes('network detail'));assert.equal(calls,4);
+  await client.request('reader_list');assert.equal(calls,5);
 });

@@ -4,6 +4,14 @@
   var uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
   function createClient(options){
     var token='',owner='',login=null;
+    async function fetchReply(body,headers){
+      var response;
+      try{response=await options.fetch('/api/nfc-mobile',{method:'POST',headers:{'content-type':'application/json',...headers},cache:'no-store',body:JSON.stringify(body)});}
+      catch(_){throw Object.assign(new Error('Conexão NFC interrompida.'),{retryable:true});}
+      var reply=await response.json().catch(function(){return null;});
+      if(!response.ok||!reply)throw Object.assign(new Error(reply&&reply.error||'O serviço NFC não confirmou a operação.'),{status:response.status,retryable:[408,429,502,503,504].includes(response.status)||response.ok&&!reply});
+      return reply;
+    }
     async function request(action,data,retry){
       var auth=options.auth();
       if(!auth||!auth.u||!auth.p){token='';owner='';throw new Error('Entre novamente no WMS para conectar o celular.');}
@@ -11,20 +19,19 @@
       var user=owner;
       if(!token){
         if(!login)login=(async function(){
-          var response=await options.fetch('/api/nfc-mobile',{method:'POST',headers:{'content-type':'application/json'},cache:'no-store',body:JSON.stringify({action:'login',auth:{u:auth.u,p:auth.p}})});
-          var reply=await response.json().catch(function(){return null;});
-          if(!response.ok||!reply||!reply.token)throw new Error(reply&&reply.error||'Não foi possível conectar o serviço NFC.');
+          var reply=await fetchReply({action:'login',auth:{u:auth.u,p:auth.p}});
+          if(!reply.token)throw new Error('Não foi possível conectar o serviço NFC.');
           if(owner!==user||!options.auth()||options.auth().u!==user)throw new Error('O usuário do WMS mudou.');
           token=reply.token;
         })().finally(function(){if(owner===user)login=null;});
         await login;
       }
       if(owner!==user||options.auth()?.u!==user)throw new Error('O usuário do WMS mudou.');
-      var response=await options.fetch('/api/nfc-mobile',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+token},cache:'no-store',body:JSON.stringify({action:action,data:data||{}})});
-      var reply=await response.json().catch(function(){return null;});
+      var reply;
+      try{reply=await fetchReply({action:action,data:data||{}},{authorization:'Bearer '+token});}
+      catch(error){if(error.status===401&&!retry&&owner===user&&options.auth()?.u===user){token='';return request(action,data,true);}throw error;}
       if(owner!==user||options.auth()?.u!==user)throw new Error('O usuário do WMS mudou.');
-      if(response.status===401&&!retry&&owner===user){token='';return request(action,data,true);}
-      if(!response.ok||!reply||reply.ok!==true)throw new Error(reply&&reply.error||'O serviço NFC não confirmou a operação. Confira antes de repetir.');
+      if(reply.ok!==true)throw new Error(reply.error||'O serviço NFC não confirmou a operação. Confira antes de repetir.');
       return reply.data;
     }
     return {request:request,clear:function(){owner='';token='';login=null;}};
@@ -49,7 +56,7 @@
     return {context:context,entries:function(){return Array.from(items.values(),function(item){return {...item};});},
       totals:function(){var totals={};items.forEach(function(item){totals[item.unidade]=Math.round(((totals[item.unidade]||0)+Number(item.quantidade))*1e6)/1e6;});return totals;}};
   }
-  function CountQueue(options){this.options=options;this.binding=null;this.busy=false;this.blocked=false;this.epoch=0;}
+  function CountQueue(options){this.options=options;this.binding=null;this.busy=false;this.blocked=false;this.epoch=0;this.failures=0;this.retryAt=0;}
   CountQueue.prototype.start=async function(config,context){
     if(this.busy)throw new Error('Aguarde a leitura atual terminar.');
     if(!context.isActive())throw new Error('Abra a tarefa e a vaga/passada da contagem antes de iniciar.');
@@ -60,9 +67,9 @@
       var state=await this.options.api('count_start',config);
       if(generation!==this.epoch||!context.isActive())throw new Error('A contagem mudou durante a conexão. Pause o leitor e tente novamente.');
       this.check(state,config);
-      var b={...config,cursor:state.session.cursor,running:true,context:context};
+      var b={...config,cursor:state.session.cursor,appliedCursor:state.session.cursor,running:true,context:context};
       b.guard={...context,isActive:function(){return self.binding===b&&b.running&&context.isActive();}};
-      this.binding=b;this.blocked=false;this.options.notify('Leitor conectado. Abra o NFC.cool e aproxime uma tag por vez. Ao voltar, o WMS processará a fila.',state);
+      this.binding=b;this.blocked=false;this.failures=0;this.retryAt=0;this.options.notify('Leitor conectado. Abra o NFC.cool e aproxime uma tag por vez. Ao voltar, o WMS processará a fila.',state);
       return b;
     }finally{this.busy=false;}
   };
@@ -70,29 +77,72 @@
     var s=state&&state.session;
     if(!s||s.id!==b.sessionId||s.consumerId!==b.consumerId||s.target!==b.target||s.contextKey!==b.contextKey||!Number.isSafeInteger(s.cursor)||s.cursor<0||!Number.isSafeInteger(s.received)||s.received<s.cursor||s.received>1000||!Array.isArray(state.items)||state.items.length>100)throw new Error('A fila recebida pertence a outra contagem/tela ou está inválida.');
   };
+  CountQueue.prototype.confirm=async function(b){
+    if(b.appliedCursor===b.cursor||!b.guard.isActive())return;
+    // Keep this cursor until a reply arrives. Repeating the ACK is idempotent,
+    // including when the database committed but the HTTP response was lost.
+    var ack=await this.options.api('count_ack',{readerId:b.readerId,sessionId:b.sessionId,consumerId:b.consumerId,cursor:b.appliedCursor});
+    if(!b.guard.isActive())return;
+    this.check(ack,b);
+    if(ack.session.cursor!==b.appliedCursor)throw new Error('A confirmação da leitura não foi recebida. Confira antes de continuar.');
+    b.cursor=b.appliedCursor;
+    this.options.notify(ack.session.received+' tag(s) recebida(s) · '+b.cursor+' processada(s).',ack);
+  };
   CountQueue.prototype.poll=async function(){
     var b=this.binding;if(!b||!b.running||this.busy||this.blocked||!b.guard.isActive())return;
-    this.busy=true;
+    var now=this.options.now||Date.now;if(now()<this.retryAt)return;
+    this.busy=true;var safeRetry=true;
     try{
+      await this.confirm(b);
+      // Drain a burst immediately, with a bounded amount of work per poll.
+      for(var batch=0;batch<3&&b.guard.isActive();batch++){
       var state=await this.options.api('count_status',{readerId:b.readerId,sessionId:b.sessionId,consumerId:b.consumerId,cursor:b.cursor});
-      if(this.binding!==b||!b.running)return;this.check(state,b);
+      if(!b.guard.isActive())return;this.check(state,b);
       if(state.session.cursor!==b.cursor)throw new Error('A fila foi processada em outra sessão. Pause e reconecte para conferir.');
       if(!state.session.active||Date.parse(state.session.expiresAt)<=Date.now())throw new Error('A captura está pausada ou expirou. Retome a contagem para continuar.');
       this.options.notify(state.session.received+' tag(s) recebida(s) · '+b.cursor+' processada(s).',state);
-      for(var event of state.items){
-        if(!b.guard.isActive())return;
-        if(event.seq!==b.cursor+1||!/^(04|53)[A-F0-9]{12}$/.test(event.uid||''))throw new Error('Há uma leitura fora de sequência. A fila foi preservada.');
-        var tag=await this.options.resolve(event.uid,b.guard);
-        if(!b.guard.isActive())return;
-        var applied=await this.options.apply(tag,b.guard);
-        if(!b.guard.isActive())return;
-        var ack=await this.options.api('count_ack',{readerId:b.readerId,sessionId:b.sessionId,consumerId:b.consumerId,cursor:event.seq});
-        this.check(ack,b);
-        if(ack.session.cursor!==event.seq)throw new Error('A confirmação da leitura não foi recebida. Confira antes de continuar.');
-        b.cursor=event.seq;
-        this.options.notify(tag.item+' · '+tag.quantidade+' '+tag.unidade+(applied.duplicate?' · já contada':' · contada'),ack);
+      var bindings=null;
+      if(state.bindings!==undefined){
+        if(!Array.isArray(state.bindings)||state.bindings.length>100)throw new Error('Vínculos NFC inválidos.');
+        bindings=new Map();
+        for(var record of state.bindings){
+          if(!state.items.some(event=>event.uid===record.uid)||bindings.has(record.uid)||typeof record.item!=='string'||!/^[A-Za-z0-9._/-]{1,32}$/.test(record.item))throw new Error('Vínculo NFC fora da fila recebida.');
+          bindings.set(record.uid,record);
+        }
       }
-    }catch(error){if(this.binding===b){this.blocked=true;this.options.notify(error.message+' A fila foi mantida; corrija o cadastro e use Tentar novamente.');}}
+      if(!state.items.length&&state.session.received>b.cursor)throw new Error('Há uma lacuna na fila de leituras. Confira antes de continuar.');
+      for(var event of state.items){
+        try{
+        if(!b.guard.isActive())return;
+        if(event.seq!==b.appliedCursor+1||!/^(04|53)[A-F0-9]{12}$/.test(event.uid||''))throw new Error('Há uma leitura fora de sequência. A fila foi preservada.');
+        if(bindings&&!bindings.has(event.uid))throw new Error('Tag '+event.uid+' ainda não cadastrada. Vincule o chip à embalagem.');
+        safeRetry=true;
+        var tag=await this.options.resolve(event.uid,b.guard,bindings?bindings.get(event.uid):undefined);
+        if(!b.guard.isActive())return;
+        // A stock operation with an uncertain result needs manual review.
+        // Automatic retries below cover network reads and queue ACKs only.
+        safeRetry=false;
+        await this.options.apply(tag,b.guard);
+        if(!b.guard.isActive())return;
+        b.appliedCursor=event.seq;safeRetry=true;
+        }catch(error){
+          // Confirm only the successfully applied prefix, never the failed tag.
+          // Preserve the original failure if this ACK also loses its reply.
+          try{await this.confirm(b);}catch(_){}
+          throw error;
+        }
+        if(b.appliedCursor-b.cursor>=10)await this.confirm(b);
+      }
+      safeRetry=true;await this.confirm(b);
+      if(state.session.received<=b.cursor)break;
+      }
+      this.failures=0;this.retryAt=0;
+    }catch(error){if(this.binding===b&&b.running&&b.guard.isActive()){
+      if(safeRetry&&error.retryable&&++this.failures<=5){
+        var delay=Math.min(1000*Math.pow(2,this.failures-1),15000);this.retryAt=now()+delay;
+        this.options.notify('Conexão instável. A fila recebida foi mantida; nova tentativa automática em '+delay/1000+' s.');
+      }else{this.blocked=true;this.options.notify(error.message+' A fila foi mantida. Confira e use Tentar novamente.');}
+    }}
     finally{this.busy=false;}
   };
   CountQueue.prototype.pause=async function(){
@@ -109,7 +159,11 @@
   function auth(){var a=root._fiscalAuth;return a&&a.u===user()?a:null;}
   var client=createClient({fetch:function(url,options){options.signal=AbortSignal.timeout(15000);return root.fetch(url,options);},auth:auth});
   function notice(text,state){message=text;if(state&&state.session)summary=state.session.received+' recebidas · '+state.session.cursor+' processadas';paint();}
-  var queue=new CountQueue({api:client.request,resolve:root.PackemNfcRegistry.resolve,apply:root.WmsNfcReader.applyItemReading,notify:notice});
+  var queue=new CountQueue({api:client.request,resolve:async function(uid,context,record){
+    if(!record)return root.PackemNfcRegistry.resolve(uid,context);
+    if(record.uid!==uid||!context.isActive())throw new Error('A sessão de contagem mudou.');
+    return (await root.WmsNfcPrepare.prepare(record.item,context)).tag;
+  },apply:root.WmsNfcReader.applyItemReading,notify:notice});
   function storageKey(){return 'packem-nfc-mobile:'+user();}
   function saved(){try{return JSON.parse(sessionStorage.getItem(storageKey())||'{}');}catch(_){return {};}}
   function save(value){try{sessionStorage.setItem(storageKey(),JSON.stringify(value));}catch(_){}}
@@ -120,7 +174,7 @@
         var current={owner:user()};trial=current;
         current.counter=createTestCount({scope:current.owner+':teste-nfc:'+crypto.randomUUID(),
           isActive:function(){return trial===current&&user()===current.owner&&!document.hidden&&!!root.WmsNfcWorkspace?.isActive('v-nfc-test');},
-          lookup:root.WmsNfcReader.makeLabelContext().lookup,onChange:paintTest});
+          lookup:root.WmsNfcReader.makeLabelContext().lookup,onChange:paintTestSoon});
       }
       return trial.counter.context;
     }
@@ -226,7 +280,7 @@
       }else{
         button(controls,'Iniciar / retomar contagem',function(){return start(target);});
         button(controls,'Nova captura após pausa',function(){return start(target,true);});
-        button(controls,'Tentar novamente',function(){queue.blocked=false;return queue.poll();});
+        button(controls,'Tentar novamente',function(){queue.blocked=false;queue.retryAt=0;queue.failures=0;return queue.poll();});
         button(controls,'Pausar captura',pause);
       }
       var details=document.createElement('details'),caption=document.createElement('summary');caption.textContent='Conexão do celular e instruções';details.appendChild(caption);panel.appendChild(details);
@@ -238,6 +292,11 @@
       var at=target==='v-labels'?page.querySelector('[data-nfc-preparar]'):null;
       if(at)at.after(panel);else page.insertBefore(panel,page.children[1]||null);
     });paintTest();
+  }
+  var testPaintPending=false;
+  function paintTestSoon(){
+    if(testPaintPending)return;testPaintPending=true;
+    root.requestAnimationFrame(function(){testPaintPending=false;paintTest();});
   }
   function paintTest(){
     var entries=trial?trial.counter.entries():[],totals=trial?trial.counter.totals():{},key=JSON.stringify(entries);
@@ -266,5 +325,5 @@
     try{if(enrollment)await checkEnrollment();else await queue.poll();}catch(error){notice(error.message);}finally{ticking=false;}
   }
   root.WmsNfcMobile={active:function(){return working||!!enrollment||!!(queue.binding&&queue.binding.running);},queue:queue};
-  setInterval(tick,2500);document.addEventListener('visibilitychange',tick);tick();
+  setInterval(tick,750);document.addEventListener('visibilitychange',tick);tick();
 })(typeof window!=='undefined'?window:globalThis);

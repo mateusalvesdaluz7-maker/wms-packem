@@ -8,7 +8,7 @@
 <div id="v-labels" class="view active"><h2>Gestão de Etiquetas</h2></div>
 <div id="v-floor" class="view"><h2>Contagem · chão expedição</h2></div>
 <section id="v-nfc" class="view"><h2>NFC</h2><div role="tablist" aria-label="Operação NFC"><button role="tab" data-nfc-mode="register" aria-selected="true">Cadastrar tags</button><button role="tab" data-nfc-mode="count" aria-selected="false">Contar tags</button></div><div data-nfc-destination-field hidden><label>Destino da contagem NFC<select data-nfc-destination aria-label="Destino da contagem NFC"></select></label><button data-nfc-open-destination>Abrir contagem na aba normal</button></div><p data-nfc-workspace-status role="status"></p><p data-nfc-workspace-empty hidden>Operação indisponível.</p></section>
-<section class="card"><b>Simular a entrega do NFC.cool</b><p>Prepare o cadastro ou inicie a contagem antes de enviar o UID.</p><button id="scan-one">Aproximar tag 1 (simulação)</button><button id="scan-two">Aproximar tag 2 (simulação)</button><button id="repeat">Repetir tag 1</button><p id="scan-result" role="status">Aguardando operação do WMS.</p></section>
+<section class="card"><b>Simular a entrega do NFC.cool</b><p>Prepare o cadastro ou inicie a contagem antes de enviar o UID.</p><button id="scan-one">Aproximar tag 1 (simulação)</button><button id="scan-two">Aproximar tag 2 (simulação)</button><button id="repeat">Repetir tag 1</button><button id="burst">Simular rajada de 30 chips distintos</button><p id="scan-result" role="status">Aguardando operação do WMS.</p></section>
 <section class="card"><p class="metric" id="total">0 embalagens · 0 kg</p><table><thead><tr><th>Embalagem</th><th>Código</th><th>Peso</th></tr></thead><tbody id="items"></tbody></table></section></main>
 <script>
 var session={u:'qa-platinum',role:'admin'},_floorScanMode='add';window._fiscalAuth={u:session.u,p:'simulation-only'};
@@ -30,7 +30,7 @@ window.fetch=async function(url,options){var b=JSON.parse(options.body),a=b.acti
  else if(a==='enroll_arm'){if(reader.operationId!==d.operationId){reader={...reader,mode:'enroll',operationId:d.operationId,enrollmentItem:d.item,enrollment:null,armUntil:new Date(Date.now()+120000).toISOString()};}data={...reader};}
  else if(a==='enroll_cancel'){reader.mode='idle';reader.enrollment={status:'cancelled',operationId:d.operationId};data={...reader};}
  else if(a==='count_start'){if(!count||count.sessionId!==d.sessionId)count={...d,cursor:0,items:[],active:true};count.active=true;reader.mode='count';reader.countSessionId=d.sessionId;data=state(count.cursor);}
- else if(a==='count_status')data=state(d.cursor);
+ else if(a==='count_status'){data=state(d.cursor);data.bindings=data.items.filter(e=>registry.has(e.uid)).map(e=>({uid:e.uid,item:registry.get(e.uid)}));}
  else if(a==='count_ack'){count.cursor=d.cursor;data=state(d.cursor);}
  else if(a==='count_stop'){count.active=false;reader.mode='idle';data=state(count.cursor);}
  else throw Error('Ação simulada desconhecida');
@@ -50,4 +50,14 @@ function select(id){operation('register');var n=document.getElementById('packemN
 document.getElementById('show-labels').onclick=()=>operation('register');document.getElementById('show-count').onclick=()=>operation('count');
 document.getElementById('select-one').onclick=()=>select('T001');document.getElementById('select-two').onclick=()=>select('T002');
 document.getElementById('scan-one').onclick=()=>scan(false);document.getElementById('scan-two').onclick=()=>scan(true);document.getElementById('repeat').onclick=()=>scan(false);
+document.getElementById('burst').onclick=async function(){
+ if(reader?.mode!=='count'||!count?.active){document.getElementById('scan-result').textContent='Inicie a contagem antes da rajada simulada.';return;}
+ for(var i=1;i<=30;i++){
+  var uid='53'+i.toString(16).padStart(12,'0').toUpperCase(),id='SIM-'+i;
+  registry.set(uid,id);catalog[id]={pr:'0303410008',pl:10};
+  if(!count.items.some(e=>e.uid===uid))count.items.push({seq:count.items.length+1,uid});
+ }
+ document.getElementById('scan-result').textContent='30 UIDs fictícios enviados juntos à fila local. Repetir a rajada não duplica as embalagens.';
+ await WmsNfcMobile.queue.poll();
+};
 </script><script src="../../wms-nfc-workspace.js"></script><script src="../../wms-nfc-text.js"></script><script src="../../wms-nfc-reader.js"></script><script src="../../wms-nfc-preparar.js"></script><script src="../../wms-nfc-mobile.js"></script><script src="../../wms-nfc-manual.js"></script></html>

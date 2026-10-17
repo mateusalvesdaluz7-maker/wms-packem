@@ -29,6 +29,26 @@
     }
     return {request:request,clear:function(){owner='';token='';login=null;}};
   }
+  // This context never calls a stock writer: only the authenticated NFC queue
+  // is persisted. The result list is kept in this page's memory.
+  function createTestCount(options){
+    var items=new Map(),pending=new Map();
+    var context={scope:options.scope,isActive:options.isActive,
+      lookup:async function(id){
+        var item=await options.lookup(id);
+        if(!context.isActive())throw new Error('O teste de contagem mudou durante a consulta.');
+        pending.set(id,item?{...item}:null);return item;
+      },
+      has:function(id){return items.has(id);},
+      add:function(id){
+        if(!context.isActive())throw new Error('O teste de contagem não está ativo.');
+        var item=pending.get(id);
+        if(!item)throw new Error('Consulte a embalagem antes de contar.');
+        if(!items.has(id)){items.set(id,{item:id,...item});if(options.onChange)options.onChange();}
+      }};
+    return {context:context,entries:function(){return Array.from(items.values(),function(item){return {...item};});},
+      totals:function(){var totals={};items.forEach(function(item){totals[item.unidade]=Math.round(((totals[item.unidade]||0)+Number(item.quantidade))*1e6)/1e6;});return totals;}};
+  }
   function CountQueue(options){this.options=options;this.binding=null;this.busy=false;this.blocked=false;this.epoch=0;}
   CountQueue.prototype.start=async function(config,context){
     if(this.busy)throw new Error('Aguarde a leitura atual terminar.');
@@ -80,10 +100,10 @@
     await this.options.api('count_stop',{readerId:b.readerId,sessionId:b.sessionId});
     this.blocked=false;this.options.notify('Captura pausada. As leituras recebidas continuam guardadas para esta contagem.');
   };
-  if(typeof module==='object'&&module.exports){module.exports={createClient:createClient,CountQueue:CountQueue};return;}
+  if(typeof module==='object'&&module.exports){module.exports={createClient:createClient,CountQueue:CountQueue,createTestCount:createTestCount};return;}
   if(!root.WmsNfcReader||!root.PackemNfcRegistry)return;
-  var labels={'v-floor':'Chão expedição','v-floor70':'Chão 70','v-recic':'Recicladora','v-inv':'Inventário'};
-  var reader=null,link='',enrollment=null,lastUser='',working=false,ticking=false;
+  var labels={'v-floor':'Chão expedição','v-floor70':'Chão 70','v-recic':'Recicladora','v-inv':'Inventário','v-nfc-test':'Teste de contagem'};
+  var reader=null,link='',enrollment=null,lastUser='',working=false,ticking=false,trial=null;
   var message='Conecte o NFC.cool Platinum para cadastrar chips e receber as leituras.',summary='';
   function user(){return typeof session!=='undefined'&&session?session.u:'';}
   function auth(){var a=root._fiscalAuth;return a&&a.u===user()?a:null;}
@@ -95,6 +115,15 @@
   function save(value){try{sessionStorage.setItem(storageKey(),JSON.stringify(value));}catch(_){}}
   function view(){return (document.querySelector('.view.active')||{}).id;}
   function makeContext(target){
+    if(target==='v-nfc-test'){
+      if(!trial||trial.owner!==user()){
+        var current={owner:user()};trial=current;
+        current.counter=createTestCount({scope:current.owner+':teste-nfc:'+crypto.randomUUID(),
+          isActive:function(){return trial===current&&user()===current.owner&&!document.hidden&&!!root.WmsNfcWorkspace?.isActive('v-nfc-test');},
+          lookup:root.WmsNfcReader.makeLabelContext().lookup,onChange:paintTest});
+      }
+      return trial.counter.context;
+    }
     if(target==='v-inv')return root.WmsNfcInventory?root.WmsNfcInventory.context():null;
     var context=root.WmsNfcReader.makeContext(target);context.scope=user()+':'+target+':entrada';return context;
   }
@@ -151,18 +180,21 @@
     var context=makeContext(target);if(!context||!context.isActive()||!context.scope)throw new Error('Abra uma contagem atribuída a você e escolha a vaga ou o chão que será contado.');
     await selectReader();if(!reader)throw new Error('Use Conectar celular primeiro.');
     reader=await client.request('reader_get',{readerId:reader.id});
+    var apiTarget=target==='v-nfc-test'?'v-inv':target;
     var state=saved(),counts=state.counts||{},previous=counts[context.scope]||state.count;
-    if(previous&&(previous.contextKey!==context.scope||previous.readerId!==reader.id||previous.target!==target))previous=null;
+    if(previous&&(previous.contextKey!==context.scope||previous.readerId!==reader.id||previous.target!==apiTarget))previous=null;
     // Transfer only after an explicit pause; two screens must not consume the same queue.
-    if(!previous&&reader.count&&reader.count.target===target&&reader.count.contextKey===context.scope){
+    if(!previous&&reader.count&&reader.count.target===apiTarget&&reader.count.contextKey===context.scope){
       if(reader.count.active)throw new Error('Este leitor está conectado a outra tela. Use Pausar captura antes de transferir a contagem.');
-      previous={readerId:reader.id,sessionId:reader.count.id,target:target,contextKey:context.scope,consumerId:crypto.randomUUID()};
+      previous={readerId:reader.id,sessionId:reader.count.id,target:apiTarget,contextKey:context.scope,consumerId:crypto.randomUUID()};
     }
     if(fresh&&previous){
       var pending=reader.count&&reader.count.id===previous.sessionId?reader.count:(await client.request('count_status',{readerId:reader.id,sessionId:previous.sessionId,consumerId:previous.consumerId,cursor:0})).session;
       if(pending.received!==pending.cursor)throw new Error('Retome e processe a fila pendente antes de abrir uma nova captura neste contexto.');
     }
-    var config=previous&&!fresh?previous:{readerId:reader.id,sessionId:crypto.randomUUID(),consumerId:crypto.randomUUID(),contextKey:context.scope,target:target};
+    if(fresh&&reader.mode==='count')throw new Error('Pause a captura antes de iniciar um teste novo.');
+    if(target==='v-nfc-test'&&fresh){trial=null;context=makeContext(target);}
+    var config=previous&&!fresh?previous:{readerId:reader.id,sessionId:crypto.randomUUID(),consumerId:crypto.randomUUID(),contextKey:context.scope,target:apiTarget};
     if(reader.mode==='count'&&reader.countSessionId!==config.sessionId)throw new Error('Existe outra captura ativa neste leitor. Use Pausar captura antes de iniciar esta contagem.');
     // Persist before the request, including an uncertain response after a network failure.
     save({...state,counts:{...counts,[context.scope]:config}});await queue.start(config,context);await queue.poll();paint();
@@ -180,10 +212,14 @@
     ['v-labels',...Object.keys(labels)].forEach(function(target){
       var page=root.WmsNfcWorkspace?root.WmsNfcWorkspace.host(target,'platinum'):document.getElementById(target);if(!page||page.querySelector('[data-nfc-mobile]'))return;
       var panel=document.createElement('section');panel.className='panel';panel.dataset.nfcMobile='1';panel.style.cssText='padding:18px;margin:12px 0;border:2px solid #0d8571;border-radius:12px;overflow-wrap:anywhere';
-      var h=document.createElement('h3');h.textContent=target==='v-labels'?'Cadastrar chip com NFC.cool Platinum':'Contar com NFC.cool Platinum';panel.appendChild(h);
+      var h=document.createElement('h3');h.textContent=target==='v-labels'?'Cadastrar chip com NFC.cool Platinum':target==='v-nfc-test'?'Teste de contagem com NFC.cool Platinum':'Contar com NFC.cool Platinum';panel.appendChild(h);
       var p=document.createElement('p');p.textContent=target==='v-labels'?'1. Escolha a embalagem na lista acima. 2. Toque em Cadastrar próxima tag. 3. Aproxime a tag do iPhone no NFC.cool. O UID ficará vinculado ao código e à quantidade existentes no WMS.':'As tags cadastradas entram nesta contagem por aproximação. No iPhone, leia no NFC.cool e volte ao WMS para processar a fila. Com o WMS aberto no PC, a fila pode ser processada durante as leituras.';panel.appendChild(p);
       var state=document.createElement('p');state.dataset.nfcMobileStatus='1';state.setAttribute('role','status');state.textContent=message;panel.appendChild(state);
       var total=document.createElement('strong');total.dataset.nfcMobileTotal='1';total.textContent=summary;panel.appendChild(total);
+      if(target==='v-nfc-test'){
+        var hint=document.createElement('p');hint.textContent='Somente conferência: recebe as leituras reais e busca os dados no WMS. Não cria entradas, saídas nem ajustes de estoque. O resultado fica nesta tela até fechar ou recarregar; pause antes de iniciar um teste novo.';panel.appendChild(hint);
+        var results=document.createElement('div');results.dataset.nfcTestResults='1';results.setAttribute('aria-live','polite');panel.appendChild(results);
+      }
       var controls=document.createElement('div');panel.appendChild(controls);
       if(target==='v-labels'){
         button(controls,'Cadastrar próxima tag',arm);button(controls,'Conferir cadastro',checkEnrollment);button(controls,'Cancelar cadastro',cancel);
@@ -201,6 +237,14 @@
       var guide=document.createElement('a');guide.href='/nfc-platinum.html';guide.target='_blank';guide.rel='noopener';guide.textContent='Ver configuração passo a passo';details.appendChild(guide);
       var at=target==='v-labels'?page.querySelector('[data-nfc-preparar]'):null;
       if(at)at.after(panel);else page.insertBefore(panel,page.children[1]||null);
+    });paintTest();
+  }
+  function paintTest(){
+    var entries=trial?trial.counter.entries():[],totals=trial?trial.counter.totals():{},key=JSON.stringify(entries);
+    document.querySelectorAll('[data-nfc-test-results]').forEach(function(node){
+      if(node.dataset.resultKey===key)return;node.dataset.resultKey=key;node.replaceChildren();
+      var count=document.createElement('p');count.style.fontWeight='700';count.textContent=entries.length+' embalagem(ns) contada(s)'+(entries.length?' · '+Object.entries(totals).map(function(pair){return pair[1].toLocaleString('pt-BR',{maximumFractionDigits:6})+' '+pair[0];}).join(' · '):'');node.appendChild(count);
+      var list=document.createElement('ul');entries.forEach(function(item){var row=document.createElement('li');row.textContent=item.item+' · '+item.codigo+' · '+Number(item.quantidade).toLocaleString('pt-BR',{maximumFractionDigits:6})+' '+item.unidade;list.appendChild(row);});node.appendChild(list);
     });
   }
   function paint(){
@@ -208,12 +252,13 @@
     document.querySelectorAll('[data-nfc-mobile-total]').forEach(function(n){if(n.textContent!==summary)n.textContent=summary;});
     document.querySelectorAll('[data-nfc-mobile-action]').forEach(function(n){n.disabled=working;});
     document.querySelectorAll('[data-nfc-mobile-link]').forEach(function(n){if(n.value!==link)n.value=link;});
+    paintTest();
   }
   async function tick(){
     mount();var current=user();
     if(current!==lastUser){
       ++queue.epoch;if(queue.binding)queue.binding.running=false;queue.binding=null;queue.blocked=false;
-      client.clear();reader=null;link='';enrollment=null;summary='';lastUser=current;
+      client.clear();reader=null;link='';enrollment=null;summary='';trial=null;paintTest();lastUser=current;
       var state=saved();if(current&&state.enrollment&&state.enrollment.user===current)enrollment=state.enrollment;
       message='Conecte o NFC.cool Platinum para cadastrar chips e receber as leituras.';paint();
     }

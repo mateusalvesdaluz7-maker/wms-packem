@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createClient,CountQueue}=require('../wms-nfc-mobile.js');
+const {createClient,CountQueue,createTestCount}=require('../wms-nfc-mobile.js');
 const {applyItemReading}=require('../wms-nfc-reader.js');
 const {service,normalizeUid}=require('../server/nfc-mobile-core.js');
 const mobile=require('../api/nfc-mobile.js')._test.makeHandler,webhook=require('../api/nfc-webhook.js')._test.makeHandler;
@@ -97,6 +97,32 @@ test('fila aceita UID Feiju, mantém metros do WMS e não duplica a mesma embala
   assert.deepEqual([...f.counted],['T001']);assert.equal(f.catalog.T001.unidade,'MT');assert.equal(f.state().session.cursor,1);
   f.setReads([{seq:1,uid:feiju},{seq:2,uid:feiju}]);await f.queue.poll();
   assert.equal(f.counted.size,1);assert.equal(f.state().session.cursor,2);
+});
+test('teste físico usa a fila real sem aplicar entradas; releitura e confirmação perdida não duplicam',async()=>{
+  const f=queueFixture();f.catalog.T001={codigo:'0303410008',quantidade:5000,unidade:'MT'};
+  const trial=createTestCount({scope:config.contextKey,isActive:()=>true,lookup:f.context.lookup});
+  f.context.add=async()=>{throw Error('Não pode chamar entrada no teste');};
+  f.failAck();await f.queue.start(config,trial.context);await f.queue.poll();
+  assert.equal(trial.entries().length,1);assert.equal(f.state().session.cursor,0);
+  f.queue.blocked=false;await f.queue.poll();
+  assert.equal(f.state().session.cursor,2);assert.equal(trial.entries().length,2);assert.equal(f.counted.size,0);
+  assert.deepEqual(trial.totals(),{MT:5000,KG:250.5});
+  f.setReads([{seq:1,uid},{seq:2,uid:second},{seq:3,uid}]);await f.queue.poll();
+  assert.equal(trial.entries().length,2);assert.deepEqual(trial.totals(),{MT:5000,KG:250.5});assert.equal(f.state().session.cursor,3);
+});
+test('teste não registra consulta que terminou após trocar de usuário ou tela',async()=>{
+  let active=true,release;
+  const trial=createTestCount({scope:'teste-1',isActive:()=>active,lookup:()=>new Promise(resolve=>release=resolve)});
+  const pending=applyItemReading({item:'T001',codigo:'0303410008',quantidade:'5000',unidade:'MT'},trial.context);
+  await new Promise(resolve=>setImmediate(resolve));active=false;release({codigo:'0303410008',quantidade:5000,unidade:'MT'});
+  await assert.rejects(pending,/mudou/);assert.equal(trial.entries().length,0);
+});
+test('destino de teste exige a aba NFC e não concede acesso a destinos de estoque',()=>{
+  const {permitted}=require('../wms-nfc-workspace.js');
+  assert.equal(permitted('v-nfc-test',['v-nfc']),true);
+  assert.equal(permitted('v-nfc-test',['v-home']),false);
+  assert.equal(permitted('v-floor70',['v-nfc']),false);
+  assert.equal(permitted('v-floor70',['v-floor70']),true);
 });
 test('tag desconhecida bloqueia a sequência e fica pendente para correção',async()=>{
   const f=queueFixture();f.registry.delete(uid);await f.queue.start(config,f.context);await f.queue.poll();

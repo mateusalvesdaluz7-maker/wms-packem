@@ -12,6 +12,14 @@ O cadastro é feito em NFC → Cadastrar tags: a lista do WMS seleciona uma emba
 
 O PR e a publicação da prévia não aplicam migrações nem publicam em produção. Produção requer a configuração equivalente e a integração do PR pelo responsável.
 
+## Teste físico sem movimentar estoque
+
+Em NFC → Contar tags, selecione **Teste de contagem — sem movimentar estoque** e inicie a captura. O modo usa o leitor, o Webhook, a fila autenticada e a consulta UID → embalagem reais. A aplicação de cada leitura acrescenta somente à lista em memória dessa página, sem chamar as funções de entrada, saída ou ajuste. Quantidades são totalizadas separadamente por unidade; a releitura não soma a mesma embalagem novamente.
+
+Os eventos e suas confirmações permanecem na fila NFC, em um contexto exclusivo de teste. O destino técnico dessa fila usa a permissão de inventário existente; ele não cria uma tarefa nem aplica o inventário normal. Pausar e retomar preserva o resultado enquanto a página permanecer aberta. “Nova captura após pausa” inicia outro teste, desde que a fila anterior tenha sido processada. Fechar/recarregar limpa a lista em memória; se houver captura anterior ativa, pause antes de iniciar novamente.
+
+Os demais destinos conservam seu fluxo normal. Chão 70, Expedição e Recicladora aplicam entradas; Inventário depende de tarefa e vaga/passada disponíveis no WMS.
+
 ## Contrato do aplicativo e processamento
 
 `POST /nfc-receber/<chave aleatória>` é reescrito para `/api/nfc-webhook`. Aceita o JSON observado/documentado pelo NFC.cool: `identifier`, `date`, `content`. O identificador precisa ser um UID de sete bytes com prefixo 04 (NXP) ou 53 (Feiju, observado no piloto); UUID de leitura QR é recusado. O UID não comprova o modelo nem a autenticidade do chip. Esta compatibilidade se aplica ao cadastro e à contagem pelo Platinum; as verificações específicas de NTAG no aplicativo nativo de gravação permanecem restritas a NXP. `content` não determina produto ou peso. O probe oficial `xx:xx:xx:xx` / `Awesome it worked!` verifica a conexão e não conta.
@@ -34,4 +42,6 @@ No mesmo iPhone, o WMS fica suspenso enquanto o NFC.cool está em primeiro plano
 - `npm install --no-save --package-lock=false @electric-sql/pglite@0.5.10` e `node tests/sql/nfc-mobile.mjs`: executa as migrações duas vezes em PostgreSQL isolado e verifica preservação de vínculos NXP, cadastro e contagem Feiju, conflitos, propriedade, privilégios, duplicatas, cursores, rotação e contexto. Não toca banco real. Também roda no CI.
 - `/tests/ui/nfc-platinum.html`: ensaio visual com a interface real e API simulada, duas embalagens (300 + 250,5 kg). Não é evidência de leitura física e não altera estoque.
 
-Em 16/10/2026, imagens do iPhone mostraram uma leitura física no NFC.cool: tag vazia ISO14443 Type A, fabricante informado Shanghai Feiju, UID `53 0A C2 BA 33 00 01`. Isso confirma a leitura pelo telefone, sem comprovar modelo NTAG213, gravação ou recebimento pelo WMS. O filtro anterior aceitava somente 04; a validação física do vínculo e da contagem no WMS continua pendente após a correção. Envios anteriores de Webhook de teste e QR ao receptor diagnóstico confirmam apenas transporte.
+Em 16/10/2026, imagens do iPhone mostraram uma tag vazia ISO14443 Type A, fabricante informado Shanghai Feiju. O filtro anterior aceitava somente 04 e foi ampliado para 53. Após gravar o texto “Packem” e fazer nova aproximação no NFC.cool, o WMS confirmou um vínculo físico por UID à embalagem manual selecionada, com código e quantidade em MT. Não houve movimento de estoque nesse cadastro. O UID efetivamente cadastrado difere do da primeira foto; a tag a usar é a que aparece na confirmação do WMS.
+
+As leituras anteriores da tag vazia não geraram POST observado. O servidor aceita UID sem conteúdo, mas o NFC.cool documenta o disparo para leituras NDEF; para o piloto, prepare a tag com texto simples antes do cadastro. O texto não contém nem determina código ou quantidade. A contagem física e sua repetição ainda precisam ser verificadas no modo de teste. Não foi confirmado o modelo exato NTAG213 nem a cadência contínua do aparelho.

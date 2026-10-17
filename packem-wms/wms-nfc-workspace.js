@@ -1,8 +1,8 @@
 /* Área NFC: controles separados das telas normais de estoque e impressão. */
 (function(root){
   'use strict';
-  var destinations={'v-labels':'Cadastrar tags','v-floor70':'Chão de Fábrica - 70','v-floor':'Expedição - 71','v-recic':'Recicladora - 91','v-inv':'Inventário'};
-  function permitted(target,allowed){return Object.hasOwn(destinations,target)&&(!allowed||allowed.includes(target));}
+  var destinations={'v-labels':'Cadastrar tags','v-nfc-test':'Teste de contagem — sem movimentar estoque','v-floor70':'Chão de Fábrica - 70','v-floor':'Expedição - 71','v-recic':'Recicladora - 91','v-inv':'Inventário'};
+  function permitted(target,allowed){return Object.hasOwn(destinations,target)&&(!allowed||allowed.includes(target==='v-nfc-test'?'v-nfc':target));}
   if(typeof module==='object'&&module.exports){module.exports={permitted:permitted};return;}
   var page=document.getElementById('v-nfc');if(!page)return;
   var mode='register',destination='v-floor70',lastPermissions='',lastUser='';
@@ -24,6 +24,7 @@
     page.querySelectorAll('[data-nfc-host]').forEach(function(node){node.hidden=node.dataset.nfcHost!==selected()||!permitted(selected(),allowed());});
     page.querySelector('[data-nfc-workspace-empty]').hidden=permitted(selected(),allowed());
     var link=page.querySelector('[data-nfc-open-destination]');link.hidden=mode!=='count'||!permitted(destination,allowed());
+    if(destination==='v-nfc-test')link.hidden=true;
     link.textContent='Abrir '+(destinations[destination]||'contagem')+' na aba normal';
   }
   function change(nextMode,nextDestination){

@@ -5,6 +5,14 @@ Esta alteração conecta o bloco de etiquetas rastreáveis preparado pelo WMS à
 **O código está preparado para revisão. Não foi publicado no WMS de produção. Esta integração não implementa gravação contínua no iPhone nem sincroniza mecanicamente o rolo com o NFC.** O NFC.cool Platinum permanece como gravador assistido, com início da escrita e releitura no telefone. Aceitação dos dados pela estação não comprova impressão ou gravação física.
 
 
+## TapPony e detalhes das embalagens na contagem
+
+O TapPony usa o mesmo endereço privado do receptor NFC com um perfil POST/JSON: `{"identifier":"{uid}","date":"{timestamp}","content":"{payload}"}`. A leitura física e a entrega de dois UIDs distintos foram verificadas no piloto de homologação. Para vincular um chip use leitura única; para contar use Lote. O cadastro e a contagem continuam dependendo dos dados e permissões do WMS.
+
+O painel de contagem mostra uma tabela por embalagem com ID, código do material, peso líquido ou quantidade e unidade. Uma linha só aparece depois que o fluxo normal confirma a aplicação; uma confirmação de fila pendente aparece como tal. Releituras não criam uma segunda linha. Tags sem vínculo bloqueiam a fila e não são apresentadas como embalagens processadas.
+
+Ao retomar uma sessão, os detalhes das leituras já confirmadas são consultados em páginas de até 100 eventos na própria fila autorizada. Essa recuperação usa o cadastro atual, não chama a entrada de estoque nem confirma eventos novamente. Falha na consulta fica visível e pode ser repetida em Atualizar detalhes. Troca de usuário, contexto ou sessão impede a exibição de uma resposta anterior.
+
 ## Aplicativo próprio Packem WMS para iPhone 11 — fluxo principal
 
 O aplicativo em `ios/PackemWMS` abre o WMS existente e usa Core NFC para **cadastrar o UID por aproximação**. Em Gestão de Etiquetas, consulte uma embalagem existente por QR/ID e toque em Cadastrar chip por aproximação. O UID é persistido no servidor por `/api/nfc-tags`. A memória da tag pode permanecer vazia. Na contagem, Ler NFC lê os UIDs em sequência dentro da sessão; o WMS resolve a embalagem, consulta código/peso atuais e chama a entrada normal, com deduplicação. Isso segue as regras de estoque/local do sistema.

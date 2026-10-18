@@ -76,11 +76,11 @@ test('falhas do banco são redigidas e migração ausente vira orientação de a
   }
 });
 function queueFixture(){
-  let active=true,cursor=0,reads=[{seq:1,uid},{seq:2,uid:second}],failAck=false;
+  let active=true,cursor=0,reads=[{seq:1,uid},{seq:2,uid:second}],failAck=false,queueSession={...config};
   const counted=new Set(),catalog={T001:{codigo:'0303450047',quantidade:300,unidade:'KG'},T002:{codigo:'0303450047',quantidade:250.5,unidade:'KG'}},registry=new Map([[uid,'T001'],[second,'T002']]),calls=[],notices=[];
-  const state=()=>({session:{id:sid,consumerId:config.consumerId,target:config.target,contextKey:config.contextKey,active:true,cursor,received:reads.length,expiresAt:new Date(Date.now()+3600000).toISOString()},items:reads.filter(x=>x.seq>cursor).slice(0,100)});
+  const state=(from=cursor)=>({session:{id:queueSession.sessionId,consumerId:queueSession.consumerId,target:queueSession.target,contextKey:queueSession.contextKey,active:true,cursor,received:reads.length,expiresAt:new Date(Date.now()+3600000).toISOString()},items:reads.filter(x=>x.seq>from).slice(0,100)});
   const context={isActive:()=>active,lookup:async id=>catalog[id],has:id=>counted.has(id),add:async id=>counted.add(id)};
-  const options={api:async(action,data)=>{calls.push({action,data});if(action==='count_ack'){if(failAck){failAck=false;throw Error('offline');}cursor=data.cursor;}return state();},
+  const options={api:async(action,data)=>{calls.push({action,data});if(action==='count_start'){if(data.sessionId!==queueSession.sessionId){cursor=0;reads=[];}queueSession={...data};}if(action==='count_ack'){if(failAck){failAck=false;throw Error('offline');}cursor=data.cursor;}return state(data.cursor);},
     resolve:async key=>{const id=registry.get(key);if(!id)throw Error('Tag não cadastrada');const p=catalog[id];return {item:id,codigo:p.codigo,quantidade:String(p.quantidade),unidade:p.unidade};},apply:applyItemReading,notify:text=>notices.push(text)};
   const queue=new CountQueue(options);
   return {queue,options,context,counted,catalog,registry,calls,notices,state,deactivate:()=>active=false,activate:()=>active=true,failAck:()=>failAck=true,setReads:r=>reads=r};
@@ -191,11 +191,79 @@ test('rajada de 250 chips drena três páginas, confirma por lote e mantém os t
   assert.equal(f.state().session.cursor,250);assert.equal(trial.entries().length,250);assert.deepEqual(trial.totals(),{MT:312.5});assert.equal(f.counted.size,0);
   assert.equal(resolved,250);assert.equal(f.calls.filter(c=>c.action==='count_status').length,3);assert.equal(f.calls.filter(c=>c.action==='count_ack').length,25);
   await f.queue.poll();assert.equal(resolved,250);assert.equal(trial.entries().length,250);
+  const restored=new CountQueue({...f.options,apply:async()=>{throw Error('A consulta do histórico não pode reaplicar estoque');}});
+  await restored.start(config,trial.context);
+  for(let page=0;page<3;page++)await restored.loadHistory();
+  assert.equal(restored.entries().length,250);assert.equal(restored.binding.historyCursor,250);
+  assert.equal(restored.binding.historyError,'');assert.equal(f.calls.filter(c=>c.action==='count_ack').length,25);
 });
 test('tag desconhecida no meio do lote confirma só o prefixo válido e preserva o restante',async()=>{
   const f=queueFixture();f.registry.delete(second);await f.queue.start(config,f.context);await f.queue.poll();
   assert.deepEqual([...f.counted],['T001']);assert.equal(f.state().session.cursor,1);assert.equal(f.queue.blocked,true);
   f.registry.set(second,'T002');f.queue.blocked=false;await f.queue.poll();assert.equal(f.counted.size,2);assert.equal(f.state().session.cursor,2);
+});
+
+test('detalhes mostram código e peso do cadastro apenas depois da aplicação confirmada',async()=>{
+  const f=queueFixture();f.registry.delete(second);
+  await f.queue.start(config,f.context);await f.queue.poll();
+  assert.deepEqual(f.queue.entries(),[{seq:1,uid,item:'T001',codigo:'0303450047',quantidade:'300',unidade:'KG',duplicate:false,confirmed:true}]);
+  assert.equal(f.queue.blocked,true);assert.equal(f.state().session.cursor,1);
+  f.catalog.T001.quantidade=999;
+  assert.equal(f.queue.entries()[0].quantidade,'300');
+  f.registry.set(second,'T002');f.queue.blocked=false;await f.queue.poll();
+  assert.equal(f.queue.entries().length,2);assert.equal(f.queue.entries()[1].quantidade,'250.5');
+  const g=queueFixture();g.context.add=async()=>{};
+  await g.queue.start(config,g.context);await g.queue.poll();assert.deepEqual(g.queue.entries(),[]);
+});
+
+test('ACK perdido e tag repetida mantêm uma linha por embalagem e a unidade original',async()=>{
+  const f=queueFixture();f.catalog.T001={codigo:'0303410008',quantidade:5000,unidade:'MT'};
+  f.failAck();await f.queue.start(config,f.context);await f.queue.poll();
+  assert.equal(f.queue.entries().length,2);assert.equal(f.queue.entries()[0].confirmed,false);
+  f.queue.blocked=false;await f.queue.poll();assert.equal(f.queue.entries()[0].confirmed,true);
+  f.setReads([{seq:1,uid},{seq:2,uid:second},{seq:3,uid}]);await f.queue.poll();
+  assert.equal(f.queue.entries().length,2);assert.equal(f.queue.entries()[0].unidade,'MT');
+  assert.equal(f.queue.entries()[0].codigo,'0303410008');assert.equal(f.queue.entries()[0].quantidade,'5000');
+});
+
+test('detalhes anteriores são recuperados sem reaplicar nem confirmar entradas de estoque',async()=>{
+  const f=queueFixture();f.registry.delete(second);
+  await f.queue.start(config,f.context);await f.queue.poll();await f.queue.pause();
+  const acknowledgments=f.calls.filter(c=>c.action==='count_ack').length;
+  const restored=new CountQueue({...f.options,apply:async()=>{throw Error('Não pode reaplicar estoque ao consultar detalhes');}});
+  await restored.start(config,f.context);await restored.loadHistory();
+  assert.equal(restored.entries().length,1);assert.equal(restored.entries()[0].codigo,'0303450047');
+  assert.equal(restored.entries()[0].quantidade,'300');assert.equal(restored.entries()[0].confirmed,true);
+  assert.equal(f.counted.size,1);assert.equal(f.calls.filter(c=>c.action==='count_ack').length,acknowledgments);
+  assert.equal(restored.binding.historyCursor,1);assert.equal(restored.binding.historyError,'');
+});
+
+test('detalhe indisponível não transforma a consulta em entrada nem bloqueia novas leituras válidas',async()=>{
+  const f=queueFixture();f.setReads([{seq:1,uid}]);
+  await f.queue.start(config,f.context);await f.queue.poll();await f.queue.pause();
+  f.registry.delete(uid);f.setReads([{seq:1,uid},{seq:2,uid:second}]);
+  const restored=new CountQueue(f.options);await restored.start(config,f.context);await restored.loadHistory();
+  assert.ok(restored.binding.historyError);assert.deepEqual(restored.entries(),[]);
+  await restored.poll();assert.equal(f.state().session.cursor,2);assert.equal(restored.blocked,false);
+  assert.equal(restored.entries()[0].item,'T002');assert.equal(f.counted.size,2);
+});
+
+test('retomar a mesma sessão preserva detalhes; sessão nova limpa a lista',async()=>{
+  const f=queueFixture();await f.queue.start(config,f.context);await f.queue.poll();await f.queue.pause();
+  await f.queue.start(config,f.context);assert.equal(f.queue.entries().length,2);
+  assert.equal(f.queue.binding.historyCursor,2);
+  await f.queue.pause();await f.queue.start({...config,sessionId:'44444444-4444-4444-8444-444444444444'},f.context);
+  assert.deepEqual(f.queue.entries(),[]);
+});
+
+test('troca de tela durante a consulta dos detalhes descarta a resposta atrasada',async()=>{
+  const f=queueFixture();f.setReads([{seq:1,uid}]);
+  await f.queue.start(config,f.context);await f.queue.poll();await f.queue.pause();
+  let release;
+  const restored=new CountQueue({...f.options,resolve:()=>new Promise(resolve=>release=resolve)});
+  await restored.start(config,f.context);const pending=restored.loadHistory();await new Promise(resolve=>setImmediate(resolve));
+  f.deactivate();release({item:'T001',codigo:'0303450047',quantidade:'300',unidade:'KG'});await pending;
+  assert.deepEqual(restored.entries(),[]);assert.equal(f.state().session.cursor,1);
 });
 test('ACK gravado com resposta perdida é repetido sem reaplicar qualquer embalagem',async()=>{
   const f=queueFixture(),base=f.options.api;let lose=true,applied=0,now=0;

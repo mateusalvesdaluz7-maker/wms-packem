@@ -238,24 +238,41 @@
     reader=result;link=result.webhookUrl;save({...saved(),readerId:reader.id});
     notice('Conexão criada. Copie o endereço para a URL do perfil TapPony ou para o Webhook do NFC.cool. Use autenticação Nenhuma.');
   }
-  async function arm(){
+  async function arm(prepared,context){
     ensureAlone();if(queue.binding&&queue.binding.running)throw new Error('Pause a contagem antes de cadastrar uma tag.');
-    var selected=root.WmsNfcPrepare.current();if(!selected)throw new Error('Primeiro selecione a embalagem cadastrada na lista acima.');
+    var selected=prepared||root.WmsNfcPrepare.current();context=context||root.WmsNfcReader.makeLabelContext();
+    if(!selected)throw new Error('Primeiro selecione a embalagem cadastrada na lista acima.');
+    if(!context.isActive())throw new Error('A tela, a etiqueta ou o usuário mudou. Selecione a bobina novamente.');
     if(enrollment){
+      if(enrollment.user!==user())throw new Error('O usuário mudou. Abra novamente o cadastro NFC.');
       if(enrollment.item!==selected.tag.item)throw new Error('Conclua ou cancele o cadastro atual antes de escolher outra embalagem.');
+      var previousOperation=enrollment.operationId;
       reader=await client.request('enroll_arm',{readerId:enrollment.readerId,operationId:enrollment.operationId,item:enrollment.item});
-      await checkEnrollment();return;
+      await checkEnrollment();return previousOperation;
     }
     await selectReader();if(!reader)throw new Error('Use Conectar celular primeiro.');
+    if(!context.isActive())throw new Error('A tela, a etiqueta ou o usuário mudou. Selecione a bobina novamente.');
     var data={readerId:reader.id,operationId:crypto.randomUUID(),item:selected.tag.item};
     // Save the operation before sending: a retry/reload must never arm the next tag.
     enrollment={...data,user:user()};save({...saved(),enrollment:enrollment});
     try{reader=await client.request('enroll_arm',data);notice('Aguardando o chip da embalagem '+data.item+' por 2 minutos. No TapPony, deixe Lote desligado e leia somente essa tag. Volte ao WMS para conferir o vínculo.');}
     catch(error){notice(error.message+' Use Conferir cadastro para consultar o resultado ou cancelar.');}
+    return data.operationId;
+  }
+  async function registerItem(id,context){
+    if(working)throw new Error('Aguarde a operação NFC atual terminar.');
+    working=true;paint();
+    try{
+      ensureAlone();if(queue.binding&&queue.binding.running)throw new Error('Pause a contagem antes de cadastrar uma tag.');
+      if(enrollment&&enrollment.item!==id)throw new Error('Conclua ou cancele o cadastro atual antes de escolher outra embalagem.');
+      var prepared=await root.WmsNfcPrepare.prepare(id,context);
+      var operationId=await arm(prepared,context);return {tag:prepared.tag,operationId:operationId};
+    }finally{working=false;paint();}
   }
   async function checkEnrollment(){
     if(!enrollment||enrollment.user!==user())return;
-    var data=await client.request('reader_get',{readerId:enrollment.readerId});reader=data;
+    var operation=enrollment,data=await client.request('reader_get',{readerId:operation.readerId});
+    if(enrollment!==operation||operation.user!==user())return;reader=data;
     var result=data.enrollment;
     if(result&&result.operationId===enrollment.operationId){
       if(result.status==='bound')notice('Tag '+result.uid+' cadastrada na embalagem '+enrollment.item+'. Agora ela pode ser lida na contagem.');
@@ -267,7 +284,9 @@
   }
   async function cancel(){
     var op=enrollment;if(!op)return;
-    await client.request('enroll_cancel',{readerId:op.readerId,operationId:op.operationId});enrollment=null;
+    if(op.user!==user())throw new Error('O usuário mudou. Abra novamente o cadastro NFC.');
+    await client.request('enroll_cancel',{readerId:op.readerId,operationId:op.operationId});
+    if(enrollment!==op||op.user!==user())return;enrollment=null;
     var state=saved();delete state.enrollment;save(state);notice('Cadastro encerrado. Consulte o resultado antes de reutilizar a tag.');
   }
   async function start(target,fresh){
@@ -324,7 +343,7 @@
       }
       var controls=document.createElement('div');panel.appendChild(controls);
       if(target==='v-labels'){
-        button(controls,'Cadastrar próxima tag',arm);button(controls,'Conferir cadastro',checkEnrollment);button(controls,'Cancelar cadastro',cancel);
+        button(controls,'Cadastrar próxima tag',function(){return arm();});button(controls,'Conferir cadastro',checkEnrollment);button(controls,'Cancelar cadastro',cancel);
       }else{
         button(controls,'Iniciar / retomar contagem',function(){return start(target);});
         button(controls,'Nova captura após pausa',function(){return start(target,true);});
@@ -391,6 +410,7 @@
     document.querySelectorAll('[data-nfc-mobile-link]').forEach(function(n){if(n.value!==link)n.value=link;});
     paintTest();
     paintCountDetails();
+    root.dispatchEvent(new CustomEvent('packem-nfc-mobile-state'));
   }
   async function tick(){
     mount();var current=user();
@@ -403,6 +423,8 @@
     if(ticking||working||!current||document.hidden)return;ticking=true;
     try{if(enrollment)await checkEnrollment();else{await queue.loadHistory();await queue.poll();paintCountDetails();}}catch(error){notice(error.message);}finally{ticking=false;}
   }
-  root.WmsNfcMobile={active:function(){return working||!!enrollment||!!(queue.binding&&queue.binding.running);},queue:queue};
+  root.WmsNfcMobile={active:function(){return working||!!enrollment||!!(queue.binding&&queue.binding.running);},queue:queue,
+    registerItem:registerItem,checkEnrollment:checkEnrollment,cancelEnrollment:cancel,
+    enrollmentState:function(){return {owner:user(),working:working,pendingItem:enrollment&&enrollment.item,operationId:enrollment&&enrollment.operationId,result:reader&&reader.enrollment?{...reader.enrollment}:null,message:message};}};
   setInterval(tick,750);document.addEventListener('visibilitychange',tick);tick();
 })(typeof window!=='undefined'?window:globalThis);

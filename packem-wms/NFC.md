@@ -11,6 +11,8 @@ Em **NFC → Cadastrar tags**, a origem **Recebimento, NF e romaneios** reúne o
 
 Depois de selecionar a etiqueta, use **Cadastrar próxima tag** e aproxime somente o chip correspondente no TapPony em leitura única. Na contagem, o UID recupera essa mesma embalagem e seus dados atuais; o destino aplica a leitura pelo fluxo normal do WMS.
 
+No **Recebimento**, cada cartão possui **Vincular tag NFC**. Um clique consulta o ID, código e quantidade da própria pendência e arma o cadastro no leitor já conectado, exibindo um diálogo sobre a mesma tela. A confirmação mostra o UID recebido; o diálogo permite conferir e cancelar uma operação pendente. Selecionar outra bobina fica bloqueado até concluir ou cancelar o vínculo atual. Não renova o endereço do celular nem executa Armazenar, Produção ou uma nova entrada de estoque.
+
 O TapPony usa o mesmo endereço privado do receptor NFC com um perfil POST/JSON: `{"identifier":"{uid}","date":"{timestamp}","content":"{payload}"}`. A leitura física e a entrega de dois UIDs distintos foram verificadas no piloto de homologação. Para vincular um chip use leitura única; para contar use Lote. O cadastro e a contagem continuam dependendo dos dados e permissões do WMS.
 
 O painel de contagem mostra uma tabela por embalagem com ID, código do material, peso líquido ou quantidade e unidade. Uma linha só aparece depois que o fluxo normal confirma a aplicação; uma confirmação de fila pendente aparece como tal. Releituras não criam uma segunda linha. Tags sem vínculo bloqueiam a fila e não são apresentadas como embalagens processadas.

@@ -8,4 +8,4 @@ function unitOf(){return 'KG';}
 window.bobFetch=async function(id){return catalog[id]||null;};
 window.floorHasEt=function(id){return counted.has(id);};
 window.floorAdd=async function(id){if(!catalog[id]||counted.has(id))return;counted.set(id,catalog[id]);var sum=0,body=document.getElementById('qa-items');body.replaceChildren();counted.forEach(function(item,key){sum+=item.pl;var row=document.createElement('tr');[key,item.pr,String(item.pl).replace('.',',')+' kg'].forEach(function(value){var cell=document.createElement('td');cell.textContent=value;row.appendChild(cell);});body.appendChild(row);});document.getElementById('qa-total').textContent=counted.size+' etiquetas · '+String(sum).replace('.',',')+' kg';};
-</script><script src="../../wms-nfc-reader.js?v=20261015-reader1"></script></body></html>
+</script><script src="../../wms-nfc-labels.js?v=20261018-recebimento1"></script><script src="../../wms-nfc-reader.js?v=20261015-reader1"></script></body></html>

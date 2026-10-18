@@ -1803,7 +1803,7 @@ var _bobFetchPending={};
 async function bobFetch(et){
   if(!et)return null;et=String(et).trim().toUpperCase();
   try{if(BOB[et]&&BOB[et].pr)return BOB[et];}catch(e){}
-  try{if(typeof window.etqLookup==='function'){var le=window.etqLookup(et);if(le&&le.pr){var lo=Object.assign({},BOB[et]||{},{pr:le.pr,desc:le.desc||'',pl:Number(le.pl)||0});BOB[et]=lo;return lo;}}}catch(e){}
+  try{if(typeof window.etqLookup==='function'){var le=window.etqLookup(et);if(le&&le.pr){var lo=Object.assign({},BOB[et]||{},{pr:le.pr,desc:le.desc||'',pl:Number(le.pl)||0,uCom:le.uCom||''});BOB[et]=lo;return lo;}}}catch(e){}
   try{if(typeof STAGE!=='undefined'){var st=STAGE.find(function(s){return String(s.et||'').trim().toUpperCase()===et;});if(st&&st.pr){var so=Object.assign({},BOB[et]||{},{pr:st.pr,desc:st.desc||'',pl:Number(st.pl)||0});BOB[et]=so;return so;}}}catch(e){}
   if(!supa)throw new Error('Sem conexão com a nuvem para consultar a etiqueta');
   if(_bobFetchPending[et])return _bobFetchPending[et];
@@ -1811,12 +1811,12 @@ async function bobFetch(et){
       var limite=new Promise(function(_,rej){setTimeout(function(){rej(new Error('Tempo esgotado ao consultar o catálogo na nuvem'));},3500);});
       var consultas=Promise.allSettled([
         supa.from('bobinas').select('etiqueta,pr,descricao,pl').eq('etiqueta',et).limit(1),
-        supa.from('etiquetas').select('id,c_prod,bobina,n_romaneio,gramatura,kg').eq('id',et).limit(1)
+        supa.from('etiquetas').select('id,c_prod,bobina,n_romaneio,gramatura,kg,u_com').eq('id',et).limit(1)
       ]);
       var rr=await Promise.race([consultas,limite]);
       var r=rr[0].status==='fulfilled'?rr[0].value:null,r2=rr[1].status==='fulfilled'?rr[1].value:null;
       if(r&&r.data&&r.data.length){var row=r.data[0],o=Object.assign({},BOB[et]||{},{pr:row.pr,desc:row.descricao||'',pl:Number(row.pl)||0});BOB[et]=o;try{saveBOB();}catch(e){}return o;}
-      if(r2&&r2.data&&r2.data.length){var e=r2.data[0],pr2=(e.c_prod||e.bobina||e.n_romaneio||''),desc2=(e.gramatura||''),pl2=Number(e.kg)||0;if(pr2){var o2=Object.assign({},BOB[et]||{},{pr:String(pr2),desc:String(desc2),pl:pl2});BOB[et]=o2;try{saveBOB();}catch(e){}return o2;}}
+      if(r2&&r2.data&&r2.data.length){var e=r2.data[0],pr2=(e.c_prod||e.bobina||e.n_romaneio||''),desc2=(e.gramatura||''),pl2=Number(e.kg)||0;if(pr2){var o2=Object.assign({},BOB[et]||{},{pr:String(pr2),desc:String(desc2),pl:pl2,uCom:e.u_com||''});BOB[et]=o2;try{saveBOB();}catch(e){}return o2;}}
       var erro=(rr[0].status==='rejected'?rr[0].reason:(r&&r.error))||(rr[1].status==='rejected'?rr[1].reason:(r2&&r2.error));
       if(erro)throw new Error('Falha ao consultar o catálogo na nuvem: '+String((erro&&erro.message)||erro));
       if(!r||!Array.isArray(r.data)||!r2||!Array.isArray(r2.data))throw new Error('Resposta incompleta do catálogo na nuvem');

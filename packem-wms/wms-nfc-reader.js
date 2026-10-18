@@ -45,6 +45,11 @@
   function notice(text){lastNotice=text;document.querySelectorAll('[data-nfc-reader-status]').forEach(function(node){node.textContent=text;});}
   function send(type,extra){if(station && !station.closed)station.postMessage(Object.assign({type:type,linkId:linkId},extra||{}),stationOrigin);}
   function activeView(){return (document.querySelector('.view.active')||{}).id;}
+  async function lookupLabel(id){
+    if(root.WmsNfcLabels)return root.WmsNfcLabels.lookupCurrent(id);
+    var item=typeof root.bobFetch==='function'?await root.bobFetch(id):null;
+    return item?{codigo:String(item.pr||''),quantidade:item.pl,unidade:typeof unitOf==='function'?unitOf(item.pr):''}:null;
+  }
   function context(){
     return makeContext(destination,function(){return connected && !blocked;});
   }
@@ -52,14 +57,14 @@
     var target=targets[view],user=(typeof session!=='undefined' && session)?session.u:null;
     return {
       isActive:function(){return (!enabled||enabled()) && !document.hidden && !!target && !!user && typeof session!=='undefined' && !!session && session.u===user && (root.WmsNfcWorkspace?root.WmsNfcWorkspace.isActive(view):activeView()===view) && root[target.mode]!=='out' && typeof root[target.has]==='function' && typeof root[target.add]==='function';},
-      lookup:async function(id){var item=typeof root.bobFetch==='function'?await root.bobFetch(id):null;return item?{codigo:String(item.pr||''),quantidade:item.pl,unidade:typeof unitOf==='function'?unitOf(item.pr):''}:null;},
+      lookup:lookupLabel,
       has:function(id){return root[target.has](id);},add:function(id){return root[target.add](id);}
     };
   }
   function makeLabelContext(){
     var user=typeof session!=='undefined'&&session?session.u:null;
     return {isActive:function(){return !document.hidden&&!!user&&typeof session!=='undefined'&&!!session&&session.u===user&&(root.WmsNfcWorkspace?root.WmsNfcWorkspace.isActive('v-labels'):activeView()==='v-labels');},
-      lookup:async function(id){var item=typeof root.bobFetch==='function'?await root.bobFetch(id):null;return item?{codigo:String(item.pr||''),quantidade:item.pl,unidade:typeof unitOf==='function'?unitOf(item.pr):''}:null;}};
+      lookup:lookupLabel};
   }
   async function receive(data){
     if(!connected || busy || blocked)return;

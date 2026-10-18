@@ -7,6 +7,10 @@ Esta alteração conecta o bloco de etiquetas rastreáveis preparado pelo WMS à
 
 ## TapPony e detalhes das embalagens na contagem
 
+Em **NFC → Cadastrar tags**, a origem **Recebimento, NF e romaneios** reúne os itens aguardando destino no Recebimento e as etiquetas fiscais já existentes. A busca aceita ID, código, descrição e número da NF/romaneio. **Todas as etiquetas** inclui também o catálogo de bobinas e as etiquetas manuais. A seleção reutiliza o ID original e carrega código do material, peso líquido (KG) ou metragem (MT), preservando a unidade da etiqueta; o peso bruto não é usado. Quando o mesmo ID existe no catálogo e no documento fiscal, os dados da etiqueta fiscal têm prioridade. Selecionar e vincular o chip não dá outra entrada nem cria uma etiqueta nova.
+
+Depois de selecionar a etiqueta, use **Cadastrar próxima tag** e aproxime somente o chip correspondente no TapPony em leitura única. Na contagem, o UID recupera essa mesma embalagem e seus dados atuais; o destino aplica a leitura pelo fluxo normal do WMS.
+
 O TapPony usa o mesmo endereço privado do receptor NFC com um perfil POST/JSON: `{"identifier":"{uid}","date":"{timestamp}","content":"{payload}"}`. A leitura física e a entrega de dois UIDs distintos foram verificadas no piloto de homologação. Para vincular um chip use leitura única; para contar use Lote. O cadastro e a contagem continuam dependendo dos dados e permissões do WMS.
 
 O painel de contagem mostra uma tabela por embalagem com ID, código do material, peso líquido ou quantidade e unidade. Uma linha só aparece depois que o fluxo normal confirma a aplicação; uma confirmação de fila pendente aparece como tal. Releituras não criam uma segunda linha. Tags sem vínculo bloqueiam a fila e não são apresentadas como embalagens processadas.

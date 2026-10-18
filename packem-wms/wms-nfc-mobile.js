@@ -251,6 +251,9 @@
       await checkEnrollment();return previousOperation;
     }
     await selectReader();if(!reader)throw new Error('Use Conectar celular primeiro.');
+    reader=await client.request('reader_get',{readerId:reader.id});
+    if(reader.mode==='count')throw new Error('O leitor está em contagem. Pause a captura antes de vincular esta tag. A fila recebida será preservada.');
+    if(reader.mode==='enroll'&&Date.parse(reader.armUntil)>Date.now())throw new Error('Há um cadastro NFC ativo em outra tela. Conclua ou cancele essa operação antes de vincular esta bobina.');
     if(!context.isActive())throw new Error('A tela, a etiqueta ou o usuário mudou. Selecione a bobina novamente.');
     var data={readerId:reader.id,operationId:crypto.randomUUID(),item:selected.tag.item};
     // Save the operation before sending: a retry/reload must never arm the next tag.
@@ -268,6 +271,10 @@
       var prepared=await root.WmsNfcPrepare.prepare(id,context);
       var operationId=await arm(prepared,context);return {tag:prepared.tag,operationId:operationId};
     }finally{working=false;paint();}
+  }
+  async function pauseCapture(){
+    if(working)throw new Error('Aguarde a operação NFC atual terminar.');working=true;paint();
+    try{await pause();}finally{working=false;paint();}
   }
   async function checkEnrollment(){
     if(!enrollment||enrollment.user!==user())return;
@@ -424,7 +431,7 @@
     try{if(enrollment)await checkEnrollment();else{await queue.loadHistory();await queue.poll();paintCountDetails();}}catch(error){notice(error.message);}finally{ticking=false;}
   }
   root.WmsNfcMobile={active:function(){return working||!!enrollment||!!(queue.binding&&queue.binding.running);},queue:queue,
-    registerItem:registerItem,checkEnrollment:checkEnrollment,cancelEnrollment:cancel,
-    enrollmentState:function(){return {owner:user(),working:working,pendingItem:enrollment&&enrollment.item,operationId:enrollment&&enrollment.operationId,result:reader&&reader.enrollment?{...reader.enrollment}:null,message:message};}};
+    registerItem:registerItem,checkEnrollment:checkEnrollment,cancelEnrollment:cancel,pauseCapture:pauseCapture,
+    enrollmentState:function(){return {owner:user(),working:working,mode:queue.binding&&queue.binding.running?'count':reader&&reader.mode,pendingItem:enrollment&&enrollment.item,operationId:enrollment&&enrollment.operationId,result:reader&&reader.enrollment?{...reader.enrollment}:null,message:message};}};
   setInterval(tick,750);document.addEventListener('visibilitychange',tick);tick();
 })(typeof window!=='undefined'?window:globalThis);

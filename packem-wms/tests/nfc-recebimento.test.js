@@ -1,6 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createContext}=require('../wms-nfc-recebimento.js');
 const {prepare}=require('../wms-nfc-preparar.js');
+const fs=require('node:fs'),vm=require('node:vm');
 const id='RNFCT261018048C01';
 function fixture(){
   const state={user:'admin',view:'v-recv',visible:true,permitted:true,pending:true},calls=[];
@@ -26,4 +27,45 @@ test('bobina retirada do recebimento durante a consulta não fica pronta para ar
   let pending=true;const context=createContext(id,{user:()=> 'admin',view:()=> 'v-recv',visible:()=>true,permitted:()=>true,pending:()=>pending,
     lookup:async()=>{pending=false;return {codigo:'0303410008',quantidade:6300,unidade:'MT'};}});
   await assert.rejects(prepare(id,context),/etiqueta.*mudou/);
+});
+
+// Exercise the browser entry point as well as its pure context: a blocked click
+// must render feedback before it returns, including after the list is rebuilt.
+function uiFixture(snapshot={}){
+  const listeners={},calls=[];
+  class Element {
+    constructor(tag){this.tagName=tag;this.children=[];this.dataset={};this.style={};this.hidden=false;this.textContent='';}
+    appendChild(node){if(node.parentElement)node.parentElement.children=node.parentElement.children.filter(x=>x!==node);this.children.push(node);node.parentElement=this;return node;}
+    setAttribute(key,value){this[key]=value;}
+    get isConnected(){return this===body||!!this.parentElement&&this.parentElement.isConnected;}
+    matches(selector){return selector[0]==='#'?this.id===selector.slice(1):selector==='[data-az]'?'az' in this.dataset:selector==='[data-nfc-receber]'?'nfcReceber' in this.dataset:false;}
+    querySelectorAll(selector){return this.children.flatMap(node=>[...(node.matches(selector)?[node]:[]),...node.querySelectorAll(selector)]);}
+    querySelector(selector){return this.querySelectorAll(selector)[0]||null;}
+    closest(selector){return this.matches(selector)?this:this.parentElement&&this.parentElement.closest(selector);}
+    scrollIntoView(){}
+  }
+  const body=new Element('body'),view=new Element('section'),list=new Element('div'),card=new Element('article'),actions=new Element('div'),store=new Element('button');
+  view.id='v-recv';list.id='stageList';store.dataset.az=id;body.appendChild(view);view.appendChild(list);list.appendChild(card);card.appendChild(actions);actions.appendChild(store);
+  const document={body,hidden:false,createElement:tag=>{assert.notEqual(tag,'dialog');return new Element(tag);},getElementById:key=>body.querySelector('#'+key),querySelector:selector=>selector==='.view.active'?view:body.querySelector(selector),addEventListener:(name,fn)=>listeners[name]=fn};
+  const state={owner:'admin',working:false,pendingItem:null,operationId:null,message:'Aguardando chip',...snapshot};
+  const mobile={enrollmentState:()=>state,registerItem:async(item,context)=>{calls.push('register');assert.equal(context.isActive(),true);if(state.mode==='count')throw Error('O leitor está em contagem. Pause a captura.');state.pendingItem=item;state.operationId='operation';return {tag:{item,codigo:'0303450047',quantidade:'25',unidade:'KG'},operationId:'operation'};},pauseCapture:async()=>{calls.push('pause');state.mode='idle';},cancelEnrollment:async()=>{state.pendingItem=null;},checkEnrollment:async()=>{}};
+  const root={WmsNfcMobile:mobile,WmsNfcLabels:{sources:()=>({stage:[{et:id}]}),lookupCurrent:async()=>({codigo:'0303450047',quantidade:25,unidade:'KG'})},allowedViews:()=>null,addEventListener:(name,fn)=>listeners[name]=fn};
+  vm.runInNewContext(fs.readFileSync(require.resolve('../wms-nfc-recebimento.js'),'utf8'),{window:root,document,session:{u:'admin'},MutationObserver:class{observe(){}},setTimeout});
+  return {root,document,state,mobile,calls,card,Element,async click(){const target=card.querySelector('[data-nfc-receber]');listeners.click({target,preventDefault(){},stopPropagation(){}});await new Promise(resolve=>setImmediate(resolve));},panel:()=>document.getElementById('packemNfcRecebimento'),status:()=>document.getElementById('packemNfcRecebimento').children.find(x=>x.role==='status').textContent};
+}
+test('clique com cadastro anterior pendente abre aviso visível e não arma outra bobina',async()=>{
+  const f=uiFixture({pendingItem:'ETIQUETA-ANTERIOR',operationId:'previous'});await f.click();
+  assert.equal(f.panel().hidden,false);assert.match(f.status(),/cadastro pendente da etiqueta ETIQUETA-ANTERIOR/);assert.deepEqual(f.calls,[]);
+});
+test('módulo incompleto mostra instrução de atualização em vez de falhar silenciosamente',async()=>{
+  const f=uiFixture();f.mobile.enrollmentState=null;await f.click();assert.equal(f.panel().hidden,false);assert.match(f.status(),/Ctrl \+ F5/);assert.deepEqual(f.calls,[]);
+});
+test('botão recriado continua recebendo o clique sem depender de onclick ou diálogo nativo',async()=>{
+  const f=uiFixture(),old=f.card.querySelector('[data-nfc-receber]'),replacement=new f.Element('button');replacement.dataset.nfcReceber=id;f.card.children=f.card.children.filter(x=>x!==old);f.card.appendChild(replacement);
+  await f.click();assert.deepEqual(f.calls,['register']);assert.equal(f.panel().hidden,false);assert.match(f.status(),/Aguardando chip/);
+});
+test('contagem ativa exige pausa explícita e só depois prepara a tag clicada',async()=>{
+  const f=uiFixture({mode:'count'});await f.click();assert.deepEqual(f.calls,['register']);assert.match(f.status(),/leitor está em contagem/);
+  const controls=f.panel().children.find(x=>x.children.some(b=>b.textContent==='Pausar contagem e preparar esta tag')),button=controls.children.find(b=>b.textContent==='Pausar contagem e preparar esta tag');
+  assert.equal(button.hidden,false);await button.onclick();assert.deepEqual(f.calls,['register','pause','register']);assert.equal(f.state.pendingItem,id);
 });

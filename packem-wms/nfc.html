@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Packem · Etiqueta NFC</title>
+  <link rel="stylesheet" href="nfc-link.css">
+  <script src="nfc-link-core.js" defer></script>
+  <script src="nfc-link-page.js" defer></script>
+</head>
+<body class="nfc-page">
+  <header class="nfc-top"><a href="index.html" class="nfc-brand">PACKEM <span>WMS</span></a><span>Estoque por aproximação</span></header>
+  <main class="nfc-main">
+    <div class="nfc-eyebrow">IPHONE · NFC POR LINK</div>
+    <section id="nfc-received" hidden>
+      <h1>Etiqueta recebida.<br>Vamos conferir no WMS.</h1>
+      <p class="nfc-lead">O link identifica o material. Entre no WMS e escolha conferir esta etiqueta.</p>
+      <div class="nfc-card">
+        <span class="nfc-label">CÓDIGO DA ETIQUETA</span>
+        <strong id="nfc-code" class="nfc-code"></strong>
+        <a id="nfc-open" class="nfc-primary" href="index.html">Abrir no WMS →</a>
+        <p class="nfc-small">O código será preenchido na Consulta de Etiqueta após sua confirmação. Nenhuma entrada ou saída é registrada pelo link.</p>
+      </div>
+      <a class="nfc-secondary" href="nfc.html">Preparar outra etiqueta</a>
+    </section>
+    <section id="nfc-generator" hidden>
+      <h1>Seu iPhone.<br>Sua etiqueta. Seu WMS.</h1>
+      <p class="nfc-lead">Prepare um link para gravar na etiqueta NFC. Depois, aproxime o iPhone 11 e toque na notificação para abrir o WMS.</p>
+      <div class="nfc-columns">
+        <div class="nfc-card">
+          <h2>Prepare a etiqueta</h2>
+          <form id="nfc-form">
+            <label for="nfc-input">Código já cadastrado no WMS</label>
+            <input id="nfc-input" name="etiqueta" placeholder="Ex.: ETQ-001" maxlength="128" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+            <button class="nfc-primary" type="submit">Gerar link NFC</button>
+          </form>
+          <p id="nfc-error" role="alert" class="nfc-error" hidden></p>
+          <div id="nfc-generated" hidden>
+            <label for="nfc-url">Link para gravar como URL / URI NDEF</label>
+            <textarea id="nfc-url" rows="4" readonly></textarea>
+            <div class="nfc-actions"><button id="nfc-copy" type="button" class="nfc-outline">Copiar link</button><a id="nfc-test" href="nfc.html">Testar abertura →</a></div>
+            <p id="nfc-copy-status" role="status" class="nfc-small"></p>
+          </div>
+        </div>
+        <aside class="nfc-card nfc-steps">
+          <h2>Uma vez por etiqueta</h2>
+          <ol><li>Informe o código do material ou da bobina usado no WMS.</li><li>Grave o link gerado como <strong>URL / URI NDEF</strong>, usando um gravador NFC.</li><li>Aproxime a parte superior do iPhone da etiqueta, com a tela em uso.</li><li>Toque na notificação, abra o WMS e confira a etiqueta.</li></ol>
+          <p class="nfc-small">Depois de gravar o link, a leitura diária dispensa TapPony e app próprio. O link também pode ser aberto para teste antes de gravar uma tag.</p>
+        </aside>
+      </div>
+    </section>
+    <section id="nfc-invalid" hidden><h1>Não foi possível ler este link.</h1><p id="nfc-invalid-message" role="alert" class="nfc-lead"></p><a class="nfc-primary" href="nfc.html">Preparar um novo link</a></section>
+    <footer class="nfc-footer">Use uma etiqueta NFC compatível e gravável. Este fluxo usa o código gravado no link; ele não lê o UID pelo Safari. O WMS continua exigindo login e permissões. <a href="https://developer.apple.com/documentation/corenfc/adding-support-for-background-tag-reading" target="_blank" rel="noopener noreferrer">Como o iPhone abre etiquetas NFC ↗</a></footer>
+  </main>
+</body>
+</html>

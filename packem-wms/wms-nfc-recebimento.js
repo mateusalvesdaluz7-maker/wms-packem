@@ -48,7 +48,7 @@
   }
   function show(id){
     var list=document.getElementById('stageList'),button=list&&Array.from(list.querySelectorAll('[data-nfc-receber]')).find(function(node){return node.dataset.nfcReceber===id;});
-    var host=button&&button.parentElement||document.getElementById('v-recv');
+    var host=selection&&selection.options&&selection.options.host||button&&button.parentElement||document.getElementById('v-recv');
     if(host&&panel.parentElement!==host)host.appendChild(panel);
     panel.hidden=false;panel.style.display='block';panel.scrollIntoView({block:'nearest'});
   }
@@ -66,8 +66,8 @@
     checkButton=button('Conferir vínculo');cancelButton=button('Cancelar vínculo');retryButton=button('Tentar novamente');pauseButton=button('Pausar contagem e preparar esta tag');closeButton=button('Fechar');
     checkButton.onclick=function(){return perform(function(){return root.WmsNfcMobile.checkEnrollment();});};
     cancelButton.onclick=function(){return perform(async function(){await root.WmsNfcMobile.cancelEnrollment();selection.error='Cadastro encerrado. Toque em Tentar novamente para preparar esta bobina.';});};
-    retryButton.onclick=function(){return register(selection.id);};
-    pauseButton.onclick=async function(){var current=selection;await perform(function(){return root.WmsNfcMobile.pauseCapture();});if(selection===current&&!current.error)await register(current.id);};
+    retryButton.onclick=function(){return register(selection.id,selection.options);};
+    pauseButton.onclick=async function(){var current=selection;await perform(function(){return root.WmsNfcMobile.pauseCapture();});if(selection===current&&!current.error)await register(current.id,current.options);};
     closeButton.onclick=function(){if(!busy){panel.hidden=true;panel.style.display='none';if(selection)selection.closed=true;}};
   }
   async function perform(callback){
@@ -75,10 +75,10 @@
     var current=selection;busy=true;current.error='';paint();
     try{await callback();}catch(error){report(error,current);}finally{busy=false;paint();}
   }
-  async function register(id){
+  async function register(id,options){
     mountPanel();
     if(busy){if(selection){show(selection.id);setText(status,'O vínculo da bobina '+selection.id+' está sendo preparado. Aguarde a resposta.');}return;}
-    selection={id:id,owner:user(),operationId:null,error:'',closed:false,blockedBy:null};
+    selection={id:id,owner:user(),operationId:null,error:'',closed:false,blockedBy:null,options:options||null};
     setText(detail,'Etiqueta '+id);setText(status,'Consultando código e peso da bobina…');show(id);busy=true;
     var current=selection;
     try{
@@ -86,7 +86,7 @@
       if(snapshot.pendingItem&&snapshot.pendingItem!==id){current.blockedBy=snapshot.pendingItem;return;}
       current.operationId=snapshot.pendingItem===id?snapshot.operationId:null;
       if(!root.WmsNfcLabels)throw new Error('A consulta das etiquetas não carregou. Atualize a página e tente novamente.');
-      paint();var result=await root.WmsNfcMobile.registerItem(id,context(id));
+      paint();var result=await root.WmsNfcMobile.registerItem(id,options&&options.context||context(id));
       if(selection!==current||current.owner!==user())return;
       current.operationId=result.operationId;var tag=result.tag;
       setText(detail,'Etiqueta '+tag.item+' · Código '+tag.codigo+' · '+(tag.unidade==='KG'?'Peso líquido':tag.unidade==='MT'?'Metragem':'Quantidade')+': '+Number(tag.quantidade).toLocaleString('pt-BR',{maximumFractionDigits:6})+' '+tag.unidade);

@@ -1302,6 +1302,7 @@ $('#genBobStock').onclick=()=>{const sel=$('#lblStreet').value;let rows=occSpace
     for(var i=0;i<cp;i++){var id=window.nfMakeLabel({cProd:pr,xProd:d,kg:qt,lote:lote,un:un,_dim:(fmtOpt&&fmtOpt.dim)||null,_orient:(fmtOpt&&fmtOpt.orient)||'retrato'});if(id)ids.push(id);}
     var box=document.getElementById('rastLast');
     if(box&&ids.length){box.innerHTML='<div style="background:#f0fdf4;border:1px solid #dcfce7;border-radius:10px;padding:12px;font-size:.84rem;color:#15803d">'+ids.length+' etiqueta(s) gerada(s):<div style="font-family:monospace;font-weight:800;font-size:1rem;margin:6px 0;color:#166534;word-break:break-all">'+ids.join(' · ')+'</div><div style="color:var(--muted);font-size:.76rem">Anote o ID. Se a etiqueta rasgar, use a aba <b>Rastreador</b> → digite o ID → <b>Reimprimir esta etiqueta</b> (não gere de novo, pra não duplicar saldo).</div></div>';}
+    try{window.dispatchEvent(new CustomEvent('packem-rastreavel-generated',{detail:{ids:ids.slice(),owner:typeof session!=='undefined'&&session?session.u:''}}));}catch(_nfcEvent){}
     toast(ids.length+' etiqueta(s) rastreável(is) criada(s)');
   };
   if(typeof askLabelFormat==='function')askLabelFormat('Etiqueta rastreável',_fazer);else _fazer(null);

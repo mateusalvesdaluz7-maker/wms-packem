@@ -69,3 +69,13 @@ test('contagem ativa exige pausa explícita e só depois prepara a tag clicada',
   const controls=f.panel().children.find(x=>x.children.some(b=>b.textContent==='Pausar contagem e preparar esta tag')),button=controls.children.find(b=>b.textContent==='Pausar contagem e preparar esta tag');
   assert.equal(button.hidden,false);await button.onclick();assert.deepEqual(f.calls,['register','pause','register']);assert.equal(f.state.pendingItem,id);
 });
+
+test('painel compartilhado mantém o contexto e o cartão de Rastreável ao pausar e tentar novamente',async()=>{
+  const f=uiFixture({mode:'count'}),host=new f.Element('article');f.document.body.appendChild(host);
+  const context={isActive:()=>true,lookup:async()=>({codigo:'0303410008',quantidade:6300,unidade:'MT'})};
+  f.mobile.registerItem=async(item,received)=>{f.calls.push('register');assert.equal(received,context);if(f.state.mode==='count')throw Error('Pause a contagem');f.state.pendingItem=item;return {tag:{item,codigo:'0303410008',quantidade:'6300',unidade:'MT'},operationId:'operation'};};
+  await f.root.WmsNfcRecebimento.register('R-MANUAL-001',{host,context});assert.equal(f.panel().parentElement,host);
+  const pause=f.panel().children.flatMap(n=>n.children).find(b=>b.textContent==='Pausar contagem e preparar esta tag');
+  await pause.onclick();assert.deepEqual(f.calls,['register','pause','register']);assert.equal(f.panel().parentElement,host);assert.equal(f.state.pendingItem,'R-MANUAL-001');
+  assert.match(f.panel().children[1].textContent,/Código 0303410008 · Metragem: 6\.300 MT/);
+});

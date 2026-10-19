@@ -136,5 +136,6 @@ A migração `202610180001_nfc_unlink.sql` adiciona uma versão por vínculo e p
 ## Telas NFC
 
 - **Recebimento:** em cada bobina, use **Vincular tag NFC** para associar o chip à etiqueta recebida.
+- **Gestão de Etiquetas → Rastreável:** gere e imprima a etiqueta normalmente. No painel logo abaixo, escolha o ID e use **Vincular tag NFC**. No TapPony, mantenha **Lote desligado** e leia somente o chip dessa etiqueta; aguarde a confirmação no WMS. Cada cópia gera um ID e recebe seu próprio chip. O vínculo conserva o código e o peso líquido KG ou metragem MT da etiqueta, sem gerar outro ID nem repetir a impressão. A sincronização é confirmada antes de preparar a aproximação; se falhar, tente novamente no mesmo cartão. Os IDs recentes ficam nesta aba do navegador, separados por usuário. Esse caminho também pode ser usado após desvincular um chip.
 - **Inventário NFC:** inicie ou retome a conferência, leia em Lote no TapPony e acompanhe etiquetas, material, peso líquido e metragem. A conferência padrão não movimenta estoque. A captura pode ser retomada após reabrir o sistema; os destinos operacionais anteriores continuam disponíveis no seletor.
-- **Desvincular NFC:** consulte e libere somente o vínculo do chip. O novo vínculo é feito no Recebimento.
+- **Desvincular NFC:** consulte e libere somente o vínculo do chip. O novo vínculo é feito no Recebimento ou na etiqueta gerada em Rastreável.

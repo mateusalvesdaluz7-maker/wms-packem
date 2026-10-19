@@ -10,6 +10,7 @@
 <script src="wms-security.js"></script>
 <script src="vendor/natively-2.28.14.min.js"></script>
   <link rel="stylesheet" href="wms.css?v=20261007-local58">
+  <link rel="stylesheet" href="wms-nfc-ui.css?v=20261019-ui1">
 <link rel="stylesheet" href="wms-requisicao-fix.css?v=20261007-local58">
 <link rel="stylesheet" href="wms-corte.css?v=20261008-local78">
 <link rel="stylesheet" href="wms-vsm-live.css?v=20261008-local93">
@@ -329,11 +330,8 @@
       </section>
 
       <section class="view" id="v-nfc" data-nfc-inventory-screen>
-        <div class="ph-head"><div><p class="eb">Contagem de estoque</p><h1>Inventário NFC</h1><p>Acompanhe as bobinas lidas, o código do material, o peso líquido e a metragem.</p></div></div>
-        <div class="panel" style="padding:18px;margin-bottom:16px">
-          <strong>Conte as etiquetas já vinculadas no Recebimento</strong>
-          <p style="margin:8px 0 0">Inicie a contagem abaixo. No TapPony, escolha Packem WMS, ative Lote e aproxime uma etiqueta por vez. As leituras aparecem nesta tela.</p>
-        </div>
+        <div class="ph-head packem-nfc-heading"><div><p class="eb">Contagem por aproximação</p><h1>Inventário NFC</h1><p>Suas bobinas, códigos e quantidades em uma única conferência.</p></div><span class="packem-nfc-reader-label">Leitor no iPhone · TapPony</span></div>
+        <details class="packem-nfc-guide"><summary>Como contar com o TapPony</summary><ol><li>Inicie ou retome o inventário nesta tela.</li><li>No TapPony, escolha <strong>Packem WMS</strong>, ative <strong>Lote</strong> e aproxime uma tag por vez.</li><li>Acompanhe os itens aqui. Ao terminar, encerre o inventário para salvar o resultado.</li></ol></details>
         <div class="panel" data-nfc-destination-field style="padding:16px;margin-bottom:16px">
           <label class="fld"><span class="lab">Tipo de contagem</span><select class="input" data-nfc-destination aria-label="Tipo de contagem NFC"></select></label>
           <button type="button" class="gbtn" data-nfc-open-destination>Abrir contagem na aba normal</button>
@@ -343,7 +341,7 @@
       </section>
 
       <section class="view" id="v-nfc-unlink">
-        <div class="ph-head"><div><p class="eb">Gestão dos chips</p><h1>Desvincular NFC</h1><p>Libere um chip para reutilizar em outra bobina. O novo vínculo é feito no Recebimento.</p></div></div>
+        <div class="ph-head packem-nfc-heading"><div><p class="eb">Gestão dos chips</p><h1>Desvincular NFC</h1><p>Encontre a etiqueta, confira a bobina e libere o chip para o próximo uso.</p></div><span class="packem-nfc-reader-label">Novo vínculo no Recebimento</span></div>
       </section>
 
       <section class="view" id="v-labels">
@@ -467,11 +465,11 @@
 <script src="wms-nfc-iphone.js?v=20261016-workspace1"></script>
 <script src="wms-nfc-registry.js?v=20261018-unlink1"></script>
 <script src="wms-nfc-app.js?v=20261016-native1"></script>
-<script src="wms-nfc-mobile.js?v=20261019-inventory-recover4"></script>
-<script src="wms-nfc-inventory-lifecycle.js?v=20261019-inventory-recover5"></script>
+<script src="wms-nfc-mobile.js?v=20261019-ui1"></script>
+<script src="wms-nfc-inventory-lifecycle.js?v=20261019-ui1"></script>
 <script src="wms-nfc-recebimento.js?v=20261019-recebimento-panel2"></script>
 <script src="wms-nfc-rastreavel.js?v=20261019-rast1"></script>
-<script src="wms-nfc-tags.js?v=20261018-nfc-split1"></script>
+<script src="wms-nfc-tags.js?v=20261019-ui1"></script>
 <script src="wms-nfc-manual.js?v=20261016-manual1"></script>
 <script src="wms-abc-consumo.js?v=20260831-autotec15"></script>
 <script src="wms-requisicao.js?v=20261014-local118"></script>

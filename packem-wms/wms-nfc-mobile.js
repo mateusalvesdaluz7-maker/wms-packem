@@ -361,11 +361,12 @@
       var panel=document.createElement('section');panel.className='panel';panel.dataset.nfcMobile='1';panel.style.cssText='padding:18px;margin:12px 0;border:2px solid #0d8571;border-radius:12px;overflow-wrap:anywhere';
       panel.dataset.nfcMobileTarget=target;
       var h=document.createElement('h3');h.textContent=target==='v-labels'?'Cadastrar chip por aproximação':target==='v-nfc-test'?(inventoryScreen?'Contagem do inventário NFC':'Teste de contagem NFC'):'Contar tags NFC';panel.appendChild(h);
+      if(primaryInventory){var heading=document.createElement('div');heading.className='packem-nfc-panel-heading';h.before(heading);heading.appendChild(h);}
       var p=document.createElement('p');p.textContent=target==='v-labels'?'1. Escolha a embalagem na lista acima. 2. Toque em Cadastrar próxima tag. 3. No TapPony, com Lote desligado, leia somente esse chip. O UID ficará vinculado ao código e ao peso ou quantidade existentes no WMS.':'No iPhone, ative Lote no TapPony e aproxime as tags cadastradas. Deixe o WMS aberto no PC para acompanhar código, peso ou quantidade de cada embalagem. No mesmo iPhone, volte ao WMS para processar a fila.';if(!primaryInventory)panel.appendChild(p);
       var state=document.createElement('p');state.dataset.nfcMobileStatus='1';state.setAttribute('role','status');state.textContent=message;panel.appendChild(state);
       var total=document.createElement('strong');total.dataset.nfcMobileTotal='1';total.textContent=summary;panel.appendChild(total);
       if(target==='v-nfc-test'){
-        var hint=document.createElement('p');hint.textContent=inventoryScreen?'Conferência sem movimentar o estoque.':'Somente conferência: recebe as leituras reais e busca os dados no WMS. Não cria entradas, saídas nem ajustes de estoque. O resultado fica nesta tela até fechar ou recarregar; pause antes de iniciar um teste novo.';panel.appendChild(hint);
+        var hint=document.createElement('p');hint.textContent=inventoryScreen?'Conferência sem movimentar o estoque.':'Somente conferência: recebe as leituras reais e busca os dados no WMS. Não cria entradas, saídas nem ajustes de estoque. O resultado fica nesta tela até fechar ou recarregar; pause antes de iniciar um teste novo.';if(!primaryInventory)panel.appendChild(hint);
         var results=document.createElement('div');results.dataset.nfcTestResults='1';results.setAttribute('aria-live','polite');panel.appendChild(results);
       }
       var controls=document.createElement('div');panel.appendChild(controls);
@@ -411,7 +412,7 @@
         node.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0';
         var metrics=[['Bobinas contadas',entries.length,''],['Peso líquido',totals.KG||0,'KG'],['Metragem',totals.MT||0,'MT']];
         Object.entries(totals).filter(pair=>!['KG','MT'].includes(pair[0])).forEach(pair=>metrics.push(['Quantidade',pair[1],pair[0]]));
-        metrics.forEach(function(metric){var card=document.createElement('div');card.style.cssText='padding:16px;border:1px solid var(--line,#d5dfe9);border-radius:12px;background:var(--card-2,#f5f8fb)';var caption=document.createElement('span');caption.textContent=metric[0];caption.style.cssText='display:block;font-size:13px;color:var(--muted,#566579)';var value=document.createElement('strong');value.textContent=Number(metric[1]).toLocaleString('pt-BR',{maximumFractionDigits:6})+(metric[2]?' '+metric[2]:'');value.style.cssText='display:block;font-size:26px;margin-top:4px';card.appendChild(caption);card.appendChild(value);node.appendChild(card);});return;
+        metrics.forEach(function(metric){var card=document.createElement('div');card.className='packem-nfc-metric';card.style.cssText='padding:16px;border:1px solid var(--line,#d5dfe9);border-radius:12px;background:var(--card-2,#f5f8fb)';var caption=document.createElement('span');caption.textContent=metric[0];caption.style.cssText='display:block;font-size:13px;color:var(--muted,#566579)';var value=document.createElement('strong');value.textContent=Number(metric[1]).toLocaleString('pt-BR',{maximumFractionDigits:6})+(metric[2]?' '+metric[2]:'');value.style.cssText='display:block;font-size:26px;margin-top:4px';card.appendChild(caption);card.appendChild(value);node.appendChild(card);});return;
       }
       var count=document.createElement('p');count.style.fontWeight='700';count.textContent=entries.length+' embalagem(ns) contada(s)'+(entries.length?' · '+Object.entries(totals).map(function(pair){return pair[1].toLocaleString('pt-BR',{maximumFractionDigits:6})+' '+pair[0];}).join(' · '):'');node.appendChild(count);
       var list=document.createElement('ul');entries.forEach(function(item){var row=document.createElement('li');row.textContent=item.item+' · '+item.codigo+' · '+Number(item.quantidade).toLocaleString('pt-BR',{maximumFractionDigits:6})+' '+item.unidade;list.appendChild(row);});node.appendChild(list);
@@ -427,7 +428,12 @@
       var note=document.createElement('p');note.style.cssText='font-size:.85rem;color:var(--muted)';
       var entries=matching?queue.entries():[];
       note.textContent=matching&&b.historyError?'Detalhes anteriores indisponíveis: '+b.historyError+' Use Atualizar detalhes.':matching&&b.historyCursor<b.historyUntil?'Consultando os dados das embalagens já processadas…':entries.length?'Código e peso ou quantidade consultados no cadastro do WMS. Leituras sem vínculo permanecem pendentes.':'Ao processar uma tag cadastrada, o código do material e o peso ou quantidade aparecerão aqui.';node.appendChild(note);
-      if(!entries.length)return;
+      if(!entries.length){if(inventoryScreen&&node.dataset.nfcCountResults==='v-nfc-test'){var empty=document.createElement('div');empty.className='packem-nfc-empty';var emptyTitle=document.createElement('strong');emptyTitle.textContent='Aguardando a primeira bobina';empty.appendChild(emptyTitle);empty.appendChild(document.createTextNode('Inicie ou retome o inventário e leia as tags no TapPony. Os dados aparecem aqui.'));node.appendChild(empty);}return;}
+      if(inventoryScreen&&node.dataset.nfcCountResults==='v-nfc-test'){
+        var latest=entries[entries.length-1],last=document.createElement('div'),identity=document.createElement('div'),quantity=document.createElement('div');last.className='packem-nfc-last';quantity.className='packem-nfc-last-quantity';
+        var label=document.createElement('small');label.textContent='Última bobina';identity.appendChild(label);var code=document.createElement('strong');code.textContent=latest.codigo;identity.appendChild(code);var item=document.createElement('span');item.textContent=latest.item;identity.appendChild(item);
+        var amount=document.createElement('strong');amount.textContent=Number(latest.quantidade).toLocaleString('pt-BR',{maximumFractionDigits:6})+' '+latest.unidade;quantity.appendChild(amount);var confirmed=document.createElement('span');confirmed.textContent=latest.confirmed?'Leitura confirmada':'Aguardando confirmação';quantity.appendChild(confirmed);last.appendChild(identity);last.appendChild(quantity);node.appendChild(last);
+      }
       var wrap=document.createElement('div');wrap.style.overflowX='auto';
       var table=document.createElement('table');table.className='packem-nfc-count-table';table.style.cssText='width:100%;border-collapse:collapse;text-align:left';
       var head=document.createElement('thead'),headRow=document.createElement('tr');
@@ -439,14 +445,15 @@
           var cell=document.createElement('td'),label=document.createElement('span'),value=document.createElement('span');
           label.className='packem-nfc-cell-label';label.textContent=columns[index];label.setAttribute('aria-hidden','true');
           value.className='packem-nfc-cell-value';value.textContent=text;cell.appendChild(label);cell.appendChild(value);
+          if(index===3){value.classList.add('packem-nfc-row-state');value.dataset.pending=String(!entry.confirmed);}
           cell.style.cssText='padding:10px;border-bottom:1px solid #d9e6e1;vertical-align:top';if(index===1||index===2)cell.style.fontWeight='700';row.appendChild(cell);
         });body.appendChild(row);
       });table.appendChild(body);wrap.appendChild(table);node.appendChild(wrap);
     });
   }
   function paint(){
-    document.querySelectorAll('[data-nfc-mobile-status]').forEach(function(n){var text=inventoryScreen&&n.closest('[data-nfc-mobile-target="v-nfc-test"]')&&/^\d+ tag\(s\) recebida\(s\)/.test(message)?'':message;if(n.textContent!==text)n.textContent=text;});
-    document.querySelectorAll('[data-nfc-mobile-total]').forEach(function(n){if(n.textContent!==summary)n.textContent=summary;});
+    document.querySelectorAll('[data-nfc-mobile-status]').forEach(function(n){var primary=inventoryScreen&&n.closest('[data-nfc-mobile-target="v-nfc-test"]'),text=primary&&/^(\d+ tag\(s\) recebida\(s\)|Conecte o leitor do celular|Leitor conectado\.|Inventário encerrado\.)/.test(message)?'':message;if(n.textContent!==text)n.textContent=text;if(primary){n.hidden=!text;n.style.display=text?'':'none';}});
+    document.querySelectorAll('[data-nfc-mobile-total]').forEach(function(n){if(n.textContent!==summary)n.textContent=summary;if(inventoryScreen&&n.closest('[data-nfc-mobile-target="v-nfc-test"]')){n.hidden=!summary;n.style.display=summary?'':'none';}});
     document.querySelectorAll('[data-nfc-mobile-action]').forEach(function(n){n.disabled=working;});
     document.querySelectorAll('[data-nfc-mobile-link]').forEach(function(n){if(n.value!==link)n.value=link;});
     paintTest();

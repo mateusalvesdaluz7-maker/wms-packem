@@ -32,7 +32,7 @@
   }
   if(typeof module==='object'&&module.exports){module.exports={createManager:createManager};return;}
   if(!document.querySelector('[data-nfc-inventory-screen]'))return;
-  var manager=null,owner='',controls=null,status,history,detail,newButton,resumeButton,finishButton,lastLoad=0,loadedReader='',error='';
+  var manager=null,owner='',controls=null,status,indicator,history,detail,newButton,resumeButton,finishButton,lastLoad=0,loadedReader='',error='';
   function user(){return typeof session!=='undefined'&&session?session.u:'';}
   function active(){return !!user()&&!document.hidden&&!!root.WmsNfcWorkspace?.isActive('v-nfc-test');}
   function mobile(){return root.WmsNfcMobile;}
@@ -59,6 +59,7 @@
     newButton=button('Iniciar novo inventário',()=>manager.begin(true));newButton.className='btn brand';
     resumeButton=button('Retomar inventário',()=>manager.begin(false));finishButton=button('Encerrar inventário',()=>manager.finish());
     finishButton.dataset.nfcInventoryAction='finish';
+    var heading=host.parentElement.querySelector('.packem-nfc-panel-heading');if(heading){indicator=document.createElement('span');indicator.className='packem-nfc-state';indicator.setAttribute('role','status');heading.appendChild(indicator);}
     var section=document.createElement('section');section.dataset.nfcInventoryLifecycle='1';section.style.cssText='margin:12px 0';
     status=document.createElement('p');status.setAttribute('role','status');status.setAttribute('aria-live','polite');section.appendChild(status);controls.before(section);
     var past=document.createElement('details');past.style.cssText='margin-top:18px';var caption=document.createElement('summary');caption.textContent='Inventários encerrados';past.appendChild(caption);
@@ -71,16 +72,20 @@
     if(mobile().queue.binding?.running&&mobile().queue.binding.sessionId===state?.current?.id)resumeButton.disabled=true;
     resumeButton.hidden=!state?.current;finishButton.hidden=!state?.current;
     resumeButton.style.display=finishButton.style.display=state?.current?'':'none';
-    text(status,error||state?.message||(state?.current?'Inventário em andamento. Retome para continuar ou encerre para salvar o resultado.':state?.loaded?'Nenhum inventário em andamento. Inicie um novo inventário para contar.':'Carregando o inventário…'));
+    var capture=mobile().queue.binding,running=!!(capture?.running&&capture.sessionId===state?.current?.id),tone=error||mobile().queue.blocked?'attention':!state?.loaded?'loading':state.current?(running?'live':'paused'):state.detail?'saved':'ready';
+    if(indicator){indicator.dataset.tone=tone;text(indicator,{attention:'Conferir pendências',loading:'Carregando',live:'Leitura ativa',paused:'Pronto para retomar',saved:'Inventário salvo',ready:'Pronto para iniciar'}[tone]);}
+    status.parentElement.dataset.error=String(!!error);
+    var message=state?.message;if(running&&capture.cursor>0&&/^Novo inventário iniciado\./.test(message||''))message='A contagem está em andamento. Ao terminar, encerre o inventário para salvar o resultado.';
+    text(status,error||message||(state?.current?'Inventário em andamento. Retome para continuar ou encerre para salvar o resultado.':state?.loaded?'Nenhum inventário em andamento. Inicie um novo inventário para contar.':'Carregando o inventário…'));
     var key=JSON.stringify([state?.history,state?.offset,state?.hasMore]);if(history.dataset.key!==key){history.dataset.key=key;history.replaceChildren();
-      (state?.history||[]).forEach(function(item){var button=document.createElement('button');button.type='button';button.className='gbtn';button.textContent=date(item.finishedAt)+' · '+item.items+' bobina(s) · Ver resultado';button.onclick=()=>action(()=>manager.select(item.id));history.appendChild(button);});
+      (state?.history||[]).forEach(function(item){var button=document.createElement('button');button.type='button';button.className='gbtn packem-nfc-history-entry';button.dataset.nfcHistoryId=item.id;button.textContent=date(item.finishedAt)+' · '+item.items+' bobina(s) · Ver resultado';button.onclick=()=>action(()=>manager.select(item.id));history.appendChild(button);});
       if(!state?.history.length){var empty=document.createElement('p');empty.textContent='Nenhum inventário encerrado nesta página.';history.appendChild(empty);}
       [['Anteriores',Math.max(0,(state?.offset||0)-20),!!state?.offset],['Mais antigos',(state?.offset||0)+20,state?.hasMore]].forEach(function(page){if(page[2]){var button=document.createElement('button');button.type='button';button.className='gbtn';button.textContent=page[0];button.onclick=()=>action(()=>manager.load(page[1]));history.appendChild(button);}});
     }
-    var result=state?.detail;if(detail.dataset.key===(result?.id||''))return;detail.dataset.key=result?.id||'';detail.replaceChildren();if(!result)return;
+    var result=state?.detail;history.querySelectorAll('[data-nfc-history-id]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.nfcHistoryId===result?.id)));if(detail.dataset.key===(result?.id||''))return;detail.dataset.key=result?.id||'';detail.replaceChildren();if(!result)return;
     var title=document.createElement('h4');title.textContent='Resultado encerrado em '+date(result.finishedAt);detail.appendChild(title);
     var totals={};result.entries.forEach(item=>totals[item.unidade]=Math.round(((totals[item.unidade]||0)+Number(item.quantidade))*1e6)/1e6);
-    var summary=document.createElement('p');summary.textContent=result.entries.length+' bobina(s) · '+Object.entries(totals).map(([unit,value])=>value.toLocaleString('pt-BR',{maximumFractionDigits:6})+' '+unit).join(' · ');detail.appendChild(summary);
+    var summary=document.createElement('p');summary.className='packem-nfc-result-summary';summary.textContent=result.entries.length+' bobina(s) · '+Object.entries(totals).map(([unit,value])=>value.toLocaleString('pt-BR',{maximumFractionDigits:6})+' '+unit).join(' · ');detail.appendChild(summary);
     var table=document.createElement('table');table.className='packem-nfc-count-table';table.style.cssText='width:100%;text-align:left';
     var head=document.createElement('thead'),row=document.createElement('tr'),columns=['Etiqueta / bobina','Código do material','Peso líquido / quantidade'];columns.forEach(label=>{var cell=document.createElement('th');cell.scope='col';cell.textContent=label;row.appendChild(cell);});head.appendChild(row);table.appendChild(head);
     var body=document.createElement('tbody');result.entries.forEach(item=>{var row=document.createElement('tr');[item.item,item.codigo,Number(item.quantidade).toLocaleString('pt-BR',{maximumFractionDigits:6})+' '+item.unidade].forEach((value,index)=>{var cell=document.createElement('td'),label=document.createElement('span'),text=document.createElement('span');label.className='packem-nfc-cell-label';label.textContent=columns[index];label.setAttribute('aria-hidden','true');text.className='packem-nfc-cell-value';text.textContent=value;cell.appendChild(label);cell.appendChild(text);cell.style.cssText='padding:10px;border-bottom:1px solid #d5dfe9;overflow-wrap:anywhere';row.appendChild(cell);});body.appendChild(row);});table.appendChild(body);detail.appendChild(table);

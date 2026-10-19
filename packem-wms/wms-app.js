@@ -273,13 +273,33 @@ $('#logBtn').onclick=async()=>{try{
   try{applyPerms();}catch(e){console.error('applyPerms',e);}
   try{refreshUser();}catch(e){console.error('refreshUser',e);}
   try{go('v-home');}catch(e){console.error('go home',e);try{go('v-recv');}catch(e2){}}
+  try{if(window.PackemNfcLink)window.PackemNfcLink.onLogin();}catch(_nfcLinkLogin){console.warn('Não foi possível apresentar a etiqueta NFC.',_nfcLinkLogin);}
   try{startFiscalSync();pullNF(true);}catch(e){console.warn('Início fiscal',e);}
   $('#logPass').value='';
 }catch(err){console.error('login',err);logErr('Erro ao entrar — atualize a página (Ctrl+Shift+R) e tente de novo');}};
 $('#logUser').addEventListener('input',()=>{$('#logHint').textContent='';});
 $('#logPass').addEventListener('input',()=>{$('#logHint').textContent='';});
 $('#logPass').addEventListener('keydown',e=>{if(e.key==='Enter')$('#logBtn').click();});
-$('#logoutBtn').onclick=()=>{logAct('logout',session.u);session=null;window._fiscalToken='';window._fiscalAuth=null;try{applyPerms();}catch(e){}showLogin();};
+$('#logoutBtn').onclick=()=>{logAct('logout',session.u);session=null;window._fiscalToken='';window._fiscalAuth=null;if(window.PackemNfcLink)window.PackemNfcLink.onLogout();try{applyPerms();}catch(e){}showLogin();};
+/* PACKEM_NFC_LINK_HANDOFF_START: preenchimento exclusivo da consulta, sem Enter ou operação. */
+window.packemNfcLinkUser=function(){
+  if(!session||!session.u)return null;
+  var account=Array.isArray(US)?US.find(function(u){return String(u.u||'').toLowerCase()===String(session.u).toLowerCase();}):null;
+  if(!account||account.active===false)return null;
+  var views=typeof allowedViews==='function'?allowedViews():[];
+  return {user:String(session.u),canConsult:typeof window.canAction==='function'&&window.canAction('visualizar')&&(!Array.isArray(views)||views.indexOf('v-etqconsulta')>=0)};
+};
+window.applyPackemNfcLink=function(raw,expectedUser){
+  var before=window.packemNfcLinkUser();
+  if(!before||before.user!==expectedUser||!before.canConsult||!window.PackemNfcLinkCore)return false;
+  var code;try{code=window.PackemNfcLinkCore.normalizeCode(raw);}catch(_){return false;}
+  go('v-etqconsulta');
+  var current=window.packemNfcLinkUser(),active=document.querySelector('.view.active'),field=document.getElementById('ecInput');
+  if(!current||current.user!==expectedUser||!current.canConsult||!active||active.id!=='v-etqconsulta'||!field||!field.isConnected||field.disabled||!field.getClientRects().length||field.closest('.view')!==active)return false;
+  field.value=code;field.dispatchEvent(new Event('input',{bubbles:true}));
+  return true;
+};
+/* PACKEM_NFC_LINK_HANDOFF_END */
 function refreshUser(){$('#uName').textContent=session?session.u:'—';$('#uRole').textContent=session?session.role:'';}
 function applyPerms(){const sup=isSuper();try{if(typeof window.ensureAdmin3D==='function')window.ensureAdmin3D();}catch(e){}$$('.adminOnly').forEach(e=>e.style.display=sup?'':'none');const allow=allowedViews();$$('.nav').forEach(n=>{const v=n.dataset.view;if(v==='v-3d'&&!sup){n.style.display='none';return;}if(allow){n.style.display=(allow.indexOf(v)>=0)?'':'none';}else if(!n.classList.contains('adminOnly')){n.style.display='';}});if(!sup&&cfg&&cfg.warehouse!=='70'){cfg.warehouse='70';try{DB.saveCfg(cfg);}catch(e){}}}
 
@@ -15284,7 +15304,7 @@ window.editUser=editUser;
     var imprimir=document.getElementById('ecPrint');if(imprimir)imprimir.onclick=function(){try{if(typeof printBobLabel==='function'){printBobLabel(et);return;}if(typeof stationPrint==='function'){stationPrint({et:et,pr:pr,desc:desc,pl:qtd});return;}toast('Não foi possível preparar a impressão desta etiqueta.',false);}catch(e){toast('Erro ao preparar a impressão.',false);}};
   }
   function renderConsulta(){
-    sec.innerHTML='<div class="ec-head"><div class="eb">CADASTRO · RASTREABILIDADE</div><h1>Consulta de Etiqueta</h1><p>Consulte código, descrição, quantidade, entrada e localização atual.</p></div><div class="ec-search"><input class="input" id="ecInput" placeholder="BIPE OU DIGITE A ETIQUETA" autocomplete="off"><button class="ec-go" id="ecGo">Consultar</button></div><div class="ec-result" id="ecResult"><div class="ec-empty">Digite ou bipe uma etiqueta para consultar.</div></div>';
+    sec.innerHTML='<div class="ec-head"><div class="eb">CADASTRO · RASTREABILIDADE</div><h1>Consulta de Etiqueta</h1><p>Consulte código, descrição, quantidade, entrada e localização atual.</p><a class="ec-nfc-link" href="nfc.html" target="_blank" rel="noopener">Preparar etiqueta NFC para iPhone ↗</a></div><div class="ec-search"><input class="input" id="ecInput" placeholder="BIPE OU DIGITE A ETIQUETA" autocomplete="off"><button class="ec-go" id="ecGo">Consultar</button></div><div class="ec-result" id="ecResult"><div class="ec-empty">Digite ou bipe uma etiqueta para consultar.</div></div>';
     var i=document.getElementById('ecInput'),b=document.getElementById('ecGo');if(b)b.onclick=consultar;if(i){i.onkeydown=function(ev){if(ev.key==='Enter'){ev.preventDefault();consultar();}};try{if(typeof scanLock==='function')scanLock(i);if(typeof window.addCam==='function')window.addCam('ecInput',{title:'Escanear etiqueta',onResult:function(v){i.value=v;consultar();}});}catch(e){}setTimeout(function(){i.focus();},40);}
   }
   var antigoRender=render;render=function(id){if(id==='v-etqconsulta'){renderConsulta();return;}return antigoRender(id);};window.render=render;

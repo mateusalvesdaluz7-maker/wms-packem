@@ -53,6 +53,7 @@
     controls=host;function button(label,callback){var node=document.createElement('button');node.type='button';node.className='gbtn';node.textContent=label;node.onclick=()=>action(callback);controls.appendChild(node);return node;}
     newButton=button('Iniciar novo inventário',()=>manager.begin(true));newButton.className='btn brand';
     resumeButton=button('Retomar inventário',()=>manager.begin(false));finishButton=button('Encerrar inventário',()=>manager.finish());
+    finishButton.dataset.nfcInventoryAction='finish';
     var section=document.createElement('section');section.dataset.nfcInventoryLifecycle='1';section.style.cssText='margin:12px 0';
     status=document.createElement('p');status.setAttribute('role','status');status.setAttribute('aria-live','polite');section.appendChild(status);controls.before(section);
     var past=document.createElement('details');past.style.cssText='margin-top:18px';var caption=document.createElement('summary');caption.textContent='Inventários encerrados';past.appendChild(caption);

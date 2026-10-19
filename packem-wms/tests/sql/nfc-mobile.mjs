@@ -115,6 +115,16 @@ const inventoryRpc=async(action,data={},actor='qa')=>(await db.query('select pub
 await db.exec('SET ROLE service_role');
 await rpc('count_start',{sessionId:inventorySession,target:'v-inv',contextKey:inventoryScope});
 await ingestFeiju(feiju);
+const restoredConsumer='dddd1111-1111-4111-8111-111111111111';
+await assert.rejects(rpc('count_start',{sessionId:inventorySession,target:'v-inv',contextKey:inventoryScope,consumerId:restoredConsumer}),/outra tela/);
+await rpc('count_stop',{sessionId:inventorySession});
+await rpc('count_start',{sessionId:inventorySession,target:'v-inv',contextKey:inventoryScope,consumerId:restoredConsumer});
+await assert.rejects(rpc('count_status',{sessionId:inventorySession,cursor:0}),/outra tela/);
+await assert.rejects(rpc('count_ack',{sessionId:inventorySession,cursor:1}),/outra tela/);
+const restoredInventory=await rpc('count_status',{sessionId:inventorySession,cursor:0,consumerId:restoredConsumer});
+assert.equal(restoredInventory.session.cursor,0);assert.equal(restoredInventory.items[0].bound_item,'T004');
+await rpc('count_stop',{sessionId:inventorySession});
+await rpc('count_start',{sessionId:inventorySession,target:'v-inv',contextKey:inventoryScope});
 assert.equal((await inventoryRpc('inventory_list',{offset:0})).current.id,inventorySession);
 assert.equal((await inventoryRpc('inventory_finish',{sessionId:inventorySession,entries:[]})).reason,'pending');
 await rpc('count_ack',{sessionId:inventorySession,cursor:1});

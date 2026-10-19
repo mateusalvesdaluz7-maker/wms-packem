@@ -9,9 +9,9 @@ function fixture(){
  let user='qa',active=true,current={id:sid},history=[],capture={readerId:rid,sessionId:sid,consumerId:consumer,viewTarget:'v-nfc-test'},rows=[row],fail=false;
  const calls=[],finished={id:sid,finishedAt:'2026-10-19T12:00:00Z',entries:[row],items:1};
  const options={user:()=>user,active:()=>active,reader:async()=>rid,capture:()=>capture,entries:()=>rows,prepare:async()=>{},completed:id=>calls.push(['completed',id]),
-   start:async fresh=>{calls.push(['start',fresh]);current={id:'44444444-4444-4444-8444-444444444444'};capture={...capture,sessionId:current.id};rows=[];return capture;},
+   start:async fresh=>{calls.push(['start',fresh]);if(fresh){current={id:'44444444-4444-4444-8444-444444444444'};rows=[];}capture={readerId:rid,consumerId:consumer,viewTarget:'v-nfc-test',...capture,sessionId:current.id};return capture;},
    api:async(action,data)=>{calls.push([action,data]);if(action==='inventory_list')return {current,history,hasMore:false};if(action==='inventory_finish'){current=null;history=[finished];if(fail)throw Error('Resposta perdida');return finished;}if(action==='inventory_get')return finished;}};
- return {manager:createManager(options),options,calls,finished,setUser:v=>user=v,setActive:v=>active=v,loseReply:()=>fail=true,entries:()=>rows};
+ return {manager:createManager(options),options,calls,finished,setUser:v=>user=v,setActive:v=>active=v,setCapture:v=>capture=v,loseReply:()=>fail=true,entries:()=>rows};
 }
 test('encerrar salva o resultado; iniciar outro usa nova captura vazia e conserva o histórico',async()=>{
  const f=fixture();await f.manager.load();await assert.rejects(f.manager.begin(true),/Encerre/);assert.equal(f.calls.filter(x=>x[0]==='start').length,0);
@@ -33,6 +33,20 @@ test('troca de usuário ou tela descarta respostas e impede encerramento de outr
 });
 test('clique repetido não dispara dois encerramentos',async()=>{
  const f=fixture();let resolve;f.options.prepare=()=>new Promise(r=>resolve=r);const pending=f.manager.finish();await new Promise(r=>setImmediate(r));await assert.rejects(f.manager.finish(),/Aguarde/);resolve();await pending;assert.equal(f.calls.filter(c=>c[0]==='inventory_finish').length,1);
+});
+
+test('encerrar após reabrir recupera a mesma sessão e conserva todas as leituras',async()=>{
+ const f=fixture();f.setCapture(null);await f.manager.finish();
+ assert.deepEqual(f.calls.filter(c=>c[0]==='start'),[['start',false]]);
+ assert.equal(f.manager.state.detail.id,sid);assert.deepEqual(f.manager.state.detail.entries,[row]);
+ assert.equal(f.calls.find(c=>c[0]==='inventory_finish')[1].sessionId,sid);
+});
+
+test('falha ou troca de tela durante recuperação não encerra nem inicia outra captura',async()=>{
+ for(const mode of ['failure','changed','wrong']){
+  const f=fixture();f.setCapture(null);f.options.start=async()=>{if(mode==='failure')throw Error('Conexão interrompida');if(mode==='changed')f.setActive(false);return {};};
+  await assert.rejects(f.manager.finish());assert.ok(!f.calls.some(c=>c[0]==='inventory_finish'));assert.equal(f.entries().length,1);
+ }
 });
 test('API valida tamanho, itens duplicados, UID, código, quantidade e unidade antes de chamar o banco',()=>{
  const request={body:{action:'inventory_finish',data:{readerId:rid,sessionId:sid,consumerId:consumer,entries:[row]}},headers:{}};assert.equal(parse(request).data.entries[0].confirmed,undefined);

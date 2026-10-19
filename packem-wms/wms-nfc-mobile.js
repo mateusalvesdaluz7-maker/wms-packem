@@ -307,11 +307,19 @@
     var state=saved(),counts=state.counts||{},previous=counts[context.scope]||state.count;
     if(previous&&(previous.contextKey!==context.scope||previous.readerId!==reader.id||previous.target!==apiTarget))previous=null;
     if(inventory){
+      if(target!=='v-nfc-test'||context.scope!==user()+':inventario-nfc:conferencia')throw new Error('Abra a conferência do inventário NFC para recuperar esta contagem.');
       if(fresh&&inventory.current)throw new Error('Encerre o inventário em andamento antes de iniciar outro.');
       if(!fresh&&!inventory.current)throw new Error('Nenhum inventário em andamento. Use Iniciar novo inventário.');
       if(fresh)previous=null;
-      else if(!previous||previous.sessionId!==inventory.current.id){
-        if(inventory.current.active)throw new Error('O inventário está ativo em outra tela. Pause a captura antes de retomar aqui.');
+      else{
+        if(reader.mode==='count'&&reader.countSessionId!==inventory.current.id)throw new Error('Existe outra captura ativa neste leitor. Pause essa captura antes de recuperar o inventário.');
+        if(reader.mode==='enroll'&&Date.parse(reader.armUntil)>Date.now())throw new Error('Conclua ou cancele o cadastro NFC antes de recuperar o inventário.');
+        if(!context.isActive())throw new Error('Volte ao inventário NFC para recuperar a contagem.');
+        // An explicit resume can reclaim this owner's conference after losing
+        // sessionStorage. Stop before changing consumer so the previous page
+        // cannot acknowledge scans after the new page assumes the same queue.
+        if(inventory.current.active)await client.request('count_stop',{readerId:reader.id,sessionId:inventory.current.id});
+        if(!context.isActive())throw new Error('A tela do inventário mudou. Retome a contagem novamente.');
         previous={readerId:reader.id,sessionId:inventory.current.id,target:apiTarget,contextKey:context.scope,consumerId:crypto.randomUUID()};
       }
     }

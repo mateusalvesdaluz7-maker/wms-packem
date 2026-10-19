@@ -9,10 +9,15 @@
     return {state:state,load:function(offset){return run(()=>list(offset||0));},
       begin:function(fresh){return run(async function(){var status=await list(0);if(fresh&&status.current)throw new Error('Encerre o inventário em andamento antes de iniciar outro.');var previous=options.capture();if(fresh&&previous?.viewTarget==='v-nfc-test'&&status.history.some(item=>item.id===previous.sessionId))options.completed(previous.sessionId);var binding=await options.start(fresh,status);guard();state.detail=null;state.current={id:binding.sessionId,active:true,createdAt:new Date().toISOString()};state.message=fresh?'Novo inventário iniciado. A contagem começa do zero.':'Inventário retomado.';});},
       finish:function(){return run(async function(){
-        var capture=options.capture();if(!capture||capture.viewTarget!=='v-nfc-test')throw new Error('Retome o inventário nesta tela antes de encerrar.');
+        var capture=options.capture();
         // An uncertain HTTP reply may have followed a committed finish.
         var status=await list(0),result;
-        if(!status.current||status.current.id!==capture.sessionId){
+        if(status.current&&(!capture||capture.viewTarget!=='v-nfc-test'||capture.sessionId!==status.current.id)){
+          await options.start(false,status);guard();capture=options.capture();
+          if(!capture||capture.viewTarget!=='v-nfc-test'||capture.sessionId!==status.current.id)throw new Error('A recuperação do inventário não foi confirmada. Tente novamente.');
+        }
+        if(!capture||capture.viewTarget!=='v-nfc-test')throw new Error('Nenhum inventário em andamento para encerrar.');
+        if(!status.current){
           result=await options.api('inventory_get',{readerId:capture.readerId,sessionId:capture.sessionId});
         }else{
           await options.prepare();guard();if(options.capture()!==capture)throw new Error('A contagem mudou. Retome o inventário antes de encerrar.');

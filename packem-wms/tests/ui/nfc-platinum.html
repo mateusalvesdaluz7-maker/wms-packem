@@ -13,7 +13,14 @@
 <section class="card"><p class="metric" id="total">0 embalagens · 0 kg</p><table><thead><tr><th>Embalagem</th><th>Código</th><th>Peso</th></tr></thead><tbody id="items"></tbody></table></section></main>
 <script>
 var session={u:'qa-platinum',role:'admin'},_floorScanMode='add';window._fiscalAuth={u:session.u,p:'simulation-only'};
-window.allowedViews=()=>['v-labels','v-floor','v-nfc','v-recv'];
+window.allowedViews=()=>['v-labels','v-floor','v-nfc','v-nfc-unlink','v-recv'];
+var splitLayout=new URLSearchParams(location.search).has('split');
+if(splitLayout){
+ var inventoryPage=document.getElementById('v-nfc');inventoryPage.dataset.nfcInventoryScreen='1';inventoryPage.querySelector('[role="tablist"]').remove();inventoryPage.querySelector('h2').textContent='Inventário NFC';
+ var unlinkPage=document.createElement('section');unlinkPage.id='v-nfc-unlink';unlinkPage.className='view';var unlinkTitle=document.createElement('h2');unlinkTitle.textContent='Desvincular NFC';unlinkPage.appendChild(unlinkTitle);inventoryPage.after(unlinkPage);
+ var unlinkNav=document.createElement('button');unlinkNav.id='show-unlink';unlinkNav.textContent='Desvincular NFC';unlinkNav.onclick=()=>show('v-nfc-unlink');document.querySelector('nav').appendChild(unlinkNav);
+ document.getElementById('show-count').textContent='Inventário NFC';document.getElementById('show-labels').hidden=true;
+}
 var reader=null,count=null,registry=new Map(),counted=new Set(),catalog={T001:{pr:'0303450047',pl:300},T002:{pr:'0303450047',pl:250.5}},BOB=catalog,ETQ={},manualSeq=0;
 var STAGE=[],apiCalls=[],stockActions=0;
 [25,30,35,40,45].forEach(function(kg,index){var id='REC-TEST-'+(index+1),record={et:id,pr:'0303450047',desc:'TESTE NFC '+(index+1)+'/5',pl:kg};STAGE.push(record);catalog[id]={pr:record.pr,desc:record.desc,pl:kg};ETQ[id]={cProd:record.pr,xProd:record.desc,kg:kg,uCom:'KG',nf:'__vaga__'};
@@ -26,6 +33,9 @@ window.printZebraRast=function(records){document.getElementById('scan-result').t
 function unitOf(){return 'KG';}window.bobFetch=async id=>catalog[id]||null;window.floorHasEt=id=>counted.has(id);
 window.floorAdd=async function(id){counted.add(id);var sum=0,rows=document.getElementById('items');rows.replaceChildren();counted.forEach(function(key){var b=catalog[key],row=document.createElement('tr');sum+=b.pl;[key,b.pr,String(b.pl).replace('.',',')+' kg'].forEach(function(text){var td=document.createElement('td');td.textContent=text;row.appendChild(td);});rows.appendChild(row);});document.getElementById('total').textContent=counted.size+' embalagens · '+String(sum).replace('.',',')+' kg';};
 window.PackemNfcRegistry={resolve:async function(uid,context){var id=registry.get(uid);if(!id)throw Error('Tag não cadastrada');return (await WmsNfcPrepare.prepare(id,context)).tag;}};
+var mockVersions=new Map();
+window.PackemNfcRegistry.list=async function(search,offset){var rows=[...registry].filter(([uid,item])=>!search||uid.includes(search)||item.includes(search)).map(([uid,item])=>{if(!mockVersions.has(uid))mockVersions.set(uid,crypto.randomUUID());return {uid,item,binding_id:mockVersions.get(uid)};});return {rows:rows.slice(offset,offset+20),hasMore:rows.length>offset+20};};
+window.PackemNfcRegistry.unbind=async function(record){if(reader?.mode==='count'||registry.get(record.uid)!==record.item||mockVersions.get(record.uid)!==record.binding_id)throw Error('Pause a contagem e consulte o vínculo novamente.');registry.delete(record.uid);return {...record,available:true,unlinked:true};};
 function state(cursor){return {...reader,session:count?{id:count.sessionId,consumerId:count.consumerId,target:count.target,contextKey:count.contextKey,cursor:count.cursor,received:count.items.length,active:count.active,expiresAt:new Date(Date.now()+3600000).toISOString()}:null,items:count?count.items.filter(x=>x.seq>(cursor||0)):[]};}
 window.fetch=async function(url,options){var b=JSON.parse(options.body),a=b.action,d=b.data||{},data;apiCalls.push({action:a,data:d});try{
  if(a==='login')return {ok:true,status:200,json:async()=>({ok:true,token:'simulation'})};
@@ -51,7 +61,8 @@ function scanUid(uid){var result=document.getElementById('scan-result');
  else result.textContent='Prepare o cadastro ou inicie a contagem primeiro.';
 }
 function show(id){document.querySelectorAll('.view').forEach(n=>n.classList.toggle('active',n.id===id));}
-function operation(mode){show('v-nfc');document.querySelector('[data-nfc-mode="'+mode+'"]').click();}
+window.go=show;
+function operation(mode){show('v-nfc');document.querySelector('[data-nfc-mode="'+mode+'"]')?.click();}
 function select(id){operation('register');var n=document.getElementById('packemNfcLabelId');n.value=id;n.dispatchEvent(new Event('input'));document.querySelector('[data-nfc-preparar] .btn').click();}
 document.getElementById('show-labels').onclick=()=>operation('register');document.getElementById('show-count').onclick=()=>operation('count');
 document.getElementById('show-recv').onclick=()=>show('v-recv');
@@ -67,4 +78,4 @@ document.getElementById('burst').onclick=async function(){
  document.getElementById('scan-result').textContent='30 UIDs fictícios enviados juntos à fila local. Repetir a rajada não duplica as embalagens.';
  await WmsNfcMobile.queue.poll();
 };
-</script><script src="../../wms-nfc-workspace.js"></script><script src="../../wms-nfc-text.js"></script><script src="../../wms-nfc-labels.js"></script><script src="../../wms-nfc-reader.js"></script><script src="../../wms-nfc-preparar.js"></script><script src="../../wms-nfc-mobile.js"></script><script src="../../wms-nfc-recebimento.js"></script><script src="../../wms-nfc-manual.js"></script></html>
+</script><script src="../../wms-nfc-workspace.js"></script><script src="../../wms-nfc-text.js"></script><script src="../../wms-nfc-labels.js"></script><script src="../../wms-nfc-reader.js"></script><script src="../../wms-nfc-preparar.js"></script><script src="../../wms-nfc-mobile.js"></script><script src="../../wms-nfc-recebimento.js"></script><script src="../../wms-nfc-manual.js"></script><script src="../../wms-nfc-tags.js"></script></html>

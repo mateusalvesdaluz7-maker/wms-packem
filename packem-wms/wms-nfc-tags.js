@@ -44,14 +44,15 @@
       }};
   }
   if(typeof module==='object'&&module.exports){module.exports={createManager:createManager};return;}
-  var page=document.getElementById('v-nfc');if(!page)return;
+  var page=document.getElementById('v-nfc-unlink')||document.getElementById('v-nfc');if(!page)return;
+  var dedicated=page.id==='v-nfc-unlink';
   function user(){return typeof session!=='undefined'&&session?session.u:'';}
   function permitted(){var views=typeof root.allowedViews==='function'?root.allowedViews():null;return !views||views.includes('v-labels');}
-  function active(){return !document.hidden&&permitted()&&(document.querySelector('.view.active')||{}).id==='v-nfc';}
+  function active(){return !document.hidden&&permitted()&&(document.querySelector('.view.active')||{}).id===page.id;}
   function registry(){if(!root.PackemNfcRegistry?.list||!root.PackemNfcRegistry?.unbind)throw new Error('Atualize o WMS com Ctrl + F5 para carregar a gestão de chips.');return root.PackemNfcRegistry;}
   function blocked(){return [root.WmsNfcMobile,root.PackemWmsApp,root.WmsNfcDireto,root.PackemNfcIphone].some(reader=>reader&&reader.active())||!!root.WmsNfcReader?.bridgeActive();}
-  var section=document.createElement('details');section.className='panel';section.id='packemNfcTags';section.style.cssText='padding:20px;margin-top:20px;overflow-wrap:anywhere';
-  var title=document.createElement('summary');title.textContent='Tags vinculadas — desvincular e reutilizar';title.style.cssText='cursor:pointer;font-weight:700;font-size:18px';section.appendChild(title);
+  var section=document.createElement(dedicated?'section':'details');section.className='panel';section.id='packemNfcTags';section.style.cssText='padding:20px;margin-top:20px;overflow-wrap:anywhere';
+  var title=document.createElement(dedicated?'h2':'summary');title.textContent=dedicated?'Selecione o chip para liberar':'Tags vinculadas — desvincular e reutilizar';title.style.cssText='font-weight:700;font-size:18px;margin:0';section.appendChild(title);
   var hint=document.createElement('p');hint.textContent='Libere o chip para usar em outra etiqueta. O cadastro da bobina, as quantidades e o histórico das contagens serão preservados.';section.appendChild(hint);
   var form=document.createElement('form');form.style.cssText='display:flex;gap:10px;flex-wrap:wrap;align-items:end';section.appendChild(form);
   var label=document.createElement('label');label.textContent='Buscar etiqueta ou UID';label.style.cssText='display:grid;gap:6px;flex:1;min-width:180px';form.appendChild(label);
@@ -95,7 +96,8 @@
   next.onclick=()=>perform(()=>model.load(model.state.search,model.state.offset+20));
   unlink.onclick=()=>perform(()=>model.ask());confirm.onclick=()=>perform(()=>model.confirm());cancel.onclick=()=>model.cancel();
   section.addEventListener('toggle',function(){if(section.open&&!model.state.owner)perform(()=>model.load(search.value.trim(),0));});
-  setInterval(function(){if(model.state.owner&&model.state.owner!==user())model.clear();visible(section,permitted());},750);
-  root.WmsNfcTags={open:function(item){if(typeof root.go==='function')root.go('v-nfc');section.open=true;search.value=item||'';section.scrollIntoView({block:'start'});return perform(()=>model.load(search.value.trim(),0));}};
+  var wasActive=false;
+  setInterval(function(){if(model.state.owner&&model.state.owner!==user())model.clear();visible(section,permitted());var nowActive=active();if(dedicated&&nowActive&&!wasActive&&!model.state.busy)perform(()=>model.load(search.value.trim(),0));wasActive=nowActive;},750);
+  root.WmsNfcTags={open:function(item){if(typeof root.go==='function')root.go(page.id);section.open=true;search.value=item||'';section.scrollIntoView({block:'start'});return perform(()=>model.load(search.value.trim(),0));}};
   paint();
 })(typeof window!=='undefined'?window:globalThis);

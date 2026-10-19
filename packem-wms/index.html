@@ -45,7 +45,8 @@
       <div class="nav adminOnly" data-view="v-protheus" data-ic="transfer"><span class="ni"></span>Baixa Protheus</div>
       <div class="nav" data-view="v-transf" data-ic="transfer"><span class="ni"></span>Transferências</div>
       <div class="nav" data-view="v-labels" data-ic="tag"><span class="ni"></span>Gestão de Etiquetas</div>
-      <div class="nav" data-view="v-nfc" data-ic="scan"><span class="ni"></span>NFC</div>
+      <div class="nav" data-view="v-nfc" data-ic="scan"><span class="ni"></span>Inventário NFC</div>
+      <div class="nav" data-view="v-nfc-unlink" data-ic="scan"><span class="ni"></span>Desvincular NFC</div>
       <div class="sb-grp">Análise</div>
       <div class="nav" data-view="v-abc" data-ic="chart"><span class="ni"></span>Análise ABC</div>
       <div class="sb-grp">Cadastros</div>
@@ -327,18 +328,22 @@
         <div class="tbl-wrap"><table class="tbl" id="trTable"></table></div>
       </section>
 
-      <section class="view" id="v-nfc">
-        <div class="ph-head"><div><p class="eb">Operação</p><h1>NFC</h1><p>Cadastre os chips e receba as leituras do celular nesta área.</p></div></div>
-        <div class="tabs" role="tablist" aria-label="Operação NFC">
-          <button type="button" role="tab" data-nfc-mode="register" aria-selected="true" class="on">Cadastrar tags</button>
-          <button type="button" role="tab" data-nfc-mode="count" aria-selected="false">Contar tags</button>
+      <section class="view" id="v-nfc" data-nfc-inventory-screen>
+        <div class="ph-head"><div><p class="eb">Contagem de estoque</p><h1>Inventário NFC</h1><p>Acompanhe as bobinas lidas, o código do material, o peso líquido e a metragem.</p></div></div>
+        <div class="panel" style="padding:18px;margin-bottom:16px">
+          <strong>Conte as etiquetas já vinculadas no Recebimento</strong>
+          <p style="margin:8px 0 0">Inicie a contagem abaixo. No TapPony, escolha Packem WMS, ative Lote e aproxime uma etiqueta por vez. As leituras aparecem nesta tela.</p>
         </div>
-        <div class="panel" data-nfc-destination-field hidden style="padding:16px;margin-bottom:16px">
-          <label class="fld"><span class="lab">Destino da contagem NFC</span><select class="input" data-nfc-destination aria-label="Destino da contagem NFC"></select></label>
+        <div class="panel" data-nfc-destination-field style="padding:16px;margin-bottom:16px">
+          <label class="fld"><span class="lab">Tipo de contagem</span><select class="input" data-nfc-destination aria-label="Tipo de contagem NFC"></select></label>
           <button type="button" class="gbtn" data-nfc-open-destination>Abrir contagem na aba normal</button>
         </div>
         <p role="status" data-nfc-workspace-status></p>
         <p data-nfc-workspace-empty hidden>Seu usuário não tem acesso a esta operação. Selecione uma das operações disponíveis.</p>
+      </section>
+
+      <section class="view" id="v-nfc-unlink">
+        <div class="ph-head"><div><p class="eb">Gestão dos chips</p><h1>Desvincular NFC</h1><p>Libere um chip para reutilizar em outra bobina. O novo vínculo é feito no Recebimento.</p></div></div>
       </section>
 
       <section class="view" id="v-labels">
@@ -451,8 +456,8 @@
 <!-- OCR executado no próprio aparelho. Não usa nem consome a API da OpenAI. -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="bob-lot-core.js?v=20261007-local58"></script>
-<script src="wms-app.js?v=20261018-recebimento1"></script>
-<script src="wms-nfc-workspace.js?v=20261016-trial2"></script>
+<script src="wms-app.js?v=20261018-nfc-split1"></script>
+<script src="wms-nfc-workspace.js?v=20261018-nfc-split1"></script>
 <script src="wms-nfc-bridge.js?v=20261016-workspace1"></script>
 <script src="wms-nfc-text.js?v=20261015-iphone1"></script>
 <script src="wms-nfc-labels.js?v=20261018-recebimento1"></script>
@@ -462,9 +467,9 @@
 <script src="wms-nfc-iphone.js?v=20261016-workspace1"></script>
 <script src="wms-nfc-registry.js?v=20261018-unlink1"></script>
 <script src="wms-nfc-app.js?v=20261016-native1"></script>
-<script src="wms-nfc-mobile.js?v=20261018-receber-click2"></script>
+<script src="wms-nfc-mobile.js?v=20261018-nfc-split1"></script>
 <script src="wms-nfc-recebimento.js?v=20261018-receber-click2"></script>
-<script src="wms-nfc-tags.js?v=20261018-unlink1"></script>
+<script src="wms-nfc-tags.js?v=20261018-nfc-split1"></script>
 <script src="wms-nfc-manual.js?v=20261016-manual1"></script>
 <script src="wms-abc-consumo.js?v=20260831-autotec15"></script>
 <script src="wms-requisicao.js?v=20261014-local118"></script>

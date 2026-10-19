@@ -5,13 +5,16 @@
   function permitted(target,allowed){return Object.hasOwn(destinations,target)&&(!allowed||allowed.includes(target==='v-nfc-test'?'v-nfc':target));}
   if(typeof module==='object'&&module.exports){module.exports={permitted:permitted};return;}
   var page=document.getElementById('v-nfc');if(!page)return;
-  var mode='register',destination='v-floor70',lastPermissions='',lastUser='';
+  var dedicated=!!document.getElementById('v-nfc-unlink');
+  var mode=dedicated?'count':'register',destination=dedicated?'v-nfc-test':'v-floor70',lastPermissions='',lastUser='';
+  if(dedicated){destinations['v-nfc-test']='Conferência de etiquetas — sem movimentar estoque';destinations['v-inv']='Inventário por tarefa e vaga';}
   function allowed(){return typeof root.allowedViews==='function'?root.allowedViews():null;}
   function active(){return (document.querySelector('.view.active')||{}).id;}
   function selected(){return mode==='register'?'v-labels':destination;}
   function isActive(target){return permitted(target,allowed())&&(active()===target||active()==='v-nfc'&&selected()===target);}
   function busy(){return [root.WmsNfcMobile,root.PackemWmsApp,root.WmsNfcDireto,root.PackemNfcIphone].some(function(reader){return reader&&reader.active();})||(root.WmsNfcReader&&root.WmsNfcReader.bridgeActive());}
   function host(target,provider){
+    if(dedicated&&target==='v-labels')return null;
     var node=page.querySelector('[data-nfc-host="'+target+'"]');
     var nativeApp=!!(root.webkit&&root.webkit.messageHandlers&&root.webkit.messageHandlers.packemNfc);
     var alternative=provider==='app'?!nativeApp:provider==='platinum'?nativeApp:!!provider;
@@ -33,6 +36,7 @@
     mode=nextMode;destination=nextDestination;notice('');paint();return true;
   }
   Object.keys(destinations).forEach(function(target){
+    if(dedicated&&target==='v-labels')return;
     var section=document.createElement('div');section.dataset.nfcHost=target;section.hidden=true;
     var main=document.createElement('div');main.dataset.nfcMainHost='1';section.appendChild(main);
     if(target==='v-inv'){
@@ -53,9 +57,10 @@
     select.replaceChildren();
     Object.entries(destinations).filter(function(entry){return entry[0]!=='v-labels'&&permitted(entry[0],permissions);}).forEach(function(entry){var option=document.createElement('option');option.value=entry[0];option.textContent=entry[1];select.appendChild(option);});
     if(!permitted(destination,permissions))destination=select.options[0]?.value||'';
-    if(!permitted('v-labels',permissions))mode='count';
-    page.querySelector('[data-nfc-mode="register"]').disabled=!permitted('v-labels',permissions);
-    page.querySelector('[data-nfc-mode="count"]').disabled=!select.options.length;
+    if(dedicated||!permitted('v-labels',permissions))mode='count';
+    var registerButton=page.querySelector('[data-nfc-mode="register"]'),countButton=page.querySelector('[data-nfc-mode="count"]');
+    if(registerButton)registerButton.disabled=!permitted('v-labels',permissions);
+    if(countButton)countButton.disabled=!select.options.length;
     select.value=destination;paint();
   }
   root.WmsNfcWorkspace={host:host,isActive:isActive};

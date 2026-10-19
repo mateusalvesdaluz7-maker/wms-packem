@@ -127,8 +127,14 @@ Um ensaio de interface no navegador interno confirmou a recepção de duas etiqu
 Referência da integração do gravador assistido: [NFC.cool — Write NFC abre o fluxo preenchido](https://nfc.cool/developers/).
 # Reutilizar um chip em outra bobina
 
-Na aba **NFC**, abra **Tags vinculadas — desvincular e reutilizar**. Consulte as tags, busque pelo ID da etiqueta ou UID e selecione o vínculo. Confira o material e o peso líquido ou metragem, toque em **Desvincular tag NFC** e depois em **Confirmar desvinculação**. O usuário precisa da mesma permissão usada para cadastrar etiquetas.
+Abra a aba **Desvincular NFC**. Consulte as tags, busque pelo ID da etiqueta ou UID e selecione o vínculo. Confira o material e o peso líquido ou metragem, toque em **Desvincular tag NFC** e depois em **Confirmar desvinculação**. O usuário precisa da mesma permissão usada para cadastrar etiquetas.
 
 Pause as contagens e cancele cadastros em andamento antes de liberar o chip. A operação remove somente a associação do UID: mantém a bobina, a etiqueta impressa, o estoque e um registro de auditoria do vínculo anterior. Não apaga o conteúdo NDEF do chip. Depois escolha a nova etiqueta, vincule o chip normalmente e use uma nova captura para a nova contagem.
 
 A migração `202610180001_nfc_unlink.sql` adiciona uma versão por vínculo e preserva a embalagem de cada leitura antiga. Assim, uma confirmação aberta em outra aba não remove um novo vínculo, e reutilizar o UID não troca os itens das filas anteriores. A migração não libera nem desvincula automaticamente nenhuma tag.
+
+## Telas NFC
+
+- **Recebimento:** em cada bobina, use **Vincular tag NFC** para associar o chip à etiqueta recebida.
+- **Inventário NFC:** inicie ou retome a conferência, leia em Lote no TapPony e acompanhe etiquetas, material, peso líquido e metragem. A conferência padrão não movimenta estoque. A captura pode ser retomada após reabrir o sistema; os destinos operacionais anteriores continuam disponíveis no seletor.
+- **Desvincular NFC:** consulte e libere somente o vínculo do chip. O novo vínculo é feito no Recebimento.

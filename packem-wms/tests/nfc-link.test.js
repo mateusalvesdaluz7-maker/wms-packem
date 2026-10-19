@@ -132,6 +132,21 @@ test('falha de autorização na entrega não indica sucesso e permite descartar'
 test('hashchange válido exige nova confirmação e não dispara aplicação',()=>{
   const h=uiHarness();h.login();h.win.location.hash='#etiqueta=B';h.handlers.hashchange();assert.equal(h.buttons().panel.children[1].textContent,'B');assert.equal(h.calls.filter(c=>c[0]==='apply').length,0);
 });
+test('landing real recebe link inicial e uma segunda etiqueta na mesma aba, sem navegar ao WMS',()=>{
+  const ids=new Map(),handlers={},replaced=[];
+  const doc={getElementById(id){if(!ids.has(id))ids.set(id,{hidden:true,addEventListener(){},focus(){}});return ids.get(id);}};
+  const win={PackemNfcLinkCore:core,location:{hash:'#etiqueta=0001',pathname:'/nfc.html',search:'',href:'https://wms.example.test/nfc.html#etiqueta=0001'},
+    history:{replaceState(a,b,url){replaced.push(url);win.location.hash='';}},addEventListener:(name,fn)=>handlers[name]=fn};
+  const source=fs.readFileSync(path.join(__dirname,'../nfc-link-page.js'),'utf8');
+  vm.runInNewContext(source,{window:win,document:doc,navigator:{},encodeURIComponent});
+  assert.equal(ids.get('nfc-received').hidden,false);assert.equal(ids.get('nfc-code').textContent,'0001');
+  assert.equal(ids.get('nfc-open').href,'index.html#etiqueta=0001');assert.equal(win.location.hash,'');
+  win.location.hash='#etiqueta=NEW-02';handlers.hashchange();
+  assert.equal(ids.get('nfc-code').textContent,'NEW-02');assert.equal(ids.get('nfc-open').href,'index.html#etiqueta=NEW-02');
+  assert.equal(replaced.length,2);assert.equal(win.location.pathname,'/nfc.html');
+  win.location.hash='#etiqueta=%3Cimg%3E';handlers.hashchange();
+  assert.equal(ids.get('nfc-invalid').hidden,false);assert.equal(ids.get('nfc-received').hidden,true);
+});
 test('scripts carregam antes do WMS; login e logout usam os hooks reais',()=>{
   const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
   assert.ok(html.indexOf('wms-nfc-link.js')<html.indexOf('src="wms-app.js'));

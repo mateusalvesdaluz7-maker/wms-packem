@@ -1,17 +1,22 @@
 (function(){
   'use strict';
-  var core=window.PackemNfcLinkCore,hash=window.location.hash;
-  // Remove o código da barra antes de qualquer ação de navegação.
-  if(hash)window.history.replaceState(null,'',window.location.pathname+window.location.search);
+  var core=window.PackemNfcLinkCore;
   var byId=function(id){return document.getElementById(id);};
-  try{
-    var code=core.parseFragment(hash);
-    if(code){
-      byId('nfc-code').textContent=code;
-      byId('nfc-open').href='index.html#etiqueta='+encodeURIComponent(code);
-      byId('nfc-received').hidden=false;
-    }else{byId('nfc-generator').hidden=false;}
-  }catch(error){byId('nfc-invalid-message').textContent=error.message;byId('nfc-invalid').hidden=false;}
+  function receiveLink(){
+    var hash=window.location.hash;
+    // Também trata uma segunda etiqueta ou teste aberto na mesma aba.
+    if(hash)window.history.replaceState(null,'',window.location.pathname+window.location.search);
+    ['nfc-received','nfc-generator','nfc-invalid'].forEach(function(id){byId(id).hidden=true;});
+    try{
+      var code=core.parseFragment(hash);
+      if(code){
+        byId('nfc-code').textContent=code;
+        byId('nfc-open').href='index.html#etiqueta='+encodeURIComponent(code);
+        byId('nfc-received').hidden=false;byId('nfc-open').focus();
+      }else{byId('nfc-generator').hidden=false;}
+    }catch(error){byId('nfc-invalid-message').textContent=error.message;byId('nfc-invalid').hidden=false;}
+  }
+  receiveLink();window.addEventListener('hashchange',receiveLink);
   byId('nfc-form').addEventListener('submit',function(event){
     event.preventDefault();byId('nfc-error').hidden=true;byId('nfc-generated').hidden=true;
     try{

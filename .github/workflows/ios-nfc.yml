@@ -1,0 +1,53 @@
+name: Validar NFC iPhone
+
+on:
+  pull_request:
+    paths:
+      - 'packem-wms/**'
+      - '.github/workflows/ios-nfc.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Testar WMS e integração NFC
+        working-directory: packem-wms
+        run: |
+          npm test
+          npm run check
+          node --check nfc-core.js
+          node --check wms-nfc.js
+          node --check nfc-preview.js
+      - name: Selecionar iPhone simulado disponível
+        run: |
+          xcrun simctl list devices available --json > "$RUNNER_TEMP/simulators.json"
+          python3 - <<'PY'
+          import json, os
+          with open(os.path.join(os.environ['RUNNER_TEMP'], 'simulators.json')) as f:
+              runtimes = json.load(f)['devices']
+          phones = [d for runtime, devices in runtimes.items() if '.iOS-' in runtime
+                    for d in devices if d.get('isAvailable') and 'iPhone' in d['name']]
+          if not phones:
+              raise SystemExit('Nenhum simulador iPhone disponível neste runner.')
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write('IPHONE_SIMULATOR_UDID=' + phones[0]['udid'] + '\n')
+          print('Simulador selecionado:', phones[0]['name'])
+          PY
+      - name: Compilar app e executar XCTest sem assinatura
+        run: |
+          xcodebuild test \
+            -project packem-wms/ios/PackemNFC.xcodeproj \
+            -scheme PackemNFC \
+            -destination "platform=iOS Simulator,id=$IPHONE_SIMULATOR_UDID" \
+            -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=NO

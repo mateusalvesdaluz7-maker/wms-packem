@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Packem · Prévia NFC</title>
+  <link rel="stylesheet" href="wms-nfc.css">
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f3f5f7;color:#18283b;font:16px/1.6 system-ui,sans-serif}header{background:#14273d;color:white;padding:18px max(24px,calc((100vw - 1040px)/2));display:flex;justify-content:space-between;gap:20px;align-items:center}header strong{font-size:20px;letter-spacing:.08em}header span{font-size:13px;color:#c7d4e3}main{max-width:1040px;margin:50px auto;padding:0 24px}h1{font-size:clamp(28px,4vw,44px);line-height:1.15;letter-spacing:-.04em;margin:12px 0 20px;max-width:720px}p{color:#516174}.eyebrow{color:#225f9e;font-size:12px;font-weight:750;letter-spacing:.12em;text-transform:uppercase}.lead{max-width:700px}.layout{display:grid;grid-template-columns:1.35fr 1fr;gap:24px;margin:32px 0}.card{border:1px solid #dce3eb;border-radius:16px;background:white;padding:28px;box-shadow:0 8px 28px #243c5510}h2{font-size:21px;margin:0 0 20px;line-height:1.25}label{display:block;font-size:14px;font-weight:650;margin:18px 0 7px}.camfield{position:relative}.camfield input{width:100%;height:52px;border:1px solid #b9c7d6;border-radius:8px;padding:12px;font:inherit;background:#f9fbfd}.packem-nfc-button{height:36px;top:8px;right:8px}ol{padding-left:22px;color:#516174}li{margin:14px 0}.state{display:inline-flex;gap:8px;align-items:center;font-size:12px;padding:6px 10px;border:1px solid #d4e0eb;border-radius:99px;color:#455b70;background:#f7fafc}.state:before{content:'';height:7px;width:7px;border-radius:50%;background:#9baab8}.notice{border-left:3px solid #d4992e;padding:8px 16px;background:#fff9ef;font-size:14px;color:#75571b}.caption{font-size:13px;color:#68798a}a{color:#225f9e}footer{border-top:1px solid #dce3eb;padding-top:20px;font-size:13px;color:#68798a}@media(max-width:760px){main{margin:30px auto}.layout{grid-template-columns:1fr}.card{padding:22px}header span{display:none}}
+  </style>
+</head>
+<body>
+  <header><strong>PACKEM</strong><span>WMS · Integração com o iPhone</span></header>
+  <main>
+    <span class="eyebrow">Laboratório / NFC</span>
+    <h1>Aproxime a etiqueta.<br>Continue dentro do WMS.</h1>
+    <p class="lead">Prévia do controle preparado para o seu sistema. No app Packem para iPhone, o botão abre o leitor NFC e encaminha o código para as conferências existentes.</p>
+    <div class="notice"><strong>Prévia isolada.</strong> Esta página não acessa seu estoque. Neste navegador, a leitura física NFC está indisponível.</div>
+    <div class="layout">
+      <section class="card" aria-labelledby="field-title">
+        <div class="state">Leitor físico não conectado</div>
+        <h2 id="field-title" style="margin-top:20px">Conferir etiqueta</h2>
+        <label for="previewEtiqueta">Etiqueta do material</label>
+        <div class="camfield"><input id="previewEtiqueta" placeholder="Aguardando leitura NFC" readonly></div>
+        <p class="caption">Toque em NFC para ver o controle. A leitura será habilitada pelo aplicativo nativo no iPhone.</p>
+        <p id="previewResult" role="status" class="caption">Nenhuma etiqueta lida.</p>
+      </section>
+      <section class="card" aria-labelledby="steps-title">
+        <h2 id="steps-title">No seu iPhone</h2>
+        <ol>
+          <li>Abra o app Packem e entre no seu WMS.</li>
+          <li>Na operação, toque em <strong>NFC → Encostar e ler</strong>.</li>
+          <li>Aproxime a parte superior do iPhone da etiqueta.</li>
+          <li>Confira o resultado da operação no WMS.</li>
+        </ol>
+      </section>
+    </div>
+    <footer>O código gravado na etiqueta e seu UID são modos diferentes. Use o valor cadastrado no WMS. NFC de proximidade não substitui um leitor RFID UHF de longa distância.</footer>
+  </main>
+  <script src="nfc-core.js"></script>
+  <script src="wms-nfc.js"></script>
+  <script src="nfc-preview.js"></script>
+</body>
+</html>

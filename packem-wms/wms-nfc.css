@@ -1,0 +1,17 @@
+.camfield .packem-nfc-button{position:absolute;right:50px;top:5px;height:34px;min-width:48px;padding:0 7px;border:1px solid var(--line,#ced8e4);border-radius:7px;background:var(--card,#fff);color:var(--brand,#0e766e);font:700 11px system-ui;cursor:pointer;z-index:2}
+.packem-nfc-button:focus-visible,.packem-nfc-panel button:focus-visible,.packem-nfc-panel select:focus-visible{outline:3px solid #29b8a6;outline-offset:3px}
+.packem-nfc-result{display:block;margin:5px 0 0;font:500 11px/1.5 system-ui;color:var(--brand,#0e766e);overflow-wrap:anywhere}
+.packem-nfc-result.error{color:#b42318}
+.packem-nfc-overlay[hidden],.packem-nfc-result[hidden]{display:none!important}
+.packem-nfc-overlay{position:fixed;inset:0;z-index:13000;background:rgba(12,24,39,.7);display:flex;align-items:center;justify-content:center;padding:20px}
+.packem-nfc-panel{width:min(100%,440px);max-height:90vh;overflow:auto;background:#fff;color:#173344;border:1px solid #d7e2e8;border-radius:18px;padding:22px;box-shadow:0 22px 70px #0004;font:400 14px/1.6 system-ui}
+.packem-nfc-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.packem-nfc-head h2{font-size:21px;line-height:1.2;margin:0}
+.packem-nfc-close{border:1px solid #d4dfe4;background:#f3f7f7;border-radius:7px;padding:6px 10px;color:#344f5d;cursor:pointer}
+.packem-nfc-panel label{display:block;font-weight:650;margin:18px 0 6px}
+.packem-nfc-panel select{width:100%;padding:11px;border:1px solid #c5d3dc;border-radius:8px;background:#fff;color:#173344;font:inherit}
+.packem-nfc-status{min-height:55px;background:#f0f6f4;border-radius:8px;padding:12px}
+.packem-nfc-start{width:100%;border:0;border-radius:9px;background:#0d7869;color:#fff;font:700 15px system-ui;padding:13px;cursor:pointer}
+.packem-nfc-start:disabled{background:#cbd7d5;color:#536e69;cursor:default}
+.packem-nfc-panel small{display:block;color:#657b86;font-size:12px;margin-top:12px}
+@media(max-width:600px){.packem-nfc-overlay{align-items:flex-end;padding:12px;padding-bottom:max(12px,env(safe-area-inset-bottom))}.packem-nfc-panel{border-radius:18px 18px 12px 12px;padding:19px}}

@@ -5992,7 +5992,49 @@ window.cleanScanCode=function(v,kind){
    }else hint(txt2);
   }
    finishScanOpening();}
-  function fill(val){if(O.onResult){try{return O.onResult(val);}catch(e){try{console.warn('scan onResult',e);}catch(_){}toast('Falha ao processar a leitura. Tente novamente.',false);return false;}}const el=document.getElementById(O.inputId);if(!el)return false;el.value=val;el.dispatchEvent(new Event('input'));if(O.enter)el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));return true;}
+  /* PACKEM_NFC_DISPATCH_START: same delivery path for camera and native NFC. */
+  function fillScanTarget(options,val){if(options.onResult){try{return options.onResult(val);}catch(e){try{console.warn('scan onResult',e);}catch(_){}toast('Falha ao processar a leitura. Tente novamente.',false);return false;}}const el=document.getElementById(options.inputId);if(!el)return false;el.value=val;el.dispatchEvent(new Event('input'));if(options.enter)el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));return true;}
+  function fill(val){return fillScanTarget(O,val);}
+  window.packemNfcContext=function(inputId,options){
+    options=options||{};
+    var el=document.getElementById(inputId),logged=typeof session!=='undefined'?session:null;
+    if(!logged||!logged.u||!el||!el.isConnected||el.disabled||el.type==='hidden'||!el.getClientRects().length)return null;
+    var account=(typeof US!=='undefined'&&Array.isArray(US))?US.find(function(user){return String(user.u||'').toLowerCase()===String(logged.u).toLowerCase();}):null;
+    if(!account||account.active===false)return null;
+    var active=document.querySelector('.view.active'),own=el.closest('.view'),view=own||active;
+    if(!view||own&&own!==active)return null;
+    var available=typeof allowedViews==='function'?allowedViews():[];
+    if(Array.isArray(available)&&available.indexOf(view.id)<0)return null;
+    var action='visualizar';
+    if(options.onResult||options.enter){
+      if(view.id==='v-requisicao')action='separar_requisicao';
+      else if(view.id!=='v-etqconsulta')action='cadastrar';
+    }
+    if(typeof window.canAction!=='function'||!window.canAction(action))return null;
+    var camera=document.getElementById('scan');
+    if(camera&&camera.classList.contains('show'))return null;
+    return {user:String(logged.u),role:curRole(),view:view.id,input:el,action:action};
+  };
+  window.applyPackemNfcScan=function(inputId,raw,options,expected){
+    options=Object.assign({inputId:inputId},options||{});
+    var current=window.packemNfcContext(inputId,options);
+    if(!expected||!current||current.user!==expected.user||current.role!==expected.role||current.view!==expected.view||current.input!==expected.input||current.action!==expected.action){
+      toast('Leitura NFC cancelada: confira o usuário, a tela e a permissão do campo.',false);return false;
+    }
+    var clean=typeof window.cleanScanCode==='function'?window.cleanScanCode(raw,options.scanKind):raw;
+    if(typeof clean!=='string'||!clean.trim()){toast('A etiqueta NFC não contém um código válido.',false);return false;}
+    var resolved=typeof window.resolveRomSupplierScan==='function'?window.resolveRomSupplierScan(clean):null;
+    if(resolved&&resolved.ambiguous){toast('Leitura NFC ambígua. Confira a etiqueta.',false);return false;}
+    var key=resolved&&resolved.id||clean;
+    if(options.allowedDocKey&&ETQ[key]&&ETQ[key].nf!==options.allowedDocKey){
+      toast('Etiqueta de outro documento. Confira esta nota ou romaneio.',false);return false;
+    }
+    if(options.keepOpenOnOcr&&(!ETQ[key]||ETQ[key].status==='entrada'||ETQ[key].status==='saida')){
+      toast('Bobina fora do romaneio ou já recebida. Confira a etiqueta.',false);return false;
+    }
+    return fillScanTarget(options,clean);
+  };
+  /* PACKEM_NFC_DISPATCH_END */
  function hit(val){
   val=(val||'').trim();if(!val||!active)return false;
   var clean=(typeof window.cleanScanCode==='function')?window.cleanScanCode(val,O&&O.scanKind):val;
@@ -6045,7 +6087,7 @@ window.cleanScanCode=function(v,kind){
  document.querySelectorAll('#scanModes [data-scanmode]').forEach(function(b){b.onclick=function(){changeScanMode(b.getAttribute('data-scanmode'));};});
  document.getElementById('scanX').onclick=close;
   window.scanInto=function(inputId,opts){scanSeen.clear();scanIgnored.clear();O=Object.assign({inputId},opts||{});if(O.supplierOcr===undefined&&O.scanKind!=='addr'&&!/endereço/i.test(O.title||'')){O.supplierOcr=true;O.autoOcr=true;O.scanModes=true;}if(O.supplierOcr&&O.scanModes===undefined)O.scanModes=true;O.scanMode=O.supplierOcr&&O.defaultMode==='ocr'?'ocr':'qr';updateScanMode();document.getElementById('scanTitle').textContent=(O.title||'Escanear')+(O.continuous?' · contínuo':'');open();};
- window.addCam=function(inputId,opts){const el=document.getElementById(inputId);if(!el||el.type==='hidden'||el.dataset.cam)return;el.dataset.cam='1';const w=document.createElement('div');w.className='camfield';w.style.position='relative';w.style.width='100%';el.parentNode.insertBefore(w,el);w.appendChild(el);el.style.width='100%';el.style.boxSizing='border-box';el.style.paddingRight='54px';const b=document.createElement('button');b.type='button';b.className='cambtn';b.innerHTML=ICONS.cam;b.title='Escanear com câmera';b.onclick=()=>scanInto(inputId,opts||{});w.appendChild(b);try{scanLock(el);}catch(e){} };
+ window.addCam=function(inputId,opts){const el=document.getElementById(inputId);if(!el||el.type==='hidden'||el.dataset.cam)return;el.dataset.cam='1';const w=document.createElement('div');w.className='camfield';w.style.position='relative';w.style.width='100%';el.parentNode.insertBefore(w,el);w.appendChild(el);el.style.width='100%';el.style.boxSizing='border-box';el.style.paddingRight='54px';const b=document.createElement('button');b.type='button';b.className='cambtn';b.innerHTML=ICONS.cam;b.title='Escanear com câmera';b.onclick=()=>scanInto(inputId,opts||{});w.appendChild(b);try{scanLock(el);}catch(e){}if(window.PackemNFC)window.PackemNFC.attach(inputId,opts||{}); };
  addCam('mBob',{enter:true,title:'Escanear bobina'});addCam('mLoc',{enter:true,title:'Escanear endereço',scanKind:'addr'});
  const _rrv=renderRecv;renderRecv=function(){_rrv();addCam('recvScan',{continuous:true,onResult:recvAdd,title:'Ler bobinas',scanModes:true,supplierOcr:true,autoOcr:true,defaultMode:'auto'});};
  const _saz=stageArmazenar;stageArmazenar=function(et){_saz(et);setTimeout(()=>addCam('azLoc',{enter:false,title:'Escanear endereço',scanKind:'addr'}),60);};

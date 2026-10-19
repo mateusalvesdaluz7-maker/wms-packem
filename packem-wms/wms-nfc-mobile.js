@@ -6,7 +6,7 @@
     var token='',owner='',login=null;
     async function fetchReply(body,headers){
       var response;
-      try{response=await options.fetch('/api/nfc-mobile',{method:'POST',headers:{'content-type':'application/json',...headers},cache:'no-store',body:JSON.stringify(body)});}
+      try{response=await options.fetch(/^inventory_/.test(body.action)?'/api/nfc-inventory':'/api/nfc-mobile',{method:'POST',headers:{'content-type':'application/json',...headers},cache:'no-store',body:JSON.stringify(body)});}
       catch(_){throw Object.assign(new Error('Conexão NFC interrompida.'),{retryable:true});}
       var reply=await response.json().catch(function(){return null;});
       if(!response.ok||!reply)throw Object.assign(new Error(reply&&reply.error||'O serviço NFC não confirmou a operação.'),{status:response.status,retryable:[408,429,502,503,504].includes(response.status)||response.ok&&!reply});
@@ -297,7 +297,7 @@
     if(enrollment!==op||op.user!==user())return;enrollment=null;
     var state=saved();delete state.enrollment;save(state);notice('Cadastro encerrado. Consulte o resultado antes de reutilizar a tag.');
   }
-  async function start(target,fresh){
+  async function start(target,fresh,inventory){
     ensureAlone();if(enrollment)throw new Error('Conclua ou cancele o cadastro antes de contar.');
     if(queue.binding&&queue.binding.running)throw new Error('Pause a captura atual antes de iniciar outra.');
     var context=makeContext(target);if(!context||!context.isActive()||!context.scope)throw new Error('Abra uma contagem atribuída a você e escolha a vaga ou o chão que será contado.');
@@ -306,8 +306,17 @@
     var apiTarget=target==='v-nfc-test'?'v-inv':target;
     var state=saved(),counts=state.counts||{},previous=counts[context.scope]||state.count;
     if(previous&&(previous.contextKey!==context.scope||previous.readerId!==reader.id||previous.target!==apiTarget))previous=null;
+    if(inventory){
+      if(fresh&&inventory.current)throw new Error('Encerre o inventário em andamento antes de iniciar outro.');
+      if(!fresh&&!inventory.current)throw new Error('Nenhum inventário em andamento. Use Iniciar novo inventário.');
+      if(fresh)previous=null;
+      else if(!previous||previous.sessionId!==inventory.current.id){
+        if(inventory.current.active)throw new Error('O inventário está ativo em outra tela. Pause a captura antes de retomar aqui.');
+        previous={readerId:reader.id,sessionId:inventory.current.id,target:apiTarget,contextKey:context.scope,consumerId:crypto.randomUUID()};
+      }
+    }
     // Transfer only after an explicit pause; two screens must not consume the same queue.
-    if(!previous&&reader.count&&reader.count.target===apiTarget&&reader.count.contextKey===context.scope){
+    if(!inventory&&!previous&&reader.count&&reader.count.target===apiTarget&&reader.count.contextKey===context.scope){
       if(reader.count.active)throw new Error('Este leitor está conectado a outra tela. Use Pausar captura antes de transferir a contagem.');
       previous={readerId:reader.id,sessionId:reader.count.id,target:apiTarget,contextKey:context.scope,consumerId:crypto.randomUUID()};
     }
@@ -321,7 +330,7 @@
     if(reader.mode==='count'&&reader.countSessionId!==config.sessionId)throw new Error('Existe outra captura ativa neste leitor. Use Pausar captura antes de iniciar esta contagem.');
     // Persist before the request, including an uncertain response after a network failure.
     config.viewTarget=target;save({...state,counts:{...counts,[context.scope]:config}});
-    await queue.start(config,context);await queue.loadHistory();await queue.poll();paint();
+    await queue.start(config,context);await queue.loadHistory();await queue.poll();paint();return queue.binding;
   }
   async function pause(){
     if(queue.binding)await queue.pause();
@@ -360,10 +369,10 @@
       if(target==='v-labels'){
         button(controls,'Cadastrar próxima tag',function(){return arm();});button(controls,'Conferir cadastro',checkEnrollment);button(controls,'Cancelar cadastro',cancel);
       }else{
-        var startButton=button(controls,'Iniciar / retomar contagem',function(){return start(target);});if(primaryInventory)startButton.className='btn brand';
-        button(extraControls,'Nova captura após pausa',function(){return start(target,true);});
+        if(primaryInventory)controls.dataset.nfcInventoryControls='1';
+        else{button(controls,'Iniciar / retomar contagem',function(){return start(target);});button(extraControls,'Nova captura após pausa',function(){return start(target,true);});}
         button(extraControls,'Tentar novamente',function(){queue.blocked=false;queue.retryAt=0;queue.failures=0;return queue.poll();});
-        button(controls,'Pausar captura',pause);
+        button(primaryInventory?extraControls:controls,'Pausar captura',pause);
         var counted=document.createElement('div');counted.dataset.nfcCountResults=target;panel.appendChild(counted);
         button(extraControls,'Atualizar detalhes',async function(){if(!queue.binding||queue.binding.viewTarget!==target)throw new Error('Inicie ou retome a contagem deste destino para consultar as embalagens.');queue.binding.historyError='';await queue.loadHistory();paint();});
       }
@@ -448,6 +457,10 @@
     try{if(enrollment)await checkEnrollment();else{await queue.loadHistory();await queue.poll();paintCountDetails();}}catch(error){notice(error.message);}finally{ticking=false;}
   }
   root.WmsNfcMobile={active:function(){return working||!!enrollment||!!(queue.binding&&queue.binding.running);},queue:queue,
+    inventory:{request:client.request,selectedReader:()=>reader&&reader.id,reader:async function(){await selectReader();if(!reader)throw new Error('Abra Conexão do celular e conecte o leitor primeiro.');return reader.id;},
+      start:function(fresh,state){return start('v-nfc-test',fresh,state);},
+      completed:function(id){var b=queue.binding;if(b&&b.sessionId===id){++queue.epoch;b.running=false;queue.blocked=false;if(reader){reader.mode='idle';}notice('Inventário encerrado. O resultado foi salvo. Você pode iniciar um novo inventário.');}},
+      perform:async function(callback){if(working)throw new Error('Aguarde a operação NFC atual terminar.');working=true;paint();try{return await callback();}finally{working=false;paint();}}},
     registerItem:registerItem,checkEnrollment:checkEnrollment,cancelEnrollment:cancel,pauseCapture:pauseCapture,
     enrollmentState:function(){return {owner:user(),working:working,mode:queue.binding&&queue.binding.running?'count':reader&&reader.mode,pendingItem:enrollment&&enrollment.item,operationId:enrollment&&enrollment.operationId,result:reader&&reader.enrollment?{...reader.enrollment}:null,message:message};}};
   setInterval(tick,750);document.addEventListener('visibilitychange',tick);tick();

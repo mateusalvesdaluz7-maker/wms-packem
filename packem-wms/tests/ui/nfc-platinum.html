@@ -22,7 +22,7 @@ if(splitLayout){
  document.getElementById('show-count').textContent='Inventário NFC';document.getElementById('show-labels').hidden=true;
 }
 var reader=null,count=null,registry=new Map(),counted=new Set(),catalog={T001:{pr:'0303450047',pl:300},T002:{pr:'0303450047',pl:250.5}},BOB=catalog,ETQ={},manualSeq=0;
-var STAGE=[],apiCalls=[],stockActions=0;
+var STAGE=[],apiCalls=[],stockActions=0,inventorySnapshots=new Map();
 [25,30,35,40,45].forEach(function(kg,index){var id='REC-TEST-'+(index+1),record={et:id,pr:'0303450047',desc:'TESTE NFC '+(index+1)+'/5',pl:kg};STAGE.push(record);catalog[id]={pr:record.pr,desc:record.desc,pl:kg};ETQ[id]={cProd:record.pr,xProd:record.desc,kg:kg,uCom:'KG',nf:'__vaga__'};
  var card=document.createElement('article');card.className='card';var description=document.createElement('p');description.textContent=id+' · '+record.pr+' · '+kg+' KG';card.appendChild(description);var actions=document.createElement('div');['Armazenar','Produção'].forEach(function(text,i){var button=document.createElement('button');button.textContent=text;button.dataset[i?'pp':'az']=id;button.onclick=function(){stockActions++;};actions.appendChild(button);});card.appendChild(actions);document.getElementById('stageList').appendChild(card);
 });
@@ -44,10 +44,13 @@ window.fetch=async function(url,options){var b=JSON.parse(options.body),a=b.acti
  else if(a==='reader_get')data={...reader};
  else if(a==='enroll_arm'){if(reader.operationId!==d.operationId){reader={...reader,mode:'enroll',operationId:d.operationId,enrollmentItem:d.item,enrollment:null,armUntil:new Date(Date.now()+120000).toISOString()};}data={...reader};}
  else if(a==='enroll_cancel'){reader.mode='idle';reader.enrollment={status:'cancelled',operationId:d.operationId};data={...reader};}
- else if(a==='count_start'){if(!count||count.sessionId!==d.sessionId)count={...d,cursor:0,items:[],active:true};count.active=true;reader.mode='count';reader.countSessionId=d.sessionId;data=state(count.cursor);}
+ else if(a==='count_start'){if(inventorySnapshots.has(d.sessionId))throw Error('Inventário encerrado');if(count&&count.sessionId!==d.sessionId&&count.contextKey===session.u+':inventario-nfc:conferencia'&&!inventorySnapshots.has(count.sessionId))throw Error('Encerre o inventário anterior');if(!count||count.sessionId!==d.sessionId)count={...d,cursor:0,items:[],active:true};count.active=true;reader.mode='count';reader.countSessionId=d.sessionId;data=state(count.cursor);}
  else if(a==='count_status'){data=state(d.cursor);data.bindings=data.items.filter(e=>registry.has(e.uid)).map(e=>({uid:e.uid,item:registry.get(e.uid)}));}
  else if(a==='count_ack'){count.cursor=d.cursor;data=state(d.cursor);}
  else if(a==='count_stop'){count.active=false;reader.mode='idle';data=state(count.cursor);}
+ else if(a==='inventory_list')data={current:count&&count.contextKey===session.u+':inventario-nfc:conferencia'&&!inventorySnapshots.has(count.sessionId)?{id:count.sessionId,active:count.active,received:count.items.length,processed:count.cursor}:null,history:[...inventorySnapshots.values()].reverse().slice(d.offset,d.offset+20),hasMore:false};
+ else if(a==='inventory_get'){data=inventorySnapshots.get(d.sessionId);if(!data)throw Error('Inventário ainda em andamento');}
+ else if(a==='inventory_finish'){data=inventorySnapshots.get(d.sessionId);if(!data){if(count.items.length!==count.cursor)throw Error('Há leituras pendentes');data={id:d.sessionId,finishedAt:new Date().toISOString(),createdAt:new Date().toISOString(),entries:JSON.parse(JSON.stringify(d.entries)),items:d.entries.length};inventorySnapshots.set(d.sessionId,data);count.active=false;reader.mode='idle';}}
  else throw Error('Ação simulada desconhecida');
  return {ok:true,status:200,json:async()=>({ok:true,data})};
  }catch(error){return {ok:false,status:409,json:async()=>({ok:false,error:error.message})};}};
@@ -78,4 +81,4 @@ document.getElementById('burst').onclick=async function(){
  document.getElementById('scan-result').textContent='30 UIDs fictícios enviados juntos à fila local. Repetir a rajada não duplica as embalagens.';
  await WmsNfcMobile.queue.poll();
 };
-</script><script src="../../wms-nfc-workspace.js"></script><script src="../../wms-nfc-text.js"></script><script src="../../wms-nfc-labels.js"></script><script src="../../wms-nfc-reader.js"></script><script src="../../wms-nfc-preparar.js"></script><script src="../../wms-nfc-mobile.js"></script><script src="../../wms-nfc-recebimento.js"></script><script src="../../wms-nfc-manual.js"></script><script src="../../wms-nfc-tags.js"></script></html>
+</script><script src="../../wms-nfc-workspace.js"></script><script src="../../wms-nfc-text.js"></script><script src="../../wms-nfc-labels.js"></script><script src="../../wms-nfc-reader.js"></script><script src="../../wms-nfc-preparar.js"></script><script src="../../wms-nfc-mobile.js"></script><script src="../../wms-nfc-inventory-lifecycle.js"></script><script src="../../wms-nfc-recebimento.js"></script><script src="../../wms-nfc-manual.js"></script><script src="../../wms-nfc-tags.js"></script></html>

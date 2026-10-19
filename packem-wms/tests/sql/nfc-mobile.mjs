@@ -108,5 +108,38 @@ assert.deepEqual((await db.query('select count(*) labels,(select count(*) from b
 for(const role of ['anon','authenticated']){
   await db.exec('SET ROLE '+role);await assert.rejects(unlink(),/permission denied/);await db.exec('RESET ROLE');
 }
+for(let twice=0;twice<2;twice++)await db.exec(await readFile(new URL('../../supabase/migrations/202610190001_nfc_inventory_lifecycle.sql',import.meta.url),'utf8'));
+const inventorySession='bbbb1111-1111-4111-8111-111111111111',nextInventory='cccc1111-1111-4111-8111-111111111111',inventoryScope='qa:inventario-nfc:conferencia';
+await db.query("insert into wms_nfc_counts(id,reader_id,owner,consumer_id,target,context_key,active,created_at) values('eeee1111-1111-4111-8111-111111111111',$1,'qa',$2,'v-inv',$3,false,now()-interval '1 day')",[rid,consumer,inventoryScope]);
+const inventoryRpc=async(action,data={},actor='qa')=>(await db.query('select public.wms_nfc_inventory($1,$2,$3) value',[action,actor,{readerId:rid,consumerId:consumer,...data}])).rows[0].value;
+await db.exec('SET ROLE service_role');
+await rpc('count_start',{sessionId:inventorySession,target:'v-inv',contextKey:inventoryScope});
+await ingestFeiju(feiju);
+assert.equal((await inventoryRpc('inventory_list',{offset:0})).current.id,inventorySession);
+assert.equal((await inventoryRpc('inventory_finish',{sessionId:inventorySession,entries:[]})).reason,'pending');
+await rpc('count_ack',{sessionId:inventorySession,cursor:1});
+await assert.rejects(inventoryRpc('inventory_finish',{sessionId:inventorySession,consumerId:'dddd1111-1111-4111-8111-111111111111',entries:[]}),/Retome/);
+await assert.rejects(inventoryRpc('inventory_list',{offset:0},'other'),/não pertence/);
+assert.equal((await inventoryRpc('inventory_finish',{sessionId:inventorySession,entries:[]})).reason,'snapshot');
+const frozenEntry={seq:1,uid:feiju,item:'T004',codigo:'0303450157',quantidade:'334.22',unidade:'KG'};
+assert.equal((await inventoryRpc('inventory_finish',{sessionId:inventorySession,entries:[{...frozenEntry,item:'T003'}]})).reason,'snapshot');
+await rpc('count_stop',{sessionId:inventorySession});
+await assert.rejects(rpc('count_start',{sessionId:nextInventory,target:'v-inv',contextKey:inventoryScope}),/Encerre/);
+const finished=await inventoryRpc('inventory_finish',{sessionId:inventorySession,entries:[frozenEntry]});
+assert.ok(finished.finishedAt);assert.deepEqual(finished.entries,[frozenEntry]);
+assert.deepEqual(await inventoryRpc('inventory_finish',{sessionId:inventorySession,entries:[]}),finished);
+assert.equal((await inventoryRpc('inventory_list',{offset:0})).current,null);
+await assert.rejects(rpc('count_start',{sessionId:inventorySession,target:'v-inv',contextKey:inventoryScope}),/encerrado/);
+await assert.rejects(ingestFeiju(feiju),/Abra cadastro/);
+await rpc('count_start',{sessionId:nextInventory,target:'v-inv',contextKey:inventoryScope});
+assert.equal((await rpc('count_status',{sessionId:nextInventory,cursor:0})).session.received,0);
+assert.equal((await ingestFeiju(feiju)).duplicate,false);
+await rpc('count_ack',{sessionId:nextInventory,cursor:1});
+await inventoryRpc('inventory_finish',{sessionId:nextInventory,entries:[{...frozenEntry,quantidade:'329.22'}]});
+const inventoryHistory=await inventoryRpc('inventory_list',{offset:0});assert.equal(inventoryHistory.history.length,2);
+assert.deepEqual((await inventoryRpc('inventory_get',{sessionId:inventorySession})).entries,[frozenEntry]);
+await db.exec('RESET ROLE');
+assert.deepEqual((await db.query('select count(*) labels,(select count(*) from bobinas) rolls from etiquetas')).rows,stockBefore);
+for(const role of ['anon','authenticated']){await db.exec('SET ROLE '+role);await assert.rejects(inventoryRpc('inventory_list',{offset:0}),/permission denied/);await db.exec('RESET ROLE');}
 await db.close();
 console.log('SQL NFC: migrations repeatable; ownership, atomic enrollment, conflicts, permissions, queue, duplicates, cursor, rotation and context isolation verified. Production database untouched.');

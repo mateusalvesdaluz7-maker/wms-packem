@@ -44,8 +44,8 @@ struct ContentView: View {
             .navigationTitle("Packem · WMS + NFC")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if browser.configuration != nil {
-                    ToolbarItemGroup(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    if browser.configuration != nil {
                         Button { browser.reload() } label: { Image(systemName: "arrow.clockwise") }.accessibilityLabel("Recarregar WMS")
                         Button("Trocar URL") { browser.setSettingsOpen(true); showingSettings = true }
                     }

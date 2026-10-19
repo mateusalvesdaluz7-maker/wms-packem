@@ -2,7 +2,7 @@
 
 Projeto-fonte de um aplicativo iOS próprio com SwiftUI, `WKWebView` persistente e Core NFC. O WMS continua hospedado no endereço HTTPS que o operador configurar; o app não empacota o frontend, dados, chaves ou credenciais do WMS.
 
-**Situação da validação:** criado em Windows. Não foi compilado no Xcode, os testes XCTest não foram executados e nenhuma leitura foi validada em iPhone real. A existência do projeto e dos testes-fonte não confirma funcionamento em hardware ou assinatura/distribuição. Não houve push, deploy ou instalação de dependências.
+**Situação da validação:** desenvolvido em Windows, com compilação e XCTest configurados no workflow macOS **Validar NFC iPhone**. Consulte o resultado desse workflow no commit que pretende instalar; a presença dos testes não significa aprovação. Nenhuma leitura foi validada em iPhone real. Assinatura, distribuição e leitura física precisam de validação no aparelho. Esta proposta não foi integrada ao WMS de produção.
 
 ## Abrir e assinar no Mac
 
@@ -60,7 +60,7 @@ Navegação principal fica na origem HTTPS exata (scheme/host/porta), inclusive 
 
 O fluxo escolhido é leitura explícita dentro do aplicativo. Background Tag Reading exige outro fluxo de notificação e associação de domínio; não foi implementado nem apresentado como leitura automática do WMS no Safari.
 
-## Testes-fonte e roteiro manual — não executados
+## Testes automatizados e roteiro no aparelho
 
 `PackemNFCTests/BridgeHelpersTests.swift` contém testes de URL/origem exata, requests estritos, hexadecimal, JSON com caracteres especiais, NDEF UTF-8, UTF-16, URI, vazio, ambiguidade, limite e formato desconhecido. No Mac, use o scheme compartilhado `PackemNFC` e **Product > Test**. Esses testes-fonte não foram compilados/executados no Windows.
 

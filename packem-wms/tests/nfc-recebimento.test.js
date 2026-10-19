@@ -36,6 +36,7 @@ function uiFixture(snapshot={}){
   class Element {
     constructor(tag){this.tagName=tag;this.children=[];this.dataset={};this.style={};this.hidden=false;this.textContent='';}
     appendChild(node){if(node.parentElement)node.parentElement.children=node.parentElement.children.filter(x=>x!==node);this.children.push(node);node.parentElement=this;return node;}
+    remove(){if(this.parentElement)this.parentElement.children=this.parentElement.children.filter(x=>x!==this);this.parentElement=null;}
     setAttribute(key,value){this[key]=value;}
     get isConnected(){return this===body||!!this.parentElement&&this.parentElement.isConnected;}
     matches(selector){return selector[0]==='#'?this.id===selector.slice(1):selector==='[data-az]'?'az' in this.dataset:selector==='[data-nfc-receber]'?'nfcReceber' in this.dataset:false;}
@@ -49,9 +50,10 @@ function uiFixture(snapshot={}){
   const document={body,hidden:false,createElement:tag=>{assert.notEqual(tag,'dialog');return new Element(tag);},getElementById:key=>body.querySelector('#'+key),querySelector:selector=>selector==='.view.active'?view:body.querySelector(selector),addEventListener:(name,fn)=>listeners[name]=fn};
   const state={owner:'admin',working:false,pendingItem:null,operationId:null,message:'Aguardando chip',...snapshot};
   const mobile={enrollmentState:()=>state,registerItem:async(item,context)=>{calls.push('register');assert.equal(context.isActive(),true);if(state.mode==='count')throw Error('O leitor está em contagem. Pause a captura.');state.pendingItem=item;state.operationId='operation';return {tag:{item,codigo:'0303450047',quantidade:'25',unidade:'KG'},operationId:'operation'};},pauseCapture:async()=>{calls.push('pause');state.mode='idle';},cancelEnrollment:async()=>{state.pendingItem=null;},checkEnrollment:async()=>{}};
-  const root={WmsNfcMobile:mobile,WmsNfcLabels:{sources:()=>({stage:[{et:id}]}),lookupCurrent:async()=>({codigo:'0303450047',quantidade:25,unidade:'KG'})},allowedViews:()=>null,addEventListener:(name,fn)=>listeners[name]=fn};
+  const stage=[{et:id}];
+  const root={WmsNfcMobile:mobile,WmsNfcLabels:{sources:()=>({stage}),lookupCurrent:async()=>({codigo:'0303450047',quantidade:25,unidade:'KG'})},allowedViews:()=>null,addEventListener:(name,fn)=>listeners[name]=fn};
   vm.runInNewContext(fs.readFileSync(require.resolve('../wms-nfc-recebimento.js'),'utf8'),{window:root,document,session:{u:'admin'},MutationObserver:class{observe(){}},setTimeout});
-  return {root,document,state,mobile,calls,card,Element,async click(){const target=card.querySelector('[data-nfc-receber]');listeners.click({target,preventDefault(){},stopPropagation(){}});await new Promise(resolve=>setImmediate(resolve));},panel:()=>document.getElementById('packemNfcRecebimento'),status:()=>document.getElementById('packemNfcRecebimento').children.find(x=>x.role==='status').textContent};
+  return {root,document,state,mobile,calls,card,Element,stage,list,paint:()=>listeners['packem-nfc-mobile-state'](),async click(){const target=card.querySelector('[data-nfc-receber]');listeners.click({target,preventDefault(){},stopPropagation(){}});await new Promise(resolve=>setImmediate(resolve));},panel:()=>document.getElementById('packemNfcRecebimento'),status:()=>document.getElementById('packemNfcRecebimento').children.find(x=>x.role==='status').textContent};
 }
 test('clique com cadastro anterior pendente abre aviso visível e não arma outra bobina',async()=>{
   const f=uiFixture({pendingItem:'ETIQUETA-ANTERIOR',operationId:'previous'});await f.click();
@@ -78,4 +80,26 @@ test('painel compartilhado mantém o contexto e o cartão de Rastreável ao paus
   const pause=f.panel().children.flatMap(n=>n.children).find(b=>b.textContent==='Pausar contagem e preparar esta tag');
   await pause.onclick();assert.deepEqual(f.calls,['register','pause','register']);assert.equal(f.panel().parentElement,host);assert.equal(f.state.pendingItem,'R-MANUAL-001');
   assert.match(f.panel().children[1].textContent,/Código 0303410008 · Metragem: 6\.300 MT/);
+});
+
+test('retirar a bobina após vincular fecha o painel sem cancelar nem recriar o vínculo',async()=>{
+  const f=uiFixture();await f.click();const panel=f.panel();
+  f.state.pendingItem=null;f.state.result={status:'bound',uid:'53000000000001',operationId:'operation'};f.paint();assert.match(f.status(),/vinculada/);
+  f.stage.length=0;f.card.remove();f.root.WmsNfcRecebimento.mount();
+  assert.equal(panel.hidden,true);assert.equal(panel.style.display,'none');assert.equal(panel.parentElement,f.card);assert.deepEqual(f.calls,['register']);
+  f.paint();f.root.WmsNfcRecebimento.mount();assert.equal(panel.hidden,true);assert.equal(f.document.getElementById('v-recv').children.includes(panel),false);
+});
+test('redesenhar a lista mantém o painel somente no cartão da mesma bobina ainda pendente',async()=>{
+  const f=uiFixture();await f.click();const panel=f.panel();f.card.remove();
+  const replacement=new f.Element('article'),actions=new f.Element('div'),store=new f.Element('button');store.dataset.az=id;replacement.appendChild(actions);actions.appendChild(store);f.list.appendChild(replacement);
+  f.root.WmsNfcRecebimento.mount();assert.equal(panel.parentElement,replacement);assert.equal(panel.hidden,false);assert.deepEqual(f.calls,['register']);
+});
+test('painel antigo já solto na página some quando a etiqueta sai do recebimento',async()=>{
+  const f=uiFixture();await f.click();const panel=f.panel();f.document.getElementById('v-recv').appendChild(panel);f.stage.length=0;
+  f.paint();assert.equal(panel.hidden,true);f.root.WmsNfcRecebimento.mount();assert.equal(panel.hidden,true);assert.deepEqual(f.calls,['register']);
+});
+test('retirada durante consulta não reapresenta painel quando a resposta atrasada chega',async()=>{
+  const f=uiFixture();let finish;f.mobile.registerItem=()=>new Promise(resolve=>finish=resolve);
+  const pending=f.root.WmsNfcRecebimento.register(id),panel=f.panel();f.stage.length=0;f.card.remove();f.root.WmsNfcRecebimento.mount();
+  finish({tag:{item:id,codigo:'0303450047',quantidade:'25',unidade:'KG'},operationId:'operation'});await pending;f.paint();assert.equal(panel.hidden,true);assert.equal(f.panel(),null);
 });

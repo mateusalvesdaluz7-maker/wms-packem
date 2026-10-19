@@ -19,6 +19,18 @@
     view:function(){return (document.querySelector('.view.active')||{}).id;},permitted:permitted,
     pending:function(item){return root.WmsNfcLabels.sources().stage.some(function(record){return record.et===item;});},lookup:root.WmsNfcLabels.lookupCurrent});}
   function setText(node,value){if(node.textContent!==value)node.textContent=value;}
+  function dismiss(){
+    if(panel){panel.hidden=true;panel.style.display='none';}
+    selection=null;
+  }
+  function selectedHost(){
+    if(!selection||selection.owner!==user()||!permitted())return null;
+    var custom=selection.options&&selection.options.host;
+    if(custom)return custom.isConnected?custom:null;
+    if(root.WmsNfcLabels&&!root.WmsNfcLabels.sources().stage.some(function(record){return record.et===selection.id;}))return null;
+    var list=document.getElementById('stageList'),store=list&&Array.from(list.querySelectorAll('[data-az]')).find(function(node){return node.dataset.az===selection.id;});
+    return store&&store.parentElement&&store.parentElement.parentElement||null;
+  }
   function state(){
     if(!root.WmsNfcMobile||typeof root.WmsNfcMobile.enrollmentState!=='function'||typeof root.WmsNfcMobile.registerItem!=='function')throw new Error('O módulo NFC não terminou de atualizar. Atualize a página com Ctrl + F5 e tente novamente.');
     return root.WmsNfcMobile.enrollmentState();
@@ -26,7 +38,7 @@
   function report(error,current){if(!selection||current&&selection!==current)return;selection.error=String(error&&error.message||error||'Não foi possível iniciar o vínculo NFC.');setText(status,selection.error);}
   function paint(){
     if(!panel||!selection)return;
-    if(selection.owner!==user()){panel.hidden=true;panel.style.display='none';selection=null;return;}
+    if(!selectedHost()){dismiss();return;}
     var snapshot;
     try{snapshot=state();}catch(error){report(error);snapshot={};}
     var pending=!!snapshot.pendingItem,other=pending&&snapshot.pendingItem!==selection.id;
@@ -47,10 +59,10 @@
     [checkButton,cancelButton,closeButton,retryButton,pauseButton].forEach(function(button){button.style.display=button.hidden?'none':'inline-flex';});
   }
   function show(id){
-    var list=document.getElementById('stageList'),button=list&&Array.from(list.querySelectorAll('[data-nfc-receber]')).find(function(node){return node.dataset.nfcReceber===id;});
-    var host=selection&&selection.options&&selection.options.host||button&&button.parentElement||document.getElementById('v-recv');
-    if(host&&panel.parentElement!==host)host.appendChild(panel);
+    var host=selectedHost();if(!host){dismiss();return false;}
+    if(panel.parentElement!==host)host.appendChild(panel);
     panel.hidden=false;panel.style.display='block';panel.scrollIntoView({block:'nearest'});
+    return true;
   }
   function mountPanel(){
     if(panel)return;
@@ -65,41 +77,46 @@
     function button(text){var node=document.createElement('button');node.type='button';node.className='gbtn';node.textContent=text;controls.appendChild(node);return node;}
     checkButton=button('Conferir vínculo');cancelButton=button('Cancelar vínculo');retryButton=button('Tentar novamente');pauseButton=button('Pausar contagem e preparar esta tag');closeButton=button('Fechar');
     checkButton.onclick=function(){return perform(function(){return root.WmsNfcMobile.checkEnrollment();});};
-    cancelButton.onclick=function(){return perform(async function(){await root.WmsNfcMobile.cancelEnrollment();selection.error='Cadastro encerrado. Toque em Tentar novamente para preparar esta bobina.';});};
-    retryButton.onclick=function(){return register(selection.id,selection.options);};
-    pauseButton.onclick=async function(){var current=selection;await perform(function(){return root.WmsNfcMobile.pauseCapture();});if(selection===current&&!current.error)await register(current.id,current.options);};
+    cancelButton.onclick=function(){var current=selection;return perform(async function(){await root.WmsNfcMobile.cancelEnrollment();if(selection===current)current.error='Cadastro encerrado. Toque em Tentar novamente para preparar esta bobina.';});};
+    retryButton.onclick=function(){if(selection)return register(selection.id,selection.options);};
+    pauseButton.onclick=async function(){var current=selection;await perform(function(){return root.WmsNfcMobile.pauseCapture();});if(current&&selection===current&&!current.error)await register(current.id,current.options);};
     closeButton.onclick=function(){if(!busy){panel.hidden=true;panel.style.display='none';if(selection)selection.closed=true;}};
   }
   async function perform(callback){
     if(busy||!selection||selection.owner!==user())return;
     var current=selection;busy=true;current.error='';paint();
+    if(selection!==current){busy=false;return;}
     try{await callback();}catch(error){report(error,current);}finally{busy=false;paint();}
   }
   async function register(id,options){
     mountPanel();
-    if(busy){if(selection){show(selection.id);setText(status,'O vínculo da bobina '+selection.id+' está sendo preparado. Aguarde a resposta.');}return;}
+    if(busy){if(selection&&show(selection.id))setText(status,'O vínculo da bobina '+selection.id+' está sendo preparado. Aguarde a resposta.');return;}
     selection={id:id,owner:user(),operationId:null,error:'',closed:false,blockedBy:null,options:options||null};
-    setText(detail,'Etiqueta '+id);setText(status,'Consultando código e peso da bobina…');show(id);busy=true;
+    setText(detail,'Etiqueta '+id);setText(status,'Consultando código e peso da bobina…');if(!show(id))return;busy=true;
     var current=selection;
     try{
       var snapshot=state();
       if(snapshot.pendingItem&&snapshot.pendingItem!==id){current.blockedBy=snapshot.pendingItem;return;}
       current.operationId=snapshot.pendingItem===id?snapshot.operationId:null;
       if(!root.WmsNfcLabels)throw new Error('A consulta das etiquetas não carregou. Atualize a página e tente novamente.');
-      paint();var result=await root.WmsNfcMobile.registerItem(id,options&&options.context||context(id));
+      paint();if(selection!==current)return;var result=await root.WmsNfcMobile.registerItem(id,options&&options.context||context(id));
       if(selection!==current||current.owner!==user())return;
       current.operationId=result.operationId;var tag=result.tag;
       setText(detail,'Etiqueta '+tag.item+' · Código '+tag.codigo+' · '+(tag.unidade==='KG'?'Peso líquido':tag.unidade==='MT'?'Metragem':'Quantidade')+': '+Number(tag.quantidade).toLocaleString('pt-BR',{maximumFractionDigits:6})+' '+tag.unidade);
     }catch(error){report(error,current);}finally{busy=false;paint();}
   }
   function mount(){
-    var list=document.getElementById('stageList');if(!list||!permitted())return;
-    list.querySelectorAll('[data-az]').forEach(function(storeButton){
+    var list=document.getElementById('stageList');
+    if(list&&permitted())list.querySelectorAll('[data-az]').forEach(function(storeButton){
       var card=storeButton.parentElement&&storeButton.parentElement.parentElement;if(!card||card.querySelector('[data-nfc-receber]'))return;
       var button=document.createElement('button');button.type='button';button.className='gbtn';button.dataset.nfcReceber=storeButton.dataset.az;
       button.style.cssText='width:100%;justify-content:center;margin-top:10px;border-color:#0d8571;color:var(--ink,#123)';button.textContent='Vincular tag NFC';card.appendChild(button);
     });
-    if(selection&&!selection.closed&&panel&&!panel.isConnected)show(selection.id);
+    if(selection&&panel){
+      var host=selectedHost();
+      if(!host)dismiss();
+      else if(!selection.closed&&panel.parentElement!==host)show(selection.id);
+    }
   }
   document.addEventListener('click',function(event){
     var button=event.target&&event.target.closest&&event.target.closest('[data-nfc-receber]');if(!button||!button.closest('#stageList'))return;

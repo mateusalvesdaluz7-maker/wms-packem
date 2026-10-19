@@ -70,6 +70,7 @@
     newButton.disabled=busy||!state?.loaded||!!state.current;resumeButton.disabled=busy||!state?.current;finishButton.disabled=busy||!state?.current;
     if(mobile().queue.binding?.running&&mobile().queue.binding.sessionId===state?.current?.id)resumeButton.disabled=true;
     resumeButton.hidden=!state?.current;finishButton.hidden=!state?.current;
+    resumeButton.style.display=finishButton.style.display=state?.current?'':'none';
     text(status,error||state?.message||(state?.current?'Inventário em andamento. Retome para continuar ou encerre para salvar o resultado.':state?.loaded?'Nenhum inventário em andamento. Inicie um novo inventário para contar.':'Carregando o inventário…'));
     var key=JSON.stringify([state?.history,state?.offset,state?.hasMore]);if(history.dataset.key!==key){history.dataset.key=key;history.replaceChildren();
       (state?.history||[]).forEach(function(item){var button=document.createElement('button');button.type='button';button.className='gbtn';button.textContent=date(item.finishedAt)+' · '+item.items+' bobina(s) · Ver resultado';button.onclick=()=>action(()=>manager.select(item.id));history.appendChild(button);});

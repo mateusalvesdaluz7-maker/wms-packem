@@ -76,5 +76,37 @@ for(const role of ['anon','authenticated']){
   await assert.rejects(db.query('select * from wms_nfc_scans'),/permission denied/);
   await db.exec('RESET ROLE');
 }
+// Reuse a chip without changing any roll or reinterpreting old queue entries.
+await db.exec("update usuarios set role='admin' where u='qa'; INSERT INTO etiquetas VALUES ('T004')");
+for(let twice=0;twice<2;twice++)await db.exec(await readFile(new URL('../../supabase/migrations/202610180001_nfc_unlink.sql',import.meta.url),'utf8'));
+const oldBinding=(await db.query('select * from wms_nfc_tags where uid=$1',[feiju])).rows[0];
+const stockBefore=(await db.query('select count(*) labels,(select count(*) from bobinas) rolls from etiquetas')).rows;
+const unlink=async(record=oldBinding,actor='qa')=>(await db.query('select public.wms_unbind_nfc_tag($1,$2,$3,$4) value',[record.uid,record.item,record.binding_id,actor])).rows[0].value;
+await db.exec('SET ROLE service_role');
+await assert.rejects(unlink(),/Pause a contagem/);
+await rpc('count_stop',{sessionId:feijuSession});
+await assert.rejects(unlink({...oldBinding,item:'T004'}),/vínculo mudou/);
+await assert.rejects(unlink(oldBinding,'viewer'),/permissão/);
+assert.equal((await unlink()).available,true);
+assert.equal((await unlink()).duplicate,true);
+const historical=await rpc('count_status',{sessionId:feijuSession,cursor:0});
+assert.equal(historical.items[0].bound_item,'T003');
+await db.query('select public.wms_bind_nfc_tag($1,$2,$3)',[feiju,'T004','qa']);
+const reused=await rpc('count_status',{sessionId:feijuSession,cursor:0});assert.equal(reused.items[0].bound_item,'T003');
+const retry=await unlink();assert.equal(retry.duplicate,true);assert.equal(retry.available,false);
+const newSession='aaaa1111-1111-4111-8111-111111111111';
+await rpc('count_start',{sessionId:newSession,target:'v-inv',contextKey:'qa/reused-chip'});
+await ingestFeiju(feiju);assert.equal((await rpc('count_status',{sessionId:newSession,cursor:0})).items[0].bound_item,'T004');
+await rpc('count_stop',{sessionId:newSession});
+await assert.rejects(db.query('delete from wms_nfc_tags where uid=$1',[feiju]),/permission denied/);
+await assert.rejects(db.query('select * from wms_nfc_tag_unlinks'),/permission denied/);
+await db.exec('RESET ROLE');
+const newBinding=(await db.query('select * from wms_nfc_tags where uid=$1',[feiju])).rows[0];
+assert.equal(newBinding.item,'T004');assert.notEqual(newBinding.binding_id,oldBinding.binding_id);
+assert.equal((await db.query('select count(*) from wms_nfc_tag_unlinks')).rows[0].count,1);
+assert.deepEqual((await db.query('select count(*) labels,(select count(*) from bobinas) rolls from etiquetas')).rows,stockBefore);
+for(const role of ['anon','authenticated']){
+  await db.exec('SET ROLE '+role);await assert.rejects(unlink(),/permission denied/);await db.exec('RESET ROLE');
+}
 await db.close();
 console.log('SQL NFC: migrations repeatable; ownership, atomic enrollment, conflicts, permissions, queue, duplicates, cursor, rotation and context isolation verified. Production database untouched.');

@@ -109,7 +109,7 @@ function apiFixture(options = {}) {
     queries.push({ url, init }); assert.equal(init.headers.authorization, 'Bearer server-test-key');
     if (url.includes('/usuarios?')) return { ok: true, json: async () => options.users || [{ ...auth, role: options.role || 'admin', active: true }] };
     if (options.dbError) return { ok: false, json: async () => ({ code: options.dbError }) };
-    const data = { uid: options.uid || uid, item, duplicate: false, by_user: auth.u };
+    const data = options.reply || { uid: options.uid || uid, item, binding_id: '11111111-1111-4111-8111-111111111111', duplicate: false, by_user: auth.u };
     return { ok: true, json: async () => url.includes('/rpc/') ? data : options.unknown ? [] : [data] };
   } });
   return { queries, async run(body, extra = {}) {
@@ -167,6 +167,25 @@ test('API consulta UID cadastrado e devolve tag desconhecida sem criar estoque',
   assert.equal((await apiFixture().run({ action: 'lookup', uid, auth })).data.data.item, item);
   const f = apiFixture({ unknown: true }); assert.equal((await f.run({ action: 'lookup', uid, auth })).status, 404);
   assert.equal(f.queries.every(q => q.init.method === 'GET'), true);
+});
+
+test('API lista vínculos com paginação limitada e exige permissão de etiquetas',async()=>{
+  const response=await apiFixture().run({action:'list',search:'T001',offset:20,auth});assert.equal(response.status,200);assert.equal(response.data.data.rows.length,1);
+  const f=apiFixture();await f.run({action:'list',search:'530A',offset:0,auth});const query=new URL(f.queries.at(-1).url).searchParams;
+  assert.equal(query.get('limit'),'21');assert.equal(query.get('order'),'created_at.desc,uid.asc');assert.match(query.get('or'),/530A/);
+  assert.equal((await apiFixture({role:'consulta'}).run({action:'list',search:'',offset:0,auth})).status,403);
+  for(const extra of [{search:'x),uid.gt.000'},{offset:-1},{offset:0.5}])assert.equal((await apiFixture().run({action:'list',search:'',offset:0,auth,...extra})).status,400);
+});
+test('API desvincula versão exata com ator autenticado e não aceita apagar sem confirmação',async()=>{
+  const bindingId='11111111-1111-4111-8111-111111111111',f=apiFixture({reply:{uid,item,binding_id:bindingId,unlinked:true,available:true}});
+  const response=await f.run({action:'unbind',uid,item,bindingId,auth,actor:'forged'});assert.equal(response.status,200);
+  const rpc=f.queries.find(query=>query.url.includes('/rpc/'));assert.match(rpc.url,/wms_unbind_nfc_tag/);
+  assert.deepEqual(JSON.parse(rpc.init.body),{p_uid:uid,p_item:item,p_binding_id:bindingId,p_actor:auth.u});
+  assert.equal((await apiFixture().run({action:'unbind',uid,item,auth})).status,400);
+  assert.equal((await apiFixture({role:'consulta'}).run({action:'unbind',uid,item,bindingId,auth})).status,403);
+  for(const [dbError,status,message] of [['NFC01',409,/vínculo mudou/],['NFC02',409,/Pause a contagem/],['42501',403,/permissão/]]){
+    const result=await apiFixture({dbError}).run({action:'unbind',uid,item,bindingId,auth});assert.equal(result.status,status);assert.match(result.data.error,message);
+  }
 });
 
 test('API recusa origem, método, UID e conteúdo inválidos antes de acessar banco', async () => {

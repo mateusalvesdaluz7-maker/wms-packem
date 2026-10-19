@@ -125,3 +125,10 @@ Passaram **236 testes do WMS**, incluindo quatorze testes do NFC direto e quatro
 Um ensaio de interface no navegador interno confirmou a recepção de duas etiquetas fictícias por meio do quadro local. Na prévia HTTPS da Vercel, o quadro permaneceu em branco; a aba alternativa conectou e recebeu TESTE-NFC-001 (0303450047, 300 KG) e TESTE-NFC-002 (0303410008, 6300 MT), com recibo exibido na página de teste. O painel local mostrou a primeira ativa e a segunda na fila. Cada conexão usa um nome de janela próprio para não reutilizar o vínculo de outra página. Nenhuma confirmação NFC foi simulada. A gravação no NFC.cool, a impressão na Zebra, o chip real e o primeiro teste por dentro da interface autenticada do WMS continuam pendentes.
 
 Referência da integração do gravador assistido: [NFC.cool — Write NFC abre o fluxo preenchido](https://nfc.cool/developers/).
+# Reutilizar um chip em outra bobina
+
+Na aba **NFC**, abra **Tags vinculadas — desvincular e reutilizar**. Consulte as tags, busque pelo ID da etiqueta ou UID e selecione o vínculo. Confira o material e o peso líquido ou metragem, toque em **Desvincular tag NFC** e depois em **Confirmar desvinculação**. O usuário precisa da mesma permissão usada para cadastrar etiquetas.
+
+Pause as contagens e cancele cadastros em andamento antes de liberar o chip. A operação remove somente a associação do UID: mantém a bobina, a etiqueta impressa, o estoque e um registro de auditoria do vínculo anterior. Não apaga o conteúdo NDEF do chip. Depois escolha a nova etiqueta, vincule o chip normalmente e use uma nova captura para a nova contagem.
+
+A migração `202610180001_nfc_unlink.sql` adiciona uma versão por vínculo e preserva a embalagem de cada leitura antiga. Assim, uma confirmação aberta em outra aba não remove um novo vínculo, e reutilizar o UID não troca os itens das filas anteriores. A migração não libera nem desvincula automaticamente nenhuma tag.

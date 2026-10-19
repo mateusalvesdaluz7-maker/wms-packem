@@ -7,6 +7,7 @@ const fail = (status, message) => Object.assign(new Error(message), { status });
 // Seven-byte tags observed in the iPhone pilot: NXP (04) and Feiju (53).
 const UID = /^(04|53)[A-F0-9]{12}$/;
 const ITEM = /^[A-Za-z0-9._/-]{1,32}$/;
+const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const buckets = new Map();
 
 function parse(req) {
@@ -17,8 +18,11 @@ function parse(req) {
     try { body = JSON.parse(body); } catch (_) { throw fail(400, 'JSON inválido.'); }
   }
   if (!body || typeof body !== 'object' || Array.isArray(body) || Buffer.byteLength(JSON.stringify(body)) > 4096) throw fail(400, 'Dados inválidos.');
-  if (!['lookup', 'bind'].includes(body.action) || typeof body.uid !== 'string' || !UID.test(body.uid)) throw fail(400, 'Ação ou UID NFC de sete bytes inválido.');
-  if (body.action === 'bind' && (typeof body.item !== 'string' || !ITEM.test(body.item))) throw fail(400, 'Embalagem inválida.');
+  if (!['lookup', 'bind', 'list', 'unbind'].includes(body.action)) throw fail(400, 'Ação NFC inválida.');
+  if (body.action !== 'list' && (typeof body.uid !== 'string' || !UID.test(body.uid))) throw fail(400, 'UID NFC de sete bytes inválido.');
+  if (['bind', 'unbind'].includes(body.action) && (typeof body.item !== 'string' || !ITEM.test(body.item))) throw fail(400, 'Embalagem inválida.');
+  if (body.action === 'unbind' && (typeof body.bindingId !== 'string' || !UUID.test(body.bindingId))) throw fail(400, 'Consulte o vínculo novamente antes de desvincular.');
+  if (body.action === 'list' && (typeof body.search !== 'string' || body.search !== '' && !ITEM.test(body.search) || !Number.isSafeInteger(body.offset) || body.offset < 0 || body.offset > 100000)) throw fail(400, 'Busca ou página de tags inválida.');
   const auth = body.auth;
   if (!auth || typeof auth.u !== 'string' || !auth.u.trim() || auth.u.length > 120 || typeof auth.p !== 'string' || !auth.p || auth.p.length > 1000) throw fail(401, 'Entre novamente no WMS para usar o leitor NFC.');
   return body;
@@ -71,6 +75,9 @@ function makeHandler(options = {}) {
         const data = await response.json().catch(() => null);
         if (!response.ok) {
           if (['42P01', 'PGRST202', 'PGRST205'].includes(data?.code)) throw fail(503, 'Cadastro NFC pendente: aplique a migração wms_nfc_tags no banco.');
+          if (data?.code === 'NFC01') throw fail(409, 'O vínculo mudou. Atualize a lista e consulte a tag novamente.');
+          if (data?.code === 'NFC02') throw fail(409, 'Pause a contagem ou cancele o cadastro em andamento antes de desvincular.');
+          if (data?.code === '42501') throw fail(403, 'Seu usuário não tem permissão para desvincular tags.');
           if (['23505', 'P0001'].includes(data?.code)) throw fail(409, 'Tag ou embalagem já vinculada, ou embalagem ainda não sincronizada. Confira o cadastro.');
           throw fail(502, 'O banco não confirmou a operação NFC. Confira antes de repetir.');
         }
@@ -82,6 +89,18 @@ function makeHandler(options = {}) {
       const users = await db('usuarios?' + query);
       const user = Array.isArray(users) ? users[0] : null;
       if (!user || user.active !== true || !(await passwordMatches(user.p, body.auth.p))) throw fail(401, 'Sessão NFC não autorizada. Entre novamente no WMS.');
+      if (['list', 'unbind'].includes(body.action)) {
+        if (!mayBind(user.role)) throw fail(403, 'Seu usuário não tem acesso ao cadastro de etiquetas.');
+        if (body.action === 'list') {
+          const query = new URLSearchParams({ select: 'uid,item,binding_id,created_at,by_user', order: 'created_at.desc,uid.asc', limit: '21', offset: String(body.offset) });
+          if (body.search) query.set('or', '(uid.ilike.*' + body.search + '*,item.ilike.*' + body.search + '*)');
+          const rows = await db('wms_nfc_tags?' + query);
+          if (!Array.isArray(rows)) throw fail(502, 'A lista de tags não foi confirmada.');
+          return res.status(200).json({ ok: true, data: { rows: rows.slice(0, 20), hasMore: rows.length > 20 } });
+        }
+        const data = await db('rpc/wms_unbind_nfc_tag', 'POST', { p_uid: body.uid, p_item: body.item, p_binding_id: body.bindingId, p_actor: user.u });
+        return res.status(200).json({ ok: true, data });
+      }
       if (body.action === 'bind') {
         if (!mayBind(user.role)) throw fail(403, 'Seu usuário não tem acesso ao cadastro de etiquetas.');
         const data = await db('rpc/wms_bind_nfc_tag', 'POST', { p_uid: body.uid, p_item: body.item, p_actor: user.u });

@@ -178,6 +178,18 @@ test('API resolve em lote somente UIDs da fila autorizada, sem revalidar senha p
   assert.equal((await run(mobile({...f.options,fetcher}),{action:'count_status',data:{...config,cursor:0}},{authorization:'Bearer '+f.token()})).code,403);
   assert.equal(f.calls.length-before,2); // active user + scoped RPC, no bindings disclosure
 });
+
+test('fila usa o vínculo histórico da leitura após reutilização do chip e mantém desconhecidas pendentes',async()=>{
+  const f=apiFixture(),state={session:{target:'v-floor70'},items:[{seq:1,uid,bound_item:'ETIQUETA-ANTIGA'},{seq:2,uid:second,bound_item:null}]};
+  const fetcher=async(url,opts)=>{
+    if(url.includes('/rpc/'))return {ok:true,json:async()=>structuredClone(state)};
+    if(url.includes('/wms_nfc_tags?'))throw Error('Não pode trocar o vínculo histórico pelo cadastro atual');
+    return f.options.fetcher(url,opts);
+  };
+  const result=await run(mobile({...f.options,fetcher}),{action:'count_status',data:{...config,cursor:0}},{authorization:'Bearer '+f.token()});
+  assert.equal(result.code,200);assert.deepEqual(result.body.data.bindings,[{uid,item:'ETIQUETA-ANTIGA'}]);
+  state.items[0].bound_item='<invalid>';assert.equal((await run(mobile({...f.options,fetcher}),{action:'count_status',data:{...config,cursor:0}},{authorization:'Bearer '+f.token()})).code,502);
+});
 test('rajada de 250 chips drena três páginas, confirma por lote e mantém os totais',async()=>{
   const f=queueFixture(),reads=Array.from({length:250},(_,i)=>({seq:i+1,uid:'53'+(i+1).toString(16).padStart(12,'0').toUpperCase()}));
   for(const event of reads){const id='B'+event.seq;f.registry.set(event.uid,id);f.catalog[id]={codigo:'0303410008',quantidade:1.25,unidade:'MT'};}

@@ -1,0 +1,22 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Packem · Ensaio de desvinculação NFC</title><link rel="stylesheet" href="../../wms.css">
+<style>html,body{height:auto;overflow:auto}body{margin:0;background:#eef2f7;color:#10243c;font:16px/1.5 system-ui}main{max-width:900px;margin:auto;padding:24px}.note{padding:16px;background:#fff1cc;border-radius:10px}.view{display:block!important}#packemNfcTags{background:white}@media(max-width:480px){main{padding:12px}.gbtn{max-width:100%}}</style>
+<main><h1>Desvincular tag no WMS</h1><p class="note">Ensaio com dados fictícios e API em memória. Não envia leituras ao servidor nem altera estoque real.</p><div id="v-nfc" class="view active"></div></main>
+<script>
+var session={u:'qa',role:'admin'},BOB={},ETQ={},STAGE=[];
+window._fiscalAuth={u:'qa',p:'simulation-only'};window.allowedViews=()=>['v-nfc','v-labels'];
+var testState={bindings:[],archive:[],calls:[],countActive:false};
+[25,30,35,40,45].forEach(function(weight,index){var item='RECEB-TEST-'+(index+1);BOB[item]={pr:'0303450047',pl:weight,desc:'BOBINA TESTE'};ETQ[item]={cProd:'0303450047',kg:weight,uCom:'KG'};testState.bindings.push({uid:'5300000000000'+(index+1),item:item,binding_id:crypto.randomUUID()});});
+window.unitOf=()=> 'KG';window.bobFetch=async item=>BOB[item]||null;window.WmsNfcMobile={active:()=>testState.countActive};
+window.fetch=async function(url,options){
+  if(url!=='/api/nfc-tags')throw Error('O ensaio não acessa outros serviços.');
+  var body=JSON.parse(options.body),reply;testState.calls.push(body);
+  if(body.action==='list'){var rows=testState.bindings.filter(row=>!body.search||[row.uid,row.item].some(value=>value.includes(body.search)));reply={rows:rows.slice(body.offset,body.offset+20),hasMore:rows.length>body.offset+20};}
+  else if(body.action==='unbind'){
+    var row=testState.bindings.find(record=>record.binding_id===body.bindingId&&record.uid===body.uid&&record.item===body.item);
+    if(!row||testState.countActive)return {ok:false,json:async()=>({ok:false,error:'Pause a contagem e consulte o vínculo novamente.'})};
+    testState.archive.push({...row});testState.bindings=testState.bindings.filter(record=>record!==row);reply={...row,unlinked:true,available:true};
+  }else throw Error('Ação fora do ensaio');
+  return {ok:true,json:async()=>({ok:true,data:reply})};
+};
+</script><script src="../../wms-nfc-labels.js"></script><script src="../../wms-nfc-registry.js"></script><script src="../../wms-nfc-tags.js"></script></html>

@@ -42,8 +42,14 @@ function makeHandler(options={}){return async(req,res)=>{
     if(action==='count_status'&&result?.session){
       const events=result.items;
       if(!Array.isArray(events)||events.length>100||events.some(event=>!UID.test(event.uid||'')))throw fail(502,'A fila NFC respondeu com leituras inválidas.');
-      const uids=[...new Set(events.map(event=>event.uid))];
-      result.bindings=uids.length?await app.db('wms_nfc_tags?'+new URLSearchParams({select:'uid,item',uid:'in.('+uids.join(',')+')'})):[];
+      if(events.every(event=>Object.hasOwn(event,'bound_item'))){
+        if(events.some(event=>event.bound_item!==null&&(typeof event.bound_item!=='string'||!/^[A-Za-z0-9._/-]{1,32}$/.test(event.bound_item))))throw fail(502,'Vínculo histórico NFC inválido.');
+        result.bindings=events.filter(event=>event.bound_item!==null).map(event=>({uid:event.uid,item:event.bound_item}));
+      }else{
+        // Compatibility during rollout, before the scan snapshot migration.
+        const uids=[...new Set(events.map(event=>event.uid))];
+        result.bindings=uids.length?await app.db('wms_nfc_tags?'+new URLSearchParams({select:'uid,item',uid:'in.('+uids.join(',')+')'})):[];
+      }
     }
     if(secret){
       const origin=req.headers.origin||'https://wms-packem.vercel.app';

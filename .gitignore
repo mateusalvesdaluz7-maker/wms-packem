@@ -1,0 +1,15 @@
+# Dependências, arquivos locais e saídas de ferramentas.
+node_modules/
+.vercel/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
+
+# Pastas de pesquisa e artefatos locais; não fazem parte da publicação.
+/output/
+/outputs/
+/tmp/
+/work/

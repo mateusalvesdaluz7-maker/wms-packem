@@ -7062,7 +7062,16 @@ showLabelSheet=function(c,desc,w){openDrawer(ICONS.tag+' Etiqueta','<div id="pri
   +'<label class="fld"><span class="lab">Conteúdo</span><select class="input" id="lblScope"><option value="todas">Todos os endereços</option><option value="rua">Uma rua</option><option value="ocupados">Só ocupados (da rua)</option></select></label>'
   +'<label class="fld" id="lblRuaWrap" style="display:none"><span class="lab">Rua</span><select class="input" id="lblStreet"></select></label>'
   +'<label class="fld"><span class="lab">Tamanho</span><select class="input" id="lblSize"><option value="z150">Zebra 100×150 mm (4×6")</option><option value="z100">Zebra 100×100 mm</option><option value="z50">Zebra 100×50 mm (4×2")</option><option value="z6040">Zebra 60×40 mm</option><option value="z5030">Zebra 50×30 mm</option><option value="z4025">Zebra 40×25 mm</option><option value="m">Folha A4 · Média (3 por linha)</option><option value="p">Folha A4 · Pequena (4 por linha)</option><option value="g">Folha A4 · Grande (2 por linha)</option></select></label>'
-  +'</div><button class="btn brand" id="genEnd" style="margin-top:4px">Gerar etiquetas de endereço</button>';
+  +'</div><button class="btn brand" id="genEnd" style="margin-top:4px">Gerar etiquetas de endereço</button>'
+  +'<div class="panel" style="margin-top:18px;padding:16px"><div class="ph"><span class="pdot"></span>Etiquetas das bobinas por rua e nível</div>'
+  +'<p style="color:var(--muted);font-size:.82rem;margin:0 0 14px">Preencha produto e peso em cada vaga do mapa. Esta impressão usa os IDs já cadastrados e mostra a vaga no rodapé.</p>'
+  +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">'
+  +'<label class="fld"><span class="lab">Rua</span><select class="input" id="lblBatchStreet"></select></label>'
+  +'<label class="fld"><span class="lab">Nível</span><select class="input" id="lblBatchLevel"></select></label>'
+  +'<label class="fld"><span class="lab">Impressora / tamanho</span><select class="input" id="lblBatchSize"><option value="z100">Zebra 100×100 mm</option><option value="z150">Zebra 100×150 mm</option></select></label>'
+  +'</div><button class="btn brand" id="genBatchLabels" style="margin-top:10px">Preparar etiquetas das vagas</button>'
+  +'<div id="batchLabelsPreview" aria-live="polite" style="margin-top:12px"></div>'
+  +'<button class="btn brand" id="printBatchLabels" type="button" style="margin-top:12px;display:none">Imprimir etiquetas</button></div>';
  const ruaWrap=document.getElementById('lblRuaWrap'),scopeSel=document.getElementById('lblScope');
  scopeSel.onchange=()=>{ruaWrap.style.display=(scopeSel.value==='todas')?'none':'block';};
  document.getElementById('genEnd').onclick=function(){const scope=scopeSel.value,st=document.getElementById('lblStreet').value,sz=document.getElementById('lblSize').value;let rows=S.filter(x=>x.w===cfg.warehouse);if(scope!=='todas')rows=rows.filter(x=>x.s===st);if(scope==='ocupados')rows=rows.filter(x=>x.o&&x.pr);rows.sort((a,b)=>a.s.localeCompare(b.s)||a.p-b.p||a.l.localeCompare(b.l));if(!rows.length){toast('Nada para gerar',false);return;}const box=document.getElementById('labelsBox');box.className='labels sz-'+sz;box.innerHTML='<div style="color:var(--muted);padding:20px">gerando QR codes…</div>';loadQR().then(()=>{box.className='labels sz-'+sz;box.innerHTML=rows.slice(0,600).map(x=>labelHTML(code(x),x.pr||'',cfg.warehouse)).join('');document.getElementById('printLabels').style.display='inline-flex';toast(rows.length+' etiquetas'+(rows.length>600?' · 600 mostradas (gere por rua p/ todas)':''));}).catch(()=>toast('Sem internet para gerar QR',false));};
@@ -7524,10 +7533,54 @@ function genEndGrid(){const sc=document.getElementById('lblScope'),stEl=document
   return;}
  box.className='labels sz-'+sz;box.innerHTML='<div style="color:var(--muted);padding:20px">gerando QR codes…</div>';
  loadQR().then(()=>{box.className='labels sz-'+sz;box.innerHTML=codes.slice(0,600).map(c=>labelHTML(c,'',cfg.warehouse)).join('');pb.style.display='inline-flex';pb.onclick=()=>{try{window.print();}catch(_pe){}};addrCardButtons(box,'.label',codes.slice(0,600));toast(codes.length+' etiquetas'+(codes.length>600?' · 600 mostradas (gere por rua p/ imprimir todas)':''));}).catch(()=>toast('Sem internet para gerar QR — conecte e tente de novo',false));}
-(function(){const _rl=renderLabels;renderLabels=function(){_rl();
- const sel=document.getElementById('lblStreet');if(sel)sel.innerHTML=Object.keys(GRID_LAYOUT).map(s=>'<option value="'+s+'">Rua '+s+'</option>').join('');
- const sc=document.getElementById('lblScope'),rw=document.getElementById('lblRuaWrap');if(sc&&rw){const upd=()=>{rw.style.display=(sc.value==='todas')?'none':'block';};upd();sc.onchange=upd;}
- const g=document.getElementById('genEnd');if(g)g.onclick=genEndGrid;};})();
+(function(){
+ const batchStreet=document.getElementById('lblBatchStreet'),batchLevel=document.getElementById('lblBatchLevel'),batchSize=document.getElementById('lblBatchSize');
+ const preview=document.getElementById('batchLabelsPreview'),print=document.getElementById('printBatchLabels');
+ let prepared=null;
+ function resetBatch(){prepared=null;if(preview)preview.innerHTML='';if(print)print.style.display='none';}
+ function fillBatchLevels(){
+  if(!batchStreet||!batchLevel)return;
+  const chosen=batchLevel.value,levels=[...new Set(S.filter(x=>x.w==='70'&&spaceAtiva(x)&&x.s===batchStreet.value).map(x=>String(x.l)))].sort((a,b)=>Number(a)-Number(b));
+  batchLevel.innerHTML='<option value="todos">Todos os níveis</option>'+levels.map(n=>'<option value="'+rastEsc(n)+'">Nível '+rastEsc(n)+'</option>').join('');
+  batchLevel.value=levels.includes(chosen)||chosen==='todos'?chosen:'todos';
+ }
+ function fillBatchStreets(){
+  if(!batchStreet)return;
+  const chosen=batchStreet.value,streets=[...new Set(S.filter(x=>x.w==='70'&&spaceAtiva(x)).map(x=>String(x.s)))].sort();
+  batchStreet.innerHTML=streets.map(s=>'<option value="'+rastEsc(s)+'">Rua '+rastEsc(s)+'</option>').join('');
+  if(streets.includes(chosen))batchStreet.value=chosen;
+  fillBatchLevels();
+ }
+ function batchData(){
+  return window.PackemRuaLabels&&window.PackemRuaLabels.collect(S,LOC,ETQ,BOB,batchStreet.value,batchLevel.value);
+ }
+ function batchSignature(data){return JSON.stringify(data.labels.map(e=>[e.id,e.addr,e.cProd,e.kg,e.uCom]))+'|'+data.missing.length;}
+ if(batchStreet)batchStreet.onchange=function(){fillBatchLevels();resetBatch();};
+ if(batchLevel)batchLevel.onchange=resetBatch;
+ if(batchSize)batchSize.onchange=resetBatch;
+ const generate=document.getElementById('genBatchLabels');if(generate)generate.onclick=function(){
+  resetBatch();if(!batchStreet.value){toast('Selecione uma rua',false);return;}
+  const data=batchData();if(!data){toast('Recarregue a página para preparar as etiquetas',false);return;}
+  const title='<b>'+data.labels.length+' etiqueta(s)</b> em '+data.slots+' vaga(s) ocupada(s) · Rua '+rastEsc(batchStreet.value)+' · '+(batchLevel.value==='todos'?'todos os níveis':'nível '+rastEsc(batchLevel.value));
+  const problems=data.missing.length?'<div style="padding:10px;margin-top:10px;border-radius:9px;background:#fff4e5;color:#92400e"><b>Impressão bloqueada: '+data.missing.length+' pendência(s).</b><div style="margin-top:5px">'+data.missing.slice(0,10).map(x=>rastEsc(x.addr)+(x.id?' · '+rastEsc(x.id):'')+' — '+rastEsc(x.reason)).join('<br>')+(data.missing.length>10?'<br>... e mais '+(data.missing.length-10):'')+'</div></div>':'';
+  const rows=data.labels.slice(0,100).map(e=>'<div style="display:flex;gap:10px;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:.78rem"><b>'+rastEsc(e.addr)+'</b><span>'+rastEsc(e.id)+'</span><span>'+rastEsc(e.cProd)+'</span><b>'+fmt(e.kg)+' '+rastEsc(e.uCom)+'</b></div>').join('');
+  preview.innerHTML='<div style="font-size:.86rem">'+title+'</div>'+problems+(data.labels.length?'<div style="max-height:260px;overflow:auto;margin-top:10px">'+rows+(data.labels.length>100?'<p>Mostrando as primeiras 100 etiquetas.</p>':'')+'</div>':'<p style="color:var(--muted)">Nenhuma etiqueta pronta neste filtro.</p>');
+  if(!data.labels.length||data.missing.length)return;
+  prepared={street:batchStreet.value,level:batchLevel.value,size:batchSize.value,signature:batchSignature(data)};
+  print.textContent='Imprimir '+data.labels.length+' etiquetas';print.style.display='inline-flex';
+ };
+ if(print)print.onclick=function(){
+  if(!prepared||prepared.street!==batchStreet.value||prepared.level!==batchLevel.value||prepared.size!==batchSize.value){toast('Prepare as etiquetas novamente',false);return;}
+  const current=batchData();if(!current||current.missing.length||batchSignature(current)!==prepared.signature){resetBatch();toast('O estoque mudou. Prepare as etiquetas novamente antes de imprimir.',false);return;}
+  printZebraRast(current.labels,ZSIZES[batchSize.value]||ZSIZES.z100);
+ };
+ const _rl=renderLabels;renderLabels=function(){_rl();
+  const sel=document.getElementById('lblStreet');if(sel)sel.innerHTML=Object.keys(GRID_LAYOUT).map(s=>'<option value="'+s+'">Rua '+s+'</option>').join('');
+  const sc=document.getElementById('lblScope'),rw=document.getElementById('lblRuaWrap');if(sc&&rw){const upd=()=>{rw.style.display=(sc.value==='todas')?'none':'block';};upd();sc.onchange=upd;}
+  const g=document.getElementById('genEnd');if(g)g.onclick=genEndGrid;
+  fillBatchStreets();
+ };
+})();
 
 /* ===== VERSÃO PELO LOGIN: usuário 'x' = celular/leve · admin = completo ===== */
 function ensureX(){}
@@ -8466,8 +8519,8 @@ function printDoc(bodyHTML,css,aoTerminar){var f=document.getElementById('pkPrin
  function fitz(){try{var els=d.querySelectorAll('.zfit');
   /* PERF (lotes grandes): antes era escreve-lê-escreve-lê por etiqueta = 1 reflow por etiqueta (layout thrashing).
      Agora: FASE 1 só lê tudo (1 layout), FASE 2 só escreve (1 layout). 200 etiquetas deixa de travar a aba. */
-  var med=[];for(var i=0;i<els.length;i++){var el=els[i],p=el.parentElement;if(!p){med.push(null);continue;}var cs=win.getComputedStyle(p);var aw=p.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0);var ah=p.clientHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);var w=Math.max(1,el.scrollWidth),h=Math.max(1,el.scrollHeight);med.push(Math.min(1,aw/w,ah/h));}
-  for(var j=0;j<els.length;j++){var s=med[j];if(s==null)continue;if(s<0.999){els[j].style.transformOrigin='center center';els[j].style.transform='scale('+(Math.floor(s*1000)/1000)+')';}}}catch(e){}}
+  var med=[];for(var i=0;i<els.length;i++){var el=els[i],p=el.parentElement;if(!p){med.push(null);continue;}var cs=win.getComputedStyle(p),foot=p.querySelector('.zaddr');var aw=p.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0);var ah=p.clientHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0)-(foot?foot.offsetHeight+p.clientHeight*.03:0);var w=Math.max(1,el.scrollWidth),h=Math.max(1,el.scrollHeight);med.push(Math.min(1,aw/w,ah/h));}
+  for(var j=0;j<els.length;j++){var s=med[j];if(s==null)continue;if(s<0.999){els[j].style.transformOrigin=els[j].parentElement.querySelector('.zaddr')?'top center':'center center';els[j].style.transform='scale('+(Math.floor(s*1000)/1000)+')';}}}catch(e){}}
  var fired=false;
  function go(){if(fired)return;fired=true;try{fitz();}catch(e){}
    /* avisa quem chamou assim que a janela de impressão fechar — é o que encadeia os blocos.
@@ -8601,7 +8654,7 @@ function zEtqCard(e,dim,H,u,kind){
   +'<div class="zbar" style="height:'+f(0.028)+'"></div>'
   +'<div class="zwm" style="width:'+f(0.82)+';aspect-ratio:1/1"></div>'
   +'<div class="zin" style="padding:'+f(0.032)+' '+f(0.04)+'">'
-   +'<div class="zfit" style="gap:'+f(0.012)+'">'
+   +'<div class="zfit" style="gap:'+f(0.012)+(e.addr?';margin:auto 0;flex:0 1 auto;min-height:0;justify-content:flex-start':'')+'">'
    +'<div class="zhead" style="gap:'+f(0.024)+'"><div class="zlogo" style="width:'+f(0.075)+';aspect-ratio:1/1"></div><div class="zbt" style="font-size:'+f(0.05)+'">PACKEM<span style="font-size:'+f(0.024)+'">'+top+'</span></div></div>'
    +(codigoGrande?'<div class="zcode" style="font-size:'+f(0.125)+'">'+codigoGrande+'</div>':'')
    +(desc?'<div class="zds" style="font-size:'+f(0.062)+'">'+rastEsc(desc)+'</div>':'')
@@ -8609,7 +8662,9 @@ function zEtqCard(e,dim,H,u,kind){
    +(e.kg>0?'<div class="zkgbig" style="font-size:'+f(0.155)+'">'+fmt(e.kg)+' '+unit+'</div>':'')
    +'<div class="zqr" style="width:'+f(0.3)+';margin-top:'+f(0.008)+'">'+qrSvg(qrPayload)+'</div>'
    +(e.id?'<div class="zeid" style="font-size:'+f(0.05)+';font-family:monospace;letter-spacing:'+f(0.004)+';margin-top:'+f(0.006)+';font-weight:700">ID: '+rastEsc(e.id)+'</div>':'')
-  +'</div></div></div>';
+  +'</div>'
+  +(e.addr?'<div class="zaddr" style="font-size:'+f(0.06)+';padding:'+f(0.01)+' 0">VAGA <b>'+rastEsc(e.addr)+'</b></div>':'')
+  +'</div></div>';
 }
 function zEtqCSS(dim){
  return '*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}@page{size:'+dim.w+'mm '+dim.h+'mm;margin:0}'
@@ -8627,7 +8682,7 @@ function zEtqCSS(dim){
   +'.zlbl .zlogo{flex:none;'
     +'background-image:url('+PACKEM_SYM+');background-size:contain;background-position:center;background-repeat:no-repeat}'
   +'.zlbl .zin{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}'
-  +'.zlbl .zfit{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;max-width:100%;flex:none}'
+  +'.zlbl .zfit{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;max-width:100%;flex:none}.zlbl .zfit>*{flex-shrink:0}'
   +'.zlbl .zhead{display:flex;align-items:center;justify-content:center}'
 
   +'.zlbl .zbt{font-weight:900;line-height:1;display:flex;flex-direction:column;color:#0a0c10;text-align:left}'
@@ -8636,7 +8691,8 @@ function zEtqCSS(dim){
   +'.zlbl .zqr{display:flex;align-items:center;justify-content:center}.zlbl .zqr svg{width:100%;height:auto;display:block}svg.qr{max-width:100%;height:auto}'
   +'.zlbl .zds{color:#0a0c10;font-weight:800;line-height:1.05;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;padding:0 1mm}'
   +'.zlbl .zlote{font-weight:800;color:#0a0c10;background:#f0f0f0;border-radius:1.4mm;letter-spacing:.2mm;display:inline-block}'
-  +'.zlbl .zkgbig{font-weight:900;color:#0a0c10;line-height:1;letter-spacing:-.3mm;font-family:"Arial Black",Arial,sans-serif;white-space:nowrap}';
+  +'.zlbl .zkgbig{font-weight:900;color:#0a0c10;line-height:1;letter-spacing:-.3mm;font-family:"Arial Black",Arial,sans-serif;white-space:nowrap}'
+  +'.zlbl .zaddr{width:100%;flex:none;border-top:.4mm solid #0a0c10;color:#0a0c10;font-weight:900;line-height:1.1;letter-spacing:.2mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}';
 }
 /* ===== IMPRESSÃO EM BLOCOS =====
    A mensagem "Falha na impressão · Verifique a impressora" é do WINDOWS, não do navegador.

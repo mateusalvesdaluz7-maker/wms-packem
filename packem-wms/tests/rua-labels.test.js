@@ -46,6 +46,13 @@ test('vaga preenchida manualmente sem cadastro de etiqueta ainda gera QR legíve
   assert.equal(result.labels[0].id,'');
 });
 
+test('usa a unidade mostrada no mapa quando o cadastro do item define MT',()=>{
+  const result=collect([{w:'70',s:'M',p:280,l:1,o:true,pr:'0303410008',q:6703}],
+    {},{},{},'M',1,()=> 'MT');
+  assert.equal(result.labels[0].uCom,'MT');
+  assert.equal(result.labels[0].qrPayload,'0303410008$6703');
+});
+
 test('saldo antigo zerado não reutiliza ID; usa item e peso atuais da vaga',()=>{
   const result=collect(spaces,locations,labels,Object.assign({},bobbins,{T02:{pr:'P100',pl:20,rem:0}}),'A',1);
   assert.equal(result.labels[0].id,'');

@@ -7,7 +7,7 @@
   function sameAmount(a,b){return Math.abs(Number(a)-Number(b))<0.000001;}
 
   /* Uma etiqueta por vaga. O item e o peso impressos vêm sempre do mapa. */
-  function collect(spaces,locations,etiquetas,bobinas,street,level){
+  function collect(spaces,locations,etiquetas,bobinas,street,level,unitResolver){
     var slots=(Array.isArray(spaces)?spaces:[]).filter(function(space){
       return space&&key(space.w)==='70'&&key(space.s)===key(street)
         &&String(space.l)===String(level)&&space.src!=='__WMS_SLOT_DISABLED__'
@@ -28,7 +28,8 @@
         return catalogProduct===product&&amount>0&&sameAmount(amount,qty);
       });
       var id=matches.length===1?matches[0]:'',saved=id&&(etiquetas||{})[id],bobbin=id&&(bobinas||{})[id];
-      return {id:id,cProd:product,kg:qty,uCom:space.u||(saved&&saved.uCom)||'KG',addr:addr,
+      var unit=typeof unitResolver==='function'?unitResolver(space):space.u||(saved&&saved.uCom)||'KG';
+      return {id:id,cProd:product,kg:qty,uCom:unit||'KG',addr:addr,
         xProd:(saved&&saved.xProd)||(bobbin&&bobbin.desc)||'',qrPayload:id||product+'$'+String(qty)};
     });
     return {labels:labels,missing:[],slots:slots.length};

@@ -715,7 +715,7 @@ function renderBoard(){
     let prepared='';
     street.onchange=function(){boardStreet=street.value;renderBoard();};
     level.onchange=function(){prepared='';preview.innerHTML='';print.style.display='none';};
-    function batchData(){return window.PackemRuaLabels&&window.PackemRuaLabels.collect(S,LOC,ETQ,BOB,street.value,level.value);}
+    function batchData(){return window.PackemRuaLabels&&window.PackemRuaLabels.collect(S,LOC,ETQ,BOB,street.value,level.value,unitOf);}
     function signature(data){return JSON.stringify(data.labels.map(e=>[e.addr,e.cProd,e.kg,e.uCom,e.id,e.qrPayload]));}
     generate.onclick=function(){
       prepared='';print.style.display='none';

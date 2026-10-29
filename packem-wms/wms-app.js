@@ -563,6 +563,9 @@ function renderBoard(){
   const allStreets=[...new Set(all.map(x=>x.s).filter(Boolean))].sort();
   if(boardStreet&&allStreets.indexOf(boardStreet)<0)boardStreet=null;
   const byStreet=!!boardStreet;
+  const batchStreetDefault=boardStreet||allStreets[0]||'';
+  const batchLevels=[...new Set(all.filter(x=>x.s===batchStreetDefault).map(x=>Number(x.l)))].sort((a,b)=>a-b);
+  const batchLevelDefault=batchLevels.includes(Number(boardLevel))?Number(boardLevel):batchLevels[0];
   const occ=all.filter(x=>x.o).length;
   const whs=isSuper()?['70','novo','chao'].concat(SS.map(x=>x&&x.w).filter(Boolean)).filter((w,i,a)=>w&&a.indexOf(w)===i):['70'];
   /* ===== MAPA DO ARMAZÉM — CABEÇALHO RECONSTRUÍDO =====
@@ -615,6 +618,16 @@ function renderBoard(){
       ${(typeof isSuper==='function'&&isSuper())?`<button class="bd-zerar adminOnly" id="bdZerar" title="Esvaziar todas as vagas deste armazém — só admin, pede senha">⌫ Zerar mapa</button>`:''}
     </div>
 
+    ${wh==='70'&&batchStreetDefault?`<div class="bd-batch">
+      <strong>Etiquetas das vagas</strong>
+      <span>Uma etiqueta por vaga ocupada, com item, peso, QR e endereço.</span>
+      <label class="bd-sel"><span>Rua</span><select id="bdBatchStreet">${allStreets.map(s=>`<option value="${s}" ${s===batchStreetDefault?'selected':''}>Rua ${s}</option>`).join('')}</select></label>
+      <label class="bd-sel"><span>Nível</span><select id="bdBatchLevel">${batchLevels.map(l=>`<option value="${l}" ${l===batchLevelDefault?'selected':''}>Nível ${l}</option>`).join('')}</select></label>
+      <button class="btn brand" id="bdBatchGenerate" type="button">Gerar etiquetas</button>
+      <div id="bdBatchPreview" class="bd-batch-preview" aria-live="polite"></div>
+      <button class="btn brand" id="bdBatchPrint" type="button" style="display:none">Imprimir na Zebra</button>
+    </div>`:''}
+
     <div class="board" id="boardBox"></div>
 
     <style>
@@ -664,6 +677,14 @@ function renderBoard(){
         border-radius:10px;padding:8px 14px;font-size:.8rem;font-weight:800;cursor:pointer;transition:.15s;white-space:nowrap}
       #v-board .bd-zerar:hover{background:#ef4444;color:#fff;border-color:#ef4444}
       #v-board .bd-zerar:active{transform:scale(.97)}
+      #v-board .bd-batch{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin-bottom:12px}
+      #v-board .bd-batch>strong{font-size:.88rem}
+      #v-board .bd-batch>span{font-size:.76rem;color:var(--muted);flex:1 1 200px}
+      #v-board .bd-batch-preview{flex-basis:100%;font-size:.8rem}
+      #v-board .bd-batch-preview:empty{display:none}
+      #v-board .bd-batch-preview .bd-batch-row{display:flex;gap:12px;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--line)}
+      #v-board .bd-batch-preview .bd-batch-row b{min-width:80px}
+      #v-board .bd-batch-preview .bd-batch-row em{font-style:normal;color:var(--muted)}
       @media(max-width:760px){#v-board .bd-leg{margin-left:0;flex-basis:100%}#v-board .bd-occ{text-align:left}}
       /* ===== MOBILE (≤600px): impede o form de estourar e o botão de cortar ===== */
       @media(max-width:600px){
@@ -687,6 +708,31 @@ function renderBoard(){
   /* rua e nível viraram <select> (eram 27 botões): menos ruído, mesma função */
   var _br=$('#bdRua'); if(_br)_br.onchange=function(){boardStreet=_br.value||null;renderBoard();};
   var _bl=$('#bdLvl'); if(_bl)_bl.onchange=function(){boardLevel=Number(_bl.value);renderBoard();};
+  (function(){
+    const street=$('#bdBatchStreet'),level=$('#bdBatchLevel'),generate=$('#bdBatchGenerate');
+    const preview=$('#bdBatchPreview'),print=$('#bdBatchPrint');
+    if(!street||!level||!generate||!preview||!print)return;
+    let prepared='';
+    street.onchange=function(){boardStreet=street.value;renderBoard();};
+    level.onchange=function(){prepared='';preview.innerHTML='';print.style.display='none';};
+    function batchData(){return window.PackemRuaLabels&&window.PackemRuaLabels.collect(S,LOC,ETQ,BOB,street.value,level.value);}
+    function signature(data){return JSON.stringify(data.labels.map(e=>[e.addr,e.cProd,e.kg,e.uCom,e.id,e.qrPayload]));}
+    generate.onclick=function(){
+      prepared='';print.style.display='none';
+      const data=batchData();if(!data){toast('Recarregue a página para gerar as etiquetas',false);return;}
+      if(!data.labels.length){preview.textContent='Nenhuma vaga ocupada na Rua '+street.value+', nível '+level.value+'.';return;}
+      preview.innerHTML='<b>'+data.labels.length+' etiqueta(s) · Rua '+rastEsc(street.value)+' · nível '+rastEsc(level.value)+'</b>'
+       +'<div style="max-height:180px;overflow:auto;margin-top:8px">'+data.labels.slice(0,40).map(e=>'<div class="bd-batch-row"><b>'+rastEsc(e.addr)+'</b><span>'+rastEsc(e.cProd)+'</span><b>'+fmt(e.kg)+' '+rastEsc(e.uCom)+'</b>'+(e.id?'<em>ID '+rastEsc(e.id)+'</em>':'')+'</div>').join('')+'</div>'
+       +(data.labels.length>40?'<small>Mostrando as primeiras 40 vagas.</small>':'');
+      prepared=signature(data);print.textContent='Imprimir '+data.labels.length+' etiquetas na Zebra';print.style.display='inline-flex';
+    };
+    print.onclick=function(){
+      const data=batchData();if(!prepared||!data||!data.labels.length||signature(data)!==prepared){
+        prepared='';print.style.display='none';toast('O mapa mudou. Gere as etiquetas novamente antes de imprimir.',false);return;
+      }
+      printZebraRast(data.labels,ZSIZES.z100);
+    };
+  })();
   var _bz=$('#bdZerar'); if(_bz)_bz.onclick=boardZerarMapa;
   /* bipagem rápida entrada/saída no mapa */
   $$('#v-board .bd-mode [data-qm]').forEach(function(b){b.onclick=function(){boardQMode=b.getAttribute('data-qm');renderBoard();};});
@@ -7062,16 +7108,7 @@ showLabelSheet=function(c,desc,w){openDrawer(ICONS.tag+' Etiqueta','<div id="pri
   +'<label class="fld"><span class="lab">Conteúdo</span><select class="input" id="lblScope"><option value="todas">Todos os endereços</option><option value="rua">Uma rua</option><option value="ocupados">Só ocupados (da rua)</option></select></label>'
   +'<label class="fld" id="lblRuaWrap" style="display:none"><span class="lab">Rua</span><select class="input" id="lblStreet"></select></label>'
   +'<label class="fld"><span class="lab">Tamanho</span><select class="input" id="lblSize"><option value="z150">Zebra 100×150 mm (4×6")</option><option value="z100">Zebra 100×100 mm</option><option value="z50">Zebra 100×50 mm (4×2")</option><option value="z6040">Zebra 60×40 mm</option><option value="z5030">Zebra 50×30 mm</option><option value="z4025">Zebra 40×25 mm</option><option value="m">Folha A4 · Média (3 por linha)</option><option value="p">Folha A4 · Pequena (4 por linha)</option><option value="g">Folha A4 · Grande (2 por linha)</option></select></label>'
-  +'</div><button class="btn brand" id="genEnd" style="margin-top:4px">Gerar etiquetas de endereço</button>'
-  +'<div class="panel" style="margin-top:18px;padding:16px"><div class="ph"><span class="pdot"></span>Etiquetas das bobinas por rua e nível</div>'
-  +'<p style="color:var(--muted);font-size:.82rem;margin:0 0 14px">Preencha produto e peso em cada vaga do mapa. Esta impressão usa os IDs já cadastrados e mostra a vaga no rodapé.</p>'
-  +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">'
-  +'<label class="fld"><span class="lab">Rua</span><select class="input" id="lblBatchStreet"></select></label>'
-  +'<label class="fld"><span class="lab">Nível</span><select class="input" id="lblBatchLevel"></select></label>'
-  +'<label class="fld"><span class="lab">Impressora / tamanho</span><select class="input" id="lblBatchSize"><option value="z100">Zebra 100×100 mm</option><option value="z150">Zebra 100×150 mm</option></select></label>'
-  +'</div><button class="btn brand" id="genBatchLabels" style="margin-top:10px">Preparar etiquetas das vagas</button>'
-  +'<div id="batchLabelsPreview" aria-live="polite" style="margin-top:12px"></div>'
-  +'<button class="btn brand" id="printBatchLabels" type="button" style="margin-top:12px;display:none">Imprimir etiquetas</button></div>';
+  +'</div><button class="btn brand" id="genEnd" style="margin-top:4px">Gerar etiquetas de endereço</button>';
  const ruaWrap=document.getElementById('lblRuaWrap'),scopeSel=document.getElementById('lblScope');
  scopeSel.onchange=()=>{ruaWrap.style.display=(scopeSel.value==='todas')?'none':'block';};
  document.getElementById('genEnd').onclick=function(){const scope=scopeSel.value,st=document.getElementById('lblStreet').value,sz=document.getElementById('lblSize').value;let rows=S.filter(x=>x.w===cfg.warehouse);if(scope!=='todas')rows=rows.filter(x=>x.s===st);if(scope==='ocupados')rows=rows.filter(x=>x.o&&x.pr);rows.sort((a,b)=>a.s.localeCompare(b.s)||a.p-b.p||a.l.localeCompare(b.l));if(!rows.length){toast('Nada para gerar',false);return;}const box=document.getElementById('labelsBox');box.className='labels sz-'+sz;box.innerHTML='<div style="color:var(--muted);padding:20px">gerando QR codes…</div>';loadQR().then(()=>{box.className='labels sz-'+sz;box.innerHTML=rows.slice(0,600).map(x=>labelHTML(code(x),x.pr||'',cfg.warehouse)).join('');document.getElementById('printLabels').style.display='inline-flex';toast(rows.length+' etiquetas'+(rows.length>600?' · 600 mostradas (gere por rua p/ todas)':''));}).catch(()=>toast('Sem internet para gerar QR',false));};
@@ -7533,54 +7570,13 @@ function genEndGrid(){const sc=document.getElementById('lblScope'),stEl=document
   return;}
  box.className='labels sz-'+sz;box.innerHTML='<div style="color:var(--muted);padding:20px">gerando QR codes…</div>';
  loadQR().then(()=>{box.className='labels sz-'+sz;box.innerHTML=codes.slice(0,600).map(c=>labelHTML(c,'',cfg.warehouse)).join('');pb.style.display='inline-flex';pb.onclick=()=>{try{window.print();}catch(_pe){}};addrCardButtons(box,'.label',codes.slice(0,600));toast(codes.length+' etiquetas'+(codes.length>600?' · 600 mostradas (gere por rua p/ imprimir todas)':''));}).catch(()=>toast('Sem internet para gerar QR — conecte e tente de novo',false));}
-(function(){
- const batchStreet=document.getElementById('lblBatchStreet'),batchLevel=document.getElementById('lblBatchLevel'),batchSize=document.getElementById('lblBatchSize');
- const preview=document.getElementById('batchLabelsPreview'),print=document.getElementById('printBatchLabels');
- let prepared=null;
- function resetBatch(){prepared=null;if(preview)preview.innerHTML='';if(print)print.style.display='none';}
- function fillBatchLevels(){
-  if(!batchStreet||!batchLevel)return;
-  const chosen=batchLevel.value,levels=[...new Set(S.filter(x=>x.w==='70'&&spaceAtiva(x)&&x.s===batchStreet.value).map(x=>String(x.l)))].sort((a,b)=>Number(a)-Number(b));
-  batchLevel.innerHTML='<option value="todos">Todos os níveis</option>'+levels.map(n=>'<option value="'+rastEsc(n)+'">Nível '+rastEsc(n)+'</option>').join('');
-  batchLevel.value=levels.includes(chosen)||chosen==='todos'?chosen:'todos';
- }
- function fillBatchStreets(){
-  if(!batchStreet)return;
-  const chosen=batchStreet.value,streets=[...new Set(S.filter(x=>x.w==='70'&&spaceAtiva(x)).map(x=>String(x.s)))].sort();
-  batchStreet.innerHTML=streets.map(s=>'<option value="'+rastEsc(s)+'">Rua '+rastEsc(s)+'</option>').join('');
-  if(streets.includes(chosen))batchStreet.value=chosen;
-  fillBatchLevels();
- }
- function batchData(){
-  return window.PackemRuaLabels&&window.PackemRuaLabels.collect(S,LOC,ETQ,BOB,batchStreet.value,batchLevel.value);
- }
- function batchSignature(data){return JSON.stringify(data.labels.map(e=>[e.id,e.addr,e.cProd,e.kg,e.uCom]))+'|'+data.missing.length;}
- if(batchStreet)batchStreet.onchange=function(){fillBatchLevels();resetBatch();};
- if(batchLevel)batchLevel.onchange=resetBatch;
- if(batchSize)batchSize.onchange=resetBatch;
- const generate=document.getElementById('genBatchLabels');if(generate)generate.onclick=function(){
-  resetBatch();if(!batchStreet.value){toast('Selecione uma rua',false);return;}
-  const data=batchData();if(!data){toast('Recarregue a página para preparar as etiquetas',false);return;}
-  const title='<b>'+data.labels.length+' etiqueta(s)</b> em '+data.slots+' vaga(s) ocupada(s) · Rua '+rastEsc(batchStreet.value)+' · '+(batchLevel.value==='todos'?'todos os níveis':'nível '+rastEsc(batchLevel.value));
-  const problems=data.missing.length?'<div style="padding:10px;margin-top:10px;border-radius:9px;background:#fff4e5;color:#92400e"><b>Impressão bloqueada: '+data.missing.length+' pendência(s).</b><div style="margin-top:5px">'+data.missing.slice(0,10).map(x=>rastEsc(x.addr)+(x.id?' · '+rastEsc(x.id):'')+' — '+rastEsc(x.reason)).join('<br>')+(data.missing.length>10?'<br>... e mais '+(data.missing.length-10):'')+'</div></div>':'';
-  const rows=data.labels.slice(0,100).map(e=>'<div style="display:flex;gap:10px;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:.78rem"><b>'+rastEsc(e.addr)+'</b><span>'+rastEsc(e.id)+'</span><span>'+rastEsc(e.cProd)+'</span><b>'+fmt(e.kg)+' '+rastEsc(e.uCom)+'</b></div>').join('');
-  preview.innerHTML='<div style="font-size:.86rem">'+title+'</div>'+problems+(data.labels.length?'<div style="max-height:260px;overflow:auto;margin-top:10px">'+rows+(data.labels.length>100?'<p>Mostrando as primeiras 100 etiquetas.</p>':'')+'</div>':'<p style="color:var(--muted)">Nenhuma etiqueta pronta neste filtro.</p>');
-  if(!data.labels.length||data.missing.length)return;
-  prepared={street:batchStreet.value,level:batchLevel.value,size:batchSize.value,signature:batchSignature(data)};
-  print.textContent='Imprimir '+data.labels.length+' etiquetas';print.style.display='inline-flex';
- };
- if(print)print.onclick=function(){
-  if(!prepared||prepared.street!==batchStreet.value||prepared.level!==batchLevel.value||prepared.size!==batchSize.value){toast('Prepare as etiquetas novamente',false);return;}
-  const current=batchData();if(!current||current.missing.length||batchSignature(current)!==prepared.signature){resetBatch();toast('O estoque mudou. Prepare as etiquetas novamente antes de imprimir.',false);return;}
-  printZebraRast(current.labels,ZSIZES[batchSize.value]||ZSIZES.z100);
- };
- const _rl=renderLabels;renderLabels=function(){_rl();
-  const sel=document.getElementById('lblStreet');if(sel)sel.innerHTML=Object.keys(GRID_LAYOUT).map(s=>'<option value="'+s+'">Rua '+s+'</option>').join('');
-  const sc=document.getElementById('lblScope'),rw=document.getElementById('lblRuaWrap');if(sc&&rw){const upd=()=>{rw.style.display=(sc.value==='todas')?'none':'block';};upd();sc.onchange=upd;}
-  const g=document.getElementById('genEnd');if(g)g.onclick=genEndGrid;
-  fillBatchStreets();
- };
-})();
+ (function(){
+  const _rl=renderLabels;renderLabels=function(){_rl();
+   const sel=document.getElementById('lblStreet');if(sel)sel.innerHTML=Object.keys(GRID_LAYOUT).map(s=>'<option value="'+s+'">Rua '+s+'</option>').join('');
+   const sc=document.getElementById('lblScope'),rw=document.getElementById('lblRuaWrap');if(sc&&rw){const upd=()=>{rw.style.display=(sc.value==='todas')?'none':'block';};upd();sc.onchange=upd;}
+   const g=document.getElementById('genEnd');if(g)g.onclick=genEndGrid;
+  };
+ })();
 
 /* ===== VERSÃO PELO LOGIN: usuário 'x' = celular/leve · admin = completo ===== */
 function ensureX(){}
@@ -8618,6 +8614,7 @@ function rastUnit(e,desc){
  return /^ALCA|^CADARC/.test(d)?'MT':'KG';
 }
 function rastQRPayload(e){
+  if(e.qrPayload)return String(e.qrPayload);
  /* ===== QR DE LINHA ÚNICA =====
     O formato antigo usava \n entre os campos. Leitor de código de barras é um
     teclado: cada \n vira um ENTER — e foi exatamente isso que causou o bug da

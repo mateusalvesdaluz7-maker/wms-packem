@@ -156,6 +156,34 @@ test('migração confirma bobinas no IndexedDB antes de liberar cópia antiga', 
   assert.deepEqual(Object.keys(stored).sort(), ['T1', 'T2']);
 });
 
+test('NF antiga só libera localStorage após salvar estado e backup no IndexedDB', async () => {
+  const legacy=JSON.stringify({NFS:{NF1:{nNF:'1'}},ETQ:{T1:{id:'T1'}},ROMS:{}});
+  const storage=new Map([['wmsx_nf',legacy]]),idb=new Map();
+  const context={NFS:{NF1:{nNF:'1'}},ETQ:{T1:{id:'T1'}},ROMS:{},saveNF:function(){},
+    _nfPub(){},_bobIDB:{get:async key=>idb.get(key),set:async(key,value)=>{idb.set(key,structuredClone(value));}},
+    localStorage:{getItem:key=>storage.get(key)??null,removeItem:key=>storage.delete(key)},
+    window:{},document:{querySelector:()=>null},updateStageBadge(){},console};
+  loadBetween('   /* Migra a cópia antiga da NF', '  /* ---- ponte com a nuvem (Supabase): substitui',context);
+  await new Promise(setImmediate);
+  assert.equal(storage.has('wmsx_nf'),false);
+  assert.equal(idb.get('nf-legacy-backup'),legacy);
+  assert.equal(idb.get('nf').ETQ.T1.id,'T1');
+  assert.equal(context.window._nfLSFull,true);
+});
+
+test('falha no backup da NF preserva a cópia local', async () => {
+  const legacy=JSON.stringify({NFS:{},ETQ:{T1:{id:'T1'}},ROMS:{}});
+  const storage=new Map([['wmsx_nf',legacy]]),idb=new Map();
+  const context={NFS:{},ETQ:{T1:{id:'T1'}},ROMS:{},saveNF:function(){},
+    _nfPub(){},_bobIDB:{get:async key=>idb.get(key),set:async(key,value)=>{if(key==='nf-legacy-backup')throw new Error('sem espaço no IDB');idb.set(key,structuredClone(value));}},
+    localStorage:{getItem:key=>storage.get(key)??null,removeItem:key=>storage.delete(key)},
+    window:{},document:{querySelector:()=>null},updateStageBadge(){},console:{warn(){}}};
+  loadBetween('   /* Migra a cópia antiga da NF', '  /* ---- ponte com a nuvem (Supabase): substitui',context);
+  await new Promise(setImmediate);
+  assert.equal(storage.get('wmsx_nf'),legacy);
+  assert.notEqual(context.window._nfLSFull,true);
+});
+
 test('recuperação envia o catálogo local com inserção somente de ausentes', async () => {
   const elements = { bobRestoreCloud: { disabled: false }, bobRestoreStatus: { textContent: '' } };
   let call;

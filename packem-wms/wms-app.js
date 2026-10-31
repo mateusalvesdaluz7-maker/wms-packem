@@ -69,8 +69,43 @@ function setIcons(){document.querySelectorAll('[data-ic]').forEach(e=>{const t=e
 const DB=(()=>{const K={sp:'wmsx_sp',mv:'wmsx_mv',tr:'wmsx_tr',vl:'wmsx_vl',us:'wmsx_us',ac:'wmsx_ac',cf:'wmsx_cf'};
   const r=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v;}catch{return d;}};const w=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
   const seedSp=()=>SEED_SPACES.map(x=>({id:'70-'+x.s+'-'+x.p+'-'+x.l,w:'70',s:x.s,l:x.l,p:x.p,pr:(x.pr&&x.pr!=='0')?x.pr:'',q:x.q||0,u:'KG',o:!!x.o,src:x.src||'',upd:'',by:''}));
-  function init(){if(!localStorage.getItem(K.sp))w(K.sp,seedSp());if(!localStorage.getItem(K.vl))w(K.vl,SEED_VALUES.map(c=>({codigo:c,valor:0,descricao:''})));if(!localStorage.getItem(K.us))w(K.us,[]);['mv','tr','ac'].forEach(k=>{if(!localStorage.getItem(K[k]))w(K[k],[]);});if(!localStorage.getItem(K.cf))w(K.cf,{warehouse:'70'});}
-  return {init,seedSp,spaces:()=>r(K.sp,[]),saveSpaces:a=>w(K.sp,a),movs:()=>r(K.mv,[]),saveMovs:a=>w(K.mv,a),transf:()=>r(K.tr,[]),saveTransf:a=>w(K.tr,a),values:()=>r(K.vl,[]),saveValues:a=>w(K.vl,a),users:()=>r(K.us,[]),saveUsers:a=>w(K.us,a),act:()=>r(K.ac,[]),saveAct:a=>w(K.ac,a),cfg:()=>r(K.cf,{warehouse:'70'}),saveCfg:c=>w(K.cf,c),reseed:()=>w(K.sp,seedSp())};})();
+  function init(){if(!localStorage.getItem(K.sp))w(K.sp,seedSp());if(!localStorage.getItem(K.vl))w(K.vl,SEED_VALUES.map(c=>({codigo:c,valor:0,descricao:''})));if(!localStorage.getItem(K.us))w(K.us,[]);['tr','ac'].forEach(k=>{if(!localStorage.getItem(K[k]))w(K[k],[]);});if(!localStorage.getItem(K.cf))w(K.cf,{warehouse:'70'});}
+  return {init,seedSp,spaces:()=>r(K.sp,[]),saveSpaces:a=>w(K.sp,a),movs:()=>r(K.mv,[]),saveMovs:a=>saveMovCache(a),transf:()=>r(K.tr,[]),saveTransf:a=>w(K.tr,a),values:()=>r(K.vl,[]),saveValues:a=>w(K.vl,a),users:()=>r(K.us,[]),saveUsers:a=>w(K.us,a),act:()=>r(K.ac,[]),saveAct:a=>w(K.ac,a),cfg:()=>r(K.cf,{warehouse:'70'}),saveCfg:c=>w(K.cf,c),reseed:()=>w(K.sp,seedSp())};})();
+
+/* ===== LOG DE MOVIMENTOS NO INDEXEDDB =====
+   O histórico completo não cabe no localStorage do celular. Mantém uma cópia curta
+   para a abertura da tela e só a reduz depois de confirmar o histórico no IDB. */
+var _movWriteQueue=Promise.resolve(),_movSaveErrorAt=0;
+function mergeMovCache(primary,secondary,sort){
+ var out=[],seen=Object.create(null);
+ [primary,secondary].forEach(function(list){if(!Array.isArray(list))return;list.forEach(function(m){
+  if(!m)return;var id=m.id||[m.at,m.action,m.et,m.code,m.pr,m.q].join('|');
+  if(seen[id])return;seen[id]=1;out.push(m);
+ });});
+ if(sort)out.sort(function(a,b){return String(b.at||'').localeCompare(String(a.at||''));});return out;
+}
+function saveMovCache(rows){
+ var snapshot=Array.isArray(rows)?rows.slice():[];
+ if(window._movReady){
+  try{(window._lsRawSet||function(k,v){localStorage.setItem(k,v);})('wmsx_mv',JSON.stringify(snapshot.slice(0,100)));}catch(e){}
+ }
+ var task=_movWriteQueue.catch(function(){}).then(async function(){
+  var prior=await _bobIDB.get('mv'),all=mergeMovCache(snapshot,prior);
+  await _bobIDB.set('mv',all);
+  var confirmed=await _bobIDB.get('mv');
+  if(!Array.isArray(confirmed)||confirmed.length!==all.length)throw new Error('Histórico não confirmado no IndexedDB');
+  var recent=JSON.stringify((Array.isArray(MV)?MV:snapshot).slice(0,100));
+  var setLocal=window._lsRawSet||function(k,v){localStorage.setItem(k,v);};
+  try{setLocal('wmsx_mv',recent);}
+  catch(e){localStorage.removeItem('wmsx_mv');try{setLocal('wmsx_mv',recent);}catch(_){}}
+  return confirmed;
+ });
+ _movWriteQueue=task;
+ task.catch(function(e){try{window._DIAG=window._DIAG||{};window._DIAG.movSave=String(e&&e.message||e);
+   if(Date.now()-_movSaveErrorAt>10000){_movSaveErrorAt=Date.now();if(typeof toast==='function')toast('Não foi possível guardar o histórico de movimentos neste aparelho.',false);}
+  }catch(_){} });
+ return task;
+}
 DB.init();
 /* Permissoes portateis: acompanham o usuario em qualquer aparelho. */
 window.wmsDecodeUserRole=function(row){
@@ -191,7 +226,8 @@ var _persistT=null,_persistPend=false;
 function _persistFlush(){
  if(!_persistPend)return;
  _persistPend=false;clearTimeout(_persistT);_persistT=null;
- DB.saveSpaces(S);DB.saveMovs(MV);DB.saveTransf(TR);DB.saveValues(VL);DB.saveUsers(US);DB.saveAct(AC);
+ DB.saveMovs(MV);
+ [function(){DB.saveSpaces(S);},function(){DB.saveTransf(TR);},function(){DB.saveValues(VL);},function(){DB.saveUsers(US);},function(){DB.saveAct(AC);}].forEach(function(save){try{save();}catch(e){}});
 }
 function persist(){
  try{if(typeof markLocalWrite==='function')markLocalWrite();}catch(e){}
@@ -1831,6 +1867,17 @@ var _bobIDB=(function(){
   get:function(k){return open().then(function(db){return new Promise(function(res,rej){try{var t=db.transaction('kv','readonly'),r=t.objectStore('kv').get(k);r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};}catch(e){rej(e);}});});},
   set:function(k,v){return open().then(function(db){return new Promise(function(res,rej){try{var t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=function(){res(true);};t.onerror=function(){rej(t.error);};}catch(e){rej(e);}});});}
  };
+})();
+
+/* Recupera o histórico completo antes de compactar a cópia antiga do celular. */
+window._movReady=false;
+(function(){
+ _bobIDB.get('mv').then(function(saved){
+  if(Array.isArray(saved))MV=mergeMovCache(MV,saved,true);
+  return DB.saveMovs(MV);
+ }).then(function(){window._movReady=true;
+  try{var view=document.querySelector('.view.active');if(view&&view.id==='v-track'&&typeof renderTrackTable==='function')renderTrackTable();}catch(e){}
+ }).catch(function(e){window._movReady=false;try{console.warn('Histórico local preservado; IndexedDB indisponível:',e);}catch(_){} });
 })();
 
 var _bobSaveT=null;

@@ -47,7 +47,8 @@ function setIcons(){document.querySelectorAll('[data-ic]').forEach(e=>{const t=e
   }catch(e){}
   return false;
  }
- Storage.prototype.setItem=function(k,v){
+  var _lastQuotaNotice=0;
+  Storage.prototype.setItem=function(k,v){
   try{return _raw.call(this,k,v);}
   catch(e){
    if(this!==window.localStorage)throw e;
@@ -57,8 +58,8 @@ function setIcons(){document.querySelectorAll('[data-ic]').forEach(e=>{const t=e
    }
    /* mesmo depois de limpar não coube: NÃO estoura (o dado está na nuvem/IndexedDB).
       Só registra pro diagnóstico — antes essa exceção derrubava o pullLight inteiro. */
-    try{window._lsFull=Date.now();if(window._DIAG)window._DIAG.lsFull='cheio · chave '+k+' não coube';
-      setTimeout(function(){try{if(typeof toast==='function')toast('⚠ Armazenamento local cheio. O dado não foi confirmado; mantenha esta tela aberta e verifique a conexão.',false);}catch(_e){}},0);
+     try{window._lsFull=Date.now();window._DIAG=window._DIAG||{};window._DIAG.lsFull='cheio · chave '+k+' não coube';
+       if(Date.now()-_lastQuotaNotice>10000){_lastQuotaNotice=Date.now();setTimeout(function(){try{if(typeof toast==='function')toast('⚠ Armazenamento local cheio ao salvar '+k+'. Mantenha esta tela aberta e confira a sincronização.',false);}catch(_e){}},0);}
     }catch(_){}
     throw e;
   }
@@ -3267,6 +3268,7 @@ updateStageBadge();
   try{if(typeof regBobFromEtq==='function'&&ETQ){Object.keys(ETQ).forEach(function(id){try{if(!BOB[id])regBobFromEtq(id,ETQ[id]);}catch(e){}});}}catch(e){}
   function saveNF(){
    try{_nfPub();}catch(e){}   /* rede de segurança: mantém o vínculo global sempre válido */
+    saveNF._version=(saveNF._version||0)+1;
    /* ===== NF NO INDEXEDDB =====
       NFS+ETQ+ROMS é o blob que mais cresce (cada NF gera centenas de etiquetas, cada uma
       com histórico). Era ele que enchia os 5 MB do localStorage — e quando o setItem falhava,
@@ -3281,20 +3283,32 @@ updateStageBadge();
      catch(e){window._nfLSFull=true;try{window._DIAG=window._DIAG||{};window._DIAG.nfSave='falha local: '+String(e&&e.message||e);}catch(_){}}
    },300);
   }
-  /* carga do IndexedDB: se lá tiver mais etiquetas que o cache local, ele manda */
+   /* Migra a cópia antiga da NF para o IndexedDB antes de liberar espaço local.
+      A cópia de contingência permanece no IndexedDB, preservada byte a byte. */
   (function(){
-   try{_bobIDB.get('nf').then(function(v){
-    if(v&&typeof v==='object'){
-     var nEtqIDB=Object.keys(v.ETQ||{}).length, nEtqLS=Object.keys(ETQ||{}).length;
-     if(nEtqIDB>=nEtqLS){NFS=v.NFS||{};ETQ=v.ETQ||{};ROMS=v.ROMS||{};_nfPub();}
-    }
-    /* libera espaço: a NF não vive mais no localStorage */
-     /* conserva a cópia anterior do localStorage como contingência */
+    try{(async function(){
+     var version=saveNF._version||0,legacyRaw=localStorage.getItem('wmsx_nf');
+     var local={NFS:NFS,ETQ:ETQ,ROMS:ROMS},v=await _bobIDB.get('nf');
+     if((saveNF._version||0)!==version)return;
+     var useIdb=v&&typeof v==='object'&&['NFS','ETQ','ROMS'].every(function(k){return Object.keys(local[k]||{}).every(function(id){return Object.prototype.hasOwnProperty.call(v[k]||{},id);});});
+     if(useIdb){NFS=v.NFS||{};ETQ=v.ETQ||{};ROMS=v.ROMS||{};_nfPub();}
+     else{if(v&&typeof v==='object')await _bobIDB.set('nf-prior-backup',v);
+      var merged={};['NFS','ETQ','ROMS'].forEach(function(k){merged[k]=Object.assign({},local[k]||{},v&&v[k]||{});});
+      await _bobIDB.set('nf',merged);v=await _bobIDB.get('nf');
+      if(!v||['NFS','ETQ','ROMS'].some(function(k){return Object.keys(merged[k]).some(function(id){return !Object.prototype.hasOwnProperty.call(v[k]||{},id);});}))throw new Error('NF não confirmada no IndexedDB');
+      NFS=v.NFS;ETQ=v.ETQ;ROMS=v.ROMS;_nfPub();}
+     if((saveNF._version||0)!==version)return;
+     if(legacyRaw!==null){
+      await _bobIDB.set('nf-legacy-backup',legacyRaw);
+      if(await _bobIDB.get('nf-legacy-backup')!==legacyRaw)throw new Error('Cópia de contingência da NF não confirmada');
+      if(localStorage.getItem('wmsx_nf')===legacyRaw)localStorage.removeItem('wmsx_nf');
+     }
      window._nfLSFull=true;
-    window._nfReady=true;
-    try{var a=document.querySelector('.view.active');if(a&&a.id==='v-nf'&&typeof renderNF==='function')renderNF();}catch(e){}
-    try{if(typeof updateStageBadge==='function')updateStageBadge();}catch(e){}
-   }).catch(function(){window._nfReady=true;});}catch(e){window._nfReady=true;}
+    })().catch(function(e){try{console.warn('A cópia local da NF foi preservada:',e);}catch(_e){}}).finally(function(){
+     window._nfReady=true;
+     try{var a=document.querySelector('.view.active');if(a&&a.id==='v-nf'&&typeof renderNF==='function')renderNF();}catch(e){}
+     try{if(typeof updateStageBadge==='function')updateStageBadge();}catch(e){}
+    });}catch(e){window._nfReady=true;}
   })();
   /* ---- ponte com a nuvem (Supabase): substitui tudo local pelo estado da nuvem ---- */
   window.nfGetState=function(){return {ETQ:ETQ,NFS:NFS,ROMS:ROMS};};

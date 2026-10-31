@@ -184,6 +184,50 @@ test('falha no backup da NF preserva a cópia local', async () => {
   assert.notEqual(context.window._nfLSFull,true);
 });
 
+test('movimentos só compactam a cópia local após confirmar o histórico no IndexedDB', async () => {
+  const rows=Array.from({length:150},(_,i)=>({id:'M'+i,at:'2026-10-31T12:00:00Z',action:'entrada',pr:'0303490078',q:i}));
+  const old=JSON.stringify(rows),local=new Map([['wmsx_mv',old]]),idb=new Map(),events=[];
+  const context={MV:rows,window:{_lsRawSet(k,v){if(v.length>10000)throw Error('quota');local.set(k,v);events.push('cache');}},
+    localStorage:{removeItem:k=>local.delete(k)},_bobIDB:{get:async k=>idb.get(k),set:async(k,v)=>{idb.set(k,structuredClone(v));events.push('idb');}},
+    Promise,Date,JSON,Object,Array};
+  loadBetween('/* ===== LOG DE MOVIMENTOS NO INDEXEDDB =====', 'DB.init();',context);
+  await context.saveMovCache(rows);
+  assert.equal(idb.get('mv').length,150);
+  assert.equal(JSON.parse(local.get('wmsx_mv')).length,100);
+  assert.deepEqual(events,['idb','cache']);
+});
+
+test('falha no IndexedDB preserva o histórico antigo no celular', async () => {
+  const old='[{"id":"M1"}]',local=new Map([['wmsx_mv',old]]);
+  const context={MV:[{id:'M1'}],window:{_lsRawSet(){throw Error('não deve gravar cache');}},
+    localStorage:{removeItem:k=>local.delete(k)},_bobIDB:{get:async()=>[],set:async()=>{throw Error('sem espaço');}},
+    Promise,Date,JSON,Object,Array,toast(){}};
+  loadBetween('/* ===== LOG DE MOVIMENTOS NO INDEXEDDB =====', 'DB.init();',context);
+  await assert.rejects(context.saveMovCache(context.MV),/sem espaço/);
+  assert.equal(local.get('wmsx_mv'),old);
+});
+
+test('após migrar, movimento recém-bipado fica no cache imediatamente', async () => {
+  const local=new Map(),idb=new Map([['mv',[{id:'ANTIGO'}]]]);
+  let release;
+  const context={MV:[{id:'NOVO'}],window:{_movReady:true,_lsRawSet:(k,v)=>local.set(k,v)},
+    localStorage:{removeItem:k=>local.delete(k)},_bobIDB:{get:async k=>idb.get(k),set:(k,v)=>new Promise(r=>{release=()=>{idb.set(k,structuredClone(v));r();};})},
+    Promise,Date,JSON,Object,Array};
+  loadBetween('/* ===== LOG DE MOVIMENTOS NO INDEXEDDB =====', 'DB.init();',context);
+  const saving=context.saveMovCache(context.MV);
+  assert.equal(JSON.parse(local.get('wmsx_mv'))[0].id,'NOVO');
+  await new Promise(setImmediate);
+  release();
+  await saving;
+});
+
+test('cache curto e histórico salvo são reunidos sem perder o movimento recente', async () => {
+  const context={Promise,Date,JSON,Object,Array,window:{}};
+  loadBetween('/* ===== LOG DE MOVIMENTOS NO INDEXEDDB =====', 'DB.init();',context);
+  const all=context.mergeMovCache([{id:'NOVO',at:'2026-10-31'}],[{id:'ANTIGO',at:'2026-10-30'}],true);
+  assert.equal(all.map(m=>m.id).join(','),'NOVO,ANTIGO');
+});
+
 test('NF com mesma quantidade e etiquetas diferentes preserva ambas', async () => {
   const legacy=JSON.stringify({NFS:{},ETQ:{LOCAL:{id:'LOCAL'}},ROMS:{}});
   const storage=new Map([['wmsx_nf',legacy]]),idb=new Map([['nf',{NFS:{},ETQ:{REMOTA:{id:'REMOTA'}},ROMS:{}}]]);

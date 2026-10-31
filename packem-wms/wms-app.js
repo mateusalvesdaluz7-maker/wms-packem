@@ -3290,11 +3290,13 @@ updateStageBadge();
      var version=saveNF._version||0,legacyRaw=localStorage.getItem('wmsx_nf');
      var local={NFS:NFS,ETQ:ETQ,ROMS:ROMS},v=await _bobIDB.get('nf');
      if((saveNF._version||0)!==version)return;
-     var useIdb=v&&typeof v==='object'&&['NFS','ETQ','ROMS'].every(function(k){return Object.keys(v[k]||{}).length>=Object.keys(local[k]||{}).length;});
+     var useIdb=v&&typeof v==='object'&&['NFS','ETQ','ROMS'].every(function(k){return Object.keys(local[k]||{}).every(function(id){return Object.prototype.hasOwnProperty.call(v[k]||{},id);});});
      if(useIdb){NFS=v.NFS||{};ETQ=v.ETQ||{};ROMS=v.ROMS||{};_nfPub();}
      else{if(v&&typeof v==='object')await _bobIDB.set('nf-prior-backup',v);
-      await _bobIDB.set('nf',local);v=await _bobIDB.get('nf');
-      if(!v||['NFS','ETQ','ROMS'].some(function(k){return Object.keys(v[k]||{}).length<Object.keys(local[k]||{}).length;}))throw new Error('NF não confirmada no IndexedDB');}
+      var merged={};['NFS','ETQ','ROMS'].forEach(function(k){merged[k]=Object.assign({},local[k]||{},v&&v[k]||{});});
+      await _bobIDB.set('nf',merged);v=await _bobIDB.get('nf');
+      if(!v||['NFS','ETQ','ROMS'].some(function(k){return Object.keys(merged[k]).some(function(id){return !Object.prototype.hasOwnProperty.call(v[k]||{},id);});}))throw new Error('NF não confirmada no IndexedDB');
+      NFS=v.NFS;ETQ=v.ETQ;ROMS=v.ROMS;_nfPub();}
      if((saveNF._version||0)!==version)return;
      if(legacyRaw!==null){
       await _bobIDB.set('nf-legacy-backup',legacyRaw);

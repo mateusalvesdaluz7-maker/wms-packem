@@ -184,6 +184,20 @@ test('falha no backup da NF preserva a cópia local', async () => {
   assert.notEqual(context.window._nfLSFull,true);
 });
 
+test('NF com mesma quantidade e etiquetas diferentes preserva ambas', async () => {
+  const legacy=JSON.stringify({NFS:{},ETQ:{LOCAL:{id:'LOCAL'}},ROMS:{}});
+  const storage=new Map([['wmsx_nf',legacy]]),idb=new Map([['nf',{NFS:{},ETQ:{REMOTA:{id:'REMOTA'}},ROMS:{}}]]);
+  const context={NFS:{},ETQ:{LOCAL:{id:'LOCAL'}},ROMS:{},saveNF:function(){},
+    _nfPub(){},_bobIDB:{get:async key=>idb.get(key),set:async(key,value)=>{idb.set(key,structuredClone(value));}},
+    localStorage:{getItem:key=>storage.get(key)??null,removeItem:key=>storage.delete(key)},
+    window:{},document:{querySelector:()=>null},updateStageBadge(){},console};
+  loadBetween('   /* Migra a cópia antiga da NF', '  /* ---- ponte com a nuvem (Supabase): substitui',context);
+  await new Promise(setImmediate);
+  assert.deepEqual(Object.keys(idb.get('nf').ETQ).sort(),['LOCAL','REMOTA']);
+  assert.equal(idb.get('nf-prior-backup').ETQ.REMOTA.id,'REMOTA');
+  assert.equal(storage.has('wmsx_nf'),false);
+});
+
 test('recuperação envia o catálogo local com inserção somente de ausentes', async () => {
   const elements = { bobRestoreCloud: { disabled: false }, bobRestoreStatus: { textContent: '' } };
   let call;
